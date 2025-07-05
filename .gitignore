@@ -1,0 +1,14 @@
+.DS_Store
+OT6 Risk
+OT1
+OT2
+OT4
+Storing US Options Data.ipynb
+OT3
+OT Sentiment
+__pycache__/
+data/
+prepare_data.ipynb
+temp/
+vol_skew.ipynb
+volatility_regime_detetction.ipynb
