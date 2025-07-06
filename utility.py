@@ -68,7 +68,8 @@ def reshape_options_wide_to_long(df: pd.DataFrame) -> pd.DataFrame:
     df_puts = df_puts.rename(columns={col: col[2:] for col in put_cols})
     df_puts['option_type'] = 'P'
 
-    df_long = pd.concat([df_calls, df_puts], ignore_index=True)
+    df_long = pd.concat([df_calls, df_puts], axis=0)
+    df_long = df_long.sort_values(["date", "strike", "option_type"])
 
     return df_long
 
@@ -179,4 +180,5 @@ def extract_eom_options(df: pd.DataFrame) -> pd.DataFrame:
     return eom_df
 
 def extract_options():
+    # TODO: Create a funciton that all the options's extraction in one fucntion call
     pass

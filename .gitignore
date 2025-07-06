@@ -8,7 +8,5 @@ OT3
 OT Sentiment
 __pycache__/
 data/
-prepare_data.ipynb
 temp/
-vol_skew.ipynb
 volatility_regime_detetction.ipynb
