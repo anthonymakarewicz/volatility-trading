@@ -291,45 +291,62 @@ def plot_boll_bands(synthetic_skew, signals):
     plt.show()
 
 
-def plot_skew_signals_with_vix(
-    skew, signals, vix, lower_threshold, upper_threshold, title, vix_filter=20, 
+def plot_zscore_signals_with_vix(
+    z_score, signals, vix, entry_threshold, exit_threshold, title, vix_filter=20, 
 ):
     fig, ax = plt.subplots(figsize=(14, 5))
 
+    common_dates = z_score.index.intersection(vix.index).intersection(signals.index)
+    z_score = z_score.loc[common_dates]
+    signals = signals.loc[common_dates]
+    vix = vix.loc[common_dates]
+
     # Plot Skew (Left Axis)
-    plt.plot(skew, label="Skew", color="blue")
-    plt.axhline(upper_threshold, color='red', linestyle='--')
-    plt.axhline(lower_threshold, color='green', linestyle='--')
-    plt.xlabel("Date", fontsize=14)
-    plt.ylabel("Skew", fontsize=14)
+    ax.plot(z_score, label="Skew Z-Score", color="blue")
 
-    # Entry and exit points
-    plt.scatter(signals[signals['long']].index, skew[signals['long']], color='green', marker='^', label='Long Signal')
-    plt.scatter(signals[signals['short']].index, skew[signals['short']], color='red', marker='v', label='Short Signal')
-    plt.scatter(signals[signals['exit']].index, skew[signals['exit']], color='purple', marker='D', label='Exit Signal')
+    ax.axhline(entry_threshold, color='red', linestyle='--')
+    ax.axhline(-entry_threshold, color='red', linestyle='--')
+    # Exit thresholds
+    ax.axhline(exit_threshold, color='green', linestyle='--')
+    ax.axhline(-exit_threshold, color='green', linestyle='--')
 
-    # Shade high VIX regions
-    above_20 = (vix > vix_filter).astype(int)
-    edges = (above_20.diff() != 0)
+    # Entry and Exit markers
+    ax.scatter(signals[signals['long']].index, 
+               z_score[signals['long']], 
+               color='green', marker='^', s=50, label='Long Entry')
+    ax.scatter(signals[signals['short']].index, 
+               z_score[signals['short']], 
+               color='red', marker='v', s=50, label='Short Entry')
+    ax.scatter(signals[signals['exit']].index, 
+               z_score[signals['exit']], 
+               color='purple', marker='D', s=50, label='Exit')
 
+    ax.set_ylabel("Z-Score", color="blue")
+    ax.set_xlabel("Date")
+    ax.set_title(title, fontsize=16)
+
+    # Shade high VIX regions on background
+    above = (vix > vix_filter).astype(int)
+    change_points = above.diff().fillna(0).astype(bool)
+    
     start = None
-    for date, change in edges.itertuples():
-        if above_20.loc[date].iloc[0] == 1 and (start is None):
+    for date, change in change_points.itertuples():
+        if above.loc[date].iloc[0] == 1 and (start is None):
             start = date
-        elif above_20.loc[date].iloc[0] == 0 and (start is not None):
+        elif above.loc[date].iloc[0] == 0 and (start is not None):
             plt.axvspan(start, date, color='orange', alpha=0.15, 
                         label=f'VIX > {vix_filter}' if f'VIX > {vix_filter}' not in ax.get_legend_handles_labels()[1] else None)
             start = None
-    # Handle last region if still open
+
     if start is not None:
         plt.axvspan(start, vix.index[-1], color='orange', alpha=0.15, 
                     label=f'VIX > {vix_filter}' if f'VIX > {vix_filter}' not in ax.get_legend_handles_labels()[1] else None)
 
-    plt.legend(loc="upper left")
-    plt.title(title, fontsize=16)
-    plt.grid(True)
+    ax.legend(loc="upper left")
+    ax.grid(True)
     plt.tight_layout()
     plt.show()
+
 
 
 def plot_vix(vix, vix_threshold=20):

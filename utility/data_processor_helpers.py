@@ -2,6 +2,7 @@ import py7zr
 import pandas as pd
 import shutil
 import numpy as np
+import os
 
 from pathlib import Path
 from pandas.tseries.offsets import BMonthEnd
@@ -14,6 +15,7 @@ def extract_7z_and_load(csv_path):
     extracted_files = list(Path('data/tmp').glob("*"))
     all_dfs = []
     for file in extracted_files:
+
         print(f"Reading {file}")
         df = pd.read_csv(file, sep=",")
         all_dfs.append(df)
@@ -25,6 +27,8 @@ def extract_7z_and_load(csv_path):
 def load_options(root, start_year=2012, end_year=2022):
     raw_root = Path(root)
     all_dfs = []
+    os.chdir(root)
+    os.remove(".DS_store")
 
     for year_dir in sorted(raw_root.glob("*")):
         year = int(year_dir.name)
