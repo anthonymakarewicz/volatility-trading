@@ -166,7 +166,7 @@ def plot_risk_reversal_payoff(spot_price=100, strike_put=95, strike_call=105, pr
     risk_reversal_pnl = payoff_call + payoff_put
 
     # Plot
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(12, 6))
     plt.plot(price_range, risk_reversal_pnl, label='Risk Reversal Payoff (Buy Call, Sell Put)', linewidth=2)
     plt.axhline(0, color='gray', linestyle='--', linewidth=1)
     plt.axvline(spot_price, color='black', linestyle=':', label='Spot Price')
@@ -175,4 +175,117 @@ def plot_risk_reversal_payoff(spot_price=100, strike_put=95, strike_call=105, pr
     plt.title('Risk Reversal Payoff Diagram', fontsize=16)
     plt.legend()
     plt.grid(True)
+    plt.show()
+
+
+def plot_skew_signals(skew, signals, lower_threshold, upper_threshold, title="Skew with Entry/Exit Signals"):
+    plt.figure(figsize=(14, 5))
+    plt.plot(skew, label='Skew', color='blue')
+    
+    plt.axhline(upper_threshold, color='red', linestyle='--', label='Upper Threshold')
+    plt.axhline(lower_threshold, color='green', linestyle='--', label='Lower Threshold')
+    
+    # Entry/Exit markers
+    plt.scatter(signals[signals['long']].index, skew[signals['long']], color='green', marker='^', label='Long Signal')
+    plt.scatter(signals[signals['short']].index, skew[signals['short']], color='red', marker='v', label='Short Signal')
+    plt.scatter(signals[signals['exit']].index, skew[signals['exit']], color='purple', marker='D', label='Exit Signal')
+
+    plt.title(title, fontsize=16)
+    plt.xlabel("Date", fontsize=14)
+    plt.ylabel("Skew", fontsize=14)
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_zscore_signals(z_score, signals, entry_threshold, exit_threshold,
+                        title="Skew Z-Score with Entry/Exit Signals"):
+    plt.figure(figsize=(14, 5))
+    plt.plot(z_score, label='Z-Score', color='blue')
+    plt.axhline(entry_threshold, color='red', linestyle='--', label='Entry Threshold')
+    plt.axhline(-entry_threshold, color='red', linestyle='--')
+    plt.axhline(exit_threshold, color='green', linestyle='--', label='Exit Threshold')
+    plt.axhline(-exit_threshold, color='green', linestyle='--')
+    plt.scatter(signals[signals['long']].index, z_score[signals['long']], 
+                color='green', marker='^', label='Long Entry')
+    plt.scatter(signals[signals['short']].index, z_score[signals['short']], 
+                color='red', marker='v', label='Short Entry')
+    plt.scatter(signals[signals['exit']].index, z_score[signals['exit']], 
+                color='purple', marker='D', label='Exit')
+    plt.title(title, fontsize=16)
+    plt.xlabel("Date", fontsize=14)
+    plt.ylabel("Z-Score", fontsize=14)
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_skew_vs_zscore(synthetic_skew):
+    fig, ax1 = plt.subplots(figsize=(14, 6))
+
+    zscore = synthetic_skew["skew_zscore"].dropna()
+    skew = synthetic_skew["skew_abs"].loc[zscore.index]
+
+    ax1.plot(skew, label="Skew", color="blue")
+    ax1.set_ylabel("Skew", color="blue", fontsize=14)
+    ax1.tick_params(axis="y", labelcolor="blue")
+
+    ax2 = ax1.twinx()
+    ax2.plot(zscore, label="Z-Score", color="orange")
+    ax2.set_ylabel("Z-Score", color="orange", fontsize=14)
+    ax2.tick_params(axis="y", labelcolor="orange")
+
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
+
+    plt.title("Raw Skew and Z-Score of Skew", fontsize=16)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_boll_bands(synthetic_skew, signals):
+    window = 60            # e.g. 60-day rolling
+    k_entry = 1.5          # entry at ±1.5σ
+    k_exit  = 0.5          # exit at ±0.5σ
+
+    # rolling stats
+    m = synthetic_skew['skew_abs'].rolling(window).mean().dropna()
+    s = synthetic_skew['skew_abs'].rolling(window).std().dropna()
+    skew = synthetic_skew['skew_abs'].loc[m.index]
+
+    # bands
+    upper_entry = m + k_entry * s
+    lower_entry = m - k_entry * s
+    upper_exit  = m + k_exit  * s
+    lower_exit  = m - k_exit  * s
+
+    plt.figure(figsize=(14, 5))
+    plt.plot(skew, label='Skew', color='blue')
+    plt.plot(m, label='Rolling Mean', color='black')
+    plt.plot(upper_entry, '--', label=f'{k_entry}σ Entry', color='red')
+    plt.plot(lower_exit,  ':', label=f'{k_exit}σ Exit',  color='green')
+    plt.plot(lower_entry, '--', color="red")
+    plt.plot(upper_exit,  ':', color="green")
+
+    # overlay your signals
+    plt.scatter(signals[signals.long].index,
+                synthetic_skew.loc[signals.long, 'skew_abs'],
+                marker='^', color='green', label='Long Entry')
+    plt.scatter(signals[signals.short].index,
+                synthetic_skew.loc[signals.short, 'skew_abs'],
+                marker='v', color='red',   label='Short Entry')
+    plt.scatter(signals[signals.exit].index,
+                synthetic_skew.loc[signals.exit, 'skew_abs'],
+                marker='D', color='purple',label='Exit')
+
+    plt.title("Skew with Bollinger-Style Bands and Signals", fontsize=16)
+    plt.xlabel("Date", fontsize=14)
+    plt.ylabel("Skew", fontsize=14)
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
     plt.show()
