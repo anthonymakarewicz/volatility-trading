@@ -289,3 +289,55 @@ def plot_boll_bands(synthetic_skew, signals):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+
+def plot_skew_signals_with_vix(
+    skew, signals, vix, lower_threshold, upper_threshold, title, vix_filter=20, 
+):
+    fig, ax = plt.subplots(figsize=(14, 5))
+
+    # Plot Skew (Left Axis)
+    plt.plot(skew, label="Skew", color="blue")
+    plt.axhline(upper_threshold, color='red', linestyle='--')
+    plt.axhline(lower_threshold, color='green', linestyle='--')
+    plt.xlabel("Date", fontsize=14)
+    plt.ylabel("Skew", fontsize=14)
+
+    # Entry and exit points
+    plt.scatter(signals[signals['long']].index, skew[signals['long']], color='green', marker='^', label='Long Signal')
+    plt.scatter(signals[signals['short']].index, skew[signals['short']], color='red', marker='v', label='Short Signal')
+    plt.scatter(signals[signals['exit']].index, skew[signals['exit']], color='purple', marker='D', label='Exit Signal')
+
+    # Shade high VIX regions
+    above_20 = (vix > vix_filter).astype(int)
+    edges = (above_20.diff() != 0)
+
+    start = None
+    for date, change in edges.itertuples():
+        if above_20.loc[date].iloc[0] == 1 and (start is None):
+            start = date
+        elif above_20.loc[date].iloc[0] == 0 and (start is not None):
+            plt.axvspan(start, date, color='orange', alpha=0.15, 
+                        label=f'VIX > {vix_filter}' if f'VIX > {vix_filter}' not in ax.get_legend_handles_labels()[1] else None)
+            start = None
+    # Handle last region if still open
+    if start is not None:
+        plt.axvspan(start, vix.index[-1], color='orange', alpha=0.15, 
+                    label=f'VIX > {vix_filter}' if f'VIX > {vix_filter}' not in ax.get_legend_handles_labels()[1] else None)
+
+    plt.legend(loc="upper left")
+    plt.title(title, fontsize=16)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_vix(vix, vix_threshold=20):
+    plt.figure(figsize=(12, 6))
+    plt.plot(vix, label="VIX")
+    plt.axhline(vix_threshold, color="red", linestyle="--", label=f"VIX = {vix_threshold}")
+    plt.title("VIX Time Series with Regime Threshold", fontsize=16)
+    plt.ylabel("VIX", fontsize=14)
+    plt.xlabel("Date", fontsize=14)
+    plt.legend()
+    plt.show()
