@@ -202,17 +202,20 @@ def plot_skew_signals(skew, signals, lower_threshold, upper_threshold, title="Sk
 def plot_zscore_signals(z_score, signals, entry_threshold, exit_threshold,
                         title="Skew Z-Score with Entry/Exit Signals"):
     plt.figure(figsize=(14, 5))
+
     plt.plot(z_score, label='Z-Score', color='blue')
     plt.axhline(entry_threshold, color='red', linestyle='--', label='Entry Threshold')
     plt.axhline(-entry_threshold, color='red', linestyle='--')
     plt.axhline(exit_threshold, color='green', linestyle='--', label='Exit Threshold')
     plt.axhline(-exit_threshold, color='green', linestyle='--')
+
     plt.scatter(signals[signals['long']].index, z_score[signals['long']], 
                 color='green', marker='^', label='Long Entry')
     plt.scatter(signals[signals['short']].index, z_score[signals['short']], 
                 color='red', marker='v', label='Short Entry')
     plt.scatter(signals[signals['exit']].index, z_score[signals['exit']], 
                 color='purple', marker='D', label='Exit')
+    
     plt.title(title, fontsize=16)
     plt.xlabel("Date", fontsize=14)
     plt.ylabel("Z-Score", fontsize=14)
@@ -239,7 +242,7 @@ def plot_skew_vs_zscore(synthetic_skew):
 
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="lower left")
 
     plt.title("Raw Skew and Z-Score of Skew", fontsize=16)
     plt.grid(True)
@@ -334,12 +337,12 @@ def plot_zscore_signals_with_vix(
         if above.loc[date].iloc[0] == 1 and (start is None):
             start = date
         elif above.loc[date].iloc[0] == 0 and (start is not None):
-            plt.axvspan(start, date, color='orange', alpha=0.15, 
+            plt.axvspan(start, date, color='red', alpha=0.1, 
                         label=f'VIX > {vix_filter}' if f'VIX > {vix_filter}' not in ax.get_legend_handles_labels()[1] else None)
             start = None
 
     if start is not None:
-        plt.axvspan(start, vix.index[-1], color='orange', alpha=0.15, 
+        plt.axvspan(start, vix.index[-1], color='red', alpha=0.1, 
                     label=f'VIX > {vix_filter}' if f'VIX > {vix_filter}' not in ax.get_legend_handles_labels()[1] else None)
 
     ax.legend(loc="upper left")
@@ -351,10 +354,131 @@ def plot_zscore_signals_with_vix(
 
 def plot_vix(vix, vix_threshold=20):
     plt.figure(figsize=(12, 6))
-    plt.plot(vix, label="VIX")
+    plt.plot(vix, label="VIX", color="blue")
     plt.axhline(vix_threshold, color="red", linestyle="--", label=f"VIX = {vix_threshold}")
+
+    vix = vix.iloc[:, 0]
+    # Fill above threshold
+    above = vix > vix_threshold
+    
+    plt.fill_between(
+        vix.index,
+        vix_threshold,
+        np.where(above, vix, np.nan),  # fill only where VIX > threshold
+        color='red',
+        alpha=0.2,
+    )
+    plt.fill_between(
+        vix.index,
+        vix_threshold,
+        np.where(~above, vix, np.nan),  # fill only where VIX > threshold
+        color='green',
+        alpha=0.2,
+    )
+
     plt.title("VIX Time Series with Regime Threshold", fontsize=16)
     plt.ylabel("VIX", fontsize=14)
     plt.xlabel("Date", fontsize=14)
     plt.legend()
+    plt.show()
+
+
+def plot_ivp(ivp, ivp_lower_threshold=20, ivp_higher_threshold=80, ivp_panic_cap=90):
+    ivp = ivp.copy()
+    ivp = ivp.dropna()
+
+    ivp_lower_threshold /= 100
+    ivp_higher_threshold /= 100
+    ivp_panic_cap /= 100
+
+    # Fill above threshold
+    plt.figure(figsize=(12, 6))
+    plt.plot(ivp, label="IVP", color="blue")
+    plt.axhline(ivp_lower_threshold, color="green", linestyle="--")
+    plt.axhline(ivp_higher_threshold, color="red", linestyle="--")
+    plt.axhline(ivp_panic_cap, color="black", linestyle="--")
+
+    plt.fill_between(ivp.index, ivp_panic_cap, ivp,
+                     where=ivp >= ivp_panic_cap, color='black', alpha=0.8, interpolate=True, 
+                     label=f"Panic regime (IVP ≥ {ivp_panic_cap}%)")
+    
+    plt.fill_between(ivp.index, ivp_higher_threshold, ivp, where=(ivp >= ivp_higher_threshold), 
+                     color='orange', alpha=0.2, interpolate=True, label=f"Rich regime ({ivp_higher_threshold}% ≤ IVP < {ivp_panic_cap}%)")
+    
+    plt.fill_between(ivp.index, ivp_lower_threshold, ivp, where=(ivp <= ivp_lower_threshold),
+                     color='green', alpha=0.2, interpolate=True, label=f"Cheap regime (IVP ≤ {ivp_lower_threshold}%)")
+
+
+    plt.title("IV Percentile (IVP) Regimes", fontsize=16)
+    plt.ylabel("IVP", fontsize=14)
+    plt.xlabel("Date", fontsize=14)
+    plt.legend(loc="upper left")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_zscore_signals_with_ivp(
+    z_score, signals, ivp, entry_threshold, exit_threshold, 
+    ivp_lower_threshold, ivp_higher_threshold, ivp_panic_cap, title):
+    fig, ax = plt.subplots(figsize=(14, 5))
+
+    ivp = ivp.dropna()
+    z_score = z_score.dropna()
+
+    common_dates = z_score.index.intersection(ivp.index).intersection(signals.index)
+    z_score = z_score.loc[common_dates]
+    signals = signals.loc[common_dates]
+    ivp = ivp.loc[common_dates]
+
+    # Plot Skew (Left Axis)
+    ax.plot(z_score, label="Skew Z-Score", color="blue")
+
+    ax.axhline(entry_threshold, color='red', linestyle='--')
+    ax.axhline(-entry_threshold, color='red', linestyle='--')
+    # Exit thresholds
+    ax.axhline(exit_threshold, color='green', linestyle='--')
+    ax.axhline(-exit_threshold, color='green', linestyle='--')
+
+    # Entry and Exit markers
+    ax.scatter(signals[signals['long']].index, 
+               z_score[signals['long']], 
+               color='green', marker='^', s=50, label='Long Entry')
+    ax.scatter(signals[signals['short']].index, 
+               z_score[signals['short']], 
+               color='red', marker='v', s=50, label='Short Entry')
+    ax.scatter(signals[signals['exit']].index, 
+               z_score[signals['exit']], 
+               color='purple', marker='D', s=50, label='Exit')
+
+    # Build boolean masks
+    low_band    = ivp < ivp_lower_threshold/100
+    mid_band    = (ivp > ivp_higher_threshold/100) & (ivp < ivp_panic_cap/100)
+    panic_band  = ivp >= ivp_panic_cap/100
+
+    # Helper to shade a mask with a given color
+    def shade(mask, color, alpha, label):
+        start = None
+        for date, val in mask.items():
+            if val and start is None:
+                start = date
+            if start is not None and (not val):
+                ax.axvspan(start, date, color=color, alpha=alpha, 
+                           label=label if label not in ax.get_legend_handles_labels()[1] else None)
+                start = None
+        if start is not None:
+            ax.axvspan(start, mask.index[-1], color=color, alpha=alpha,
+                       label=label if label not in ax.get_legend_handles_labels()[1] else None)
+
+    # Shade outside/mid in orange, panic in red
+    shade(low_band     | mid_band,   'green', 0.15, f'IVP outside [{ivp_lower_threshold}%,{ivp_higher_threshold}%]')
+    shade(panic_band,   'red',    0.15, f'IVP >= {ivp_panic_cap}%')
+
+    ax.grid(True)
+    ax.set_ylabel("Z-Score", color="blue")
+    ax.set_xlabel("Date")
+    ax.set_title(title, fontsize=16)
+    ax.legend(loc="lower left")
+    plt.tight_layout()
+
     plt.show()
