@@ -1,4 +1,3 @@
-
 import matplotlib.pyplot as plt
 import numpy as np
 from config.constants import OPTION_TYPES
@@ -294,10 +293,12 @@ def plot_boll_bands(synthetic_skew, signals):
     plt.show()
 
 
-def plot_zscore_signals_with_vix(
-    z_score, signals, vix, entry_threshold, exit_threshold, title, vix_filter=20, 
-):
+def plot_zscore_signals_with_vix(z_score, signals, vix, entry_threshold, exit_threshold, title, vix_filter=20):
     fig, ax = plt.subplots(figsize=(14, 5))
+
+    z_score = z_score.copy()
+    signals = signals.copy()
+    vix = vix.copy()
 
     common_dates = z_score.index.intersection(vix.index).intersection(signals.index)
     z_score = z_score.loc[common_dates]
@@ -357,6 +358,7 @@ def plot_vix(vix, vix_threshold=20):
     plt.plot(vix, label="VIX", color="blue")
     plt.axhline(vix_threshold, color="red", linestyle="--", label=f"VIX = {vix_threshold}")
 
+    vix = vix.copy()
     vix = vix.iloc[:, 0]
     # Fill above threshold
     above = vix > vix_threshold
@@ -422,6 +424,10 @@ def plot_zscore_signals_with_ivp(
     z_score, signals, ivp, entry_threshold, exit_threshold, 
     ivp_lower_threshold, ivp_higher_threshold, ivp_panic_cap, title):
     fig, ax = plt.subplots(figsize=(14, 5))
+
+    z_score = z_score.copy()
+    ivp = ivp.copy()
+    signals = signals.copy()
 
     ivp = ivp.dropna()
     z_score = z_score.dropna()
