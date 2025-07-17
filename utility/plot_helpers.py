@@ -310,7 +310,6 @@ def plot_zscore_signals_with_vix(z_score, signals, vix, entry_threshold, exit_th
 
     ax.axhline(entry_threshold, color='red', linestyle='--')
     ax.axhline(-entry_threshold, color='red', linestyle='--')
-    # Exit thresholds
     ax.axhline(exit_threshold, color='green', linestyle='--')
     ax.axhline(-exit_threshold, color='green', linestyle='--')
 
@@ -329,28 +328,31 @@ def plot_zscore_signals_with_vix(z_score, signals, vix, entry_threshold, exit_th
     ax.set_xlabel("Date")
     ax.set_title(title, fontsize=16)
 
-    # Shade high VIX regions on background
-    above = (vix > vix_filter).astype(int)
-    change_points = above.diff().fillna(0).astype(bool)
-    
-    start = None
-    for date, change in change_points.itertuples():
-        if above.loc[date].iloc[0] == 1 and (start is None):
-            start = date
-        elif above.loc[date].iloc[0] == 0 and (start is not None):
-            plt.axvspan(start, date, color='red', alpha=0.1, 
-                        label=f'VIX > {vix_filter}' if f'VIX > {vix_filter}' not in ax.get_legend_handles_labels()[1] else None)
-            start = None
+    # Create masks
+    high_vix = (vix > vix_filter)
+    low_vix = ~high_vix
 
-    if start is not None:
-        plt.axvspan(start, vix.index[-1], color='red', alpha=0.1, 
-                    label=f'VIX > {vix_filter}' if f'VIX > {vix_filter}' not in ax.get_legend_handles_labels()[1] else None)
+    def shade_regions(mask, color, alpha, label):
+        start = None
+        for date, active in mask.items():
+            if active and start is None:
+                start = date
+            elif not active and start is not None:
+                ax.axvspan(start, date, color=color, alpha=alpha,
+                           label=label if label not in ax.get_legend_handles_labels()[1] else None)
+                start = None
+        if start is not None:
+            ax.axvspan(start, mask.index[-1], color=color, alpha=alpha,
+                       label=label if label not in ax.get_legend_handles_labels()[1] else None)
+
+    # Shade regions
+    shade_regions(high_vix, 'red', 0.15, f'VIX > {vix_filter}')
+    shade_regions(low_vix, 'green', 0.1, f'VIX ≤ {vix_filter}')
 
     ax.legend(loc="upper left")
     ax.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 
 def plot_vix(vix, vix_threshold=20):
@@ -359,7 +361,7 @@ def plot_vix(vix, vix_threshold=20):
     plt.axhline(vix_threshold, color="red", linestyle="--", label=f"VIX = {vix_threshold}")
 
     vix = vix.copy()
-    vix = vix.iloc[:, 0]
+    #vix = vix.iloc[:, 0]
     # Fill above threshold
     above = vix > vix_threshold
     
@@ -385,31 +387,27 @@ def plot_vix(vix, vix_threshold=20):
     plt.show()
 
 
-def plot_ivp(ivp, ivp_lower_threshold=20, ivp_higher_threshold=80, ivp_panic_cap=90):
+def plot_ivp(ivp, ivp_lower_threshold=30, ivp_higher_threshold=70):
     ivp = ivp.copy()
     ivp = ivp.dropna()
 
     ivp_lower_threshold /= 100
     ivp_higher_threshold /= 100
-    ivp_panic_cap /= 100
 
     # Fill above threshold
     plt.figure(figsize=(12, 6))
     plt.plot(ivp, label="IVP", color="blue")
-    plt.axhline(ivp_lower_threshold, color="green", linestyle="--")
+    plt.axhline(ivp_lower_threshold, color="red", linestyle="--")
     plt.axhline(ivp_higher_threshold, color="red", linestyle="--")
-    plt.axhline(ivp_panic_cap, color="black", linestyle="--")
-
-    plt.fill_between(ivp.index, ivp_panic_cap, ivp,
-                     where=ivp >= ivp_panic_cap, color='black', alpha=0.8, interpolate=True, 
-                     label=f"Panic regime (IVP ≥ {ivp_panic_cap}%)")
     
     plt.fill_between(ivp.index, ivp_higher_threshold, ivp, where=(ivp >= ivp_higher_threshold), 
-                     color='orange', alpha=0.2, interpolate=True, label=f"Rich regime ({ivp_higher_threshold}% ≤ IVP < {ivp_panic_cap}%)")
+                     color='red', alpha=0.2, interpolate=True, label=f"Extreme regime (IVP <= {ivp_lower_threshold}% & IVP >= {ivp_higher_threshold}%)")
     
     plt.fill_between(ivp.index, ivp_lower_threshold, ivp, where=(ivp <= ivp_lower_threshold),
-                     color='green', alpha=0.2, interpolate=True, label=f"Cheap regime (IVP ≤ {ivp_lower_threshold}%)")
+                     color='red', alpha=0.2, interpolate=True)
 
+    plt.fill_between(ivp.index, ivp_lower_threshold, ivp_higher_threshold,
+                     color='green', alpha=0.2, interpolate=True, label=f"Normal regime ({ivp_lower_threshold}% ≤ IVP < {ivp_higher_threshold}%)")
 
     plt.title("IV Percentile (IVP) Regimes", fontsize=16)
     plt.ylabel("IVP", fontsize=14)
@@ -422,9 +420,8 @@ def plot_ivp(ivp, ivp_lower_threshold=20, ivp_higher_threshold=80, ivp_panic_cap
 
 def plot_zscore_signals_with_ivp(
     z_score, signals, ivp, entry_threshold, exit_threshold, 
-    ivp_lower_threshold, ivp_higher_threshold, ivp_panic_cap, title):
-    fig, ax = plt.subplots(figsize=(14, 5))
-
+    ivp_lower_threshold, ivp_higher_threshold):
+    
     z_score = z_score.copy()
     ivp = ivp.copy()
     signals = signals.copy()
@@ -437,6 +434,7 @@ def plot_zscore_signals_with_ivp(
     signals = signals.loc[common_dates]
     ivp = ivp.loc[common_dates]
 
+    fig, ax = plt.subplots(figsize=(14, 5))
     # Plot Skew (Left Axis)
     ax.plot(z_score, label="Skew Z-Score", color="blue")
 
@@ -449,18 +447,17 @@ def plot_zscore_signals_with_ivp(
     # Entry and Exit markers
     ax.scatter(signals[signals['long']].index, 
                z_score[signals['long']], 
-               color='green', marker='^', s=50, label='Long Entry')
+               color='green', marker='^', s=50)
     ax.scatter(signals[signals['short']].index, 
                z_score[signals['short']], 
-               color='red', marker='v', s=50, label='Short Entry')
+               color='red', marker='v', s=50)
     ax.scatter(signals[signals['exit']].index, 
                z_score[signals['exit']], 
-               color='purple', marker='D', s=50, label='Exit')
+               color='purple', marker='D', s=50)
 
     # Build boolean masks
-    low_band    = ivp < ivp_lower_threshold/100
-    mid_band    = (ivp > ivp_higher_threshold/100) & (ivp < ivp_panic_cap/100)
-    panic_band  = ivp >= ivp_panic_cap/100
+    normal_band   = (ivp_lower_threshold/100 <= ivp) & (ivp <= ivp_higher_threshold/100)
+    extreme_band  = ~normal_band
 
     # Helper to shade a mask with a given color
     def shade(mask, color, alpha, label):
@@ -477,14 +474,209 @@ def plot_zscore_signals_with_ivp(
                        label=label if label not in ax.get_legend_handles_labels()[1] else None)
 
     # Shade outside/mid in orange, panic in red
-    shade(low_band     | mid_band,   'green', 0.15, f'IVP outside [{ivp_lower_threshold}%,{ivp_higher_threshold}%]')
-    shade(panic_band,   'red',    0.15, f'IVP >= {ivp_panic_cap}%')
+    shade(normal_band,   'green', 0.15, f'IVP inside [{ivp_lower_threshold}%,{ivp_higher_threshold}%]')
+    shade(extreme_band,   'red',    0.15, f'IVP >= outside [{ivp_lower_threshold}%,{ivp_higher_threshold}%]')
 
     ax.grid(True)
     ax.set_ylabel("Z-Score", color="blue")
     ax.set_xlabel("Date")
-    ax.set_title(title, fontsize=16)
+    ax.set_title("Skew with Signals and IVP Filter", fontsize=16)
     ax.legend(loc="lower left")
     plt.tight_layout()
 
     plt.show()
+
+
+def plot_skew_percentile(skew_perc, lower_threshold=20, upper_threshold=80):
+    skew_perc = skew_perc.copy().dropna()
+
+    lower_threshold /= 100
+    upper_threshold /= 100
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(skew_perc, label="Skew Percentile", color="blue")
+    plt.axhline(lower_threshold, color="red", linestyle="--")
+    plt.axhline(upper_threshold, color="red", linestyle="--")
+
+    plt.fill_between(
+        skew_perc.index, upper_threshold, skew_perc,
+        where=(skew_perc >= upper_threshold),
+        color='red', alpha=0.2, interpolate=True,
+        label=f"Extreme regime (≤ {lower_threshold*100:.0f}% or ≥ {upper_threshold*100:.0f}%)"
+    )
+
+    plt.fill_between(
+        skew_perc.index, lower_threshold, skew_perc,
+        where=(skew_perc <= lower_threshold),
+        color='red', alpha=0.2, interpolate=True,
+    )
+
+    plt.fill_between(
+        skew_perc.index, lower_threshold, upper_threshold,
+        color='green', alpha=0.2, interpolate=True,
+        label=f"Normal regime ({lower_threshold*100:.0f}% – {upper_threshold*100:.0f}%)"
+    )
+
+    plt.title("Skew Percentile Regimes", fontsize=16)
+    plt.ylabel("Skew Percentile", fontsize=14)
+    plt.xlabel("Date", fontsize=14)
+    plt.legend(loc="lower right")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_zscore_signals_with_skew_percentile(
+    z_score, signals, skew_perc, entry_threshold, exit_threshold, 
+    lower_threshold=20, upper_threshold=80, title="Z-Score and Skew Percentile Regimes"):
+
+    lower_threshold /= 100
+    upper_threshold /= 100
+
+    z_score = z_score.copy().dropna()
+    skew_perc = skew_perc.copy().dropna()
+    signals = signals.copy()
+
+    common_dates = z_score.index.intersection(skew_perc.index).intersection(signals.index)
+    z_score = z_score.loc[common_dates]
+    signals = signals.loc[common_dates]
+    skew_perc = skew_perc.loc[common_dates]
+
+    fig, ax = plt.subplots(figsize=(14, 5))
+    ax.plot(z_score, label="Skew Z-Score", color="blue")
+
+    ax.axhline(entry_threshold, color='red', linestyle='--')
+    ax.axhline(-entry_threshold, color='red', linestyle='--')
+    ax.axhline(exit_threshold, color='green', linestyle='--')
+    ax.axhline(-exit_threshold, color='green', linestyle='--')
+
+    # Entry/Exit Markers
+    ax.scatter(signals[signals['long']].index,
+               z_score[signals['long']],
+               color='green', marker='^', s=50)
+    ax.scatter(signals[signals['short']].index,
+               z_score[signals['short']],
+               color='red', marker='v', s=50)
+    ax.scatter(signals[signals['exit']].index,
+               z_score[signals['exit']],
+               color='purple', marker='D', s=50, label='Exit')
+
+    # Define extreme and normal regimes
+    extreme_band = (skew_perc <= lower_threshold) | (skew_perc >= upper_threshold)
+    normal_band  = ~extreme_band
+
+    def shade(mask, color, alpha, label):
+        start = None
+        for date, val in mask.items():
+            if val and start is None:
+                start = date
+            elif not val and start is not None:
+                ax.axvspan(start, date, color=color, alpha=alpha,
+                           label=label if label not in ax.get_legend_handles_labels()[1] else None)
+                start = None
+        if start is not None:
+            ax.axvspan(start, mask.index[-1], color=color, alpha=alpha,
+                       label=label if label not in ax.get_legend_handles_labels()[1] else None)
+
+    shade(extreme_band, 'green', 0.15, f'Skew Percentile ≤ {lower_threshold*100:.0f}% or ≥ {upper_threshold*100:.0f}%')
+    shade(normal_band, 'red',   0.15, f'Skew Percentile in ({lower_threshold*100:.0f}%, {upper_threshold*100:.0f}%)')
+
+    ax.set_ylabel("Z-Score", color="blue")
+    ax.set_xlabel("Date")
+    ax.set_title(title, fontsize=16)
+    ax.grid(True)
+    ax.legend(loc="lower left")
+    plt.tight_layout()
+    plt.show()
+
+def plot_performance(equity):
+    # Calculate drawdown
+    peak = equity.equity.cummax()
+    drawdown = (equity.equity - peak) / peak
+
+    # Setup subplots: 2x1 layout
+    fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+
+    # Plot 1: Equity curve
+    axes[0].plot(equity.index, equity.equity, label="Equity Curve", color="tab:blue")
+    axes[0].set_title("Equity Curve")
+    axes[0].set_ylabel("Portfolio Value")
+    axes[0].grid(True)
+    axes[0].legend()
+
+    # Plot 2: Drawdown
+    axes[1].fill_between(drawdown.index, drawdown, 0, color="tab:red", alpha=0.4)
+    axes[1].set_title("Drawdown")
+    axes[1].set_ylabel("Drawdown (%)")
+    axes[1].set_xlabel("Date")
+    axes[1].grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def print_perf_metrics(trades, equity, risk_free_rate=0.00):
+    total_trades = len(trades)
+    win_rate = (trades.pnl > 0).mean()
+    avg_pnl_win = trades.loc[trades.pnl > 0, "pnl"].mean()
+    avg_pnl_lose = trades.loc[trades.pnl <= 0, "pnl"].mean()
+    total_pnl = trades.pnl.sum()
+
+    # Profit factor = gross gains / gross losses (absolute)
+    gross_gain = trades.loc[trades.pnl > 0, "pnl"].sum()
+    gross_loss = -trades.loc[trades.pnl <= 0, "pnl"].sum()
+    profit_factor = gross_gain / gross_loss if gross_loss != 0 else np.nan
+
+    # Trade frequency (annualized)
+    n_days = (equity.index[-1] - equity.index[0]).days
+    trade_freq = total_trades / (n_days / 365.25) if n_days > 0 else np.nan
+
+    summary_by_contracts = trades.groupby("contracts").agg(
+        win_rate=('pnl', lambda x: (x > 0).mean()),
+        num_trades=('pnl', 'count'),
+        avg_pnl=('pnl', 'mean'),
+        total_win_pnl=('pnl', lambda x: x[x > 0].sum()),
+        total_loss_pnl=('pnl', lambda x: x[x <= 0].sum()),
+        total_pnl=('pnl', 'sum')
+    ).round(2)
+
+    # --- Daily returns for Sharpe ---
+    daily_returns = equity.equity.pct_change().dropna()
+    sharpe_ratio = ((daily_returns.mean() - risk_free_rate / 252) / daily_returns.std()) * np.sqrt(252)
+
+    # --- CAGR ---
+    start_val = equity.equity.iloc[0]
+    end_val = equity.equity.iloc[-1]
+    num_years = (equity.index[-1] - equity.index[0]).days / 365.25
+    cagr = (end_val / start_val) ** (1 / num_years) - 1 if num_years > 0 else np.nan
+
+    # --- Max Drawdown and Duration ---
+    cumulative = equity.equity
+    peak = cumulative.cummax()
+    drawdown = (cumulative - peak) / peak
+    max_drawdown = drawdown.min()
+
+    underwater = drawdown != 0
+    durations = (underwater.groupby((~underwater).cumsum()).cumsum())
+    max_drawdown_duration = durations.max() if not durations.empty else 0
+
+    print("=" * 40)
+    print("🔍 Overall Performance Metrics")
+    print("=" * 40)
+    print(f"Sharpe Ratio           : {sharpe_ratio:.2f}")
+    print(f"CAGR                   : {cagr:.2%}")
+    print(f"Max Drawdown           : {max_drawdown:.2%}")
+    print(f"Max Drawdown Duration  : {max_drawdown_duration} days")
+    print(f"Total P&L              : {total_pnl:.2f}")
+    print(f"Profit Factor          : {profit_factor:.2f}")
+    print(f"Trade Frequency (ann.) : {trade_freq:.1f} trades/year")
+    print(f"Total Trades           : {total_trades}")
+    print(f"Win Rate               : {win_rate:.2%}")
+    print(f"Average Win P&L        : {avg_pnl_win:.2f}")
+    print(f"Average Loss P&L       : {avg_pnl_lose:.2f}")
+    print()
+
+    print("=" * 40)
+    print("📊 Performance by Contract Size")
+    print("=" * 40)
+    print(summary_by_contracts.to_string())
