@@ -589,7 +589,14 @@ def plot_zscore_signals_with_skew_percentile(
     plt.tight_layout()
     plt.show()
 
-def plot_performance(equity):
+def plot_performance(equity, sp500):
+    # Align both series on the same date index
+    sp500 = sp500.loc[equity.index.min():equity.index.max()]
+    sp500 = sp500.ffill()  # handle missing values
+
+    # Rebase S&P 500 to start at the same value as the equity curve
+    sp500_rebased = sp500 / sp500.iloc[0] * equity.equity.iloc[0]
+
     # Calculate drawdown
     peak = equity.equity.cummax()
     drawdown = (equity.equity - peak) / peak
@@ -597,15 +604,16 @@ def plot_performance(equity):
     # Setup subplots: 2x1 layout
     fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
-    # Plot 1: Equity curve
-    axes[0].plot(equity.index, equity.equity, label="Equity Curve", color="tab:blue")
-    axes[0].set_title("Equity Curve")
+    # Plot 1: Equity curve vs S&P 500
+    axes[0].plot(equity.index, equity.equity, label="Equity Curve", color="blue")
+    axes[0].plot(sp500_rebased.index, sp500_rebased, label="S&P 500 (Rebased)", color="orange")
+    axes[0].set_title("Equity Curve vs. S&P 500")
     axes[0].set_ylabel("Portfolio Value")
     axes[0].grid(True)
     axes[0].legend()
 
     # Plot 2: Drawdown
-    axes[1].fill_between(drawdown.index, drawdown, 0, color="tab:red", alpha=0.4)
+    axes[1].fill_between(drawdown.index, drawdown, 0, color="red", alpha=0.4)
     axes[1].set_title("Drawdown")
     axes[1].set_ylabel("Drawdown (%)")
     axes[1].set_xlabel("Date")
