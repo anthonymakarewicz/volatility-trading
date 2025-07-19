@@ -595,7 +595,7 @@ def plot_performance(equity, sp500):
     sp500 = sp500.ffill()  # handle missing values
 
     # Rebase S&P 500 to start at the same value as the equity curve
-    sp500_rebased = sp500 / sp500.iloc[0] * equity.equity.iloc[0]
+    sp500_rebased = (sp500 / sp500.iloc[0]) * equity.equity.iloc[0]
 
     # Calculate drawdown
     peak = equity.equity.cummax()
@@ -642,7 +642,6 @@ def print_perf_metrics(trades, equity, risk_free_rate=0.00):
     summary_by_contracts = trades.groupby("contracts").agg(
         win_rate=('pnl', lambda x: (x > 0).mean()),
         num_trades=('pnl', 'count'),
-        avg_pnl=('pnl', 'mean'),
         total_win_pnl=('pnl', lambda x: x[x > 0].sum()),
         total_loss_pnl=('pnl', lambda x: x[x <= 0].sum()),
         total_pnl=('pnl', 'sum')
@@ -675,13 +674,13 @@ def print_perf_metrics(trades, equity, risk_free_rate=0.00):
     print(f"CAGR                   : {cagr:.2%}")
     print(f"Max Drawdown           : {max_drawdown:.2%}")
     print(f"Max Drawdown Duration  : {max_drawdown_duration} days")
-    print(f"Total P&L              : {total_pnl:.2f}")
+    print(f"Total P&L              : ${total_pnl:,.2f}")
     print(f"Profit Factor          : {profit_factor:.2f}")
     print(f"Trade Frequency (ann.) : {trade_freq:.1f} trades/year")
     print(f"Total Trades           : {total_trades}")
     print(f"Win Rate               : {win_rate:.2%}")
-    print(f"Average Win P&L        : {avg_pnl_win:.2f}")
-    print(f"Average Loss P&L       : {avg_pnl_lose:.2f}")
+    print(f"Average Win P&L        : ${avg_pnl_win:,.2f}")
+    print(f"Average Loss P&L       : ${avg_pnl_lose:,.2f}")
     print()
 
     print("=" * 40)
