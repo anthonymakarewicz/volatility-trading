@@ -589,23 +589,24 @@ def plot_zscore_signals_with_skew_percentile(
     plt.tight_layout()
     plt.show()
 
-def plot_performance(equity, sp500):
+
+def plot_eq_curve(mtm, sp500):
     # Align both series on the same date index
-    sp500 = sp500.loc[equity.index.min():equity.index.max()]
+    sp500 = sp500.loc[mtm.index.min():mtm.index.max()]
     sp500 = sp500.ffill()  # handle missing values
 
-    # Rebase S&P 500 to start at the same value as the equity curve
-    sp500_rebased = (sp500 / sp500.iloc[0]) * equity.equity.iloc[0]
+    # Rebase S&P 500 to start at the same value as the mtm curve
+    sp500_rebased = (sp500 / sp500.iloc[0]) * mtm.equity.iloc[0]
 
     # Calculate drawdown
-    peak = equity.equity.cummax()
-    drawdown = (equity.equity - peak) / peak
+    peak = mtm.equity.cummax()
+    drawdown = (mtm.equity - peak) / peak
 
     # Setup subplots: 2x1 layout
     fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
     # Plot 1: Equity curve vs S&P 500
-    axes[0].plot(equity.index, equity.equity, label="Equity Curve", color="blue")
+    axes[0].plot(mtm.index, mtm.equity, label="Equity Curve", color="blue")
     axes[0].plot(sp500_rebased.index, sp500_rebased, label="S&P 500 (Rebased)", color="orange")
     axes[0].set_title("Equity Curve vs. S&P 500")
     axes[0].set_ylabel("Portfolio Value")
@@ -623,7 +624,7 @@ def plot_performance(equity, sp500):
     plt.show()
 
 
-def print_perf_metrics(trades, equity, risk_free_rate=0.00):
+def print_perf_metrics(trades, mtm, risk_free_rate=0.00):
     total_trades = len(trades)
     win_rate = (trades.pnl > 0).mean()
     avg_pnl_win = trades.loc[trades.pnl > 0, "pnl"].mean()
@@ -636,7 +637,7 @@ def print_perf_metrics(trades, equity, risk_free_rate=0.00):
     profit_factor = gross_gain / gross_loss if gross_loss != 0 else np.nan
 
     # Trade frequency (annualized)
-    n_days = (equity.index[-1] - equity.index[0]).days
+    n_days = (mtm.index[-1] - mtm.index[0]).days
     trade_freq = total_trades / (n_days / 365.25) if n_days > 0 else np.nan
 
     summary_by_contracts = trades.groupby("contracts").agg(
@@ -648,17 +649,17 @@ def print_perf_metrics(trades, equity, risk_free_rate=0.00):
     ).round(2)
 
     # --- Daily returns for Sharpe ---
-    daily_returns = equity.equity.pct_change().dropna()
+    daily_returns = mtm.equity.pct_change().dropna()
     sharpe_ratio = ((daily_returns.mean() - risk_free_rate / 252) / daily_returns.std()) * np.sqrt(252)
 
     # --- CAGR ---
-    start_val = equity.equity.iloc[0]
-    end_val = equity.equity.iloc[-1]
-    num_years = (equity.index[-1] - equity.index[0]).days / 365.25
+    start_val = mtm.equity.iloc[0]
+    end_val = mtm.equity.iloc[-1]
+    num_years = (mtm.index[-1] - mtm.index[0]).days / 365.25
     cagr = (end_val / start_val) ** (1 / num_years) - 1 if num_years > 0 else np.nan
 
     # --- Max Drawdown and Duration ---
-    cumulative = equity.equity
+    cumulative = mtm.equity
     peak = cumulative.cummax()
     drawdown = (cumulative - peak) / peak
     max_drawdown = drawdown.min()
@@ -687,3 +688,63 @@ def print_perf_metrics(trades, equity, risk_free_rate=0.00):
     print("📊 Performance by Contract Size")
     print("=" * 40)
     print(summary_by_contracts.to_string())
+
+import matplotlib.gridspec as gridspec
+
+
+def plot_full_performance(sp500, mtm_daily):
+    import warnings
+    warnings.simplefilter("ignore", UserWarning)
+    # align & rebase
+    equity     = mtm_daily['equity']
+    spx        = sp500.reindex(equity.index).ffill()
+    spx_rebase = spx / spx.iloc[0] * equity.iloc[0]
+
+    # compute drawdown
+    dd = (equity - equity.cummax()) / equity.cummax()
+
+    # set up a 4×2 grid: row 0 full span, row 1 full span, rows 2–3 split
+    fig = plt.figure(figsize=(14, 14), constrained_layout=True)
+    gs  = gridspec.GridSpec(4, 2,
+                            height_ratios=[2, 1, 1, 1],
+                            hspace=0.4, wspace=0.3)
+
+    # ─── Row 0: Equity vs SPX ───────────────────────────────
+    ax0 = fig.add_subplot(gs[0, :])
+    ax0.plot(equity.index, equity,      color='tab:blue',   label='Equity Curve')
+    ax0.plot(spx_rebase.index, spx_rebase, color='tab:orange', label='S&P 500 (rebased)')
+    ax0.set_title("Equity vs. S&P 500")
+    ax0.set_ylabel("Portfolio Value")
+    ax0.legend(loc='upper left')
+    ax0.grid(True)
+
+    # ─── Row 1: Drawdown ────────────────────────────────────
+    ax1 = fig.add_subplot(gs[1, :])
+    ax1.fill_between(dd.index, dd, 0, color='tab:red', alpha=0.4)
+    ax1.set_title("Drawdown")
+    ax1.set_ylabel("Drawdown (%)")
+    ax1.grid(True)
+
+    # ─── Rows 2–3: Greeks in 2×2 ────────────────────────────
+    greek_cols  = ['delta','gamma','vega','theta']
+    greek_titles = [
+        'Total Δ Exposure',
+        'Total Γ Exposure',
+        'Total ν Exposure',
+        'Total Θ Exposure',
+    ]
+    colors  = ['red','orange','green','blue']
+
+    for i, (col, title, color) in enumerate(zip(greek_cols, greek_titles, colors)):
+        row    = 2 + (i // 2)
+        column = i % 2
+        ax = fig.add_subplot(gs[row, column])
+        ax.plot(mtm_daily.index, mtm_daily[col], color=color)
+        ax.set_title(title)
+        ax.set_ylabel(col.capitalize())
+        if row == 3:
+            ax.set_xlabel("Date")
+        ax.grid(True)
+
+    #plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.show()
