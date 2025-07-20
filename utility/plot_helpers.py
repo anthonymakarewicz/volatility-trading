@@ -693,23 +693,41 @@ import matplotlib.gridspec as gridspec
 
 
 def plot_full_performance(sp500, mtm_daily):
+    """
+    Plots:
+      • Equity vs S&P 500 (rebased)
+      • Drawdown: strategy and S&P500
+      • Greeks in a 2×2 grid
+
+    Parameters
+    ----------
+    sp500      : pd.Series
+        S&P 500 price series.
+    mtm_daily  : pd.DataFrame
+        Daily MTM with columns ['equity','delta','gamma','vega','theta'].
+    """
+    # suppress that tight_layout warning just for this function
     import warnings
     warnings.simplefilter("ignore", UserWarning)
-    # align & rebase
+
+    # 1) align & rebase
     equity     = mtm_daily['equity']
     spx        = sp500.reindex(equity.index).ffill()
     spx_rebase = spx / spx.iloc[0] * equity.iloc[0]
 
-    # compute drawdown
-    dd = (equity - equity.cummax()) / equity.cummax()
+    # 2) drawdowns
+    strat_dd = (equity - equity.cummax()) / equity.cummax()
+    spx_dd   = (spx_rebase - spx_rebase.cummax()) / spx_rebase.cummax()
 
-    # set up a 4×2 grid: row 0 full span, row 1 full span, rows 2–3 split
+    # 3) set up 4×2 grid
     fig = plt.figure(figsize=(14, 14), constrained_layout=True)
-    gs  = gridspec.GridSpec(4, 2,
-                            height_ratios=[2, 1, 1, 1],
-                            hspace=0.4, wspace=0.3)
+    gs  = gridspec.GridSpec(
+        4, 2,
+        height_ratios=[2, 1, 1, 1],
+        hspace=0.4, wspace=0.3
+    )
 
-    # ─── Row 0: Equity vs SPX ───────────────────────────────
+    # ─── row 0: Equity vs SPX ─────────────────────────────
     ax0 = fig.add_subplot(gs[0, :])
     ax0.plot(equity.index, equity,      color='tab:blue',   label='Equity Curve')
     ax0.plot(spx_rebase.index, spx_rebase, color='tab:orange', label='S&P 500 (rebased)')
@@ -718,22 +736,20 @@ def plot_full_performance(sp500, mtm_daily):
     ax0.legend(loc='upper left')
     ax0.grid(True)
 
-    # ─── Row 1: Drawdown ────────────────────────────────────
+    # ─── row 1: Drawdown ─────────────────────────────────
     ax1 = fig.add_subplot(gs[1, :])
-    ax1.fill_between(dd.index, dd, 0, color='tab:red', alpha=0.4)
+    ax1.fill_between(strat_dd.index, strat_dd, 0,   color='tab:blue',   alpha=0.3, label='Strategy DD')
+    ax1.fill_between(spx_dd.index,   spx_dd,   0,   color='tab:orange', alpha=0.3, label='S&P 500 DD')
     ax1.set_title("Drawdown")
     ax1.set_ylabel("Drawdown (%)")
+    ax1.legend(loc='lower left')
     ax1.grid(True)
 
-    # ─── Rows 2–3: Greeks in 2×2 ────────────────────────────
-    greek_cols  = ['delta','gamma','vega','theta']
-    greek_titles = [
-        'Total Δ Exposure',
-        'Total Γ Exposure',
-        'Total ν Exposure',
-        'Total Θ Exposure',
-    ]
-    colors  = ['red','orange','green','blue']
+    # ─── rows 2–3: Greeks in 2×2 ─────────────────────────
+    greek_cols   = ['delta','gamma','vega','theta']
+    greek_titles = ['Total Δ Exposure','Total Γ Exposure',
+                    'Total ν Exposure','Total Θ Exposure']
+    colors       = ['red','orange','green','blue']
 
     for i, (col, title, color) in enumerate(zip(greek_cols, greek_titles, colors)):
         row    = 2 + (i // 2)
@@ -746,5 +762,4 @@ def plot_full_performance(sp500, mtm_daily):
             ax.set_xlabel("Date")
         ax.grid(True)
 
-    #plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.show()
