@@ -746,7 +746,7 @@ def plot_full_performance(sp500, mtm_daily):
     ax1.grid(True)
 
     # ─── rows 2–3: Greeks in 2×2 ─────────────────────────
-    greek_cols   = ['delta','gamma','vega','theta']
+    greek_cols   = ['net_delta','gamma','vega','theta']
     greek_titles = ['Total Δ Exposure','Total Γ Exposure',
                     'Total ν Exposure','Total Θ Exposure']
     colors       = ['red','orange','green','blue']
@@ -762,4 +762,24 @@ def plot_full_performance(sp500, mtm_daily):
             ax.set_xlabel("Date")
         ax.grid(True)
 
+    plt.show()
+
+import pandas as pd
+
+def plot_pnl_attribution(daily_mtm):
+    cumu = pd.DataFrame(index=daily_mtm.index)
+    cumu['Total P&L'] = daily_mtm['equity'] - daily_mtm['equity'].iloc[0]
+    for greek in ['Delta_PnL','Gamma_PnL','Vega_PnL','Theta_PnL','Other_PnL']:
+        cumu[greek] = daily_mtm[greek].cumsum()
+
+    fig, ax = plt.subplots(figsize=(10,6))
+    ax.plot(cumu.index, cumu['Total P&L'], label='Total P&L')
+    for col in cumu.columns.drop('Total P&L'):
+        ax.plot(cumu.index, cumu[col], label=col)
+    ax.set_title('Cumulative P&L Attribution: Total vs Greek Contributions')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Cumulative P&L (USD)')
+    ax.legend()
+    plt.xticks(rotation=45)
+    plt.tight_layout()
     plt.show()
