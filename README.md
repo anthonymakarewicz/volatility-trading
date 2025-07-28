@@ -21,6 +21,7 @@ In addition, are filtered by the **VIX** to avoid trading durign panic regimes.
 ### **Backtest using Walk-Forward cross validation, risk management, and realistic backtest constraints**
 This is the result of a backtest using a **rolling Skew percentile** with thresholds 20% and 80% used to validate each trade.
 ![Backtest](plots/backtest_greeks.png)
+![alt text](plots/pnl_attribution.png)
 
 ### 🔍 **Overall Performance Metrics**
 
