@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import matplotlib.gridspec as gridspec
 from config.constants import OPTION_TYPES
 
 
@@ -580,7 +582,6 @@ def plot_zscore_signals_with_skew_percentile(
 
     shade(extreme_band, 'green', 0.15, f'Skew Percentile ≤ {lower_threshold*100:.0f}% or ≥ {upper_threshold*100:.0f}%')
     shade(normal_band, 'red',   0.15, f'Skew Percentile in ({lower_threshold*100:.0f}%, {upper_threshold*100:.0f}%)')
-
     ax.set_ylabel("Z-Score", color="blue")
     ax.set_xlabel("Date")
     ax.set_title(title, fontsize=16)
@@ -624,7 +625,7 @@ def plot_eq_curve(mtm, sp500):
     plt.show()
 
 
-def print_perf_metrics(trades, mtm, risk_free_rate=0.00):
+def print_perf_metrics(trades, mtm, risk_free_rate=0.00, alpha=0.01):
     total_trades = len(trades)
     win_rate = (trades.pnl > 0).mean()
     avg_pnl_win = trades.loc[trades.pnl > 0, "pnl"].mean()
@@ -668,6 +669,9 @@ def print_perf_metrics(trades, mtm, risk_free_rate=0.00):
     durations = (underwater.groupby((~underwater).cumsum()).cumsum())
     max_drawdown_duration = durations.max() if not durations.empty else 0
 
+    var = np.quantile(daily_returns, alpha)
+    cvar = daily_returns[daily_returns <= var].mean()
+
     print("=" * 40)
     print("🔍 Overall Performance Metrics")
     print("=" * 40)
@@ -675,6 +679,8 @@ def print_perf_metrics(trades, mtm, risk_free_rate=0.00):
     print(f"CAGR                   : {cagr:.2%}")
     print(f"Max Drawdown           : {max_drawdown:.2%}")
     print(f"Max Drawdown Duration  : {max_drawdown_duration} days")
+    print(f"Historical VaR ({int((1-alpha)*100)}%)   : {var:.2%}")
+    print(f"Historical CVaR ({int((1-alpha)*100)}%)  : {cvar:.2%}")
     print(f"Total P&L              : ${total_pnl:,.2f}")
     print(f"Profit Factor          : {profit_factor:.2f}")
     print(f"Trade Frequency (ann.) : {trade_freq:.1f} trades/year")
@@ -688,25 +694,10 @@ def print_perf_metrics(trades, mtm, risk_free_rate=0.00):
     print("📊 Performance by Contract Size")
     print("=" * 40)
     print(summary_by_contracts.to_string())
-
-import matplotlib.gridspec as gridspec
+    print()
 
 
 def plot_full_performance(sp500, mtm_daily):
-    """
-    Plots:
-      • Equity vs S&P 500 (rebased)
-      • Drawdown: strategy and S&P500
-      • Greeks in a 2×2 grid
-
-    Parameters
-    ----------
-    sp500      : pd.Series
-        S&P 500 price series.
-    mtm_daily  : pd.DataFrame
-        Daily MTM with columns ['equity','delta','gamma','vega','theta'].
-    """
-    # suppress that tight_layout warning just for this function
     import warnings
     warnings.simplefilter("ignore", UserWarning)
 
@@ -764,7 +755,6 @@ def plot_full_performance(sp500, mtm_daily):
 
     plt.show()
 
-import pandas as pd
 
 def plot_pnl_attribution(daily_mtm):
     cumu = pd.DataFrame(index=daily_mtm.index)
@@ -772,7 +762,7 @@ def plot_pnl_attribution(daily_mtm):
     for greek in ['Delta_PnL','Gamma_PnL','Vega_PnL','Theta_PnL','Other_PnL']:
         cumu[greek] = daily_mtm[greek].cumsum()
 
-    fig, ax = plt.subplots(figsize=(10,6))
+    fig, ax = plt.subplots(figsize=(12,5))
     ax.plot(cumu.index, cumu['Total P&L'], label='Total P&L')
     for col in cumu.columns.drop('Total P&L'):
         ax.plot(cumu.index, cumu[col], label=col)
@@ -780,6 +770,19 @@ def plot_pnl_attribution(daily_mtm):
     ax.set_xlabel('Date')
     ax.set_ylabel('Cumulative P&L (USD)')
     ax.legend()
-    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_stressed_pnl(stressed_mtm, scenarios):
+    fig, ax = plt.subplots(figsize=(12,5))
+    ax.plot(stressed_mtm.index, stressed_mtm['equity'], label='Actual Equity')
+    scenarios = ["PnL_" + scenario_name for scenario_name in scenarios.keys()]
+    for name in scenarios:
+        ax.plot(stressed_mtm.index, stressed_mtm['equity'] + stressed_mtm[name].cumsum(), label=name)
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Cumulative P&L (USD)')
+    ax.set_title('Equity Curve vs. Stressed Equity Curves')
+    ax.legend()
     plt.tight_layout()
     plt.show()
