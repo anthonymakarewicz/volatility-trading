@@ -31,6 +31,8 @@ This is the result of a backtest using a **rolling Skew percentile** with thresh
 | **CAGR**                 | 15.06%       |
 | **Max Drawdown**         | -3.83%       |
 | **Max Drawdown Duration**| 226 days     |
+| **Historical VaR (99%)** | -0.29%       |
+| **Historical CVaR (99%)**| -1.43%       |
 | **Total P&L**            | \$59,855     |
 | **Profit Factor**        | 3.49         |
 | **Trade Frequency**      | 9.8 trades/yr|
