@@ -774,15 +774,51 @@ def plot_pnl_attribution(daily_mtm):
     plt.show()
 
 
-def plot_stressed_pnl(stressed_mtm, scenarios):
+def plot_stressed_pnl(stressed_mtm, daily_mtm, scenarios):
     fig, ax = plt.subplots(figsize=(12,5))
-    ax.plot(stressed_mtm.index, stressed_mtm['equity'], label='Actual Equity')
+    ax.plot(daily_mtm['equity'], label='Actual Equity')
     scenarios = ["PnL_" + scenario_name for scenario_name in scenarios.keys()]
     for name in scenarios:
-        ax.plot(stressed_mtm.index, stressed_mtm['equity'] + stressed_mtm[name].cumsum(), label=name)
+        ax.plot(daily_mtm['equity'] + stressed_mtm[name].cumsum(), label=name)
     ax.set_xlabel('Date')
     ax.set_ylabel('Cumulative P&L (USD)')
     ax.set_title('Equity Curve vs. Stressed Equity Curves')
     ax.legend()
     plt.tight_layout()
     plt.show()
+
+
+def print_stressed_risk_metrics(stressed_mtm, daily_mtm, alpha=0.01):
+    daily_mtm = daily_mtm.copy()
+
+    # 1) Compute your actual daily returns
+    returns = daily_mtm['equity'].pct_change().fillna(0.0)
+
+    # 2) Build the scenario shock PnLs (as % of prior equity)
+    shock_pct = stressed_mtm.div(daily_mtm['equity'].shift(1), axis=0)
+
+    # 3) Build total stressed returns = actual + shock each scenario
+    total_ret = pd.DataFrame({
+        name: returns + shock_pct[name]
+        for name in shock_pct.columns
+    })
+
+    # 4) Pick the worst‐of‐scenarios daily stressed return
+    total_ret['worst_stressed_ret'] = total_ret.min(axis=1)
+
+    # 5) Compute VaR and ES on the two series
+    # Base (actual) VaR/ES
+    base_var = returns.quantile(alpha)
+    base_es  = returns.loc[returns <= base_var].mean()
+
+    # Stressed VaR/ES
+    stress_var = total_ret['worst_stressed_ret'].quantile(alpha)
+    stress_es  = total_ret.loc[
+        total_ret['worst_stressed_ret'] <= stress_var,
+        'worst_stressed_ret'
+    ].mean()
+
+    print(f"Base VaR ({int((1-alpha)*100)}%)     : {base_var:.2%}")
+    print(f"Base CVaR ({int((1-alpha)*100)}%)    : {base_es:.2%}")
+    print(f"Stress VaR ({int((1-alpha)*100)}%)   : {stress_var:.2%}")
+    print(f"Stress CVaR ({int((1-alpha)*100)}%)  : {stress_es:.2%}")
