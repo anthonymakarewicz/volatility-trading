@@ -10,9 +10,9 @@ from pandas.tseries.offsets import BMonthEnd
 
 def extract_7z_and_load(csv_path):
     with py7zr.SevenZipFile(csv_path, mode='r') as archive:
-        archive.extractall(path='data/tmp')
+        archive.extractall(path='tmp')
 
-    extracted_files = list(Path('data/tmp').glob("*"))
+    extracted_files = list(Path('tmp').glob("*"))
     all_dfs = []
     for file in extracted_files:
 
@@ -20,21 +20,25 @@ def extract_7z_and_load(csv_path):
         df = pd.read_csv(file, sep=",")
         all_dfs.append(df)
 
-    shutil.rmtree('data/tmp', ignore_errors=True)
+    shutil.rmtree('tmp', ignore_errors=True)
     return pd.concat(all_dfs, ignore_index=True)
 
 
 def load_options(root, start_year=2012, end_year=2022):
     raw_root = Path(root)
     all_dfs = []
-    os.chdir(root)
-    os.remove(".DS_store")
+    #os.chdir(root)
+    #os.remove(".DS_store")
 
     for year_dir in sorted(raw_root.glob("*")):
-        year = int(year_dir.name)
+        name = year_dir.name
+        if not name.isdigit():
+            continue    
+
+        year = int(name)
         if not (start_year <= year <= end_year):
             continue
-
+        
         print(f"Processing year: {year}")
         for archive in sorted(year_dir.glob("*.7z")):
             print(f"  ➤ Extracting {archive.name}")
