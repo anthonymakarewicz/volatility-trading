@@ -18,6 +18,8 @@ Trade the 30-day to expiry, 25 Delta SPX put–call skew via a delta-hedged risk
 - **Delta Hedge**  
   – Neutralize net Δ with E-mini S&P 500 futures (ES=F, lot_size = 50)  
 
+![Abs vs Norm Skew](plots/abs_vs_norm_skew.png)
+
 ---
 
 ### **Signal Filters**

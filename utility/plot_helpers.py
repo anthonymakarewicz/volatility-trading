@@ -96,7 +96,7 @@ def plot_synthetic_ivs(synthetic_skew):
 
 
 def plot_norm_abs_skew(synthetic_skew):
-    fig, ax1 = plt.subplots(figsize=(12, 6))
+    fig, ax1 = plt.subplots(figsize=(14, 5))
 
     ax1.plot(synthetic_skew['skew_norm'], color="red", label="Normalized Skew")
     ax1.set_ylabel("Normalized Skew", color="red", fontsize=14)
