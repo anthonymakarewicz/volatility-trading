@@ -630,7 +630,7 @@ def print_perf_metrics(trades, mtm, risk_free_rate=0.00, alpha=0.01):
     win_rate = (trades.pnl > 0).mean()
     avg_pnl_win = trades.loc[trades.pnl > 0, "pnl"].mean()
     avg_pnl_lose = trades.loc[trades.pnl <= 0, "pnl"].mean()
-    total_pnl = trades.pnl.sum()
+    total_pnl = mtm["delta_pnl"].sum()
 
     # Profit factor = gross gains / gross losses (absolute)
     gross_gain = trades.loc[trades.pnl > 0, "pnl"].sum()
