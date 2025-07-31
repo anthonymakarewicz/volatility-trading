@@ -659,11 +659,13 @@ def print_perf_metrics(trades, mtm, risk_free_rate=0.00, alpha=0.01):
     num_years = (mtm.index[-1] - mtm.index[0]).days / 365.25
     cagr = (end_val / start_val) ** (1 / num_years) - 1 if num_years > 0 else np.nan
 
-    # --- Max Drawdown and Duration ---
+    # --- Drawdown metrics ---
     cumulative = mtm.equity
     peak = cumulative.cummax()
     drawdown = (cumulative - peak) / peak
     max_drawdown = drawdown.min()
+    avg_drawdown = drawdown[drawdown < 0].mean()
+
 
     underwater = drawdown != 0
     durations = (underwater.groupby((~underwater).cumsum()).cumsum())
@@ -677,6 +679,7 @@ def print_perf_metrics(trades, mtm, risk_free_rate=0.00, alpha=0.01):
     print("=" * 40)
     print(f"Sharpe Ratio           : {sharpe_ratio:.2f}")
     print(f"CAGR                   : {cagr:.2%}")
+    print(f"Average Drawdown       : {avg_drawdown:.2%}")
     print(f"Max Drawdown           : {max_drawdown:.2%}")
     print(f"Max Drawdown Duration  : {max_drawdown_duration} days")
     print(f"Historical VaR ({int((1-alpha)*100)}%)   : {var:.2%}")
