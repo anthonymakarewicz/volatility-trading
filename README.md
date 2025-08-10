@@ -3,6 +3,10 @@
 This projects presents several daily volatility trading strategies on SPX Index Equity Options.
 Each strategy is thoroughly backtested and appropriate risk management constraints are considered.
 
+## **Example: Implied Volatility Surface Modelling (Parametric vs Non-Parametric)**
+
+![Iv surface](plots/iv_surface_grid.png)
+
 ## **Example: Skew Volatility Trading (30 DTE / 25 Δ)**
 
 Trade the 30-day to expiry, 25 Delta SPX put–call skew via a delta-hedged risk reversal:
