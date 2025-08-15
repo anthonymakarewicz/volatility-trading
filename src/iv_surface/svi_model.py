@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from typing import Tuple
 from scipy.interpolate import interp1d
 from scipy.optimize import differential_evolution, minimize
-from base_iv_surface_model import IVSurfaceModel
+from .base_iv_surface_model import IVSurfaceModel
 
 
 class SVI(IVSurfaceModel):

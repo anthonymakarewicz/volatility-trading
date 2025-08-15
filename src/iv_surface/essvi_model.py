@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from base_xssvi import xSSVI
+from .base_xssvi import xSSVI
 
 
 class eSSVI(xSSVI):

@@ -6,7 +6,7 @@ from abc import abstractmethod
 from typing import Tuple
 from scipy.optimize import differential_evolution, minimize
 from scipy.interpolate import PchipInterpolator
-from base_iv_surface_model import IVSurfaceModel
+from .base_iv_surface_model import IVSurfaceModel
 
 class xSSVI(IVSurfaceModel):
     """Intermediary abstract class for SSVI and eSSVI.

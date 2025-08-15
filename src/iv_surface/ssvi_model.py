@@ -1,5 +1,5 @@
 import numpy as np
-from base_xssvi import xSSVI
+from .base_xssvi import xSSVI
 
 
 class SSVI(xSSVI):

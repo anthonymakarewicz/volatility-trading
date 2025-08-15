@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 from scipy.interpolate import griddata, interp1d
-from base_iv_surface_model import IVSurfaceModel
+from .base_iv_surface_model import IVSurfaceModel
 
 
 class IVSurfaceInterpolator(IVSurfaceModel):
