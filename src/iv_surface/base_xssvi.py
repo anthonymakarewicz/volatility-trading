@@ -67,8 +67,11 @@ class xSSVI(IVSurfaceModel):
             g = groups[T]
             th = self._estimate_theta_slice(g["k"].to_numpy(), g["w"].to_numpy())
             theta_hat.append(th)    
+
+        self.theta_hat_ = theta_hat
         theta_hat = np.asarray(theta_hat, float)
         theta_hat  = np.maximum.accumulate(theta_hat)                 # monotone
+        self.T_grid_ = T_grid
         self.theta_interp = PchipInterpolator(T_grid, theta_hat, extrapolate=True)
 
         # ------- stack quotes ------
@@ -117,10 +120,14 @@ class xSSVI(IVSurfaceModel):
         m = np.abs(k) <= band
         if m.sum() < 5:
             return np.min(w)  # fallback
+        
         X = np.c_[np.ones(m.sum()), k[m], k[m]**2]
         wt = 1.0/(np.abs(k[m])+1e-3)               # ATM-heavy weights
         beta = np.linalg.lstsq(X*wt[:,None], (w[m]*wt), rcond=None)[0]
-        return float(beta[0])                       # intercept ~= θ̂
+        
+        if beta[0] is None:
+            return np.min(w)
+        return float(beta[0]) # intercept ~= θ̂
     
     def _implied_total_variance(self,
                                 k: np.ndarray,

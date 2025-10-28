@@ -5,6 +5,9 @@ import numpy as np
 from abc import ABC, abstractmethod
 from matplotlib.colors import Normalize
 
+# TODO: Handle the _last_market attribute 
+# TODO: Handle how to warm_fit params based on yesterday's fitted params
+
 
 class IVSurfaceModel(ABC):
     """Abstract base for any IV-surface model."""
@@ -33,6 +36,8 @@ class IVSurfaceModel(ABC):
         # total implied variance
         df['w'] = df['iv_smile']**2 * df['T']
 
+        df = df.dropna(subset=["w"])
+
         return df
     
     @staticmethod
@@ -57,15 +62,23 @@ class IVSurfaceModel(ABC):
     def _implied_total_variance(self, k: np.ndarray, T: np.ndarray) -> np.ndarray:
         """Return total variance w(k,T)."""
         pass
+
+    @abstractmethod
+    def get_params(self) -> dict:
+        pass
+
+    @abstractmethod
+    def set_params(self, params) -> None:
+        pass
     
     def implied_vol(self, K: np.ndarray, T: np.ndarray) -> np.ndarray:
         """Return implied volatility as sqrt(w(k,T) / T)"""
-        if self._last_market is None:
-            raise RuntimeError("You must .fit(...) first to")
+        if self._spot in [None, np.nan]:
+            raise RuntimeError("You must .fit(...) first or set_params")
 
         K_arr = np.atleast_1d(K).astype(float) # (nK,)
         T_arr = np.atleast_1d(T).astype(float) # (nT,)
-        spot = self._last_market["underlying_last"].iloc[0]
+        spot = self._spot
         k_arr = np.log(K_arr / spot)
 
         W = self._implied_total_variance(k_arr, T_arr) # (nT, nK)
@@ -84,7 +97,7 @@ class IVSurfaceModel(ABC):
                     ):
         """Static-arbitrage diagnostics."""
         if self._last_market is None:
-            raise RuntimeError("You must .fit(...) first to")
+            raise RuntimeError("You must .fit(...) first")
         
         # ---------- build k,T grid covering fitted region -----------
         df = self._last_market

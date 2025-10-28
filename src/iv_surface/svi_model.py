@@ -138,6 +138,12 @@ class SVI(IVSurfaceModel):
         N  = np.array([v["n"] for v in self.slice_stats.values()], dtype=float)
         R2 = np.array([v["rmse_iv"]**2 for v in self.slice_stats.values()], dtype=float)
         return float(np.sqrt(np.sum(N * R2) / np.sum(N)))
+    
+    def get_params(self) -> dict:
+        raise NotImplementedError("Not Implemented yet")
+
+    def set_params(self, params) -> None:
+        raise NotImplementedError("Not Implemented yet")
 
 
     # -------- Plotting methods --------

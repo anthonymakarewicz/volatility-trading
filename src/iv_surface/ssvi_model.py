@@ -1,6 +1,7 @@
 import numpy as np
+import pandas as pd
 from .base_xssvi import xSSVI
-
+from scipy.interpolate import PchipInterpolator
 
 class SSVI(xSSVI):
     """
@@ -45,3 +46,58 @@ class SSVI(xSSVI):
 
         return sse
     
+    def get_params(self) -> dict:
+        if not hasattr(self, "params"):
+            raise RuntimeError("Model not fitted.")
+        
+        rho, eta, gamma = self.params
+        spot = self._spot
+        T_grid = self.theta_interp.x
+        theta_grid = self.theta_interp(T_grid)  # recover values at knots
+
+        return {
+            "rho": float(rho),
+            "eta": float(eta),
+            "gamma": float(gamma),
+            "spot": float(spot),
+            "T_grid": T_grid.tolist(),
+            "theta_grid": theta_grid.tolist(),
+        }
+    
+    def set_params(self, params: dict) -> None:
+        """Restore model state from a snapshot produced by get_params()."""
+        # core
+        self.params = (float(params["rho"]), float(params["eta"]), float(params["gamma"]))
+        self._spot = float(params["spot"])
+
+        # rebuild theta interpolator
+        T_grid = np.asarray(params["T_grid"], float)
+        theta_grid = np.asarray(params["theta_grid"], float)
+        self.theta_interp = PchipInterpolator(T_grid, theta_grid, extrapolate=True)
+
+    @staticmethod
+    def build_params_dict(df_globals, df_knots):
+        """
+        Combine df_globals (rho, eta, gamma, spot) and df_knots (T, theta)
+        into a nested dict keyed by date.
+
+        Returns
+        -------
+        dict[Timestamp -> dict]
+        """
+        params_dict = {}
+        for date, row in df_globals.iterrows():
+            # Get knots for this date
+            knots = df_knots.loc[date].sort_values("T")
+            T_grid = knots["T"].to_list()
+            theta_grid = knots["theta"].to_list()
+
+            params_dict[pd.to_datetime(date)] = {
+                "rho": float(row["rho"]),
+                "eta": float(row["eta"]),
+                "gamma": float(row["gamma"]),
+                "spot": float(row.get("spot", np.nan)),  # if spot stored in df_globals
+                "T_grid": T_grid,
+                "theta_grid": theta_grid
+            }
+        return params_dict

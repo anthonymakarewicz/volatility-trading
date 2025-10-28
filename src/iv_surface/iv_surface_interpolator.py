@@ -54,3 +54,9 @@ class IVSurfaceInterpolator(IVSurfaceModel):
         # interpolate and reshape back into (nT, nK)
         Wq = griddata(pts, ws, qry, method=self.method)
         return Wq.reshape(len(T), len(k))
+    
+    def get_params(self) -> dict:
+        raise NotImplementedError("No parameters for interpolation")
+
+    def set_params(self, params) -> None:
+        raise NotImplementedError("No parameters for interpolation")
