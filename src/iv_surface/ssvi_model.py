@@ -101,3 +101,31 @@ class SSVI(xSSVI):
                 "theta_grid": theta_grid
             }
         return params_dict
+    
+    def extract_surface_params(self, options):
+        globals_list, knots_list = [], []
+
+        for date, chain in options.groupby("date"):
+            self.fit(chain)  
+            params = self.get_params()
+            
+            # 1) global SSVI params
+            globals_list.append({
+                "date": pd.to_datetime(date),
+                "rho": params["rho"],
+                "eta": params["eta"],
+                "gamma": params["gamma"]
+            })
+
+            # 2) theta(T) knots
+            for T, th in zip(params["T_grid"], params["theta_grid"]):
+                knots_list.append({
+                    "date": pd.to_datetime(date),
+                    "T": T,
+                    "theta": th
+                })
+
+        df_globals = pd.DataFrame(globals_list).set_index("date")
+        df_knots = pd.DataFrame(knots_list).set_index("date")
+
+        return df_globals, df_knots
