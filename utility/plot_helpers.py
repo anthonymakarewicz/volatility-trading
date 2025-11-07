@@ -5,6 +5,10 @@ import matplotlib.gridspec as gridspec
 from config.constants import OPTION_TYPES
 
 
+###################
+# SKEW MISPRICING #
+###################
+
 def plot_iv_smiles(iv_smiles, ticker):
     plt.figure(figsize=(12, 6))
 
@@ -19,7 +23,6 @@ def plot_iv_smiles(iv_smiles, ticker):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 def plot_volume_filter(options, log_volumes):
     plt.figure(figsize=(10, 5))
@@ -38,7 +41,6 @@ def plot_volume_filter(options, log_volumes):
     plt.tight_layout()
     plt.show()
 
-
 def plot_bid_ask_filter(options):
     plt.figure(figsize=(10, 6))
 
@@ -55,7 +57,6 @@ def plot_bid_ask_filter(options):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 def plot_moneyness_filter(avg_vol):
     plt.figure(figsize=(12, 6))
@@ -79,7 +80,6 @@ def plot_moneyness_filter(avg_vol):
     plt.tight_layout()
     plt.show()
 
-
 def plot_synthetic_ivs(synthetic_skew):
     plt.figure(figsize=(12, 6))
     plt.plot(synthetic_skew.index, synthetic_skew['iv_put_30'], label='25Δ Put IV')
@@ -93,7 +93,6 @@ def plot_synthetic_ivs(synthetic_skew):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 def plot_norm_abs_skew(synthetic_skew):
     fig, ax1 = plt.subplots(figsize=(14, 5))
@@ -116,7 +115,6 @@ def plot_norm_abs_skew(synthetic_skew):
 
     plt.tight_layout()
     plt.show()
-
 
 def plot_skew_vs_spy(synthetic_skew, spy):
     fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
@@ -157,7 +155,6 @@ def plot_skew_vs_spy(synthetic_skew, spy):
     plt.tight_layout()
     plt.show()
 
-
 def plot_risk_reversal_payoff(spot_price=100, strike_put=95, strike_call=105, premium_put=3, premium_call=2):
     price_range = np.linspace(80, 120, 500)
 
@@ -178,7 +175,6 @@ def plot_risk_reversal_payoff(spot_price=100, strike_put=95, strike_call=105, pr
     plt.grid(True)
     plt.show()
 
-
 def plot_skew_signals(skew, signals, lower_threshold, upper_threshold, title="Skew with Entry/Exit Signals"):
     plt.figure(figsize=(14, 5))
     plt.plot(skew, label='Skew', color='blue')
@@ -198,7 +194,6 @@ def plot_skew_signals(skew, signals, lower_threshold, upper_threshold, title="Sk
     plt.legend()
     plt.tight_layout()
     plt.show()
-
 
 def plot_zscore_signals(z_score, signals, entry_threshold, exit_threshold,
                         title="Skew Z-Score with Entry/Exit Signals"):
@@ -225,7 +220,6 @@ def plot_zscore_signals(z_score, signals, entry_threshold, exit_threshold,
     plt.tight_layout()
     plt.show()
 
-
 def plot_skew_vs_zscore(synthetic_skew):
     fig, ax1 = plt.subplots(figsize=(14, 6))
 
@@ -249,7 +243,6 @@ def plot_skew_vs_zscore(synthetic_skew):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 def plot_boll_bands(synthetic_skew, signals):
     window = 60            # e.g. 60-day rolling
@@ -293,7 +286,6 @@ def plot_boll_bands(synthetic_skew, signals):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 def plot_zscore_signals_with_vix(z_score, signals, vix, entry_threshold, exit_threshold, title, vix_filter=20):
     fig, ax = plt.subplots(figsize=(14, 5))
@@ -356,7 +348,6 @@ def plot_zscore_signals_with_vix(z_score, signals, vix, entry_threshold, exit_th
     plt.tight_layout()
     plt.show()
 
-
 def plot_vix(vix, vix_threshold=20):
     plt.figure(figsize=(12, 6))
     plt.plot(vix, label="VIX", color="blue")
@@ -388,7 +379,6 @@ def plot_vix(vix, vix_threshold=20):
     plt.legend()
     plt.show()
 
-
 def plot_ivp(ivp, ivp_lower_threshold=30, ivp_higher_threshold=70):
     ivp = ivp.copy()
     ivp = ivp.dropna()
@@ -418,7 +408,6 @@ def plot_ivp(ivp, ivp_lower_threshold=30, ivp_higher_threshold=70):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 def plot_zscore_signals_with_ivp(
     z_score, signals, ivp, entry_threshold, exit_threshold, 
@@ -488,7 +477,6 @@ def plot_zscore_signals_with_ivp(
 
     plt.show()
 
-
 def plot_skew_percentile(skew_perc, lower_threshold=20, upper_threshold=80):
     skew_perc = skew_perc.copy().dropna()
 
@@ -526,7 +514,6 @@ def plot_skew_percentile(skew_perc, lower_threshold=20, upper_threshold=80):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 def plot_zscore_signals_with_skew_percentile(
     z_score, signals, skew_perc, entry_threshold, exit_threshold, 
@@ -590,7 +577,6 @@ def plot_zscore_signals_with_skew_percentile(
     plt.tight_layout()
     plt.show()
 
-
 def plot_eq_curve(mtm, sp500):
     # Align both series on the same date index
     sp500 = sp500.loc[mtm.index.min():mtm.index.max()]
@@ -623,7 +609,6 @@ def plot_eq_curve(mtm, sp500):
 
     plt.tight_layout()
     plt.show()
-
 
 def print_perf_metrics(trades, mtm, risk_free_rate=0.00, alpha=0.01):
     total_trades = len(trades)
@@ -666,7 +651,6 @@ def print_perf_metrics(trades, mtm, risk_free_rate=0.00, alpha=0.01):
     max_drawdown = drawdown.min()
     avg_drawdown = drawdown[drawdown < 0].mean()
 
-
     underwater = drawdown != 0
     durations = (underwater.groupby((~underwater).cumsum()).cumsum())
     max_drawdown_duration = durations.max() if not durations.empty else 0
@@ -698,7 +682,6 @@ def print_perf_metrics(trades, mtm, risk_free_rate=0.00, alpha=0.01):
     print("=" * 40)
     print(summary_by_contracts.to_string())
     print()
-
 
 def plot_full_performance(sp500, mtm_daily):
     import warnings
@@ -758,7 +741,6 @@ def plot_full_performance(sp500, mtm_daily):
 
     plt.show()
 
-
 def plot_pnl_attribution(daily_mtm):
     cumu = pd.DataFrame(index=daily_mtm.index)
     cumu['Total P&L'] = daily_mtm['equity'] - daily_mtm['equity'].iloc[0]
@@ -776,7 +758,6 @@ def plot_pnl_attribution(daily_mtm):
     plt.tight_layout()
     plt.show()
 
-
 def plot_stressed_pnl(stressed_mtm, daily_mtm, scenarios):
     fig, ax = plt.subplots(figsize=(12,5))
     ax.plot(daily_mtm['equity'], label='Actual Equity')
@@ -789,7 +770,6 @@ def plot_stressed_pnl(stressed_mtm, daily_mtm, scenarios):
     ax.legend()
     plt.tight_layout()
     plt.show()
-
 
 def print_stressed_risk_metrics(stressed_mtm, daily_mtm, alpha=0.01):
     daily_mtm = daily_mtm.copy()
@@ -826,7 +806,6 @@ def print_stressed_risk_metrics(stressed_mtm, daily_mtm, alpha=0.01):
     print(f"Stress VaR ({int((1-alpha)*100)}%)   : {stress_var:.2%}")
     print(f"Stress CVaR ({int((1-alpha)*100)}%)  : {stress_es:.2%}")
 
-
 def plot_smiles(iv_surf, dtes):
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharey=True)
     axes = axes.flatten()
@@ -841,6 +820,11 @@ def plot_smiles(iv_surf, dtes):
 
     plt.tight_layout()
     plt.show()
+
+
+#########################
+# VARIANCE RISK PRENIUM #
+#########################
 
 def plot_vrp(iv_atm, rv, vrp):
     fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
@@ -899,6 +883,83 @@ def plot_vrp_autocorr(vrp, lags=60):
     axes[1].set_title(f'VRP Partial Autocorrelation (up to {lags} lags)')
     axes[1].set_xlabel('Lags (trading days)')
     axes[1].set_ylabel('PACF')
+
+    plt.tight_layout()
+    plt.show()
+
+
+##################
+# RV FORECASTING #
+##################
+
+from scipy.stats import skew, kurtosis
+
+def plot_transform_demo(series, use_log=False, use_sqrt=False, winsorize=None):
+    """
+    Plot raw vs transformed distribution of a Series.
+
+    Parameters
+    ----------
+    series : pd.Series
+    use_log : bool, default False
+        If True, apply log(x) after optional winsorization / sqrt.
+    use_sqrt : bool, default False
+        If True, apply sqrt(x) after optional winsorization.
+        Values are clipped at 0 before sqrt.
+    winsorize : tuple (low_q, high_q) or None, default None
+        If not None, clip values between the given quantiles
+        before subsequent transforms.
+    """
+    raw = series.dropna().to_numpy()
+
+    transformed = raw.copy()
+    labels = []
+
+    # Winsorization
+    if winsorize is not None:
+        low_q, high_q = winsorize
+        q_low, q_high = np.quantile(transformed, [low_q, high_q])
+        transformed = np.clip(transformed, q_low, q_high)
+        labels.append(f"Winsor[{low_q:.3f},{high_q:.3f}]")
+
+    # Sqrt transform
+    if use_sqrt:
+        transformed = np.sqrt(np.clip(transformed, 0.0, None))
+        labels.append("sqrt")
+
+    # Log transform
+    if use_log:
+        transformed = np.log(np.clip(transformed, 1e-8, None))
+        labels.append("log")
+
+    tlabel = " + ".join(labels) if labels else "raw"
+
+    # stats
+    stats_raw = (skew(raw), kurtosis(raw))
+    stats_trans = (skew(transformed), kurtosis(transformed))
+
+    # plotting
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+    # raw
+    axes[0].hist(raw, bins=40, alpha=0.7, color="steelblue")
+    axes[0].set_title(f"Distribution of {series.name} (raw)")
+    axes[0].text(
+        0.95, 0.95,
+        f"Skew={stats_raw[0]:.2f}\nKurt={stats_raw[1]:.2f}",
+        transform=axes[0].transAxes, ha="right", va="top",
+        bbox=dict(facecolor="white", alpha=0.7),
+    )
+
+    # transformed
+    axes[1].hist(transformed, bins=40, alpha=0.7, color="darkorange")
+    axes[1].set_title(f"Distribution of {series.name} ({tlabel})")
+    axes[1].text(
+        0.95, 0.95,
+        f"Skew={stats_trans[0]:.2f}\nKurt={stats_trans[1]:.2f}",
+        transform=axes[1].transAxes, ha="right", va="top",
+        bbox=dict(facecolor="white", alpha=0.7),
+    )
 
     plt.tight_layout()
     plt.show()
