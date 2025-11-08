@@ -963,3 +963,31 @@ def plot_transform_demo(series, use_log=False, use_sqrt=False, winsorize=None):
 
     plt.tight_layout()
     plt.show()
+
+def plot_mean_std_importance(
+    ax, values, feature_names, title, top_n=20, abs_values=False
+):
+    """
+    Plot mean ± std importance on a given axis.
+    values: (n_folds, n_features)
+    """
+    vals = np.array(values)
+    if abs_values:
+        vals = np.abs(vals)
+
+    mean_imp = vals.mean(axis=0)
+    std_imp = vals.std(axis=0)
+
+    df = pd.DataFrame({
+        "feature": feature_names,
+        "mean": mean_imp,
+        "std": std_imp,
+    })
+
+    df = df.reindex(df["mean"].abs().sort_values(ascending=False).index)
+    df_top = df.head(top_n)
+
+    ax.barh(df_top["feature"], df_top["mean"], xerr=df_top["std"])
+    ax.invert_yaxis()
+    ax.set_xlabel("Mean importance" + (" (|value|)" if abs_values else ""))
+    ax.set_title(title)
