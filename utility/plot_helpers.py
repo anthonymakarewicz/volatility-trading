@@ -1055,3 +1055,147 @@ def plot_lasso_coef_paths(coefs, feature_names, top_n=10):
     plt.tight_layout()
     plt.show()
 
+
+def plot_cv_mse_comparison(scores_a, scores_b, label_a="Model A", label_b="Model B"):
+    """
+    scores_a, scores_b: cross_val_score outputs with scoring="neg_mean_squared_error"
+                        (one value per fold, negative MSE)
+    label_a, label_b: labels for the two specs
+    """
+    # convert to positive MSE
+    mse_a = -np.asarray(scores_a)
+    mse_b = -np.asarray(scores_b)
+    diff = mse_b - mse_a  # <0 → model B better
+
+    fold_idx = np.arange(len(mse_a))
+
+    print(f"Folds where {label_b} better:", (diff < 0).sum(), "/", len(diff))
+    print("Mean ΔMSE (B - A):", diff.mean())
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    # left: per-fold MSE
+    axes[0].plot(fold_idx, mse_a, "o-", label=label_a)
+    axes[0].plot(fold_idx, mse_b, "o-", label=label_b)
+    axes[0].set_xlabel("Fold")
+    axes[0].set_ylabel("MSE")
+    axes[0].set_title("Per-fold MSE")
+    axes[0].legend()
+
+    # right: difference
+    axes[1].axhline(0.0, color="k", linewidth=1)
+    axes[1].bar(fold_idx, diff)
+    axes[1].set_xlabel("Fold")
+    axes[1].set_ylabel("ΔMSE (B - A)")
+    axes[1].set_title("MSE difference per fold")
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_model_comparison_ts(y, y_pred_lin, y_pred_rf,
+                                     label_lin="HAR_RV_VIX",
+                                     label_rf="RF"):
+    """
+    y, y_hat_* : pandas Series with same index
+    """
+
+    # --- 1) Time-series overlay ---
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(y.index, y.values, label="True RV")
+    ax.plot(y_pred_lin.index, y_pred_lin.values, label=label_lin, alpha=0.8)
+    ax.plot(y_pred_rf.index, y_pred_rf.values, label=label_rf, alpha=0.8)
+    ax.set_title("True vs predicted 21D RV (2010-2020)")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("RV")
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
+
+def plot_model_comparison_scatter(y, y_pred_lin, y_pred_rf,
+                                label_lin="HAR_RV_VIX",
+                                label_rf="RF"):
+    """
+    1x3 scatter:
+      [0] True vs linear
+      [1] True vs RF
+      [2] RF vs linear
+    """
+    # align everything just in case
+    y, y_pred_lin = y.align(y_pred_lin, join="inner")
+    y, y_pred_rf = y.align(y_pred_rf, join="inner")
+    y_pred_lin, y_pred_rf = y_pred_lin.align(y_pred_rf, join="inner")
+
+    # common limits for true vs pred
+    vals_true_lin_rf = np.concatenate([y.values, y_pred_lin.values, y_pred_rf.values])
+    vmin = np.nanmin(vals_true_lin_rf)
+    vmax = np.nanmax(vals_true_lin_rf)
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4), sharex=False, sharey=False)
+
+    # 1) True vs linear
+    axes[0].scatter(y, y_pred_lin, s=10, alpha=0.6)
+    axes[0].plot([vmin, vmax], [vmin, vmax], lw=1)
+    axes[0].set_title(label_lin)
+    axes[0].set_xlabel("True RV")
+    axes[0].set_ylabel("Predicted RV")
+
+    # 2) True vs RF
+    axes[1].scatter(y, y_pred_rf, s=10, alpha=0.6)
+    axes[1].plot([vmin, vmax], [vmin, vmax], lw=1)
+    axes[1].set_title(label_rf)
+    axes[1].set_xlabel("True RV")
+    axes[1].set_ylabel("Predicted RV")
+
+    # 3) RF vs linear
+    x = y_pred_lin.values
+    z = y_pred_rf.values
+    vmin_p = np.nanmin(np.concatenate([x, z]))
+    vmax_p = np.nanmax(np.concatenate([x, z]))
+
+    axes[2].scatter(x, z, s=10, alpha=0.6)
+    axes[2].plot([vmin_p, vmax_p], [vmin_p, vmax_p], lw=1)
+    axes[2].set_title(f"{label_rf} vs {label_lin}")
+    axes[2].set_xlabel(f"{label_lin} predictions")
+    axes[2].set_ylabel(f"{label_rf} predictions")
+
+    plt.tight_layout()
+    plt.show()
+
+
+
+def eval_ensembles(y, y_lin, y_rf, weights):
+    """
+    y      : true values (Series)
+    y_lin  : CV preds from linear model (Series)
+    y_rf   : CV preds from RF model (Series)
+    weights: list of weights on linear model (w_lin),
+             RF gets (1 - w_lin)
+    """
+    # make sure everything is aligned
+    from sklearn.metrics import r2_score, mean_squared_error
+    
+    y, y_lin = y.align(y_lin, join="inner")
+    y, y_rf  = y.align(y_rf, join="inner")
+    y_lin, y_rf = y_lin.align(y_rf, join="inner")
+
+    print("Single models:")
+    for name, y_hat in [("Linear", y_lin), ("RF", y_rf)]:
+        resid = y - y_hat
+        print(
+            f"{name:6s} -> R2={r2_score(y, y_hat):.4f}, "
+            f"MSE={mean_squared_error(y, y_hat):.4e}, "
+            f"Var(res)={np.var(resid):.4e}"
+        )
+
+    print("\nEnsembles:")
+    for w in weights:
+        y_ens = w * y_lin + (1 - w) * y_rf
+        resid = y - y_ens
+        r2  = r2_score(y, y_ens)
+        mse = mean_squared_error(y, y_ens)
+        var_res = np.var(resid)
+        print(
+            f"w_lin={w:.2f}, w_rf={1-w:.2f} -> "
+            f"R2={r2:.4f}, MSE={mse:.4e}, Var(res)={var_res:.4e}"
+        )
