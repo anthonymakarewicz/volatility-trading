@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.base import BaseCrossValidator
+from sklearn.model_selection import BaseCrossValidator
 
 
 class PurgedKFold(BaseCrossValidator):

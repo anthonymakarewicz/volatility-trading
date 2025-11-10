@@ -991,3 +991,67 @@ def plot_mean_std_importance(
     ax.invert_yaxis()
     ax.set_xlabel("Mean importance" + (" (|value|)" if abs_values else ""))
     ax.set_title(title)
+
+def plot_purged_kfold_splits(cv, X, y):
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    import numpy as np
+
+    dates = X.index
+
+    plt.figure(figsize=(10, 3))
+    for fold, (tr, val) in enumerate(cv.split(X, y)):
+        y_level = fold
+        plt.scatter(dates[tr], np.full_like(tr, y_level),
+                    marker='s', s=4, label='train' if fold == 0 else None, c="blue")
+        plt.scatter(dates[val], np.full_like(val, y_level),
+                    marker='s', s=10, label='val' if fold == 0 else None, c="orange")
+
+    plt.yticks(range(cv.get_n_splits()), [f"Fold {k}" for k in range(cv.get_n_splits())])
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    plt.xlabel("Date")
+    plt.title("Purged K-Fold scheme (train vs validation over time)")
+    plt.legend(loc="upper right")
+    plt.tight_layout()
+    plt.show()
+
+def plot_lasso_coef_paths(coefs, feature_names, top_n=10):
+    """
+    Plot evolution of top-n Lasso coefficients across CV folds.
+
+    Parameters
+    ----------
+    coefs : array-like, shape (n_folds, n_features)
+        Lasso coefficients per fold.
+    feature_names : array-like, length n_features
+    top_n : int
+        Number of features to display (by mean |coef|).
+    """
+    coefs = np.asarray(coefs)
+    feature_names = np.asarray(feature_names)
+    n_folds, n_features = coefs.shape
+
+    # rank features by mean |coef|
+    mean_abs = np.abs(coefs).mean(axis=0)
+    idx = np.argsort(-mean_abs)[:top_n]
+
+    coefs_top = coefs[:, idx]
+    feats_top = feature_names[idx]
+
+    folds = np.arange(n_folds)
+
+    plt.figure(figsize=(10, 5))
+    for j, feat in enumerate(feats_top):
+        plt.plot(folds, coefs_top[:, j], marker="o", label=feat)
+
+    plt.axhline(0.0, color="black", linewidth=1, linestyle="--")
+    plt.xlabel("CV fold")
+    plt.ylabel("Coefficient value")
+    plt.title(f"Lasso coefficient paths across folds (top {top_n} by |β|)")
+    plt.xticks(folds, [f"{k}" for k in folds])
+    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.tight_layout()
+    plt.show()
+
