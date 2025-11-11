@@ -18,7 +18,7 @@ class WalkForwardOOS:
         window_years=5,
         expanding=False,
         rebal_freq="ME", # "ME" month-end, "MS" month-start, "W" weekly
-        purge_horizon=21,
+        purge_horizon=0, # days to purge before test window,
         min_train_samples=100,
     ):
         self.estimator = estimator
@@ -30,7 +30,6 @@ class WalkForwardOOS:
         self.purge_horizon = purge_horizon
         self.min_train_samples = min_train_samples
 
-
     def _make_rebal_dates(self, index):
         """
         Map calendar rebal dates to actual available index dates.
@@ -40,7 +39,7 @@ class WalkForwardOOS:
             self.end_backtest,
             freq=self.rebal_freq,
         )
-
+        
         idx = index.sort_values()
         rebal_dates = []
         for d in raw_rebals:
@@ -59,7 +58,10 @@ class WalkForwardOOS:
         """
         X = X.sort_index()
         y = y.sort_index()
-        X, y = X.align(y, join="inner")
+
+        idx = X.index.intersection(y.index)
+        X = X.loc[idx]
+        y = y.loc[idx]
 
         rebal_dates = self._make_rebal_dates(X.index)
         pred_frames = []
