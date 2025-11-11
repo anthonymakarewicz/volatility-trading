@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from sklearn.base import clone
 
 class WalkForwardOOS:
@@ -17,6 +18,7 @@ class WalkForwardOOS:
         window_years=5,
         expanding=False,
         rebal_freq="ME", # "ME" month-end, "MS" month-start, "W" weekly
+        purge_horizon=21,
         min_train_samples=100,
     ):
         self.estimator = estimator
@@ -25,7 +27,9 @@ class WalkForwardOOS:
         self.window_years = window_years
         self.expanding = expanding
         self.rebal_freq = rebal_freq
+        self.purge_horizon = purge_horizon
         self.min_train_samples = min_train_samples
+
 
     def _make_rebal_dates(self, index):
         """
@@ -46,7 +50,7 @@ class WalkForwardOOS:
             if pos >= 0:
                 rebal_dates.append(idx[pos])
 
-        return sorted(pd.unique(rebal_dates))
+        return sorted(np.unique(rebal_dates))
 
     def run(self, X, y):
         """
@@ -61,12 +65,14 @@ class WalkForwardOOS:
         pred_frames = []
 
         for i, t_rebal in enumerate(rebal_dates):
+            purge_end = t_rebal - pd.Timedelta(days=self.purge_horizon)
+
             # ----- train window -----
             if self.expanding:
-                train_mask = (X.index < t_rebal)
+                train_mask = (X.index < purge_end)
             else:
                 train_start = t_rebal - pd.DateOffset(years=self.window_years)
-                train_mask = (X.index >= train_start) & (X.index < t_rebal)
+                train_mask = (X.index >= train_start) & (X.index < purge_end)
 
             X_tr = X.loc[train_mask]
             y_tr = y.loc[train_mask]
