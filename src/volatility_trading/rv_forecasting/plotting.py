@@ -6,6 +6,37 @@ from scipy.stats import skew, kurtosis
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
 
+def plot_features_vs_target(X, y, log_features=None, figsize=(12, 6), cmap="viridis", nrows=None, ncols=None):
+    log_features = log_features or []
+
+    if not ncols:
+        n_cols = len(X.columns)
+        ncols = 2
+
+    if not nrows:
+        nrows = (n_cols + 1) // 2
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    axes = axes.flatten()
+
+    for ax, col in zip(axes, X.columns):
+        x = X[col].to_numpy()
+
+        if col in log_features:
+            x = np.log(x + 1e-8)  # small offset to avoid log(0)
+            x_label = f"log({col})"
+        else:
+            x_label = col
+
+        hb = ax.hexbin(x, y, gridsize=40, mincnt=1, cmap=cmap)
+        ax.set_title(f"{x_label} vs log(y)")
+        ax.set_xlabel(x_label)
+        ax.set_ylabel("log(y)")
+        fig.colorbar(hb, ax=ax, shrink=0.8)
+
+    plt.tight_layout()
+    plt.show()
+
 def plot_transform_demo(series, use_log=False, use_sqrt=False, winsorize=None):
     raw = series.dropna().to_numpy()
 
@@ -250,38 +281,6 @@ def plot_acf_pacf(series, lags=40, title=""):
 
     plot_pacf(series.dropna(), lags=lags, ax=axes[1], method="ywm")  # Yule-Walker-M estimator
     axes[1].set_title(f"PACF {title}")
-
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_features_vs_target(X, y, log_features=None, figsize=(12, 6), cmap="viridis", nrows=None, ncols=None):
-    log_features = log_features or []
-
-    if not ncols:
-        n_cols = len(X.columns)
-        ncols = 2
-
-    if not nrows:
-        nrows = (n_cols + 1) // 2
-
-    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-    axes = axes.flatten()
-
-    for ax, col in zip(axes, X.columns):
-        x = X[col].to_numpy()
-
-        if col in log_features:
-            x = np.log(x + 1e-8)  # small offset to avoid log(0)
-            x_label = f"log({col})"
-        else:
-            x_label = col
-
-        hb = ax.hexbin(x, y, gridsize=40, mincnt=1, cmap=cmap)
-        ax.set_title(f"{x_label} vs log(y)")
-        ax.set_xlabel(x_label)
-        ax.set_ylabel("log(y)")
-        fig.colorbar(hb, ax=ax, shrink=0.8)
 
     plt.tight_layout()
     plt.show()

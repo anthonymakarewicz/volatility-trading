@@ -1,5 +1,5 @@
 import numpy as np
-
+import pandas as pd
 
 
 def rv_close_to_close(returns, h=21, ann=252):

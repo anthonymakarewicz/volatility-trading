@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
+import yfinance as yf
 from .vol_estimators import rv_intraday
-
+from ..options.greeks import solve_strike_for_delta
+from .macro_features import create_macro_features
 
 def create_forward_target(daily_variance: pd.Series, horizon: int = 21) -> pd.Series:
     """
@@ -32,6 +34,178 @@ def create_har_lags(real_variance):
     })
     return X_har
 
+
+def create_iv_surface_predictors(options, iv_surface_model, params=None, r=0.0, q=0.0):
+    iv_features = []
+    T_30 = 30 / 252
+    T_60 = 60 / 252
+
+    for date, chain in options.groupby("date"):
+        # --- Underlying spot (ATM anchor) ---
+        S = float(chain["underlying_last"].iloc[0])
+
+        # --- Fit or restore the surface ---
+        if params is None or date not in params:
+            iv_surface_model.fit(chain)
+        else:
+            iv_surface_model.set_params({**params[date], "spot": S})
+
+        # --- ATM IVs ---
+        atm_iv_30d = iv_surface_model.implied_vol(S, T_30)
+        atm_iv_60d = iv_surface_model.implied_vol(S, T_60)
+
+        # --- 25Δ strikes (approx using ATM vol for the delta inversion) ---
+        # target deltas: put = -0.25, call = +0.25
+        K_put_25d = solve_strike_for_delta(
+            target_delta=-0.25,
+            S=S,
+            T=T_30,
+            sigma=atm_iv_30d,
+            option_type="put",
+            r=r,
+            q=q
+        )
+        K_call_25d = solve_strike_for_delta(
+            target_delta=0.25,
+            S=S,
+            T=T_30,
+            sigma=atm_iv_30d,
+            option_type="call",
+            r=r,
+            q=q
+        )
+
+        # --- 25Δ skew (downside - upside) ---
+        iv_put_25d = iv_surface_model.implied_vol(K_put_25d, T_30)
+        iv_call_25d = iv_surface_model.implied_vol(K_call_25d, T_30)
+        iv_skew = iv_put_25d - iv_call_25d
+
+        # --- Term structure slope (30D → 60D) ---
+        iv_ts = atm_iv_60d - atm_iv_30d
+
+        iv_features.append({
+            "date": date,
+            "atm_iv_30d": atm_iv_30d,
+            "iv_skew": iv_skew,
+            "iv_ts": iv_ts,
+        })
+
+    iv_features = pd.DataFrame(iv_features).set_index("date").sort_index()
+    return iv_features
+
+
+def overnight_return(df, rth_start="09:30", rth_end="16:00"):
+    """
+    df: 5-min ES OHLCV with DatetimeIndex (exchange timezone)
+    r_ov_t = log( Open_RTH_t / Close_RTH_{t-1} )
+    """
+    tod = df.index.strftime("%H:%M")
+    rth = df[(tod >= rth_start) & (tod <= rth_end)].copy()
+
+    # RTH open = first 'open' of the day, RTH close = last 'close' of the day
+    daily_open  = rth.groupby(rth.index.date)["open"].first()
+    daily_close = rth.groupby(rth.index.date)["close"].last()
+
+    daily_open.index  = pd.to_datetime(daily_open.index)
+    daily_close.index = pd.to_datetime(daily_close.index)
+
+    ov = np.log(daily_open / daily_close.shift(1))
+    ov.name = "overnight_ret"
+    return ov.dropna()
+
+
+def create_return_predictors(daily_returns: pd.Series, intraday_prices: pd.Series, h: int = 21) -> pd.DataFrame:
+    ret_features = pd.DataFrame(index=daily_returns.index)
+
+    # --- Overnight weekly overnihgt returns (jumps) ---
+    ret_features["overnight_ret"] = overnight_return(intraday_prices).rolling(5).mean()
+
+    # --- Volatility clustering ---
+    ret_features["abs_r"] = daily_returns.abs().rolling(5).mean()
+    ret_features["r2"] = daily_returns.pow(2).rolling(5).mean()
+
+    # --- Asymmetry / leverage ----
+    is_neg_ret = (daily_returns < 0).astype(int)
+    ret_features["neg_r2"] = (is_neg_ret * ret_features["r2"]).rolling(5).mean()
+
+    # --- Downside vs upside semivariance ---
+    rolling = daily_returns.rolling(h)
+    ret_features["down_var"] = rolling.apply(
+        lambda x: (np.minimum(x, 0.0) ** 2).mean(), raw=False
+    )
+    ret_features["up_var"] = rolling.apply(
+        lambda x: (np.maximum(x, 0.0) ** 2).mean(), raw=False
+    )
+
+    # --- Realized skewness & kurtosis ---
+    ret_features["skew"] = rolling.apply(lambda x: ((x / x.std())**3).mean(), raw=False)
+    ret_features["kurt"] = rolling.apply(lambda x: ((x / x.std())**4).mean(), raw=False)
+
+    return ret_features
+
+
+def create_market_features(start: str, end: str) -> pd.DataFrame:
+    vix = yf.download(["^VIX", "^VVIX"], start=start, end=end, auto_adjust=True, progress=False)[["Close"]]
+    vix.columns = [tkr.replace("^", "") for _, tkr in vix.columns]
+    vix = vix.rename(columns={"VIX": "VIX", "VVIX": "VVIX"}).sort_index()
+    return vix
+
+
+def feature_engineering(
+    X_core: pd.DataFrame,
+    window_short: int = 5,
+    window_long: int = 21,
+    ewma_alpha: float = 0.2,
+) -> pd.DataFrame:
+    """
+    Create X_eng features from economic predictors.
+    Returns ONLY the X_eng features (not X_core itself).
+    """
+    X = X_core.copy()
+    X_eng = {}
+
+    # -------------------------------------------------
+    # 1. Horizon-aligned smoothing (regime level)
+    # -------------------------------------------------
+    if "VIX" in X:
+        X_eng["VIX_rm5"]   = X["VIX"].rolling(window_short, min_periods=1).mean()
+        X_eng["VIX_rm21"]  = X["VIX"].rolling(window_long, min_periods=1).mean()
+        X_eng["VIX_ewma"]  = X["VIX"].ewm(alpha=ewma_alpha, adjust=False).mean()
+
+    if "RV_D" in X:
+        X_eng["RV_D_ewma"] = X["RV_D"].ewm(alpha=ewma_alpha, adjust=False).mean()
+
+    if "HY_OAS" in X:
+        X_eng["HY_OAS_ewma"] = X["HY_OAS"].ewm(alpha=ewma_alpha, adjust=False).mean()
+
+    # -------------------------------------------------
+    # 2. Regime shift / stress dynamics
+    # -------------------------------------------------
+    if "VIX" in X:
+        X_eng["dVIX_5d"] = X["VIX"] - X["VIX"].shift(window_short)
+
+    if "iv_skew" in X:
+        X_eng["dSkew_5d"] = X["iv_skew"] - X["iv_skew"].shift(window_short)
+
+    if "atm_iv_30d" in X and "RV_M" in X:
+        X_eng["iv_minus_realized"] = X["atm_iv_30d"] - X["RV_M"]
+
+    if "VVIX" in X and "VIX" in X:
+        X_eng["vvix_over_vix"] = X["VVIX"] / X["VIX"].replace(0, np.nan)
+
+    if "VIX" in X and "HY_OAS" in X:
+        X_eng["VIX_time_HY_OAS"] = X["VIX"] * X["HY_OAS"] 
+    
+    if "RV_D" in X:
+        X_eng["RV_D_rollvol5"] = X["RV_D"].rolling(5).std()
+        X_eng["RV_D_rollvol21"] = X["RV_D"].rolling(21).std()
+
+    # -------------------------------------------------
+    # 3. Assemble into DataFrame
+    # -------------------------------------------------
+    X_eng = pd.DataFrame(X_eng, index=X.index)
+
+    return X_eng
 
 
 def build_har_vix_dataset(es_5min, start=None, end=None, h=21):
