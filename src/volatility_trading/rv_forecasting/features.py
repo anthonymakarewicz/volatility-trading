@@ -5,6 +5,7 @@ from .vol_estimators import rv_intraday
 from ..options.greeks import solve_strike_for_delta
 from .macro_features import create_macro_features
 
+
 def create_forward_target(daily_variance: pd.Series, horizon: int = 21) -> pd.Series:
     """
     daily_variance: per-day realized variance (NOT sqrt, NOT annualized).
