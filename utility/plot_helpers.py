@@ -806,20 +806,6 @@ def print_stressed_risk_metrics(stressed_mtm, daily_mtm, alpha=0.01):
     print(f"Stress VaR ({int((1-alpha)*100)}%)   : {stress_var:.2%}")
     print(f"Stress CVaR ({int((1-alpha)*100)}%)  : {stress_es:.2%}")
 
-def plot_smiles(iv_surf, dtes):
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharey=True)
-    axes = axes.flatten()
-    titles = [f"{T}-day DTE" for T in dtes]
-
-    for ax, dte, title in zip(axes, dtes, titles):
-        iv_surf.plot_smile(
-            T=dte/252,
-            ax=ax
-        )
-        ax.set_title(title, fontsize=14)
-
-    plt.tight_layout()
-    plt.show()
 
 
 #########################
