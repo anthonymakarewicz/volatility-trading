@@ -1,14 +1,28 @@
+# MacOS
 .DS_Store
-OT6 Risk
-OT1
-OT2
-OT4
-Storing US Options Data.ipynb
-OT3
-OT Sentiment
+
+# Envs
+.env/
+.env
+
+# Packaging
+*.egg-info/
+dist/
+build/
+
+# Python
 __pycache__/
+*.pyc
+
+# Packaging
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data / temp
 data/
 temp/
-volatility_regime_detetction.ipynb
-.env
-.parquet
+*.parquet

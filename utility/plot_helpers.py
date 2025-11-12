@@ -1105,7 +1105,7 @@ def plot_model_comparison_ts(y, y_pred_1, y_pred_2,
     ax.plot(y.index, y.values, label="True RV")
     ax.plot(y_pred_1.index, y_pred_1.values, label=label_1, alpha=0.8)
     ax.plot(y_pred_2.index, y_pred_2.values, label=label_2, alpha=0.8)
-    ax.set_title("True vs predicted 21D RV (2010-2020)")
+    ax.set_title("True vs predicted 21D RV")
     ax.set_xlabel("Date")
     ax.set_ylabel("RV")
     ax.legend()
@@ -1131,7 +1131,7 @@ def plot_model_comparison_scatter(y, y_pred_1, y_pred_2,
     vmin = np.nanmin(vals_true_lin_rf)
     vmax = np.nanmax(vals_true_lin_rf)
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4), sharex=False, sharey=False)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4), sharex=False, sharey=False)
 
     # 1) True vs linear
     axes[0].scatter(y, y_pred_1, s=10, alpha=0.6)
@@ -1147,17 +1147,48 @@ def plot_model_comparison_scatter(y, y_pred_1, y_pred_2,
     axes[1].set_xlabel("True RV")
     axes[1].set_ylabel("Predicted RV")
 
-    # 3) RF vs linear
-    x = y_pred_1.values
-    z = y_pred_2.values
-    vmin_p = np.nanmin(np.concatenate([x, z]))
-    vmax_p = np.nanmax(np.concatenate([x, z]))
+    plt.tight_layout()
+    plt.show()
 
-    axes[2].scatter(x, z, s=10, alpha=0.6)
-    axes[2].plot([vmin_p, vmax_p], [vmin_p, vmax_p], lw=1)
-    axes[2].set_title(f"{label_2} vs {label_1}")
-    axes[2].set_xlabel(f"{label_1} predictions")
-    axes[2].set_ylabel(f"{label_2} predictions")
+def plot_acf_pacf(series, lags=40, title=""):
+    fig, axes = plt.subplots(1, 2, figsize=(14,4))
+
+    plot_acf(series.dropna(), lags=lags, ax=axes[0])
+    axes[0].set_title(f"ACF {title}")
+
+    plot_pacf(series.dropna(), lags=lags, ax=axes[1], method="ywm")  # Yule-Walker-M estimator
+    axes[1].set_title(f"PACF {title}")
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_features_vs_target(X, y, log_features=None, figsize=(12, 6), cmap="viridis", nrows=None, ncols=None):
+    log_features = log_features or []
+
+    if not ncols:
+        n_cols = len(X.columns)
+        ncols = 2
+
+    if not nrows:
+        nrows = (n_cols + 1) // 2
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    axes = axes.flatten()
+
+    for ax, col in zip(axes, X.columns):
+        x = X[col].to_numpy()
+
+        if col in log_features:
+            x = np.log(x + 1e-8)  # small offset to avoid log(0)
+            x_label = f"log({col})"
+        else:
+            x_label = col
+
+        hb = ax.hexbin(x, y, gridsize=40, mincnt=1, cmap=cmap)
+        ax.set_title(f"{x_label} vs log(y)")
+        ax.set_xlabel(x_label)
+        ax.set_ylabel("log(y)")
+        fig.colorbar(hb, ax=ax, shrink=0.8)
 
     plt.tight_layout()
     plt.show()
