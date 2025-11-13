@@ -6,7 +6,10 @@ from ..options.greeks import solve_strike_for_delta
 from .macro_features import create_macro_features
 
 
-def create_forward_target(daily_variance: pd.Series, horizon: int = 21) -> pd.Series:
+def create_forward_target(
+    daily_variance: pd.Series, 
+    horizon: int = 21
+) -> pd.Series:
     """
     daily_variance: per-day realized variance (NOT sqrt, NOT annualized).
                     index = trading days.
@@ -36,7 +39,13 @@ def create_har_lags(real_variance):
     return X_har
 
 
-def create_iv_surface_predictors(options, iv_surface_model, params=None, r=0.0, q=0.0):
+def create_iv_surface_predictors(  
+    options, 
+    iv_surface_model, 
+    params=None, 
+    r=0.0, 
+    q=0.0
+):
     iv_features = []
     T_30 = 30 / 252
     T_60 = 60 / 252

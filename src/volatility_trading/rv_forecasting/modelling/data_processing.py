@@ -80,12 +80,14 @@ class Winsorizer(BaseEstimator, TransformerMixin):
 
 
 class DataProcessor(BaseEstimator, TransformerMixin):
-    def __init__(self,
-                 log_features=None,
-                 sqrt_features=None,
-                 winsor_features=None,
-                 winsor_sqrt_features=None,
-                 scale=True):
+    def __init__(
+        self,
+        log_features=None,
+        sqrt_features=None,
+        winsor_features=None,
+        winsor_sqrt_features=None,
+        scale=True
+    ):
         """
         log_features: list of cols → log only
         sqrt_features: list of cols → sqrt only

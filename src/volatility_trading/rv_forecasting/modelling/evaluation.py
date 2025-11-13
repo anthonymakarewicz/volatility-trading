@@ -6,9 +6,16 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import cross_val_predict
 
 
-def eval_model_cv(    
-    name, base_estimator, features, 
-    X, y, cv, dp_kwargs, y_pred_bench=None,
+def eval_model_cv(
+    name: str,
+    base_estimator,
+    features,
+    X,
+    y,
+    cv,
+    dp_kwargs,
+    y_pred_bench=None,
+    n_jobs: int = -1,
 ):
     """
     Run CV for a model, compute metrics, optionally R2_oos vs a benchmark,
@@ -27,7 +34,7 @@ def eval_model_cv(
     y_pred = cross_val_predict(
         pipe, X_sub, y,
         cv=cv,
-        n_jobs=-1,
+        n_jobs=n_jobs,
     )
     y_pred = pd.Series(y_pred, index=y.index)
 
@@ -38,8 +45,15 @@ def eval_model_cv(
     return metrics, y_pred
 
 
-def eval_ensembles(y, y_pred_a, y_pred_b, weights, y_pred_bench=None,
-                   label_a="Model_A", label_b="Model_B"):
+def eval_ensembles(
+    y, 
+    y_pred_a, 
+    y_pred_b, 
+    weights, 
+    y_pred_bench=None,
+    label_a="Model_A", 
+    label_b="Model_B"
+):
     """
     Evaluate linear ensembles of two prediction series.
 
