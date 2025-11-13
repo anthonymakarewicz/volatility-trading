@@ -2,29 +2,40 @@ import py7zr
 import pandas as pd
 import shutil
 import numpy as np
-import os
 
 from pathlib import Path
 from pandas.tseries.offsets import BMonthEnd
+from pandas.errors import EmptyDataError
 
 
-def extract_7z_and_load(csv_path):
-    with py7zr.SevenZipFile(csv_path, mode='r') as archive:
-        archive.extractall(path='tmp')
+def extract_7z_and_load(archive_path, low_memory=True):
+    archive_path = Path(archive_path)
 
-    extracted_files = list(Path('tmp').glob("*"))
+    # tmp folder next to the archive, under a dedicated _tmp_extract
+    tmp_root = archive_path.parent / "_tmp_extract"
+    tmp_dir = tmp_root / archive_path.stem
+
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+
+    with py7zr.SevenZipFile(archive_path, mode="r") as archive:
+        archive.extractall(path=tmp_dir)
+
     all_dfs = []
-    for file in extracted_files:
-
+    for file in tmp_dir.glob("*.txt"):
+        if file.stat().st_size == 0:
+            print(f"Skipping empty file: {file}")
+            continue
         print(f"Reading {file}")
-        df = pd.read_csv(file, sep=",")
+        df = pd.read_csv(file, low_memory=low_memory)
         all_dfs.append(df)
 
-    shutil.rmtree('tmp', ignore_errors=True)
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
     return pd.concat(all_dfs, ignore_index=True)
 
 
-def load_options(root, start_year=2012, end_year=2022):
+def load_options(root, start_year=2012, end_year=2022, low_memory=True):
     raw_root = Path(root)
     all_dfs = []
     #os.chdir(root)
@@ -42,7 +53,7 @@ def load_options(root, start_year=2012, end_year=2022):
         print(f"Processing year: {year}")
         for archive in sorted(year_dir.glob("*.7z")):
             print(f"  ➤ Extracting {archive.name}")
-            df = extract_7z_and_load(archive)
+            df = extract_7z_and_load(archive, low_memory=low_memory)
             all_dfs.append(df)
 
     df = pd.concat(all_dfs, ignore_index=True)
@@ -188,6 +199,36 @@ def extract_eom_options(df: pd.DataFrame) -> pd.DataFrame:
     return eom_df
 
 
-def extract_options():
-    # TODO: Create a funciton that all the options's extraction in one fucntion call
-    pass
+def prepare_option_panel(
+    raw_root: str | Path,
+    output_path: str | Path,
+    start_year: int = 2012,
+    end_year: int = 2022,
+    low_memory=False
+) -> Path:
+    """
+    End-to-end helper:
+      - load raw .7z files from raw_root/[year]/
+      - clean & reshape long->wide
+      - save a single Parquet file at output_path
+
+    Returns
+    -------
+    Path to the saved Parquet file.
+    """
+    raw_root = Path(raw_root)
+    output_path = Path(output_path)
+
+    df = load_options(
+        raw_root, 
+        start_year=start_year, 
+        end_year=end_year, 
+        low_memory=low_memory
+    )
+    df = clean_data(df)
+    df = reshape_options_long_to_wide(df)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(output_path)
+
+    return output_path
