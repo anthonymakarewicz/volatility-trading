@@ -37,7 +37,47 @@ def plot_features_vs_target(X, y, log_features=None, figsize=(12, 6), cmap="viri
     plt.tight_layout()
     plt.show()
 
-def plot_transform_demo(series, use_log=False, use_sqrt=False, winsorize=None):
+
+def plot_feature_histograms(X, bins=40, figsize=(12, 5), nrows=None, ncols=None):
+    X_df = pd.DataFrame(X)
+    cols = X_df.columns
+    n_features = len(cols)
+
+    if ncols is None:
+        ncols = min(4, n_features)
+    if nrows is None:
+        nrows = int(np.ceil(n_features / ncols))
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    axes = np.atleast_1d(axes).flatten()
+
+    for ax, col in zip(axes, cols):
+        data = X_df[col].dropna().to_numpy()
+        ax.hist(data, bins=bins, alpha=0.7)
+
+        sk = skew(data)
+        kt = kurtosis(data)
+
+        ax.set_title(col)
+        ax.tick_params(axis="both", labelsize=8)
+
+        ax.text(
+            0.97, 0.97,
+            f"Skew={sk:.2f}\nKurt={kt:.2f}",
+            transform=ax.transAxes,
+            ha="right", va="top",
+            bbox=dict(facecolor="white", alpha=0.7),
+        )
+
+    # hide unused axes if any
+    for ax in axes[len(cols):]:
+        ax.set_visible(False)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_hist_transform(series, use_log=False, use_sqrt=False, winsorize=None):
     raw = series.dropna().to_numpy()
 
     transformed = raw.copy()
@@ -67,7 +107,7 @@ def plot_transform_demo(series, use_log=False, use_sqrt=False, winsorize=None):
     stats_trans = (skew(transformed), kurtosis(transformed))
 
     # plotting
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(8, 3))
 
     # raw
     axes[0].hist(raw, bins=40, alpha=0.7, color="steelblue")
@@ -92,41 +132,48 @@ def plot_transform_demo(series, use_log=False, use_sqrt=False, winsorize=None):
     plt.tight_layout()
     plt.show()
 
-
 def plot_mean_std_importance(
-    ax, values, feature_names, title, top_n=20, abs_values=False
+    df,
+    value_col="mean",
+    std_col="std",
+    feature_col="feature",
+    title="",
+    top_n=20,
+    sort_abs=True,
+    abs_values=False,
+    figsize=(8, 5),
 ):
-    """
-    Plot mean ± std importance on a given axis.
-    values: (n_folds, n_features)
-    """
-    vals = np.array(values)
+    data = df.copy()
+
+    # sort
+    if sort_abs:
+        data = data.reindex(
+            data[value_col].abs().sort_values(ascending=False).index
+        )
+    else:
+        data = data.sort_values(value_col, ascending=False)
+
+    data = data.head(top_n)
+
+    vals = data[value_col].values
     if abs_values:
         vals = np.abs(vals)
 
-    mean_imp = vals.mean(axis=0)
-    std_imp = vals.std(axis=0)
-
-    df = pd.DataFrame({
-        "feature": feature_names,
-        "mean": mean_imp,
-        "std": std_imp,
-    })
-
-    df = df.reindex(df["mean"].abs().sort_values(ascending=False).index)
-    df_top = df.head(top_n)
-
-    ax.barh(df_top["feature"], df_top["mean"], xerr=df_top["std"])
-    ax.invert_yaxis()
-    ax.set_xlabel("Mean importance" + (" (|value|)" if abs_values else ""))
-    ax.set_title(title)
+    plt.figure(figsize=figsize)
+    plt.barh(
+        data[feature_col],
+        vals,
+        xerr=data[std_col].values,
+    )
+    plt.gca().invert_yaxis()
+    plt.xlabel("Mean importance" + (" (|value|)" if abs_values else ""))
+    plt.title(title)
+    plt.tight_layout()
+    plt.show()
 
 
 def plot_purged_kfold_splits(cv, X, y):
-    import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
-    import numpy as np
-
     dates = X.index
 
     plt.figure(figsize=(10, 3))
@@ -148,32 +195,30 @@ def plot_purged_kfold_splits(cv, X, y):
     plt.show()
 
 
-def plot_lasso_coef_paths(coefs, feature_names, top_n=10):
-    """
-    Plot evolution of top-n Lasso coefficients across CV folds.
-
-    Parameters
-    ----------
-    coefs : array-like, shape (n_folds, n_features)
-        Lasso coefficients per fold.
-    feature_names : array-like, length n_features
-    top_n : int
-        Number of features to display (by mean |coef|).
-    """
+def plot_lasso_coef_paths(
+    coefs,
+    feature_names,
+    top_n=10,
+    folds=None,
+    figsize=(10, 5),
+):
     coefs = np.asarray(coefs)
     feature_names = np.asarray(feature_names)
     n_folds, n_features = coefs.shape
 
+    if folds is None:
+        folds = np.arange(n_folds)
+    else:
+        folds = np.asarray(folds)
+
     # rank features by mean |coef|
     mean_abs = np.abs(coefs).mean(axis=0)
-    idx = np.argsort(-mean_abs)[:top_n]
+    idx_top = np.argsort(-mean_abs)[:top_n]
 
-    coefs_top = coefs[:, idx]
-    feats_top = feature_names[idx]
+    coefs_top = coefs[:, idx_top]
+    feats_top = feature_names[idx_top]
 
-    folds = np.arange(n_folds)
-
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=figsize)
     for j, feat in enumerate(feats_top):
         plt.plot(folds, coefs_top[:, j], marker="o", label=feat)
 
@@ -181,7 +226,7 @@ def plot_lasso_coef_paths(coefs, feature_names, top_n=10):
     plt.xlabel("CV fold")
     plt.ylabel("Coefficient value")
     plt.title(f"Lasso coefficient paths across folds (top {top_n} by |β|)")
-    plt.xticks(folds, [f"{k}" for k in folds])
+    plt.xticks(folds, [str(k) for k in folds])
     plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
     plt.tight_layout()
     plt.show()
