@@ -1,18 +1,29 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import matplotlib.dates as mdates
 
 from scipy.stats import skew, kurtosis
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
 
-def plot_features_vs_target(X, y, log_features=None, figsize=(12, 6), cmap="viridis", nrows=None, ncols=None):
+def plot_features_vs_target(
+    X,
+    y,
+    log_features=None,
+    sqrt_features=None,
+    figsize=(12, 6),
+    cmap="viridis",
+    nrows=None,
+    ncols=None,
+):
     log_features = log_features or []
+    sqrt_features = sqrt_features or []
 
+    # layout
     if not ncols:
         n_cols = len(X.columns)
         ncols = 2
-
     if not nrows:
         nrows = (n_cols + 1) // 2
 
@@ -22,9 +33,13 @@ def plot_features_vs_target(X, y, log_features=None, figsize=(12, 6), cmap="viri
     for ax, col in zip(axes, X.columns):
         x = X[col].to_numpy()
 
+        # choose transform / label
         if col in log_features:
             x = np.log(x + 1e-8)  # small offset to avoid log(0)
             x_label = f"log({col})"
+        elif col in sqrt_features:
+            x = np.sqrt(np.clip(x, 0.0, None))
+            x_label = f"sqrt({col})"
         else:
             x_label = col
 
@@ -34,6 +49,39 @@ def plot_features_vs_target(X, y, log_features=None, figsize=(12, 6), cmap="viri
         ax.set_ylabel("log(y)")
         fig.colorbar(hb, ax=ax, shrink=0.8)
 
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_macro_block(X_macro: pd.DataFrame):
+    """
+    Quick overview of macro predictors:
+    - Top: Treasury yields (levels)
+    - Bottom: Term spread + credit spreads
+    """
+    cols_rates = [c for c in ["DGS10", "DGS2", "DGS3MO"] if c in X_macro.columns]
+    cols_spreads = [c for c in ["term_spread_10y_3m", "HY_OAS", "IG_OAS"] if c in X_macro.columns]
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
+
+    # 1) Yields
+    if cols_rates:
+        X_macro[cols_rates].plot(ax=axes[0], lw=1.3)
+        axes[0].set_title("Treasury Yields")
+        axes[0].set_ylabel("%")
+        axes[0].grid(alpha=0.3, linestyle="--")
+
+    # 2) Spreads
+    if cols_spreads:
+        X_macro[cols_spreads].plot(ax=axes[1], lw=1.3)
+        axes[1].set_title("Term & Credit Spreads")
+        axes[1].set_ylabel("% / bps")
+        axes[1].grid(alpha=0.3, linestyle="--")
+
+    # x-axis formatting (years)
+    axes[1].set_xlabel("Date")
+    axes[1].xaxis.set_major_locator(mdates.YearLocator())
+    axes[1].xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     plt.tight_layout()
     plt.show()
 
@@ -77,7 +125,7 @@ def plot_feature_histograms(X, bins=40, figsize=(12, 5), nrows=None, ncols=None)
     plt.show()
 
 
-def plot_hist_transform(series, use_log=False, use_sqrt=False, winsorize=None):
+def plot_hist_transform(series, use_log=False, use_sqrt=False, winsorize=None, figsize=(8, 3)):
     raw = series.dropna().to_numpy()
 
     transformed = raw.copy()
@@ -107,7 +155,7 @@ def plot_hist_transform(series, use_log=False, use_sqrt=False, winsorize=None):
     stats_trans = (skew(transformed), kurtosis(transformed))
 
     # plotting
-    fig, axes = plt.subplots(1, 2, figsize=(8, 3))
+    fig, axes = plt.subplots(1, 2, figsize=figsize)
 
     # raw
     axes[0].hist(raw, bins=40, alpha=0.7, color="steelblue")
