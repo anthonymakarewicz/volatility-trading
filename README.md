@@ -15,7 +15,7 @@ We build a **21-day realized variance** forecasting model on ES futures (2010–
 
 Before model selection, we run a **feature-importance & stability analysis** (SFI, Lasso, RF, permutation importance) to keep only **parsimonious, economically sensible** predictors for the linear and RF models.
 
-![alt text](image-3.png)
+![Feature Importance Linear](plots/fi_linear.png)
 
 ---
 
@@ -23,14 +23,14 @@ Before model selection, we run a **feature-importance & stability analysis** (SF
 
 All metrics are computed on **log 21D RV**, using an expanding walk-forward with **3-year rolling re-fit** and a **21-day purge**.
 
-| model      |   $R²$    |   MSE    |  QLIKE   | Var_res | $R²_{oos}$|
+| model      |   R²    |   MSE    |  QLIKE   | Var_res | R²_oos|
 |:----------|:-------:|:--------:|:--------:|:-------:|:------:|
 | Naive_RV  | 0.0943  | 0.5078   | 0.2791   | 0.5080  | 0.0000 |
 | HAR-RV    | 0.2920  | 0.3970   | 0.2086   | 0.3920  | 0.2182 |
 | HAR-RV-VIX| 0.3676  | 0.3546   | 0.1788   | 0.3549  | 0.3017 |
 
 
-![alt text](image-2.png)
+![alt text](plots/rv_oos_perf.png)
 
 ---
 
@@ -52,6 +52,30 @@ All metrics are computed on **log 21D RV**, using an expanding walk-forward with
 
 ## **Skew Volatility Trading (30 DTE / 25 Δ)**
 
+Trade the 30-day to expiry, 25 Delta SPX put–call skew via a delta-hedged risk reversal:
+
+- **Synthetic Skew**  
+  – Interpolate across expiries to build a continuous “30 DTE / 25 Δ” skew series.  
+
+- **Entry / Exit**  
+  – **Short RR** when skew z-score ≥ 1.5 (too steep)  
+  – **Long RR** when skew z-score ≤ –1.5 (too flat)  
+  – **Exit** when |z-score| ≤ 0.5  
+
+![Abs vs Norm Skew](plots/abs_vs_norm_skew.png)
+
+---
+
+### **Signal Filters**
+- **VIX Filter:** Block entries if VIX > 30  
+- **IV Percentile:** Trade only when ATM IV is within its 20–80 historical percentile  
+- **Skew Percentile:** Trade only when skew is below its 30th (for longs) or above its 70th (for shorts) percentile  
+
+![Skew Z-score](plots/z_score_signal_vix_filter.png)
+
+---
+
+### Backtest Overview
 We run a walk-forward backtest on daily SPX options (2016 – 2023), starting with \$100 000 of capital.
 
 ### Configuration
