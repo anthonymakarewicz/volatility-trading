@@ -264,7 +264,7 @@ def plot_lasso_coef_paths(
     idx_top = np.argsort(-mean_abs)[:top_n]
 
     coefs_top = coefs[:, idx_top]
-    feats_top = feature_names[idx_top]
+    feats_top = feature_names[:top_n]
 
     plt.figure(figsize=figsize)
     for j, feat in enumerate(feats_top):
