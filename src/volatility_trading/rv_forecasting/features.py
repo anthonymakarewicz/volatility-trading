@@ -104,6 +104,11 @@ def create_iv_surface_predictors(
     return iv_features
 
 
+def intraday_log_returns(prices: pd.Series) -> pd.Series:
+    """Simple helper: log-returns of an intraday price series."""
+    return np.log(prices).diff()
+
+
 def overnight_return(df, rth_start="09:30", rth_end="16:00"):
     """
     df: 5-min ES OHLCV with DatetimeIndex (exchange timezone)
@@ -112,7 +117,7 @@ def overnight_return(df, rth_start="09:30", rth_end="16:00"):
     tod = df.index.strftime("%H:%M")
     rth = df[(tod >= rth_start) & (tod <= rth_end)].copy()
 
-    # RTH open = first 'open' of the day, RTH close = last 'close' of the day
+    # RTH open = first 'open' of the day, RTH close = last 'close'
     daily_open  = rth.groupby(rth.index.date)["open"].first()
     daily_close = rth.groupby(rth.index.date)["close"].last()
 
@@ -124,21 +129,59 @@ def overnight_return(df, rth_start="09:30", rth_end="16:00"):
     return ov.dropna()
 
 
-def create_return_predictors(daily_returns: pd.Series, intraday_prices: pd.Series, h: int = 21) -> pd.DataFrame:
+def realized_skew_kurt_intraday(
+        intraday_returns: pd.Series
+    ) -> pd.DataFrame:
+    # group by calendar day
+    g = intraday_returns.groupby(intraday_returns.index.date)
+
+    out = []
+    for day, r in g:
+        r = r.dropna().to_numpy()
+        N = len(r)
+        if N == 0:
+            rsk = np.nan
+            rku = np.nan
+        else:
+            s2 = np.sum(r**2)
+            s3 = np.sum(r**3)
+            s4 = np.sum(r**4)
+
+            if s2 <= 0:
+                rsk = np.nan
+                rku = np.nan
+            else:
+                rsk = np.sqrt(N) * s3 / (s2 ** 1.5)   # RSK_t
+                rku = N * s4 / (s2 ** 2)             # RKU_t
+
+        out.append((pd.to_datetime(day), rsk, rku))
+
+    df = pd.DataFrame(out, columns=["date", "rsk", "rku"]).set_index("date").sort_index()
+    return df
+
+
+def create_return_predictors(
+        daily_returns: pd.Series, 
+        intraday_prices: pd.Series, 
+        h: int = 21, 
+        rth_start="09:30", 
+        rth_end="16:00"
+    ) -> pd.DataFrame:
     ret_features = pd.DataFrame(index=daily_returns.index)
 
-    # --- Overnight weekly overnihgt returns (jumps) ---
-    ret_features["overnight_ret"] = overnight_return(intraday_prices).rolling(5).mean()
+    # ---------- 1) Overnight jumps (RTH close -> next RTH open) ----------
+    ov = overnight_return(intraday_prices, rth_start=rth_start, rth_end=rth_end)
+    ret_features["overnight_ret"] = ov.reindex(ret_features.index).rolling(5).mean()
 
-    # --- Volatility clustering ---
+    # ---------- 2) Volatility clustering from daily returns ----------
     ret_features["abs_r"] = daily_returns.abs().rolling(5).mean()
     ret_features["r2"] = daily_returns.pow(2).rolling(5).mean()
 
-    # --- Asymmetry / leverage ----
+    # ---------- 3) Asymmetry / leverage ----------
     is_neg_ret = (daily_returns < 0).astype(int)
-    ret_features["neg_r2"] = (is_neg_ret * ret_features["r2"]).rolling(5).mean()
+    ret_features["neg_r2"] = (is_neg_ret * daily_returns.pow(2)).rolling(5).mean()
 
-    # --- Downside vs upside semivariance ---
+    # ---------- 4) Downside / upside semivariance over horizon h ----------
     rolling = daily_returns.rolling(h)
     ret_features["down_var"] = rolling.apply(
         lambda x: (np.minimum(x, 0.0) ** 2).mean(), raw=False
@@ -147,9 +190,13 @@ def create_return_predictors(daily_returns: pd.Series, intraday_prices: pd.Serie
         lambda x: (np.maximum(x, 0.0) ** 2).mean(), raw=False
     )
 
-    # --- Realized skewness & kurtosis ---
-    ret_features["skew"] = rolling.apply(lambda x: ((x / x.std())**3).mean(), raw=False)
-    ret_features["kurt"] = rolling.apply(lambda x: ((x / x.std())**4).mean(), raw=False)
+    # ---------- 5) Realized skewness & kurtosis from intraday RTH ----------
+    tod = intraday_prices.index.strftime("%H:%M")
+    rth_prices = intraday_prices.loc[(tod >= rth_start) & (tod <= rth_end), "close"]
+    intraday_returns = intraday_log_returns(rth_prices)
+    daily_moments = realized_skew_kurt_intraday(intraday_returns)
+    daily_roll_moments = daily_moments.rolling(21).mean()
+    ret_features = ret_features.join(daily_roll_moments, how="left")
 
     return ret_features
 
@@ -237,7 +284,7 @@ def build_har_vix_dataset(es_5min, start=None, end=None, h=21):
     feat_start = y.index.min()
     feat_end   = y.index.max()
 
-    X_vix = create_market_features(start=feat_start, end=feat_end)[["VIX"]]
+    X_vix = create_market_features(start=feat_start, end=feat_end)#[["VIX"]]
     X_vix = X_vix.reindex(y.index).ffill()
 
     X = pd.concat([X_har, X_vix], axis=1)

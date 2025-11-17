@@ -317,9 +317,21 @@ def plot_cv_mse_comparison(scores_a, scores_b, label_a="Model A", label_b="Model
     plt.show()
 
 
-def plot_model_comparison_ts(y, y_pred_1, y_pred_2,
-                                     label_1,
-                                     label_2):
+import matplotlib.pyplot as plt
+
+def plot_model_comparison_ts(y,
+                             y_pred_1,
+                             y_pred_2,
+                             label_1,
+                             label_2,
+                             start=None,
+                             end=None):
+    # Restrict to window if start/end are provided
+    if start is not None or end is not None:
+        y = y.loc[start:end]
+        y_pred_1 = y_pred_1.loc[start:end]
+        y_pred_2 = y_pred_2.loc[start:end]
+
     # --- 1) Time-series overlay ---
     fig, ax = plt.subplots(figsize=(12, 4))
     ax.plot(y.index, y.values, label="True RV")

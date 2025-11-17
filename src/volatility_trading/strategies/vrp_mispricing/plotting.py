@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
 
@@ -6,7 +7,7 @@ def plot_vrp(iv_atm, rv, vrp):
     fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
     # Plot IV and RV
-    axes[0].plot(iv_atm.index, iv_atm['iv_atm'], label='30D ATM IV', color='tab:blue')
+    axes[0].plot(iv_atm.index, iv_atm, label='30D ATM IV', color='tab:blue')
     axes[0].plot(rv.index, rv, label='21D Realized Vol', color='tab:orange')
     axes[0].set_ylabel('Volatility (%)')
     axes[0].legend()
