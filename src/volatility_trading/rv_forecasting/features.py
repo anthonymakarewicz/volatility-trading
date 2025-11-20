@@ -4,7 +4,7 @@ import yfinance as yf
 from .vol_estimators import rv_intraday
 from ..options.greeks import solve_strike_for_delta
 from .macro_features import create_macro_features
-
+from typing import Optional, Tuple
 
 def create_forward_target(
     daily_variance: pd.Series, 
@@ -268,6 +268,61 @@ def feature_engineering(
     return X_eng
 
 
+def build_naive_targets(
+    rv_m: pd.Series,
+    iv_atm: Optional[pd.Series] = None,
+) -> Tuple[pd.Series, Optional[pd.Series]]:
+    """
+    Build naive benchmarks on the *same index* as rv_m:
+
+      - Naive RV: log(monthly realized variance RV_M)
+      - Naive IV: log( (ATM 30D IV^2) / 252 )   [optional]
+
+    Parameters
+    ----------
+    rv_m : pd.Series
+        Monthly realized variance (already on variance scale).
+    iv_atm : pd.Series or None, optional
+        ATM 30D implied vol (annualised). If None, only Naive RV is built.
+
+    Returns
+    -------
+    y_naive_rv : pd.Series
+        log(RV_M) on rv_m's index.
+    y_naive_iv : pd.Series or None
+        log( (IV_30D^2)/252 ) aligned to rv_m, or None if iv_atm is None.
+    """
+    # ensure Series and drop any obvious NaNs
+    rv_m = rv_m.squeeze().dropna()
+
+    # --- Naive RV: monthly realized variance, already on variance scale ---
+    y_naive_rv = np.log(rv_m)
+    y_naive_rv.name = "log_fwd_var_naive_rv"
+
+    # --- No IV case: RV-only benchmark ---
+    if iv_atm is None:
+        return y_naive_rv, None
+
+    # --- IV case: align indices and build IV-based benchmark ---
+    iv_atm = iv_atm.squeeze().dropna()
+
+    # align to the common index (safety)
+    idx = rv_m.index.intersection(iv_atm.index)
+    rv_m_aligned = rv_m.loc[idx]
+    iv_atm_aligned = iv_atm.loc[idx]
+
+    # rebuild RV naive on aligned index (so both outputs line up)
+    y_naive_rv = np.log(rv_m_aligned)
+    y_naive_rv.name = "log_fwd_var_naive_rv"
+
+    # Naive IV: ATM 30D implied vol (annualised) -> daily variance -> log
+    var_daily_iv = (iv_atm_aligned ** 2) / 252.0
+    y_naive_iv = np.log(var_daily_iv)
+    y_naive_iv.name = "log_fwd_var_naive_iv"
+
+    return y_naive_rv, y_naive_iv
+
+
 def build_har_vix_dataset(es_5min, start=None, end=None, h=21):
     # 1) daily RV
     daily_rv = rv_intraday(es_5min["close"])
@@ -287,7 +342,7 @@ def build_har_vix_dataset(es_5min, start=None, end=None, h=21):
     feat_start = y.index.min()
     feat_end   = y.index.max()
 
-    X_vix = create_market_features(start=feat_start, end=feat_end)#[["VIX"]]
+    X_vix = create_market_features(start=feat_start, end=feat_end)[["VIX"]]
     X_vix = X_vix.reindex(y.index).ffill()
 
     X = pd.concat([X_har, X_vix], axis=1)

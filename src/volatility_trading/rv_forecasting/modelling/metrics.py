@@ -29,8 +29,8 @@ def compute_metrics(y_true, y_pred, y_pred_bench=None):
     """
     Convenience helper: standard R², MSE, QLIKE.
     """
-    y_true = np.asarray(y_true)
-    y_pred = np.asarray(y_pred)
+    y_true = np.asarray(y_true, dtype=float).ravel()
+    y_pred = np.asarray(y_pred, dtype=float).ravel()
     res = y_true - y_pred
 
     out = {
