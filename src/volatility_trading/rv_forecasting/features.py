@@ -202,9 +202,12 @@ def create_return_predictors(
 
 
 def create_market_features(start: str, end: str) -> pd.DataFrame:
-    vix = yf.download(["^VIX", "^VVIX"], start=start, end=end, auto_adjust=True, progress=False)[["Close"]]
+    tickers = ["^VIX", "^VVIX", "^VIX3M"]
+    vix = yf.download(tickers, start=start, end=end, auto_adjust=True, progress=False)[["Close"]]
     vix.columns = [tkr.replace("^", "") for _, tkr in vix.columns]
-    vix = vix.rename(columns={"VIX": "VIX", "VVIX": "VVIX"}).sort_index()
+    #vix = vix.rename(columns={"VIX": "VIX", "VVIX": "VVIX"}).sort_index()
+    vix["vix_ts"] = vix["VIX3M"] - vix["VIX"]
+    vix = vix.drop("VIX3M", axis=1)
     return vix
 
 
