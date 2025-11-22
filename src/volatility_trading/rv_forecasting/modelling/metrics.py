@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error
 
 
@@ -29,6 +30,7 @@ def compute_metrics(y_true, y_pred, y_pred_bench=None):
     """
     Convenience helper: standard R², MSE, QLIKE.
     """
+    import pandas as pd
     y_true = np.asarray(y_true, dtype=float).ravel()
     y_pred = np.asarray(y_pred, dtype=float).ravel()
     res = y_true - y_pred
@@ -46,3 +48,52 @@ def compute_metrics(y_true, y_pred, y_pred_bench=None):
         out["R2_oos"] = 0.0  # for the benchmark itself
 
     return out
+
+
+def compute_subperiod_metrics(perf, subperiods):
+    """
+    Compute metrics for HAR-RV-VIX and Naive IV on each sub-period,
+    always using Naive RV as the benchmark in R2_oos.
+
+    Parameters
+    ----------
+    perf : DataFrame
+        Must contain columns: ['y_true', 'har_vix', 'naive_iv', 'naive_rv']
+    subperiods : list of (start, end, label)
+        e.g. [("2010-01-01", "2012-12-31", "2010–2012"), ...]
+
+    Returns
+    -------
+    DataFrame indexed by [period, model] with all metrics
+    returned by `compute_metrics` (R2, MSE, QLIKE, Var_res, R2_oos, ...).
+    """
+    import pandas as pd
+    
+    rows = []
+
+    for start, end, label in subperiods:
+        mask = (perf.index >= start) & (perf.index <= end)
+        df_sub = perf.loc[mask]
+
+        if df_sub.empty:
+            continue
+
+        y_true_sub   = df_sub["y_true"]
+        y_har_vix_sub = df_sub["har_vix"]
+        y_iv_sub     = df_sub["naive_iv"]
+        y_rv_sub     = df_sub["naive_rv"]
+
+        # metrics relative to Naive RV
+        m_har_vix = compute_metrics(y_true_sub, y_har_vix_sub, y_pred_bench=y_rv_sub)
+        m_iv      = compute_metrics(y_true_sub, y_iv_sub,      y_pred_bench=y_rv_sub)
+
+        row_har = {"period": label, "model": "HAR-RV-VIX"}
+        row_har.update(m_har_vix)
+        rows.append(row_har)
+
+        row_iv = {"period": label, "model": "Naive_IV"}
+        row_iv.update(m_iv)
+        rows.append(row_iv)
+
+    metrics_df = pd.DataFrame(rows).set_index(["period", "model"])
+    return metrics_df

@@ -317,7 +317,40 @@ def plot_cv_mse_comparison(scores_a, scores_b, label_a="Model A", label_b="Model
     plt.show()
 
 
-import matplotlib.pyplot as plt
+def plot_subperiod_comparison(perf, subperiods, figsize=(12, 6)):
+    n = len(subperiods)
+    nrows, ncols = 2, 2
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, sharex=False)
+    axes = axes.ravel()
+
+    for ax, (start, end, label) in zip(axes, subperiods):
+        mask = (perf.index >= start) & (perf.index <= end)
+        df_sub = perf.loc[mask]
+
+        y_true_sub = df_sub["y_true"]
+        y_har_vix_sub = df_sub["har_vix"]
+        y_iv_sub = df_sub["naive_iv"]
+
+        ax.plot(y_true_sub.index, y_true_sub, label="True log RV", alpha=0.6)
+        ax.plot(y_har_vix_sub.index, y_har_vix_sub, label="HAR-RV-VIX", alpha=0.9)
+        ax.plot(y_iv_sub.index, y_iv_sub, label="Naive IV", alpha=0.9, linestyle="--")
+
+        ax.set_ylabel("log 21D RV")
+        ax.set_title(label, fontsize=10)
+        ax.grid(alpha=0.3)
+
+        # --- monthly ticks, every 3 months ---
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+        for tick in ax.get_xticklabels():
+            tick.set_rotation(45)
+            tick.set_ha("right")
+
+    axes[0].legend(loc="upper left", bbox_to_anchor=(1.02, 1.0))
+    fig.suptitle("True vs HAR-RV-VIX vs Naive IV – sub-period comparison", y=1.02)
+    plt.tight_layout()
+    plt.show()
+
 
 def plot_model_comparison_ts(y,
                              y_pred_1,
