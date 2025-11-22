@@ -42,13 +42,13 @@ def create_har_lags(real_variance):
 def create_iv_surface_predictors(  
     options, 
     iv_surface_model, 
-    params=None, 
+    params=None,
+    T1=30/252,
+    T2=60/252,
     r=0.0, 
     q=0.0
 ):
     iv_features = []
-    T_30 = 30 / 252
-    T_60 = 60 / 252
 
     for date, chain in options.groupby("date"):
         # --- Underlying spot (ATM anchor) ---
@@ -61,15 +61,15 @@ def create_iv_surface_predictors(
             iv_surface_model.set_params({**params[date], "spot": S})
 
         # --- ATM IVs ---
-        atm_iv_30d = iv_surface_model.implied_vol(S, T_30)
-        atm_iv_60d = iv_surface_model.implied_vol(S, T_60)
+        atm_iv_30d = iv_surface_model.implied_vol(S, T1)
+        atm_iv_60d = iv_surface_model.implied_vol(S, T2)
 
         # --- 25Δ strikes (approx using ATM vol for the delta inversion) ---
         # target deltas: put = -0.25, call = +0.25
         K_put_25d = solve_strike_for_delta(
             target_delta=-0.25,
             S=S,
-            T=T_30,
+            T=T1,
             sigma=atm_iv_30d,
             option_type="put",
             r=r,
@@ -78,7 +78,7 @@ def create_iv_surface_predictors(
         K_call_25d = solve_strike_for_delta(
             target_delta=0.25,
             S=S,
-            T=T_30,
+            T=T1,
             sigma=atm_iv_30d,
             option_type="call",
             r=r,
@@ -86,8 +86,8 @@ def create_iv_surface_predictors(
         )
 
         # --- 25Δ skew (downside - upside) ---
-        iv_put_25d = iv_surface_model.implied_vol(K_put_25d, T_30)
-        iv_call_25d = iv_surface_model.implied_vol(K_call_25d, T_30)
+        iv_put_25d = iv_surface_model.implied_vol(K_put_25d, T1)
+        iv_call_25d = iv_surface_model.implied_vol(K_call_25d, T1)
         iv_skew = iv_put_25d - iv_call_25d
 
         # --- Term structure slope (30D → 60D) ---
