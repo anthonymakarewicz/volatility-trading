@@ -369,7 +369,7 @@ def plot_model_comparison_ts(y,
     fig, ax = plt.subplots(figsize=(12, 4))
     ax.plot(y.index, y.values, label="True RV")
     ax.plot(y_pred_1.index, y_pred_1.values, label=label_1, alpha=0.8)
-    ax.plot(y_pred_2.index, y_pred_2.values, label=label_2, alpha=0.8)
+    ax.plot(y_pred_2.index, y_pred_2.values, label=label_2, alpha=0.6)
     ax.set_title("True vs predicted 21D RV")
     ax.set_xlabel("Date")
     ax.set_ylabel("RV")
