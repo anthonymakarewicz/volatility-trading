@@ -82,11 +82,15 @@ def plot_vrp_by_vix_bucket_subperiods(
         tmp = (
             df[df["period"] == p]
             .groupby("vix_bucket", observed=False)[vrp_col]
-            .agg(["mean", "count"])
+            .agg(["mean", "std", "count"])
         )
 
+        # x positions and values
         x = np.arange(len(tmp))
-        ax.bar(x, tmp["mean"])
+        means = tmp["mean"].values
+        stds = tmp["std"].values  # 1-sigma error bars
+
+        ax.bar(x, means, yerr=stds, capsize=4)
         ax.axhline(0, linewidth=0.8)
         ax.set_title(p)
 
@@ -95,5 +99,5 @@ def plot_vrp_by_vix_bucket_subperiods(
 
     fig.suptitle("Mean VRP by VIX regime across subperiods")
     plt.tight_layout()
-    return fig, axes
+    plt.show()
 
