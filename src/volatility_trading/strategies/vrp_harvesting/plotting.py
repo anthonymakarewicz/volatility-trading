@@ -102,10 +102,6 @@ def plot_vrp_by_vix_bucket_subperiods(
     plt.show()
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-
-
 def plot_short_straddle_payoff(
     K: float = 100,
     net_premium: float = 10.0,
@@ -204,5 +200,31 @@ def plot_short_iron_butterfly_payoff(
     )
     ax.set_xlabel(r"$S_T$")
     ax.set_ylabel("Payoff at expiry")
+
+    return ax
+
+
+def plot_pnl_hist(
+    pnl: np.ndarray,
+    ax: plt.Axes | None = None,
+    title: str | None = None,
+    bins: int = 100,
+    density: bool = True,
+    show_mean: bool = True,
+):
+    pnl = np.asarray(pnl)
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 4))
+
+    ax.hist(pnl, bins=bins, density=density)
+    if show_mean:
+        ax.axvline(np.mean(pnl), linestyle="--")
+
+    if title is not None:
+        ax.set_title(title)
+
+    ax.set_xlabel("P&L")
+    ax.set_ylabel("Density" if density else "Count")
 
     return ax
