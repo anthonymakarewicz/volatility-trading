@@ -101,3 +101,108 @@ def plot_vrp_by_vix_bucket_subperiods(
     plt.tight_layout()
     plt.show()
 
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def plot_short_straddle_payoff(
+    K: float = 100,
+    net_premium: float = 10.0,
+    s_min: float = 0.7,
+    s_max: float = 1.3,
+    n_points: int = 201,
+    ax: plt.Axes | None = None,
+):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 4))
+
+    S_T = np.linspace(s_min * K, s_max * K, n_points)
+
+    # Long straddle intrinsic payoff (ignoring premium)
+    long_intrinsic = np.abs(S_T - K)
+
+    # Short straddle payoff INCLUDING premium:
+    # you receive net_premium, then pay intrinsic at expiry
+    payoff = net_premium - long_intrinsic
+
+    # Plot payoff line
+    ax.plot(S_T, payoff, linewidth=1.5)
+
+    # Shade profit (>=0) and loss (<0)
+    ax.fill_between(S_T, payoff, 0, where=(payoff >= 0), color="green", alpha=0.2)
+    ax.fill_between(S_T, payoff, 0, where=(payoff < 0), color="red", alpha=0.2)
+
+    # Breakeven points: |S_T - K| = net_premium
+    be_low = K - net_premium
+    be_high = K + net_premium
+
+    ax.axvline(K, linestyle="--", linewidth=0.8)
+    ax.axvline(be_low, linestyle=":", linewidth=0.8)
+    ax.axvline(be_high, linestyle=":", linewidth=0.8)
+    ax.axhline(0, linewidth=0.8)
+
+    ax.set_title(f"Short ATM Straddle (K={K:.0f}, credit={net_premium:.1f})")
+    ax.set_xlabel(r"$S_T$")
+    ax.set_ylabel("Payoff at expiry")
+
+    # Optional annotations
+    ax.annotate("breakeven", xy=(be_low, 0), xytext=(be_low, net_premium * 0.3),
+                ha="center", fontsize=8)
+    ax.annotate("breakeven", xy=(be_high, 0), xytext=(be_high, net_premium * 0.3),
+                ha="center", fontsize=8)
+
+    return ax
+
+
+def plot_short_iron_butterfly_payoff(
+    K: float = 100,
+    dK: float = 10,
+    net_premium: float = 3.0,
+    s_min: float = 0.7,
+    s_max: float = 1.3,
+    n_points: int = 201,
+    ax: plt.Axes | None = None,
+):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 4))
+
+    K1 = K - dK
+    K0 = K
+    K2 = K + dK
+
+    S_T = np.linspace(s_min * K, s_max * K, n_points)
+
+    # Long call & put payoffs
+    C0 = np.maximum(S_T - K0, 0.0)
+    C2 = np.maximum(S_T - K2, 0.0)
+    P0 = np.maximum(K0 - S_T, 0.0)
+    P1 = np.maximum(K1 - S_T, 0.0)
+
+    # Long iron fly intrinsic payoff:
+    # long straddle at K0, short wings at K1/K2
+    long_iron_intrinsic = C0 + P0 - (C2 + P1)
+
+    # Short iron fly payoff INCLUDING net premium
+    payoff = net_premium - long_iron_intrinsic
+
+    # Plot payoff line
+    ax.plot(S_T, payoff, linewidth=1.5)
+
+    # Shade profit (>=0) and loss (<0)
+    ax.fill_between(S_T, payoff, 0, where=(payoff >= 0), color="green", alpha=0.2)
+    ax.fill_between(S_T, payoff, 0, where=(payoff < 0), color="red", alpha=0.2)
+
+    # Mark strikes
+    ax.axvline(K1, linestyle=":", linewidth=0.8)
+    ax.axvline(K0, linestyle="--", linewidth=0.8)
+    ax.axvline(K2, linestyle=":", linewidth=0.8)
+    ax.axhline(0, linewidth=0.8)
+
+    ax.set_title(
+        f"Short Iron Butterfly (K={K:.0f}±{dK:.0f}, credit={net_premium:.1f})"
+    )
+    ax.set_xlabel(r"$S_T$")
+    ax.set_ylabel("Payoff at expiry")
+
+    return ax

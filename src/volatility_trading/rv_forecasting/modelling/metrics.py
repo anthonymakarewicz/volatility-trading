@@ -84,8 +84,16 @@ def compute_subperiod_metrics(perf, subperiods):
         y_rv_sub     = df_sub["naive_rv"]
 
         # metrics relative to Naive RV
-        m_har_vix = compute_metrics(y_true_sub, y_har_vix_sub, y_pred_bench=y_rv_sub)
-        m_iv      = compute_metrics(y_true_sub, y_iv_sub,      y_pred_bench=y_rv_sub)
+        m_har_vix = compute_metrics(
+            y_true_sub, 
+            y_har_vix_sub, 
+            y_pred_bench=y_rv_sub
+        )
+        m_iv = compute_metrics(
+            y_true_sub, 
+            y_iv_sub,
+            y_pred_bench=y_rv_sub
+        )
 
         row_har = {"period": label, "model": "HAR-RV-VIX"}
         row_har.update(m_har_vix)

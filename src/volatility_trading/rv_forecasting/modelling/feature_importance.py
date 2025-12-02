@@ -103,10 +103,15 @@ def in_sample_stability(X, y, model, cv):
     return values, summary
 
 
-def oos_perm_importance(X, y, model, cv,
-                        n_repeats=30,
-                        scoring="neg_mean_squared_error",
-                        random_state=0):
+def oos_perm_importance(
+    X, 
+    y, 
+    model, 
+    cv,
+    n_repeats=30,
+    scoring="neg_mean_squared_error",
+    random_state=0
+):
     """
     Out-of-sample permutation importance across CV folds.
 
