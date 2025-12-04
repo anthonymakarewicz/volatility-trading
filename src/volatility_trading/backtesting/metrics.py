@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 def to_daily_mtm(raw_mtm: pd.DataFrame, initial_capital: float) -> pd.DataFrame:

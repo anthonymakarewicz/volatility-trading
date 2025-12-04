@@ -1,4 +1,4 @@
 from .base_strategy import Strategy
-from .vrp_harvesting.strategy import VRPStrategy
+from .vrp_harvesting.strategy import VRPHarvestingStrategy
 
-__all__ = ["Strategy", "VRPStrategy"]
+__all__ = ["Strategy", "VRPHarvestingStrategy"]

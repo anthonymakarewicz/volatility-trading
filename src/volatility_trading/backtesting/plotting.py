@@ -119,7 +119,7 @@ def plot_full_performance(sp500, mtm_daily):
     # 1) align & rebase
     equity     = mtm_daily['equity']
     spx        = sp500.reindex(equity.index).ffill()
-    spx_rebase = spx / spx.iloc[0] * equity.iloc[0]
+    spx_rebase = (spx / spx.iloc[0]) * equity.iloc[0]
 
     # 2) drawdowns
     strat_dd = (equity - equity.cummax()) / equity.cummax()

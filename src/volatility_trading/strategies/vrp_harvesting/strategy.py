@@ -7,24 +7,26 @@ from volatility_trading.backtesting import BacktestConfig, SliceContext
 
 from ..base_strategy import Strategy
 
-class VRPStrategy(Strategy):
+
+class VRPHarvestingStrategy(Strategy):
     def __init__(
         self,
         signal: Signal,
         filters: list[Filter] | None = None,
         target_dte: int = 30,
-        holding_period: int = 5
+        rebalance_days: int = 5,
     ):
         """
         Baseline VRP harvesting strategy:
-        - short ATM straddle when signal is ON
-        - 30D target maturity (by dte)
-        - simple SL/TP in units of a stress-based risk per contract
-        - no delta-hedge (for now)
+        - Short ATM straddle when signal is ON.
+        - Target ~30D maturity (by dte).
+        - Positions are rolled / rebalanced every `rebalance_days`
+          into a fresh ~30D straddle (when signal remains ON).
+        - No delta-hedge in the baseline.
         """
         super().__init__(signal=signal, filters=filters)
         self.target_dte = target_dte
-        self.holding_period = holding_period
+        self.rebalance_days = rebalance_days
 
     # --------- Helpers ---------
 
@@ -67,10 +69,11 @@ class VRPStrategy(Strategy):
         cfg = ctx.config
 
         options = data["options"]
-        features = data["features"]
-        hedge = data.get("hedge")  # not used yet, but kept in signature
+        features = data.get("features")  # expected: DataFrame with iv_atm etc.
+        hedge = data.get("hedge")        # not used yet, but kept in signature
 
-        series = features["iv_atm"]
+        # For now: always-on short vol (filters will switch us OFF if needed)
+        series = pd.Series(0, index=options.index)
         signals = self.signal.generate_signals(series)
 
         for f in self.filters:
@@ -91,8 +94,8 @@ class VRPStrategy(Strategy):
     def _simulate_short_straddles(
         self,
         options: pd.DataFrame,
-        signals: pd.DataFrame | pd.Series,
-        features: pd.DataFrame,
+        signals: pd.DataFrame,
+        features: pd.DataFrame | None,
         hedge: pd.Series | None,
         capital: float,
         cfg: BacktestConfig,
@@ -100,22 +103,26 @@ class VRPStrategy(Strategy):
         """
         Baseline backtest:
         - Short 1 ATM straddle when signal is ON.
+        - Close and realize P&L when:
+          - `rebalance_days` have passed (roll into a new 30D),
+          - (No SL/TP yet in this baseline).
         """
 
         lot_size = cfg.lot_size
         roundtrip_comm = 2 * cfg.commission_per_leg
 
-        sig_df = sig_df.sort_index()
+        signals = signals.sort_index()
         options = options.sort_index()
 
-        trades = []
-        mtm_records = []
+        trades: list[dict] = []
+        mtm_records: list[dict] = []
         last_exit = None
 
         # We use 1 contract for now (no capital-based sizing)
         contracts = 1
 
-        for entry_date, row in sig_df.iterrows():
+        for entry_date, row in signals.iterrows():
+            # Only act when short signal is ON
             if not row["short"]:
                 continue
             if entry_date not in options.index:
@@ -133,18 +140,19 @@ class VRPStrategy(Strategy):
                     continue
                 chosen_dte = min(dtes, key=lambda d: abs(d - self.target_dte))
                 chain = chain[chain["dte"] == chosen_dte]
+                print("Chosen DTE:", chosen_dte)
 
             if "expiry" not in chain.columns or chain.empty:
                 continue
 
             expiry = chain["expiry"].iloc[0]
 
-            # --- pick ATM-ish put and call using delta  ~ +/- 0.5 ---
+            # --- pick ATM-ish put and call using delta ~ +/- 0.5 ---
             puts = chain[chain["option_type"] == "P"]
             calls = chain[chain["option_type"] == "C"]
 
-            put_q = self._pick_quote(puts, tgt=-0.5, delta_tolerance=0.10)
-            call_q = self._pick_quote(calls, tgt=+0.5, delta_tolerance=0.10)
+            put_q = self._pick_quote(puts, tgt=-0.5, delta_tolerance=0.05)
+            call_q = self._pick_quote(calls, tgt=+0.5, delta_tolerance=0.05)
             if put_q is None or call_q is None:
                 continue
 
@@ -153,11 +161,6 @@ class VRPStrategy(Strategy):
             call_side = -1
 
             # entry prices: conservative (sell at bid - slip)
-            def _mid_or_bid(row):
-                if "mid" in row.index and not np.isnan(row["mid"]):
-                    return row["mid"]
-                return 0.5 * (row["bid"] + row["ask"])
-
             put_bid = put_q["bid"]
             call_bid = call_q["bid"]
             put_entry = put_bid - cfg.slip_bid
@@ -174,7 +177,11 @@ class VRPStrategy(Strategy):
             # Best: use IV from the actual legs if you have it
             if "iv" in put_q.index and "iv" in call_q.index:
                 iv_entry = 0.5 * (put_q["iv"] + call_q["iv"])
-            elif entry_date in features.index and "iv_atm" in features.columns:
+            elif (
+                features is not None
+                and entry_date in features.index
+                and "iv_atm" in features.columns
+            ):
                 iv_entry = features.loc[entry_date, "iv_atm"]
             else:
                 iv_entry = np.nan
@@ -209,7 +216,8 @@ class VRPStrategy(Strategy):
             )
             prev_mtm = 0.0  # value-based MTM; delta_pnl tracks realized increments
 
-            hold_date = entry_date + pd.Timedelta(days=self.holding_period)
+            # rebalance/roll date: after `rebalance_days`
+            rebalance_date = entry_date + pd.Timedelta(days=self.rebalance_days)
             future_dates = sorted(options.index[options.index > entry_date].unique())
 
             exited = False
@@ -236,6 +244,8 @@ class VRPStrategy(Strategy):
                     gamma = last_rec["gamma"]
                     vega = last_rec["vega"]
                     theta = last_rec["theta"]
+                    S_curr = last_rec["S"]
+                    iv_curr = last_rec["iv"]
                 else:
                     # recompute MTM
                     pt = put_today.iloc[0]
@@ -249,8 +259,10 @@ class VRPStrategy(Strategy):
 
                     pnl_mtm = (pe_mid + ce_mid) * lot_size * contracts - net_entry
 
-                    delta_pc_t, gamma_pc_t, vega_pc_t, theta_pc_t = self._compute_greeks_per_contract(
-                        pt, ct, put_side, call_side, lot_size
+                    delta_pc_t, gamma_pc_t, vega_pc_t, theta_pc_t = (
+                        self._compute_greeks_per_contract(
+                            pt, ct, put_side, call_side, lot_size
+                        )
                     )
                     delta = delta_pc_t * contracts
                     gamma = gamma_pc_t * contracts
@@ -263,9 +275,19 @@ class VRPStrategy(Strategy):
                         S_curr = options.loc[curr_date, "underlying_last"].iloc[0]
 
                     iv_curr = last_rec["iv"]
-                    if not put_today.empty and not call_today.empty and "iv" in put_today.columns:
-                        iv_curr = 0.5 * (put_today.iloc[0]["iv"] + call_today.iloc[0]["iv"])
-                    elif curr_date in features.index and "iv_atm" in features.columns:
+                    if (
+                        "iv" in today_chain.columns
+                        and not put_today.empty
+                        and not call_today.empty
+                    ):
+                        iv_curr = 0.5 * (
+                            put_today.iloc[0]["iv"] + call_today.iloc[0]["iv"]
+                        )
+                    elif (
+                        features is not None
+                        and curr_date in features.index
+                        and "iv_atm" in features.columns
+                    ):
                         iv_curr = features.loc[curr_date, "iv_atm"]
 
                 hedge_pnl = 0.0  # no hedge baseline
@@ -308,8 +330,8 @@ class VRPStrategy(Strategy):
                 real_pnl = pnl_per_contract * contracts + hedge_pnl
 
                 exit_type = None
-                if curr_date >= hold_date:
-                    exit_type = "Rebalancing Period"
+                if curr_date >= rebalance_date:
+                    exit_type = "Rebalance"
 
                 if exit_type is None:
                     continue
