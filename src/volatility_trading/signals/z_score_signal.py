@@ -3,7 +3,7 @@ from .base_signal import Signal
 
 # TODO: Shift the rolling mean and std for z score computation
 
-class ZScore(Signal):
+class ZScoreSignal(Signal):
     def __init__(self, window=60, entry=2.0, exit=0.5):
         self.window = window
         self.entry = entry

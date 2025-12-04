@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.gridspec as gridspec
 
 
-def plot_eq_curve(mtm, sp500):
+def plot_equity_curve(mtm, sp500):
     # Align both series on the same date index
     sp500 = sp500.loc[mtm.index.min():mtm.index.max()]
     sp500 = sp500.ffill()  # handle missing values
@@ -187,6 +187,7 @@ def plot_pnl_attribution(daily_mtm):
     ax.legend()
     plt.tight_layout()
     plt.show()
+
 
 def plot_stressed_pnl(stressed_mtm, daily_mtm, scenarios):
     fig, ax = plt.subplots(figsize=(12,5))
