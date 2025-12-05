@@ -174,13 +174,23 @@ def plot_full_performance(sp500, mtm_daily):
 def plot_pnl_attribution(daily_mtm):
     cumu = pd.DataFrame(index=daily_mtm.index)
     cumu['Total P&L'] = daily_mtm['equity'] - daily_mtm['equity'].iloc[0]
+
     for greek in ['Delta_PnL','Gamma_PnL','Vega_PnL','Theta_PnL','Other_PnL']:
         cumu[greek] = daily_mtm[greek].cumsum()
 
+    colors = {
+        "Total P&L": "purple",
+        "Delta_PnL": "red",
+        "Gamma_PnL": "orange",
+        "Vega_PnL": "green",
+        "Theta_PnL": "blue",
+        "Other_PnL": "brown"
+    }
+
     fig, ax = plt.subplots(figsize=(12,5))
-    ax.plot(cumu.index, cumu['Total P&L'], label='Total P&L')
+    ax.plot(cumu.index, cumu['Total P&L'], label='Total P&L', color=colors["Total P&L"])
     for col in cumu.columns.drop('Total P&L'):
-        ax.plot(cumu.index, cumu[col], label=col)
+        ax.plot(cumu.index, cumu[col], label=col, color=colors[col])
     ax.set_title('Cumulative P&L Attribution: Total vs Greek Contributions')
     ax.set_xlabel('Date')
     ax.set_ylabel('Cumulative P&L (USD)')
