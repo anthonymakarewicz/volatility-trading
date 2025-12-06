@@ -413,10 +413,10 @@ class VRPHarvestingStrategy(Strategy):
         self,
         signal: Signal,
         filters: list[Filter] | None = None,
-        target_dte: int = 30,
         holding_period: int = 5,
-        stop_loss_pct: float = 0.8,
-        take_profit_pct: float = 0.5,
+        target_dte: int = 30,
+        max_dte_diff: int = 7
+
     ):
         """
         Baseline VRP harvesting strategy:
@@ -426,10 +426,9 @@ class VRPHarvestingStrategy(Strategy):
         - no delta-hedge (for now)
         """
         super().__init__(signal=signal, filters=filters)
-        self.target_dte = target_dte
         self.holding_period = holding_period
-        self.stop_loss_pct = stop_loss_pct
-        self.take_profit_pct = take_profit_pct
+        self.target_dte = target_dte
+        self.max_dte_diff = max_dte_diff
 
     # --------- Helpers ---------
 
@@ -463,6 +462,38 @@ class VRPHarvestingStrategy(Strategy):
         vega = (put_side * put_q["vega"] + call_side * call_q["vega"]) * lot_size
         theta = (put_side * put_q["theta"] + call_side * call_q["theta"]) * lot_size
         return delta, gamma, vega, theta
+    
+    @staticmethod
+    def choose_vrp_expiry(
+        chain: pd.DataFrame,
+        target_dte: int = 30,
+        max_dte_diff: int = 7,
+        min_atm_quotes: int = 2,
+    ) -> int | None:
+        """
+        Pick a single expiry for the VRP straddle:
+        - nearest to target_dte within ±max_dte_diff
+        - with at least `min_atm_quotes` quotes near ATM.
+        """
+        exps = chain["dte"].dropna().unique()
+        exps = [d for d in exps if abs(d - target_dte) <= max_dte_diff]
+        if not exps:
+            return None
+
+        def is_viable(dte):
+            sub = chain[chain["dte"] == dte]
+            # very simple ATM band example: |S/K - 1| <= 2%
+            # assumes you have 'S' or 'underlying_last'
+            S = sub["underlying_last"].iloc[0]
+            atm_band = (sub["strike"] / S).between(0.98, 1.02)
+            atm_quotes = sub[atm_band]
+            return len(atm_quotes) >= min_atm_quotes
+
+        viable = [d for d in exps if is_viable(d)]
+        if not viable:
+            return None
+
+        return min(viable, key=lambda d: abs(d - target_dte))
 
     # --------- Main entry point ---------
 
@@ -535,7 +566,7 @@ class VRPHarvestingStrategy(Strategy):
 
         trades = []
         mtm_records = []
-        last_exit = None
+        block_until = None
 
         # We use 1 contract for now (no capital-based sizing)
         contracts = 1
@@ -545,23 +576,22 @@ class VRPHarvestingStrategy(Strategy):
                 continue
             if entry_date not in options.index:
                 continue
-            if last_exit is not None and entry_date < hold_date: #######
-                # don't overlap trades in this simple baseline
+            if block_until is not None and entry_date < block_until:
                 continue
 
             chain = options.loc[entry_date]
 
             # --- choose expiry closest to target DTE if available ---
-            if "dte" in chain.columns:
-                dtes = chain["dte"].dropna().unique()
-                if len(dtes) == 0:
-                    continue
-                chosen_dte = min(dtes, key=lambda d: abs(d - self.target_dte))
-                chain = chain[chain["dte"] == chosen_dte]
-
-            if "expiry" not in chain.columns or chain.empty:
+            chain = options.loc[entry_date]
+            chosen_dte = self.choose_vrp_expiry(
+                chain=chain, 
+                target_dte=self.target_dte, 
+                max_dte_diff=self.max_dte_diff
+            )
+            if chosen_dte is None:
                 continue
 
+            chain = chain[chain["dte"] == chosen_dte]
             expiry = chain["expiry"].iloc[0]
 
             # --- pick ATM-ish put and call using delta  ~ +/- 0.5 ---
@@ -634,8 +664,8 @@ class VRPHarvestingStrategy(Strategy):
             prev_mtm = 0.0  # value-based MTM; delta_pnl tracks realized increments
 
             hold_date = entry_date + pd.Timedelta(days=self.holding_period)
+            block_until = hold_date
             future_dates = sorted(options.index[options.index > entry_date].unique())
-
             exited = False
 
             for curr_date in future_dates:

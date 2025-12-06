@@ -9,7 +9,7 @@ ParamGrid   = dict[str, Any]
 
 @dataclass(frozen=True)
 class BacktestConfig:
-    initial_capital: float = 1_000_000.0
+    initial_capital: float = 100_000.0
     leverage: float        = 1.0
 
     # Execution / market microstructure

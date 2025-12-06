@@ -21,3 +21,4 @@ build/
 data/
 temp/
 *.parquet
+*.zip

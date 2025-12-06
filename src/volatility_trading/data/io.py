@@ -152,11 +152,6 @@ def clean_data(df):
     for col in num_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Drop NaNs in critical fields and duplicates
-    # critical_cols = ['iv', 'delta', 'bid', 'ask', 'last']
-    # df = df.dropna(subset=critical_cols)
-    # df = df.drop_duplicates()
-
     df["volume"] = df["volume"].fillna(0)
 
     # Ensure bid/ask/last >= 0
