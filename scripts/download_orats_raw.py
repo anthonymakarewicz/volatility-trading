@@ -22,30 +22,25 @@ Usage:
     2. Run:
         python scripts/download_orats_raw.py
 """
-from pathlib import Path
 import os
-
+from pathlib import Path
 from dotenv import load_dotenv
-from volatility_trading.data import download_orats_raw
-
+from volatility_trading.config.paths import RAW_ORATS
+from volatility_trading.data.orats_downloader import download_orats_raw
 
 # ---- CONFIG ----
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_ROOT = PROJECT_ROOT / "data"
-RAW_ORATS_ROOT = DATA_ROOT / "raw" / "orats"
-
 # FTP host (both of these are used by HostedFTP for ORATS)
-HOST = "orats.hostedftp.com"  # or "de1.hostedftp.com"
+HOST = "de1.hostedftp.com"  # or "orats.hostedftp.com"
 
 REMOTE_BASE_DIRS = [
     "smvstrikes_2007_2012",  # 2007–2012
-    "smvstrikes",            # 2013–present
+    #"smvstrikes",          # 2013–present
 ]
 
 # Limit to specific years (as ints or strings) if you want to test first.
 # Example: YEAR_WHITELIST = {2013, 2014}
-YEAR_WHITELIST = None
+YEAR_WHITELIST = ["2007"]
 
 VALIDATE_ZIP = True
 VERBOSE = True
@@ -53,7 +48,6 @@ VERBOSE = True
 
 def main() -> None:
     load_dotenv()
-
     user = os.getenv("ORATS_FTP_USER")
     password = os.getenv("ORATS_FTP_PASS")
 
@@ -63,7 +57,7 @@ def main() -> None:
             "Set them in your environment or in a .env file at the project root."
         )
 
-    print(f"Raw ORATS root: {RAW_ORATS_ROOT}")
+    print(f"Raw ORATS root: {RAW_ORATS}")
     if YEAR_WHITELIST is not None:
         print(f"Year whitelist: {sorted(str(y) for y in YEAR_WHITELIST)}")
     else:
@@ -74,7 +68,7 @@ def main() -> None:
         user=user,
         password=password,
         remote_base_dirs=REMOTE_BASE_DIRS,
-        raw_root=RAW_ORATS_ROOT,
+        raw_root=RAW_ORATS,
         year_whitelist=YEAR_WHITELIST,
         validate_zip=VALIDATE_ZIP,
         verbose=VERBOSE,
