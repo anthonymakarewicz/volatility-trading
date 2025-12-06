@@ -9,7 +9,7 @@ Output:
     data/processed/optionsdx/optionsdx_panel_<START>_<END>.parquet
 """
 from pathlib import Path
-from volatility_trading.data.optionsdx_loader import prepare_option_panel
+from volatility_trading.data import prepare_option_panel
 
 
 # ---- CONFIG ----
@@ -19,7 +19,7 @@ DATA_ROOT = PROJECT_ROOT / "data"
 RAW_OPTIONSDX_ROOT = DATA_ROOT / "raw" / "optionsdx"
 PROCESSED_OPTIONSDX_ROOT = DATA_ROOT / "processed" / "optionsdx"
 
-START_YEAR = 2023
+START_YEAR = 2010
 END_YEAR = 2023
 LOW_MEMORY = False  # set True if you hit memory issues
 

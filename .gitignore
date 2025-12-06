@@ -17,8 +17,11 @@ build/
 # Jupyter
 .ipynb_checkpoints/
 
-# Data / temp
-data/
-temp/
+# Data / temp current dir
+/data/
+/temp/
+
+# Data files
 *.parquet
+*.7z
 *.zip
