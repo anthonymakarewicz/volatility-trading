@@ -1,0 +1,14 @@
+# Requires Python >= 3.10
+
+numpy
+pandas
+polars
+py7zr
+python-dotenv
+matplotlib
+seaborn
+scikit-learn
+scipy
+yfinance
+joblib
+statsmodels
