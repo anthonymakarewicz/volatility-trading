@@ -28,11 +28,11 @@ RAW_ORATS_ROOT = RAW_ORATS
 OUT_ROOT = INTER_ORATS_BY_TICKER
 
 # Choose which tickers you want to extract
-TICKERS = ["SPX", "SPY"]  # e.g. ["SPX", "SPY", "QQQ"]
+TICKERS = ["SPX"]  # e.g. ["SPX", "SPY", "QQQ"]
 
 # Restrict to specific years if you want (ints or strings), or None for all:
 # YEAR_WHITELIST = {2013, 2014}
-YEAR_WHITELIST = ["2007"]
+YEAR_WHITELIST = None
 
 ROOT_COL = "ticker"  # ORATS column that contains the underlying root
 VERBOSE = True
