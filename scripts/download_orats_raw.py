@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
-Download raw ORATS SMV Strikes ZIP files from HostedFTP into data/raw/orats.
+Download raw ORATS SMV Strikes ZIP files from HostedFTP into data/raw/options/orats
+(using the configured RAW_ORATS path).
 
 Expected remote layout (on HostedFTP):
     smvstrikes_2007_2012/2007/*.zip
@@ -9,45 +10,46 @@ Expected remote layout (on HostedFTP):
     smvstrikes/2013/*.zip
     ...
 
-Local layout after running:
-    data/raw/orats/smvstrikes_2007_2012/2007/*.zip
-    data/raw/orats/smvstrikes/2013/*.zip
+Local layout after running (example if RAW_ORATS points to data/raw/options/orats):
+    data/raw/options/orats/smvstrikes_2007_2012/2007/*.zip
+    data/raw/options/orats/smvstrikes/2013/*.zip
     ...
 
 Usage:
     1. Create a .env file (or export env vars) with:
-        ORATS_FTP_USER=your_username
-        ORATS_FTP_PASS=your_password
+        ORATS_FTP_USER=your_orats_username
+        ORATS_FTP_PASS=your_orats_password
 
     2. Run:
         python scripts/download_orats_raw.py
 """
+
 import os
-from pathlib import Path
 from dotenv import load_dotenv
 from volatility_trading.config.paths import RAW_ORATS
 from volatility_trading.data.orats_downloader import download_orats_raw
 
+
 # ---- CONFIG ----
 
-# FTP host (both of these are used by HostedFTP for ORATS)
-HOST = "de1.hostedftp.com"  # or "orats.hostedftp.com"
-
+HOST = "orats.hostedftp.com"  # or "de1.hostedftp.com"
 REMOTE_BASE_DIRS = [
     "smvstrikes_2007_2012",  # 2007–2012
-    #"smvstrikes",          # 2013–present
+    "smvstrikes",            # 2013–present
 ]
 
 # Limit to specific years (as ints or strings) if you want to test first.
 # Example: YEAR_WHITELIST = {2013, 2014}
-YEAR_WHITELIST = ["2007"]
+YEAR_WHITELIST = None
 
 VALIDATE_ZIP = True
 VERBOSE = True
+MAX_WORKERS = 3  # or 1 for sequential, or 2–4 for some parallelism
 
 
 def main() -> None:
     load_dotenv()
+
     user = os.getenv("ORATS_FTP_USER")
     password = os.getenv("ORATS_FTP_PASS")
 
@@ -72,6 +74,7 @@ def main() -> None:
         year_whitelist=YEAR_WHITELIST,
         validate_zip=VALIDATE_ZIP,
         verbose=VERBOSE,
+        max_workers=MAX_WORKERS,
     )
 
 
