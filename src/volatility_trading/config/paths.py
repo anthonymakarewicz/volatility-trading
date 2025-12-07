@@ -1,23 +1,21 @@
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3] # project root
+ROOT = Path(__file__).resolve().parents[3]
 
 DATA_ROOT = ROOT / "data"
 DATA_RAW = DATA_ROOT / "raw"
 DATA_INTER = DATA_ROOT / "intermediate"
 DATA_PROC = DATA_ROOT / "processed"
 
-# Options – raw
+# ----- Options – raw -----
 RAW_ORATS = DATA_RAW / "orats"
 RAW_OPTIONSDX = DATA_RAW / "optionsdx"
 
-# Options – intermediate
+# ----- Options – intermediate -----
 INTER_ORATS = DATA_INTER / "orats"
-INTER_OPTIONSDX = DATA_INTER / "optionsdx"
+INTER_ORATS_BY_TICKER = INTER_ORATS / "by_ticker"
 
-# Options – processed
-PROC_ORATS = DATA_PROC / "orats"
-PROC_OPTIONSDX = DATA_PROC / "optionsdx"
+INTER_OPTIONSDX = DATA_INTER / "optionsdx"
 
 
 def raw(asset_class: str, source: str) -> Path:
