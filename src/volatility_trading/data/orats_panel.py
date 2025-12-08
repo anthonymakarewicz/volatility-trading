@@ -2,9 +2,66 @@ from __future__ import annotations
 
 import polars as pl
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Iterable
 
 from volatility_trading.config.paths import INTER_ORATS_BY_TICKER, PROC_ORATS
+
+# Default / core schema for the processed wide ORATS panel
+CORE_ORATS_WIDE_COLUMNS = [
+    "ticker",
+    "trade_date",
+    "expirDate",
+    "dte",
+    "yte",
+    "stkPx",
+    "strike",
+    "moneyness_ks",
+    "cVolu",
+    "pVolu",
+    "cBidPx",
+    "cAskPx",
+    "cMidPx",
+    "pBidPx",
+    "pAskPx",
+    "pMidPx",
+    "cSpread",
+    "pSpread",
+    "cRelSpread",
+    "pRelSpread",
+    "cBidIv",
+    "cMidIv",
+    "cAskIv",
+    "pBidIv",
+    "pMidIv",
+    "pAskIv",
+    "smoothSmvVol",
+    "iRate",
+    "divRate",
+    "extVol",
+    # call Greeks (renamed from ORATS raw greeks)
+    "cDelta",
+    "cGamma",
+    "cTheta",
+    "cVega",
+    "cRho",
+    # put Greeks (via parity)
+    "pDelta",
+    "pGamma",
+    "pTheta",
+    "pVega",
+    "pRho",
+]
+
+# Minimal set of columns that must always be present
+REQUIRED_ORATS_WIDE_COLUMNS = {
+    "ticker",
+    "trade_date",
+    "expirDate",
+    "dte",
+    "stkPx",
+    "strike",
+}
 
 
 def build_orats_panel_for_ticker(
@@ -17,6 +74,7 @@ def build_orats_panel_for_ticker(
     dte_max: int = 60,
     moneyness_min: float = 0.5,
     moneyness_max: float = 1.5,
+    columns: Sequence[str] | None = None,
     verbose: bool = True,
 ) -> Path:
     """
@@ -28,7 +86,37 @@ def build_orats_panel_for_ticker(
     - applies basic sanity filters
     - trims extreme DTE and moneyness
     - drops completely dead contracts
-    - adds call (ORATS) + put (parity) Greeks
+    - renames ORATS call Greeks to cDelta, cGamma, ...
+    - adds put Greeks via European put-call parity (pDelta, pGamma, ...)
+
+    Parameters
+    ----------
+    ticker:
+        Underlying symbol (e.g. "SPX").
+    inter_root:
+        Root of intermediate ORATS-by-ticker parquet structure.
+        Expected layout:
+            inter_root/
+                underlying=<TICKER>/year=<YYYY>/part-0000.parquet
+    proc_root:
+        Root for processed ORATS panels.
+    years:
+        Optional subset of years to include (ints or strings).
+    dte_min, dte_max:
+        DTE band to keep in the processed panel.
+    moneyness_min, moneyness_max:
+        Coarse K/S moneyness band to keep.
+    columns:
+        Optional explicit list of columns to keep in the output.
+        If None, uses CORE_ORATS_WIDE_COLUMNS.
+        REQUIRED_ORATS_WIDE_COLUMNS must always be included, otherwise a
+        ValueError is raised.
+    verbose:
+        If True, print basic progress messages.
+
+    Returns
+    -------
+    Path to the written Parquet file.
     """
     inter_root = Path(inter_root)
     proc_root = Path(proc_root)
@@ -88,6 +176,7 @@ def build_orats_panel_for_ticker(
 
     # 3) Filters: DTE band, sanity checks, moneyness trim, dead contracts
     lf = lf.filter(
+        # DTE band
         pl.col("dte").is_between(dte_min, dte_max),
 
         # hard sanity checks
@@ -110,69 +199,46 @@ def build_orats_panel_for_ticker(
         ),
     )
 
-    # 4) Put Greeks via parity (inline, no helper)
+    # 4) Rename ORATS call Greeks to cDelta, cGamma, ...
+    # (we keep the original columns in the lazy frame, but will not select them)
+    lf = lf.with_columns(
+        pl.col("delta").alias("cDelta"),
+        pl.col("gamma").alias("cGamma"),
+        pl.col("theta").alias("cTheta"),
+        pl.col("vega").alias("cVega"),
+        pl.col("rho").alias("cRho"),
+    )
+
+    # 5) Put Greeks via parity (inline, no helper)
+    # European-style parity using BS world with continuous div yield
     disc_q = (-pl.col("divRate") * pl.col("yte")).exp()
     disc_r = (-pl.col("iRate") * pl.col("yte")).exp()
 
     lf = lf.with_columns(
-        pDelta = pl.col("delta") - disc_q,
-        pGamma = pl.col("gamma"),
-        pVega  = pl.col("vega"),
-        pRho   = pl.col("rho") - pl.col("yte") * pl.col("strike") * disc_r,
+        pDelta = pl.col("cDelta") - disc_q,
+        pGamma = pl.col("cGamma"),
+        pVega  = pl.col("cVega"),
+        pRho   = pl.col("cRho") - pl.col("yte") * pl.col("strike") * disc_r,
         pTheta = (
-            pl.col("theta")
+            pl.col("cTheta")
             + pl.col("divRate") * pl.col("stkPx") * disc_q
             - pl.col("iRate") * pl.col("strike") * disc_r
         ),
     )
 
-    # 5) Final selection + materialisation
-    df = lf.select(
-        [
-            "ticker",
-            "trade_date",
-            "expirDate",
-            "dte",
-            "yte",
-            "stkPx",
-            "strike",
-            "moneyness_ks",
-            "cVolu",
-            "pVolu",
-            "cBidPx",
-            "cAskPx",
-            "cMidPx",
-            "pBidPx",
-            "pAskPx",
-            "pMidPx",
-            "cSpread",
-            "pSpread",
-            "cRelSpread",
-            "pRelSpread",
-            "cBidIv",
-            "cMidIv",
-            "cAskIv",
-            "pBidIv",
-            "pMidIv",
-            "pAskIv",
-            "smoothSmvVol",
-            "iRate",
-            "divRate",
-            "extVol",
-            # call Greeks (ORATS)
-            pl.col("delta").alias("cDelta"),
-            pl.col("gamma").alias("cGamma"),
-            pl.col("theta").alias("cTheta"),
-            pl.col("vega").alias("cVega"),
-            pl.col("rho").alias("cRho"),
-            # put Greeks (parity, already named)
-            "pDelta",
-            "pGamma",
-            "pTheta",
-            "pVega",
-            "pRho",
-        ]
-    ).collect()
+    # 6) Final selection + materialisation
+    if columns is None:
+        cols = CORE_ORATS_WIDE_COLUMNS
+    else:
+        cols = list(columns)
+        missing = REQUIRED_ORATS_WIDE_COLUMNS - set(cols)
+        if missing:
+            raise ValueError(
+                "build_orats_panel_for_ticker: missing required columns: "
+                f"{sorted(missing)}"
+            )
+
+    df = lf.select(cols).collect()
 
     proc_root.mkdir(parents=True, exist_ok=True)
     out_path = proc_root / f"orats_panel_{ticker}.parquet"
