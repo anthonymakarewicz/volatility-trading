@@ -61,7 +61,7 @@ ORATS_DTYPE = {
 # Optional: human-readable data dictionary
 ORATS_COLUMN_DOCS = {
     "ticker": "Underlying symbol representing the stock or index.",
-    "stkPx": "Current price of the underlying; for indexes this may be the solved implied futures price.",
+    "stkPx": "Current price of the underlying stock. For indexes, this is the solved implied futures price for each expiration.",
     "expirDate": "Calendar date on which the option expires.",
     "yte": "Time to expiration expressed in years.",
     "strike": "Strike price at which the option can be exercised.",
