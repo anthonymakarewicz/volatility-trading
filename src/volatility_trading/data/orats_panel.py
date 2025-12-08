@@ -5,69 +5,17 @@ from pathlib import Path
 from collections.abc import Sequence
 from typing import Iterable
 
-from volatility_trading.config.paths import INTER_ORATS_BY_TICKER, PROC_ORATS
-
-# Default / core schema for the processed wide ORATS panel
-CORE_ORATS_WIDE_COLUMNS = [
-    "ticker",
-    "trade_date",
-    "expirDate",
-    "dte",
-    "yte",
-    "stkPx",
-    "strike",
-    "moneyness_ks",
-    "cVolu",
-    "pVolu",
-    "cBidPx",
-    "cAskPx",
-    "cMidPx",
-    "pBidPx",
-    "pAskPx",
-    "pMidPx",
-    "cSpread",
-    "pSpread",
-    "cRelSpread",
-    "pRelSpread",
-    "cBidIv",
-    "cMidIv",
-    "cAskIv",
-    "pBidIv",
-    "pMidIv",
-    "pAskIv",
-    "smoothSmvVol",
-    "iRate",
-    "divRate",
-    "extVol",
-    # call Greeks (renamed from ORATS raw greeks)
-    "cDelta",
-    "cGamma",
-    "cTheta",
-    "cVega",
-    "cRho",
-    # put Greeks (via parity)
-    "pDelta",
-    "pGamma",
-    "pTheta",
-    "pVega",
-    "pRho",
-]
-
-# Minimal set of columns that must always be present
-REQUIRED_ORATS_WIDE_COLUMNS = {
-    "ticker",
-    "trade_date",
-    "expirDate",
-    "dte",
-    "stkPx",
-    "strike",
-}
+from volatility_trading.config.schemas import (
+    ORATS_VENDOR_TO_PROCESSED,
+    CORE_ORATS_WIDE_COLUMNS,
+    REQUIRED_ORATS_WIDE_COLUMNS,
+)
 
 
 def build_orats_panel_for_ticker(
+    inter_root: Path | str,
+    proc_root: Path | str,
     ticker: str,
-    inter_root: Path | str = INTER_ORATS_BY_TICKER,
-    proc_root: Path | str = PROC_ORATS,
     years: Iterable[int] | Iterable[str] | None = None,
     *,
     dte_min: int = 7,
@@ -80,14 +28,26 @@ def build_orats_panel_for_ticker(
     """
     Build a cleaned, WIDE ORATS panel for a single ticker.
 
-    - parses dates
+    Raw (intermediate) layout
+    -------------------------
+    inter_root/
+        underlying=<TICKER>/year=<YYYY>/part-0000.parquet
+
+    Processed output
+    ----------------
+    proc_root/
+        orats_panel_<TICKER>.parquet
+
+    The processed panel:
+    - parses dates (trade_date, expiry_date)
     - computes DTE and K/S moneyness
-    - computes call/put mid prices and spreads
+    - normalises vendor names (stkPx -> spot_price, cBidPx -> call_bid, ...)
+    - computes call/put mid prices, spreads, relative spreads
     - applies basic sanity filters
     - trims extreme DTE and moneyness
-    - drops completely dead contracts
-    - renames ORATS call Greeks to cDelta, cGamma, ...
-    - adds put Greeks via European put-call parity (pDelta, pGamma, ...)
+    - drops completely dead contracts (no quotes, no theo value)
+    - exposes call Greeks as call_delta, call_gamma, ...
+    - adds put Greeks via European put–call parity (put_delta, put_gamma, ...)
 
     Parameters
     ----------
@@ -95,9 +55,6 @@ def build_orats_panel_for_ticker(
         Underlying symbol (e.g. "SPX").
     inter_root:
         Root of intermediate ORATS-by-ticker parquet structure.
-        Expected layout:
-            inter_root/
-                underlying=<TICKER>/year=<YYYY>/part-0000.parquet
     proc_root:
         Root for processed ORATS panels.
     years:
@@ -107,16 +64,16 @@ def build_orats_panel_for_ticker(
     moneyness_min, moneyness_max:
         Coarse K/S moneyness band to keep.
     columns:
-        Optional explicit list of columns to keep in the output.
+        Optional explicit list of columns for the output schema.
         If None, uses CORE_ORATS_WIDE_COLUMNS.
-        REQUIRED_ORATS_WIDE_COLUMNS must always be included, otherwise a
-        ValueError is raised.
+        REQUIRED_ORATS_WIDE_COLUMNS must always be included.
     verbose:
         If True, print basic progress messages.
 
     Returns
     -------
-    Path to the written Parquet file.
+    Path
+        Path to the written Parquet file.
     """
     inter_root = Path(inter_root)
     proc_root = Path(proc_root)
@@ -127,9 +84,10 @@ def build_orats_panel_for_ticker(
         print(f"\n=== Building ORATS WIDE panel for {ticker} ===")
         print(f"Reading from: {pattern}")
 
+    # 0) Lazy scan
     scan = pl.scan_parquet(str(pattern))
 
-    # 1) Parse dates (and optionally filter years)
+    # 1) Parse raw date strings (still using vendor names here)
     lf = scan.with_columns(
         pl.col("trade_date")
         .str.strptime(pl.Date, fmt="%m/%d/%Y", strict=False)
@@ -139,94 +97,99 @@ def build_orats_panel_for_ticker(
         .alias("expirDate"),
     )
 
+    # 2) Normalise vendor names -> processed names
+    #    (this includes stkPx -> spot_price, cBidPx -> call_bid, etc.)
+    lf = lf.with_columns(
+        *[pl.col(raw).alias(proc) for raw, proc in ORATS_VENDOR_TO_PROCESSED.items()]
+    )
+
+    # 3) Optional year filter (on processed trade_date)
     if years is not None:
         years_set = {int(y) for y in years}
         lf = lf.filter(pl.col("trade_date").dt.year().is_in(years_set))
 
-    # 2) Basic derived features: DTE, moneyness, mids, spreads, rel spreads
+    # 4) Derived features: DTE, moneyness, mids, spreads, rel spreads
     lf = lf.with_columns(
         # days to expiry
-        (pl.col("expirDate") - pl.col("trade_date"))
+        (pl.col("expiry_date") - pl.col("trade_date"))
         .dt.days()
         .alias("dte"),
 
         # K/S moneyness
-        (pl.col("strike") / pl.col("stkPx")).alias("moneyness_ks"),
+        (pl.col("strike") / pl.col("spot_price")).alias("moneyness_ks"),
 
         # mid prices
-        ((pl.col("cBidPx") + pl.col("cAskPx")) / 2.0).alias("cMidPx"),
-        ((pl.col("pBidPx") + pl.col("pAskPx")) / 2.0).alias("pMidPx"),
+        ((pl.col("call_bid") + pl.col("call_ask")) / 2.0).alias("call_mid"),
+        ((pl.col("put_bid") + pl.col("put_ask")) / 2.0).alias("put_mid"),
 
         # spreads
-        (pl.col("cAskPx") - pl.col("cBidPx")).alias("cSpread"),
-        (pl.col("pAskPx") - pl.col("pBidPx")).alias("pSpread"),
+        (pl.col("call_ask") - pl.col("call_bid")).alias("call_spread"),
+        (pl.col("put_ask") - pl.col("put_bid")).alias("put_spread"),
 
         # relative spreads (for later entry filters)
         (
-            pl.when((pl.col("cMidPx") > 0) & (pl.col("cSpread") >= 0))
-            .then(pl.col("cSpread") / pl.col("cMidPx"))
+            pl.when((pl.col("call_mid") > 0) & (pl.col("call_spread") >= 0))
+            .then(pl.col("call_spread") / pl.col("call_mid"))
             .otherwise(None)
-        ).alias("cRelSpread"),
+        ).alias("call_rel_spread"),
         (
-            pl.when((pl.col("pMidPx") > 0) & (pl.col("pSpread") >= 0))
-            .then(pl.col("pSpread") / pl.col("pMidPx"))
+            pl.when((pl.col("put_mid") > 0) & (pl.col("put_spread") >= 0))
+            .then(pl.col("put_spread") / pl.col("put_mid"))
             .otherwise(None)
-        ).alias("pRelSpread"),
+        ).alias("put_rel_spread"),
     )
 
-    # 3) Filters: DTE band, sanity checks, moneyness trim, dead contracts
+    # 5) Filters: DTE band, sanity checks, moneyness trim, dead contracts
     lf = lf.filter(
         # DTE band
         pl.col("dte").is_between(dte_min, dte_max),
 
         # hard sanity checks
-        pl.col("stkPx") > 0,
+        pl.col("spot_price") > 0,
         pl.col("strike") > 0,
-        pl.col("cAskPx") >= pl.col("cBidPx"),
-        pl.col("pAskPx") >= pl.col("pBidPx"),
+        pl.col("call_ask") >= pl.col("call_bid"),
+        pl.col("put_ask") >= pl.col("put_bid"),
 
         # coarse moneyness trim
         pl.col("moneyness_ks").is_between(moneyness_min, moneyness_max),
 
-        # drop contracts totally dead on BOTH sides
+        # drop contracts totally dead on BOTH sides (no quotes, no theo value)
         ~(
-            (pl.col("cBidPx") == 0)
-            & (pl.col("cAskPx") == 0)
-            & (pl.col("cValue") == 0)  # adjust to your actual column names
-            & (pl.col("pBidPx") == 0)
-            & (pl.col("pAskPx") == 0)
-            & (pl.col("pValue") == 0)
+            (pl.col("call_bid") == 0)
+            & (pl.col("call_ask") == 0)
+            & (pl.col("call_theo") == 0)
+            & (pl.col("put_bid") == 0)
+            & (pl.col("put_ask") == 0)
+            & (pl.col("put_theo") == 0)
         ),
     )
 
-    # 4) Rename ORATS call Greeks to cDelta, cGamma, ...
-    # (we keep the original columns in the lazy frame, but will not select them)
+    # 6) Call Greeks: rename ORATS raw greeks to call_*
     lf = lf.with_columns(
-        pl.col("delta").alias("cDelta"),
-        pl.col("gamma").alias("cGamma"),
-        pl.col("theta").alias("cTheta"),
-        pl.col("vega").alias("cVega"),
-        pl.col("rho").alias("cRho"),
+        pl.col("delta").alias("call_delta"),
+        pl.col("gamma").alias("call_gamma"),
+        pl.col("theta").alias("call_theta"),
+        pl.col("vega").alias("call_vega"),
+        pl.col("rho").alias("call_rho"),
     )
 
-    # 5) Put Greeks via parity (inline, no helper)
-    # European-style parity using BS world with continuous div yield
-    disc_q = (-pl.col("divRate") * pl.col("yte")).exp()
-    disc_r = (-pl.col("iRate") * pl.col("yte")).exp()
+    # 7) Put Greeks via European-style put–call parity (BS world with cont. div yield)
+    disc_q = (-pl.col("dividend_yield") * pl.col("yte")).exp()
+    disc_r = (-pl.col("risk_free_rate") * pl.col("yte")).exp()
 
     lf = lf.with_columns(
-        pDelta = pl.col("cDelta") - disc_q,
-        pGamma = pl.col("cGamma"),
-        pVega  = pl.col("cVega"),
-        pRho   = pl.col("cRho") - pl.col("yte") * pl.col("strike") * disc_r,
-        pTheta = (
-            pl.col("cTheta")
-            + pl.col("divRate") * pl.col("stkPx") * disc_q
-            - pl.col("iRate") * pl.col("strike") * disc_r
+        put_delta = pl.col("call_delta") - disc_q,
+        put_gamma = pl.col("call_gamma"),
+        put_vega  = pl.col("call_vega"),
+        put_rho   = pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r,
+        put_theta = (
+            pl.col("call_theta")
+            + pl.col("dividend_yield") * pl.col("spot_price") * disc_q
+            - pl.col("risk_free_rate") * pl.col("strike") * disc_r
         ),
     )
 
-    # 6) Final selection + materialisation
+    # 8) Final selection + materialisation
     if columns is None:
         cols = CORE_ORATS_WIDE_COLUMNS
     else:
