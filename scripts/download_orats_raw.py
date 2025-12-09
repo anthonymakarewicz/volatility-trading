@@ -29,7 +29,6 @@ from dotenv import load_dotenv
 from volatility_trading.config.paths import RAW_ORATS
 from volatility_trading.data.orats_downloader import download_orats_raw
 
-
 # ---- CONFIG ----
 
 HOST = "orats.hostedftp.com"  # or "de1.hostedftp.com"

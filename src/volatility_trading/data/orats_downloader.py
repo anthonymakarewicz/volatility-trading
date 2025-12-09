@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Iterable
 from ftplib import FTP
 from pathlib import Path
-from typing import Iterable
-import zipfile
 
 
 def is_valid_zip(path: Path) -> bool:

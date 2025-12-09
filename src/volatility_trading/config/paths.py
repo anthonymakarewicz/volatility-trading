@@ -14,9 +14,11 @@ RAW_OPTIONSDX = DATA_RAW / "optionsdx"
 # ----- Options – intermediate -----
 INTER_ORATS = DATA_INTER / "orats"
 INTER_ORATS_BY_TICKER = INTER_ORATS / "by_ticker"
-
 INTER_OPTIONSDX = DATA_INTER / "optionsdx"
 
+# ----- Options – processed -----
+PROC_ORATS = DATA_PROC / "orats"
+PROC_OPTIONSDX = DATA_PROC / "optionsdx"
 
 def raw(asset_class: str, source: str) -> Path:
     return DATA_ROOT / "raw" / asset_class / source

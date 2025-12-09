@@ -1,9 +1,11 @@
 from dataclasses import dataclass
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import TypeAlias, Any
+
 
 # --- Shared aliases -------------------------------------------------
-DataMapping = Mapping[str, Any]
-ParamGrid   = dict[str, Any]
+DataMapping: TypeAlias = Mapping[str, Any]
+ParamGrid: TypeAlias   = dict[str, Any]
 
 # --- Core dataclasses -----------------------------------------------
 

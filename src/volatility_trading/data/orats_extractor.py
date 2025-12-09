@@ -3,7 +3,7 @@ from __future__ import annotations
 import zipfile
 import polars as pl
 from pathlib import Path
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from polars.exceptions import NoDataError
 
 from volatility_trading.config.schemas import ORATS_DTYPE

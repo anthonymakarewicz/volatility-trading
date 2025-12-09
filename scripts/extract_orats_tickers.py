@@ -32,7 +32,7 @@ TICKERS = ["SPX"]  # e.g. ["SPX", "SPY", "QQQ"]
 
 # Restrict to specific years if you want (ints or strings), or None for all:
 # YEAR_WHITELIST = {2013, 2014}
-YEAR_WHITELIST = None
+YEAR_WHITELIST = [2007, 2008, 2009]
 
 ROOT_COL = "ticker"  # ORATS column that contains the underlying root
 VERBOSE = True

@@ -19,7 +19,7 @@ from volatility_trading.data.orats_panel import build_orats_panel_for_ticker
 TICKERS = ["SPX"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
 
 # Restrict to a subset of years, or None for all available
-YEARS = None  # e.g. range(2010, 2026)
+YEARS = None  # e.g. range(2007, 2026)
 
 # DTE and moneyness bands used in the cleaning step
 DTE_MIN = 7
@@ -35,9 +35,9 @@ def main() -> None:
     for ticker in TICKERS:
         print(f"\n=== Building panel for {ticker} ===")
         build_orats_panel_for_ticker(
-            ticker=ticker,
             inter_root=INTER_ORATS_BY_TICKER,
             proc_root=PROC_ORATS,
+            ticker=ticker,
             years=YEARS,
             dte_min=DTE_MIN,
             dte_max=DTE_MAX,

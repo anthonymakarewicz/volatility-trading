@@ -136,7 +136,7 @@ ORATS_VENDOR_TO_PROCESSED = {
     "cBidIv": "call_bid_iv",
     "cMidIv": "call_mid_iv",
     "cAskIv": "call_ask_iv",
-    "smoothSmvVol": "smoothed_vol",
+    "smoothSmvVol": "smoothed_iv",
 
     "pBidIv": "put_bid_iv",
     "pMidIv": "put_mid_iv",
@@ -148,16 +148,16 @@ ORATS_VENDOR_TO_PROCESSED = {
     "residualRateData": "residual_rate_data",
 
     # greeks (raw from ORATS)
-    "delta": "delta",
-    "gamma": "gamma",
-    "theta": "theta",
-    "vega": "vega",
-    "rho": "rho",
+    "delta": "call_delta",
+    "gamma": "call_gamma",
+    "theta": "call_theta",
+    "vega": "call_vega",
+    "rho": "call_rho",
     "phi": "phi",
     "driftlessTheta": "driftless_theta",
 
-    # external vols / theo values
-    "extVol": "ext_vol",
+    # external iv / theo values
+    "extVol": "ext_iv",
     "extCTheo": "ext_call_theo",
     "extPTheo": "ext_put_theo",
 }
@@ -182,10 +182,10 @@ ORATS_PROCESSED_COLUMN_DOCS = {
     "put_bid_iv": ORATS_COLUMN_DOCS["pBidIv"],
     "put_mid_iv": ORATS_COLUMN_DOCS["pMidIv"],
     "put_ask_iv": ORATS_COLUMN_DOCS["pAskIv"],
-    "smoothed_vol": ORATS_COLUMN_DOCS["smoothSmvVol"],
+    "smoothed_iv": ORATS_COLUMN_DOCS["smoothSmvVol"],
     "risk_free_rate": ORATS_COLUMN_DOCS["iRate"],
     "dividend_yield": ORATS_COLUMN_DOCS["divRate"],
-    "ext_vol": ORATS_COLUMN_DOCS["extVol"],
+    "ext_iv": ORATS_COLUMN_DOCS["extVol"],
 
     # Call greeks: also basically direct renames
     "call_delta": ORATS_COLUMN_DOCS["delta"],
@@ -255,8 +255,6 @@ CORE_ORATS_WIDE_COLUMNS = [
     "put_bid",
     "put_ask",
     "put_mid",
-    "call_spread",
-    "put_spread",
     "call_rel_spread",
     "put_rel_spread",
     "call_bid_iv",
@@ -265,10 +263,9 @@ CORE_ORATS_WIDE_COLUMNS = [
     "put_bid_iv",
     "put_mid_iv",
     "put_ask_iv",
-    "smoothed_vol",
+    "smoothed_iv",
     "risk_free_rate",
     "dividend_yield",
-    "ext_vol",
     # call Greeks (from ORATS)
     "call_delta",
     "call_gamma",
@@ -291,4 +288,5 @@ REQUIRED_ORATS_WIDE_COLUMNS = {
     "dte",
     "spot_price",
     "strike",
+    "smoothed_iv",
 }

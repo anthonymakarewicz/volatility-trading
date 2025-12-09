@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import polars as pl
 from pathlib import Path
-from collections.abc import Sequence
-from typing import Iterable
+from collections.abc import Sequence, Iterable
+
+import polars as pl
 
 from volatility_trading.config.schemas import (
     ORATS_VENDOR_TO_PROCESSED,
@@ -51,12 +51,12 @@ def build_orats_panel_for_ticker(
 
     Parameters
     ----------
-    ticker:
-        Underlying symbol (e.g. "SPX").
     inter_root:
         Root of intermediate ORATS-by-ticker parquet structure.
     proc_root:
         Root for processed ORATS panels.
+    ticker:
+        Underlying symbol (e.g. "SPX").
     years:
         Optional subset of years to include (ints or strings).
     dte_min, dte_max:
@@ -87,73 +87,56 @@ def build_orats_panel_for_ticker(
     # 0) Lazy scan
     scan = pl.scan_parquet(str(pattern))
 
-    # 1) Parse raw date strings (still using vendor names here)
-    lf = scan.with_columns(
-        pl.col("trade_date")
-        .str.strptime(pl.Date, fmt="%m/%d/%Y", strict=False)
-        .alias("trade_date"),
-        pl.col("expirDate")
-        .str.strptime(pl.Date, fmt="%m/%d/%Y", strict=False)
-        .alias("expirDate"),
-    )
+    # 1) Normalise vendor names -> processed names
+    lf = scan.rename(ORATS_VENDOR_TO_PROCESSED)
 
-    # 2) Normalise vendor names -> processed names
-    #    (this includes stkPx -> spot_price, cBidPx -> call_bid, etc.)
+    # 2) Parse raw date strings (now using processed names)
     lf = lf.with_columns(
-        *[pl.col(raw).alias(proc) for raw, proc in ORATS_VENDOR_TO_PROCESSED.items()]
+        trade_date = pl.col("trade_date").str.strptime(
+            pl.Date, format="%m/%d/%Y", strict=False
+        ),
+        expiry_date = pl.col("expiry_date").str.strptime(
+            pl.Date, format="%m/%d/%Y", strict=False
+        ),
     )
 
-    # 3) Optional year filter (on processed trade_date)
+    # 3) Optional year filter
     if years is not None:
         years_set = {int(y) for y in years}
         lf = lf.filter(pl.col("trade_date").dt.year().is_in(years_set))
 
-    # 4) Derived features: DTE, moneyness, mids, spreads, rel spreads
+    # 4) Derived features: DTE, moneyness, mids, spreads
     lf = lf.with_columns(
-        # days to expiry
-        (pl.col("expiry_date") - pl.col("trade_date"))
-        .dt.days()
-        .alias("dte"),
+        dte = (pl.col("expiry_date") - pl.col("trade_date")).dt.total_days(),
+        moneyness_ks = pl.col("strike") / pl.col("spot_price"),
+        call_mid = (pl.col("call_bid") + pl.col("call_ask")) / 2.0,
+        put_mid = (pl.col("put_bid") + pl.col("put_ask")) / 2.0,
+        call_spread = pl.col("call_ask") - pl.col("call_bid"),
+        put_spread  = pl.col("put_ask") - pl.col("put_bid"),
+    )
 
-        # K/S moneyness
-        (pl.col("strike") / pl.col("spot_price")).alias("moneyness_ks"),
-
-        # mid prices
-        ((pl.col("call_bid") + pl.col("call_ask")) / 2.0).alias("call_mid"),
-        ((pl.col("put_bid") + pl.col("put_ask")) / 2.0).alias("put_mid"),
-
-        # spreads
-        (pl.col("call_ask") - pl.col("call_bid")).alias("call_spread"),
-        (pl.col("put_ask") - pl.col("put_bid")).alias("put_spread"),
-
-        # relative spreads (for later entry filters)
-        (
+    # relative spreads
+    lf = lf.with_columns(
+        call_rel_spread = (
             pl.when((pl.col("call_mid") > 0) & (pl.col("call_spread") >= 0))
             .then(pl.col("call_spread") / pl.col("call_mid"))
             .otherwise(None)
-        ).alias("call_rel_spread"),
-        (
+        ),
+        put_rel_spread = (
             pl.when((pl.col("put_mid") > 0) & (pl.col("put_spread") >= 0))
             .then(pl.col("put_spread") / pl.col("put_mid"))
             .otherwise(None)
-        ).alias("put_rel_spread"),
+        ),
     )
-
+    
     # 5) Filters: DTE band, sanity checks, moneyness trim, dead contracts
     lf = lf.filter(
-        # DTE band
         pl.col("dte").is_between(dte_min, dte_max),
-
-        # hard sanity checks
         pl.col("spot_price") > 0,
         pl.col("strike") > 0,
         pl.col("call_ask") >= pl.col("call_bid"),
         pl.col("put_ask") >= pl.col("put_bid"),
-
-        # coarse moneyness trim
         pl.col("moneyness_ks").is_between(moneyness_min, moneyness_max),
-
-        # drop contracts totally dead on BOTH sides (no quotes, no theo value)
         ~(
             (pl.col("call_bid") == 0)
             & (pl.col("call_ask") == 0)
@@ -164,24 +147,16 @@ def build_orats_panel_for_ticker(
         ),
     )
 
-    # 6) Call Greeks: rename ORATS raw greeks to call_*
-    lf = lf.with_columns(
-        pl.col("delta").alias("call_delta"),
-        pl.col("gamma").alias("call_gamma"),
-        pl.col("theta").alias("call_theta"),
-        pl.col("vega").alias("call_vega"),
-        pl.col("rho").alias("call_rho"),
-    )
-
-    # 7) Put Greeks via European-style put–call parity (BS world with cont. div yield)
+    # 6) Put Greeks via European-style put–call parity 
+    # (BS world with cont. div yield)
     disc_q = (-pl.col("dividend_yield") * pl.col("yte")).exp()
     disc_r = (-pl.col("risk_free_rate") * pl.col("yte")).exp()
 
     lf = lf.with_columns(
         put_delta = pl.col("call_delta") - disc_q,
         put_gamma = pl.col("call_gamma"),
-        put_vega  = pl.col("call_vega"),
-        put_rho   = pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r,
+        put_vega = pl.col("call_vega"),
+        put_rho = pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r,
         put_theta = (
             pl.col("call_theta")
             + pl.col("dividend_yield") * pl.col("spot_price") * disc_q
@@ -189,7 +164,7 @@ def build_orats_panel_for_ticker(
         ),
     )
 
-    # 8) Final selection + materialisation
+    # 7) Final selection + materialisation
     if columns is None:
         cols = CORE_ORATS_WIDE_COLUMNS
     else:
