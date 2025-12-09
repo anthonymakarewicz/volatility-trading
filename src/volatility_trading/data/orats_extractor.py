@@ -37,7 +37,7 @@ def read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
         with zf.open(csv_name) as f:
             df = pl.read_csv(
                 f, 
-                dtypes=ORATS_DTYPE, 
+                schema_overrides=ORATS_DTYPE, 
                 null_values=["NULL"]
             )
 

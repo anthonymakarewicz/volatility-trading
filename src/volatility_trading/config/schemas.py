@@ -10,21 +10,32 @@ import polars as pl
 # - tickers                  -> Utf8
 
 ORATS_DTYPE = {
+    # identifiers
     "ticker": pl.Utf8,
+    "cOpra": pl.Utf8,   # OCC/OPRA call symbol
+    "pOpra": pl.Utf8,   # OCC/OPRA put symbol
+
+    # underlying / dates
     "stkPx": pl.Float64,
     "expirDate": pl.Utf8,
     "yte": pl.Float64,
     "strike": pl.Float64,
+
+    # volume / open interest
     "cVolu": pl.Int64,
     "cOi": pl.Int64,
     "pVolu": pl.Int64,
     "pOi": pl.Int64,
+
+    # quotes
     "cBidPx": pl.Float64,
     "cValue": pl.Float64,
     "cAskPx": pl.Float64,
     "pBidPx": pl.Float64,
     "pValue": pl.Float64,
     "pAskPx": pl.Float64,
+
+    # implied vols
     "cBidIv": pl.Float64,
     "cMidIv": pl.Float64,
     "cAskIv": pl.Float64,
@@ -32,9 +43,13 @@ ORATS_DTYPE = {
     "pBidIv": pl.Float64,
     "pMidIv": pl.Float64,
     "pAskIv": pl.Float64,
+
+    # rates
     "iRate": pl.Float64,
     "divRate": pl.Float64,
     "residualRateData": pl.Float64,
+
+    # greeks
     "delta": pl.Float64,
     "gamma": pl.Float64,
     "theta": pl.Float64,
@@ -42,15 +57,27 @@ ORATS_DTYPE = {
     "rho": pl.Float64,
     "phi": pl.Float64,
     "driftlessTheta": pl.Float64,
+
+    # external vols / theo
     "extVol": pl.Float64,
     "extCTheo": pl.Float64,
     "extPTheo": pl.Float64,
+
+    # spot & trade date
     "spot_px": pl.Float64,
     "trade_date": pl.Utf8,
 }
 
 ORATS_COLUMN_DOCS = {
     "ticker": "Underlying symbol representing the stock or index.",
+    "cOpra": (
+        "Full OCC/OPRA symbol for the call contract (present from ~2010 onward)"
+        "(e.g. 'SPXW140118C01375000')."
+    ),
+    "pOpra": (
+        "Full OCC/OPRA symbol for the put contract (present from ~2010 onward)"
+        "(e.g. 'SPXW140118P01375000')."
+    ),
     "stkPx": (
         "Current price of the underlying stock. For indexes, this may be the "
         "implied futures/forward price used by ORATS for that expiry."
