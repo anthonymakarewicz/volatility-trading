@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 from collections.abc import Sequence, Iterable
+from pathlib import Path
 
 import polars as pl
 
@@ -10,6 +10,70 @@ from volatility_trading.config.schemas import (
     CORE_ORATS_WIDE_COLUMNS,
     REQUIRED_ORATS_WIDE_COLUMNS,
 )
+
+
+def _scan_orats_intermediate_for_ticker(
+    inter_root: Path | str,
+    ticker: str,
+    years: Iterable[int] | Iterable[str] | None = None,
+    *,
+    verbose: bool = True,
+) -> pl.LazyFrame:
+    """
+    Build a lazy scan over intermediate ORATS files for a single ticker.
+
+    Expected intermediate layout
+    ----------------------------
+    inter_root/
+        underlying=<TICKER>/year=<YYYY>/part-0000.parquet
+    """
+    inter_root = Path(inter_root)
+    root = inter_root / f"underlying={ticker}"
+
+    if not root.exists():
+        raise FileNotFoundError(
+            f"No ORATS directory found for {ticker!r} at {root}"
+        )
+
+    if verbose:
+        print(f"\n=== Building ORATS WIDE panel for {ticker} ===")
+        print(f"Reading from: {root}")
+
+    # optional year whitelist (as strings, e.g. {"2009", "2010"})
+    if years is not None:
+        year_whitelist = {str(y) for y in years}
+    else:
+        year_whitelist = None
+
+    scans: list[pl.LazyFrame] = []
+
+    for year_dir in sorted(root.glob("year=*")):
+        if not year_dir.is_dir():
+            continue
+
+        # year_dir.name is like "year=2009"
+        year_name = year_dir.name.split("=", 1)[-1]
+
+        if year_whitelist is not None and year_name not in year_whitelist:
+            continue
+
+        part = year_dir / "part-0000.parquet"
+        if not part.exists():
+            if verbose:
+                print(f"  [skip] missing {part}")
+            continue
+
+        if verbose:
+            print(f"  [scan] {part}")
+        scans.append(pl.scan_parquet(str(part)))
+
+    if not scans:
+        raise FileNotFoundError(
+            f"No ORATS files found for {ticker!r} under {root}"
+        )
+
+    # allow schema evolution across years (e.g. cOpra/pOpra appear later)
+    return pl.concat(scans, how="diagonal")
 
 
 def build_orats_panel_for_ticker(
@@ -78,19 +142,18 @@ def build_orats_panel_for_ticker(
     inter_root = Path(inter_root)
     proc_root = Path(proc_root)
 
-    pattern = inter_root / f"underlying={ticker}" / "year=*/part-0000.parquet"
+    # --- 1) Scan intermediate per-year parquet files lazily ---
+    scan = _scan_orats_intermediate_for_ticker(
+        inter_root=inter_root,
+        ticker=ticker,
+        years=years,
+        verbose=verbose,
+    )
 
-    if verbose:
-        print(f"\n=== Building ORATS WIDE panel for {ticker} ===")
-        print(f"Reading from: {pattern}")
-
-    # 0) Lazy scan
-    scan = pl.scan_parquet(str(pattern))
-
-    # 1) Normalise vendor names -> processed names
+    # --- 2) Normalise vendor names -> processed names ---
     lf = scan.rename(ORATS_VENDOR_TO_PROCESSED)
 
-    # 2) Parse raw date strings (now using processed names)
+    # --- 3) Parse raw date strings into Date columns ---
     lf = lf.with_columns(
         trade_date = pl.col("trade_date").str.strptime(
             pl.Date, format="%m/%d/%Y", strict=False
@@ -100,12 +163,7 @@ def build_orats_panel_for_ticker(
         ),
     )
 
-    # 3) Optional year filter
-    if years is not None:
-        years_set = {int(y) for y in years}
-        lf = lf.filter(pl.col("trade_date").dt.year().is_in(years_set))
-
-    # 4) Derived features: DTE, moneyness, mids, spreads
+    # --- 4) Derived features: DTE, moneyness, mids, spreads, rel spreads ---
     lf = lf.with_columns(
         dte = (pl.col("expiry_date") - pl.col("trade_date")).dt.total_days(),
         moneyness_ks = pl.col("strike") / pl.col("spot_price"),
@@ -115,7 +173,6 @@ def build_orats_panel_for_ticker(
         put_spread  = pl.col("put_ask") - pl.col("put_bid"),
     )
 
-    # relative spreads
     lf = lf.with_columns(
         call_rel_spread = (
             pl.when((pl.col("call_mid") > 0) & (pl.col("call_spread") >= 0))
@@ -129,7 +186,7 @@ def build_orats_panel_for_ticker(
         ),
     )
     
-    # 5) Filters: DTE band, sanity checks, moneyness trim, dead contracts
+    # --- 5) Filters: DTE band, sanity checks, moneyness trim, dead rows ---
     lf = lf.filter(
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("spot_price") > 0,
@@ -147,8 +204,7 @@ def build_orats_panel_for_ticker(
         ),
     )
 
-    # 6) Put Greeks via European-style put–call parity 
-    # (BS world with cont. div yield)
+    # --- 6) Put greeks via European put–call parity ---
     disc_q = (-pl.col("dividend_yield") * pl.col("yte")).exp()
     disc_r = (-pl.col("risk_free_rate") * pl.col("yte")).exp()
 
@@ -164,7 +220,7 @@ def build_orats_panel_for_ticker(
         ),
     )
 
-    # 7) Final selection + materialisation
+    # --- 7) Final column selection & materialisation ---
     if columns is None:
         cols = CORE_ORATS_WIDE_COLUMNS
     else:

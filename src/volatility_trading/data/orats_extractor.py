@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import zipfile
-import polars as pl
-from pathlib import Path
 from collections.abc import Iterable, Sequence
+from pathlib import Path
+
+import polars as pl
 from polars.exceptions import NoDataError
 
 from volatility_trading.config.schemas import ORATS_DTYPE
