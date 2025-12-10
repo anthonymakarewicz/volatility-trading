@@ -79,8 +79,8 @@ ORATS_COLUMN_DOCS = {
         "(e.g. 'SPXW140118P01375000')."
     ),
     "stkPx": (
-        "Current price of the underlying stock. For indexes, this may be the "
-        "implied futures/forward price used by ORATS for that expiry."
+        "Current price of the underlying stock. For indexes, this is "
+        "the solved implied futures price using put-call parity for each expiration."
     ),
     "expirDate": "Calendar date on which the option expires (MM/DD/YYYY).",
     "yte": "Time to expiration expressed in years.",
@@ -124,7 +124,9 @@ ORATS_COLUMN_DOCS = {
     "extCTheo": "External theoretical value of the call, from a third-party source.",
     "extPTheo": "External theoretical value of the put, from a third-party source.",
 
-    "spot_px": "Current market (cash) price of the underlying asset.",
+    "spot_px": ("The current market price of the underlying asset."
+                "For indexes this is the cash price."
+    ),
     "trade_date": "Date on which the option was traded / quoted (as string MM/DD/YYYY).",
 }
 
@@ -137,10 +139,10 @@ ORATS_VENDOR_TO_PROCESSED = {
     "ticker": "ticker",
 
     # underlying / dates
-    "stkPx": "spot_price",          # main underlying price used in ORATS model (can be fwd for indexes)
-    "spot_px": "spot_price_cash",   # cash/spot index or underlying
-    "expirDate": "expiry_date",     # will be parsed to Date
-    "trade_date": "trade_date",     # will be parsed to Date
+    "stkPx": "underlying_price",   # stock/ETF: spot; index: parity-implied forward per expiry
+    "spot_px": "spot_price",      # cash spot for stock/ETF and index (same across expiries)
+    "expirDate": "expiry_date",   
+    "trade_date": "trade_date", 
     "yte": "yte",
     "strike": "strike",
 
@@ -195,7 +197,7 @@ ORATS_PROCESSED_COLUMN_DOCS = {
     "trade_date": ORATS_COLUMN_DOCS["trade_date"] + " Parsed to a Date.",
     "expiry_date": ORATS_COLUMN_DOCS["expirDate"] + " Parsed to a Date.",
     "yte": ORATS_COLUMN_DOCS["yte"],
-    "spot_price": ORATS_COLUMN_DOCS["stkPx"],
+    "underlying_price": ORATS_COLUMN_DOCS["stkPx"],
     "strike": ORATS_COLUMN_DOCS["strike"],
     "call_volume": ORATS_COLUMN_DOCS["cVolu"],
     "put_volume": ORATS_COLUMN_DOCS["pVolu"],
@@ -271,6 +273,7 @@ CORE_ORATS_WIDE_COLUMNS = [
     "expiry_date",
     "dte",
     "yte",
+    "underlying_price",
     "spot_price",
     "strike",
     "moneyness_ks",
@@ -313,7 +316,7 @@ REQUIRED_ORATS_WIDE_COLUMNS = {
     "trade_date",
     "expiry_date",
     "dte",
-    "spot_price",
+    "underlying_price",
     "strike",
     "smoothed_iv",
 }
