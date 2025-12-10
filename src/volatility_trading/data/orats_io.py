@@ -88,7 +88,7 @@ def load_orats_panel(
     return load_orats_panel_lazy(ticker, proc_root, columns).collect()
 
 
-def orats_wide_to_long(wide: pl.DataFrame) -> pl.DataFrame:
+def orats_wide_to_long(wide: pl.LazyFrame | pl.DataFrame) -> pl.LazyFrame:
     """Convert a WIDE ORATS panel into a LONG panel with option_type.
 
     The input is expected to follow the processed ORATS WIDE schema, where
@@ -114,8 +114,16 @@ def orats_wide_to_long(wide: pl.DataFrame) -> pl.DataFrame:
         de-prefixed so that calls and puts share a common set of column
         names (e.g. ``bid``, ``ask``, ``delta``).
     """
-    call_cols = [c for c in wide.columns if c.startswith("call_")]
-    put_cols  = [c for c in wide.columns if c.startswith("put_")]
+    # Normalise to LazyFrame
+    lf = wide.lazy() if isinstance(wide, pl.DataFrame) else wide
+
+    # Resolve schema *without* materialising data
+    schema = lf.collect_schema()
+    cols = list(schema.names())
+
+    call_cols = [c for c in cols if c.startswith("call_")]
+    put_cols  = [c for c in cols if c.startswith("put_")]
+    base_cols = [c for c in cols if not c.startswith(("call_", "put_"))]
 
     if not call_cols and not put_cols:
         raise ValueError(
@@ -123,28 +131,21 @@ def orats_wide_to_long(wide: pl.DataFrame) -> pl.DataFrame:
             "column, but found none."
         )
 
-    # base columns common to both
-    base_cols = [c for c in wide.columns
-                 if not c.startswith(("call_", "put_"))]
+    calls = (
+        lf
+        .select(base_cols + call_cols)
+        .rename({c: c.removeprefix("call_") for c in call_cols})
+        .with_columns(pl.lit("C").alias("option_type"))
+    )
 
-    frames: list[pl.DataFrame] = []
+    puts = (
+        lf
+        .select(base_cols + put_cols)
+        .rename({c: c.removeprefix("put_") for c in put_cols})
+        .with_columns(pl.lit("P").alias("option_type"))
+    )
 
-    if call_cols:
-        calls = (
-            wide
-            .select(base_cols + call_cols)
-            .rename({c: c.removeprefix("call_") for c in call_cols})
-            .with_columns(pl.lit("C").alias("option_type"))
-        )
-        frames.append(calls)
+    long = pl.concat([calls, puts], how="vertical")
+    long = long.with_columns(pl.col("option_type").cast(pl.Categorical))
 
-    if put_cols:
-        puts = (
-            wide
-            .select(base_cols + put_cols)
-            .rename({c: c.removeprefix("put_") for c in put_cols})
-            .with_columns(pl.lit("P").alias("option_type"))
-        )
-        frames.append(puts)
-
-    return pl.concat(frames, how="vertical")
+    return long

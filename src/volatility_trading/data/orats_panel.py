@@ -8,7 +8,6 @@ import polars as pl
 from volatility_trading.config.schemas import (
     ORATS_VENDOR_TO_PROCESSED,
     CORE_ORATS_WIDE_COLUMNS,
-    REQUIRED_ORATS_WIDE_COLUMNS,
 )
 
 
@@ -105,7 +104,7 @@ def build_orats_panel_for_ticker(
     The processed panel:
     - parses dates (trade_date, expiry_date)
     - computes DTE and K/S moneyness
-    - normalises vendor names (stkPx -> spot_price, cBidPx -> call_bid, ...)
+    - normalises vendor names (stkPx -> spot_price, cBidPx -> call_bid_price, ...)
     - computes call/put mid prices, spreads, relative spreads
     - applies basic sanity filters
     - trims extreme DTE and moneyness
@@ -167,21 +166,25 @@ def build_orats_panel_for_ticker(
     lf = lf.with_columns(
         dte = (pl.col("expiry_date") - pl.col("trade_date")).dt.total_days(),
         moneyness_ks = pl.col("strike") / pl.col("spot_price"),
-        call_mid = (pl.col("call_bid") + pl.col("call_ask")) / 2.0,
-        put_mid = (pl.col("put_bid") + pl.col("put_ask")) / 2.0,
-        call_spread = pl.col("call_ask") - pl.col("call_bid"),
-        put_spread  = pl.col("put_ask") - pl.col("put_bid"),
+        call_mid_price = (
+            (pl.col("call_bid_price") + pl.col("call_ask_price")) / 2.0
+        ),
+        put_mid_price = (
+            (pl.col("put_bid_price") + pl.col("put_ask_price")) / 2.0
+        ),
+        call_spread = pl.col("call_ask_price") - pl.col("call_bid_price"),
+        put_spread  = pl.col("put_ask_price") - pl.col("put_bid_price"),
     )
 
     lf = lf.with_columns(
         call_rel_spread = (
-            pl.when((pl.col("call_mid") > 0) & (pl.col("call_spread") >= 0))
-            .then(pl.col("call_spread") / pl.col("call_mid"))
+            pl.when((pl.col("call_mid_price") > 0) & (pl.col("call_spread") >= 0))
+            .then(pl.col("call_spread") / pl.col("call_mid_price"))
             .otherwise(None)
         ),
         put_rel_spread = (
-            pl.when((pl.col("put_mid") > 0) & (pl.col("put_spread") >= 0))
-            .then(pl.col("put_spread") / pl.col("put_mid"))
+            pl.when((pl.col("put_mid_price") > 0) & (pl.col("put_spread") >= 0))
+            .then(pl.col("put_spread") / pl.col("put_mid_price"))
             .otherwise(None)
         ),
     )
@@ -191,16 +194,16 @@ def build_orats_panel_for_ticker(
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("spot_price") > 0,
         pl.col("strike") > 0,
-        pl.col("call_ask") >= pl.col("call_bid"),
-        pl.col("put_ask") >= pl.col("put_bid"),
+        pl.col("call_ask_price") >= pl.col("call_bid_price"),
+        pl.col("put_ask_price") >= pl.col("put_bid_price"),
         pl.col("moneyness_ks").is_between(moneyness_min, moneyness_max),
         ~(
-            (pl.col("call_bid") == 0)
-            & (pl.col("call_ask") == 0)
-            & (pl.col("call_theo") == 0)
-            & (pl.col("put_bid") == 0)
-            & (pl.col("put_ask") == 0)
-            & (pl.col("put_theo") == 0)
+            (pl.col("call_bid_price") == 0)
+            & (pl.col("call_ask_price") == 0)
+            & (pl.col("call_model_price") == 0)
+            & (pl.col("put_bid_price") == 0)
+            & (pl.col("put_ask_price") == 0)
+            & (pl.col("put_model_price") == 0)
         ),
     )
 
@@ -215,22 +218,14 @@ def build_orats_panel_for_ticker(
         put_rho = pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r,
         put_theta = (
             pl.col("call_theta")
-            + pl.col("dividend_yield") * pl.col("spot_price") * disc_q
-            - pl.col("risk_free_rate") * pl.col("strike") * disc_r
+            + (pl.col("dividend_yield") * pl.col("underlying_price") * disc_q - 
+            pl.col("risk_free_rate") * pl.col("strike") * disc_r)
         ),
     )
 
     # --- 7) Final column selection & materialisation ---
     if columns is None:
         cols = CORE_ORATS_WIDE_COLUMNS
-    else:
-        cols = list(columns)
-        missing = REQUIRED_ORATS_WIDE_COLUMNS - set(cols)
-        if missing:
-            raise ValueError(
-                "build_orats_panel_for_ticker: missing required columns: "
-                f"{sorted(missing)}"
-            )
 
     df = lf.select(cols).collect()
 

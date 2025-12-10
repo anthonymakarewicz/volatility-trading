@@ -153,13 +153,13 @@ ORATS_VENDOR_TO_PROCESSED = {
     "pOi": "put_open_interest",
 
     # quotes (prices)
-    "cBidPx": "call_bid",
-    "cValue": "call_theo",
-    "cAskPx": "call_ask",
+    "cBidPx": "call_bid_price",
+    "cValue": "call_model_price",
+    "cAskPx": "call_ask_price",
 
-    "pBidPx": "put_bid",
-    "pValue": "put_theo",
-    "pAskPx": "put_ask",
+    "pBidPx": "put_bid_price",
+    "pValue": "put_model_price",
+    "pAskPx": "put_ask_price",
 
     # implied vols
     "cBidIv": "call_bid_iv",
@@ -192,43 +192,12 @@ ORATS_VENDOR_TO_PROCESSED = {
 }
 
 ORATS_PROCESSED_COLUMN_DOCS = {
-    # Direct renames (reuse raw docs)
-    "ticker": ORATS_COLUMN_DOCS["ticker"],
-    "trade_date": ORATS_COLUMN_DOCS["trade_date"] + " Parsed to a Date.",
-    "expiry_date": ORATS_COLUMN_DOCS["expirDate"] + " Parsed to a Date.",
-    "yte": ORATS_COLUMN_DOCS["yte"],
-    "underlying_price": ORATS_COLUMN_DOCS["stkPx"],
-    "strike": ORATS_COLUMN_DOCS["strike"],
-    "call_volume": ORATS_COLUMN_DOCS["cVolu"],
-    "put_volume": ORATS_COLUMN_DOCS["pVolu"],
-    "call_bid": ORATS_COLUMN_DOCS["cBidPx"],
-    "call_ask": ORATS_COLUMN_DOCS["cAskPx"],
-    "put_bid": ORATS_COLUMN_DOCS["pBidPx"],
-    "put_ask": ORATS_COLUMN_DOCS["pAskPx"],
-    "call_bid_iv": ORATS_COLUMN_DOCS["cBidIv"],
-    "call_mid_iv": ORATS_COLUMN_DOCS["cMidIv"],
-    "call_ask_iv": ORATS_COLUMN_DOCS["cAskIv"],
-    "put_bid_iv": ORATS_COLUMN_DOCS["pBidIv"],
-    "put_mid_iv": ORATS_COLUMN_DOCS["pMidIv"],
-    "put_ask_iv": ORATS_COLUMN_DOCS["pAskIv"],
-    "smoothed_iv": ORATS_COLUMN_DOCS["smoothSmvVol"],
-    "risk_free_rate": ORATS_COLUMN_DOCS["iRate"],
-    "dividend_yield": ORATS_COLUMN_DOCS["divRate"],
-    "ext_iv": ORATS_COLUMN_DOCS["extVol"],
-
-    # Call greeks: also basically direct renames
-    "call_delta": ORATS_COLUMN_DOCS["delta"],
-    "call_gamma": ORATS_COLUMN_DOCS["gamma"],
-    "call_theta": ORATS_COLUMN_DOCS["theta"],
-    "call_vega": ORATS_COLUMN_DOCS["vega"],
-    "call_rho": ORATS_COLUMN_DOCS["rho"],
-
     # New / derived stuff (worth documenting explicitly)
     "dte": "Days to expiry: expiry_date - trade_date in calendar days.",
     "moneyness_ks": "Strike divided by spot_price (K / S), dimensionless moneyness.",
 
-    "call_mid": "Mid price for the call: (call_bid + call_ask) / 2.",
-    "put_mid": "Mid price for the put: (put_bid + put_ask) / 2.",
+    "call_mid_price": "Mid price for the call: (call_bid + call_ask) / 2.",
+    "put_mid_price": "Mid price for the put: (put_bid + put_ask) / 2.",
 
     "call_spread": "Call bid–ask spread in price units: call_ask - call_bid.",
     "put_spread": "Put bid–ask spread in price units: put_ask - put_bid.",
@@ -268,55 +237,49 @@ ORATS_PROCESSED_COLUMN_DOCS = {
 
 # Core processed WIDE schema (the default selection in build_orats_panel_for_ticker)
 CORE_ORATS_WIDE_COLUMNS = [
+    # identifiers / dates
     "ticker",
     "trade_date",
     "expiry_date",
     "dte",
     "yte",
+
+    # underlying & strike
     "underlying_price",
-    "spot_price",
     "strike",
-    "moneyness_ks",
+
+    # volume & open interest
     "call_volume",
     "put_volume",
-    "call_bid",
-    "call_ask",
-    "call_mid",
-    "put_bid",
-    "put_ask",
-    "put_mid",
-    "call_rel_spread",
-    "put_rel_spread",
-    "call_bid_iv",
-    "call_mid_iv",
-    "call_ask_iv",
-    "put_bid_iv",
-    "put_mid_iv",
-    "put_ask_iv",
+    "call_open_interest",
+    "put_open_interest",
+
+    # prices
+    "call_bid_price",
+    "call_mid_price",
+    "call_ask_price",
+    "put_bid_price",
+    "put_mid_price",
+    "put_ask_price",
+
+    # main vols
     "smoothed_iv",
-    "risk_free_rate",
-    "dividend_yield",
-    # call Greeks (from ORATS)
+    "call_mid_iv",
+    "put_mid_iv",
+
+    # Greeks (already split C/P)
     "call_delta",
     "call_gamma",
     "call_theta",
     "call_vega",
     "call_rho",
-    # put Greeks (via parity)
     "put_delta",
     "put_gamma",
     "put_theta",
     "put_vega",
     "put_rho",
-]
 
-# Minimal set of columns that must always be present in any processed ORATS panel
-REQUIRED_ORATS_WIDE_COLUMNS = {
-    "ticker",
-    "trade_date",
-    "expiry_date",
-    "dte",
-    "underlying_price",
-    "strike",
-    "smoothed_iv",
-}
+    # curves
+    "risk_free_rate",
+    "dividend_yield",
+]
