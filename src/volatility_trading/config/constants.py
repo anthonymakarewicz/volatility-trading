@@ -1,9 +1,8 @@
 OPTION_TYPES = ["C", "P"]
 
-# Filters
-MIN_VOLUME = 1
-MAX_RELATIVE_SPREAD = 0.25
-DEFAULT_MONEYNESS_BAND = (0.8, 1.2)
+# Day-count conventions
+TRADING_DAYS_PER_YEAR: int = 252
+CALENDAR_DAYS_PER_YEAR: int = 365
 
 # Column mappings or labels
 OPTION_TYPE_LABELS = {

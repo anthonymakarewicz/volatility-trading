@@ -5,6 +5,7 @@ from pathlib import Path
 
 import polars as pl
 
+from volatility_trading.config.constants import CALENDAR_DAYS_PER_YEAR
 from volatility_trading.config.schemas import (
     ORATS_VENDOR_TO_PROCESSED,
     CORE_ORATS_WIDE_COLUMNS,
@@ -215,12 +216,15 @@ def build_orats_panel_for_ticker(
         put_delta = pl.col("call_delta") - disc_q,
         put_gamma = pl.col("call_gamma"),
         put_vega = pl.col("call_vega"),
-        put_rho = pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r,
         put_theta = (
-            pl.col("call_theta")
-            + (pl.col("dividend_yield") * pl.col("underlying_price") * disc_q - 
-            pl.col("risk_free_rate") * pl.col("strike") * disc_r)
+            pl.col("call_theta") + (
+                pl.col("dividend_yield") * pl.col("spot_price") * disc_q - 
+                pl.col("risk_free_rate") * pl.col("strike") * disc_r
+            ) / CALENDAR_DAYS_PER_YEAR
         ),
+        put_rho = (
+            pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r / 100
+        )
     )
 
     # --- 7) Final column selection & materialisation ---

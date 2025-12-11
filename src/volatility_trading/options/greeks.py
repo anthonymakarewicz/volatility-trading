@@ -68,7 +68,7 @@ def bs_theta(S, K, T, sigma, r=0.0, q=0.0, option_type='call'):
     else:
         raise ValueError("option_type must be 'call' or 'put'")
 
-    return term1 + term2 + term3
+    return term1 + term2 + term3 # per 1.0 YTE
 
 
 def bs_rho(S, K, T, sigma, r=0.0, q=0.0, option_type='call'):
