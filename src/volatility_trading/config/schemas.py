@@ -246,6 +246,7 @@ CORE_ORATS_WIDE_COLUMNS = [
 
     # underlying & strike
     "underlying_price",
+    "spot_price",
     "strike",
 
     # volume & open interest
