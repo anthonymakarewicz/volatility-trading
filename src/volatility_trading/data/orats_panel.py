@@ -231,6 +231,7 @@ def build_orats_panel_for_ticker(
     if columns is None:
         cols = CORE_ORATS_WIDE_COLUMNS
 
+    lf = lf.sort(["trade_date", "expiry_date", "strike"])
     df = lf.select(cols).collect()
 
     proc_root.mkdir(parents=True, exist_ok=True)
