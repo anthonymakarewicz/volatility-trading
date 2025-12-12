@@ -91,18 +91,18 @@ def summarize_monotonicity_by_region(
         df
         .group_by(
             pl.col(dte_col).cut(dte_bins).alias("dte_bucket"),
-            pl.col(delta_col).cut(delta_bins).alias("delta_bucket"),
+            pl.col(delta_col).abs().cut(delta_bins).alias("delta_bucket"),
         )
         .agg(
             pl.col(violation_col).sum().alias("n_viol"),
             pl.len().alias("n_rows"),
         )
         .with_columns(
-            (pl.col("n_viol") / pl.col("n_rows")).alias("viol_rate"),
+            (pl.col("n_viol") / pl.col("n_rows")).alias("viol_rate_bucket"),
             (pl.col("n_viol") / total_viol).alias("viol_share"),
-            (pl.col("n_rows") / total_rows).alias("row_share"),
+            (pl.col("n_viol") / total_rows).alias("viol_rate_glob"),
         )
-        .sort("viol_rate", descending=True)
+        .sort("viol_rate_bucket", descending=True)
     )
 
     return summary
