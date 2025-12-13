@@ -79,17 +79,19 @@ ORATS_COLUMN_DOCS = {
         "(e.g. 'SPXW140118P01375000')."
     ),
     "stkPx": (
-        "Current price of the underlying stock. For indexes, this is "
-        "the solved implied futures price using put-call parity for each expiration."
+        "Current price of the underlying stock at the time of the "
+        "options snapshot capture (14 minutes before the close)."
+        "For indexes, this is the solved implied futures price "
+        "using put-call parity for each expiration."
     ),
     "expirDate": "Calendar date on which the option expires (MM/DD/YYYY).",
     "yte": "Time to expiration expressed in years.",
     "strike": "Strike price at which the option can be exercised.",
 
     "cVolu": "Total number of call contracts traded on the quote date.",
-    "cOi": "Total outstanding call open interest reported by OCC.",
     "pVolu": "Total number of put contracts traded on the quote date.",
-    "pOi": "Total outstanding put open interest reported by OCC.",
+    "cOi": "Total outstanding call open interest reported by OCC the night before.",
+    "pOi": "Total outstanding put open interest reported by OCC the night before.",
 
     "cBidPx": "NBBO bid price at which a market maker is willing to buy the call.",
     "cValue": "Theoretical call value based on a smooth volatility assumption.",
@@ -120,7 +122,7 @@ ORATS_COLUMN_DOCS = {
     "phi": "Convexity measure of the option price with respect to underlying price.",
     "driftlessTheta": "Theta of the option ignoring drift in the underlying price.",
 
-    "extVol": "External implied volatility for the underlying, from a third-party source.",
+    "extVol": "External implied volatility for the underlying, from the ORATS forecast volatility.",
     "extCTheo": "External theoretical value of the call, from a third-party source.",
     "extPTheo": "External theoretical value of the put, from a third-party source.",
 
