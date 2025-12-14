@@ -16,10 +16,10 @@ from volatility_trading.data.orats_panel import build_orats_panel_for_ticker
 # --------------------------------------------------------------------------- #
 
 # Underlyings to build panels for
-TICKERS = ["SPX"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
+TICKERS = ["SPY"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
 
 # Restrict to a subset of years, or None for all available
-YEARS = None  # e.g. range(2007, 2026)
+YEARS = None # e.g. range(2007, 2026)
 
 # DTE and moneyness bands used in the cleaning step
 DTE_MIN = 7

@@ -153,6 +153,18 @@ def build_orats_panel_for_ticker(
     # --- 2) Normalise vendor names -> processed names ---
     lf = scan.rename(ORATS_VENDOR_TO_PROCESSED)
 
+    # --- 2bis) Unify spot for index vs stock/ETF ---
+    # For index options:
+    #   spot_price      = cash index
+    #   underlying_price = per-expiry forward
+    # For stock/ETF options:
+    #   spot_price may be null, and underlying_price is the tradable spot.
+    lf = lf.with_columns(
+        spot_price = pl.coalesce(
+            [pl.col("spot_price"), pl.col("underlying_price")]
+        )
+    )
+
     # --- 3) Parse raw date strings into Date columns ---
     lf = lf.with_columns(
         trade_date = pl.col("trade_date").str.strptime(
