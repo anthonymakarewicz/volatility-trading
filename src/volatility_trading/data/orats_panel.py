@@ -164,19 +164,23 @@ def build_orats_panel_for_ticker(
             | pl.col("call_opra").str.starts_with(preferred_root)
         )
 
-    # --- 2b) Unify spot for index vs stock/ETF ---
-    # For index options:
-    #   spot_price      = cash index
-    #   underlying_price = per-expiry forward
-    # For stock/ETF options:
-    #   spot_price may be null, and underlying_price is the tradable spot.
+    # --- 3) Unify spot for index vs stock/ETF ---
+    """
+    For index options:
+        spot_price = cash index
+        underlying_price = per-expiry parity implied forward
+     For stock/ETF options:
+       spot_price is null or 0.0, and underlying_price is the tradable spot.
+    """
     lf = lf.with_columns(
-        spot_price = pl.coalesce(
-            [pl.col("spot_price"), pl.col("underlying_price")]
+        spot_price = pl.when(
+            pl.col("spot_price").is_not_null() & (pl.col("spot_price") > 0)
         )
+        .then(pl.col("spot_price"))
+        .otherwise(pl.col("underlying_price"))
     )
 
-    # --- 3) Parse raw date strings into Date columns ---
+    # --- 4) Parse raw date strings into Date columns ---
     lf = lf.with_columns(
         trade_date = pl.col("trade_date").str.strptime(
             pl.Date, format="%m/%d/%Y", strict=False
@@ -186,7 +190,7 @@ def build_orats_panel_for_ticker(
         ),
     )
 
-    # --- 4) Derived features: DTE, moneyness, mids, spreads, rel spreads ---
+    # --- 5) Derived features: DTE, moneyness, mids, spreads, rel spreads ---
     lf = lf.with_columns(
         dte = (pl.col("expiry_date") - pl.col("trade_date")).dt.total_days(),
         moneyness_ks = pl.col("strike") / pl.col("spot_price"),
@@ -213,7 +217,7 @@ def build_orats_panel_for_ticker(
         ),
     )
     
-    # --- 5) Filters: DTE band, sanity checks, moneyness trim, dead rows ---
+    # --- 6) Filters: DTE band, sanity checks, moneyness trim, dead rows ---
     lf = lf.filter(
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("spot_price") > 0,
@@ -231,7 +235,7 @@ def build_orats_panel_for_ticker(
         ),
     )
 
-    # --- 6) Put greeks via European put–call parity ---
+    # --- 7) Put greeks via European put–call parity ---
     disc_q = (-pl.col("dividend_yield") * pl.col("yte")).exp()
     disc_r = (-pl.col("risk_free_rate") * pl.col("yte")).exp()
 
@@ -250,7 +254,7 @@ def build_orats_panel_for_ticker(
         )
     )
 
-    # --- 7) Final column selection & materialisation ---
+    # --- 8) Final column selection & materialisation ---
     if columns is None:
         cols = CORE_ORATS_WIDE_COLUMNS
 
