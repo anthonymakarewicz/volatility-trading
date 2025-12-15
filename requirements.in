@@ -1,14 +1,15 @@
 # Requires Python >= 3.10
 
+exchange-calendars
+joblib
+matplotlib
 numpy
 pandas
 polars
-py7zr
 python-dotenv
-matplotlib
-seaborn
+py7zr
 scikit-learn
 scipy
-yfinance
-joblib
+seaborn
 statsmodels
+yfinance
