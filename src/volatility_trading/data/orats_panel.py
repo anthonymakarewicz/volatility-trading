@@ -151,7 +151,6 @@ def build_orats_panel_for_ticker(
         verbose=verbose,
     )
 
-
     # --- 2) Normalise vendor names -> processed names ---
     lf = scan.rename(ORATS_VENDOR_TO_PROCESSED)
 

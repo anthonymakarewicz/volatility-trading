@@ -262,8 +262,8 @@ CORE_ORATS_WIDE_COLUMNS = [
     # prices
     "call_bid_price",
     "call_mid_price",
-    "call_rel_spread",
     "call_ask_price",
+    "call_rel_spread",
     "put_bid_price",
     "put_mid_price",
     "put_ask_price",
