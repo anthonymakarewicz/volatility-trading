@@ -151,8 +151,18 @@ def build_orats_panel_for_ticker(
         verbose=verbose,
     )
 
+
     # --- 2) Normalise vendor names -> processed names ---
     lf = scan.rename(ORATS_VENDOR_TO_PROCESSED)
+
+    # --- 2a) Optional OPRA-root filtering (e.g. SPX vs SPXW) ---
+    preferred_root = PREFERRED_OPRA_ROOT.get(ticker)
+    if preferred_root is not None:
+        lf = lf.filter(
+            # For older years, call_opra is null / absent; keep those rows.
+            pl.col("call_opra").is_null()
+            | pl.col("call_opra").str.starts_with(preferred_root)
+        )
 
     # --- 2b) Unify spot for index vs stock/ETF ---
     # For index options:
