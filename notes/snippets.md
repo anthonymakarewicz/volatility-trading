@@ -36,3 +36,22 @@ def save_result(df: DataFrameLike, path: Path, fmt: str = "parquet") -> Path:
         raise ValueError(f"Unsupported format: {fmt!r}")
 
     return path
+
+```
+
+Configuration data class I might promote later for index vs stock/ETF configuration
+logic.
+
+```python
+
+@dataclass
+class InstrumentConfig:
+    ticker: str
+    is_index: bool
+    contract_multiplier: int
+    preferred_opra_root: str | None = None
+    tradable_delta_band: tuple[float, float] = (0.1, 0.9)
+    tradable_dte_band: tuple[int, int] = (10, 60)
+
+
+```

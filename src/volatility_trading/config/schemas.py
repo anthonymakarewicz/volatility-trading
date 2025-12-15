@@ -139,6 +139,8 @@ ORATS_COLUMN_DOCS = {
 ORATS_VENDOR_TO_PROCESSED = {
     # identifiers
     "ticker": "ticker",
+    "cOpra": "call_opra",
+    "pOpra": "put_opra",
 
     # underlying / dates
     "stkPx": "underlying_price",   # stock/ETF: spot; index: parity-implied forward per expiry

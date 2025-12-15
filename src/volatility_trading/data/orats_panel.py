@@ -6,6 +6,7 @@ from pathlib import Path
 import polars as pl
 
 from volatility_trading.config.constants import CALENDAR_DAYS_PER_YEAR
+from volatility_trading.config.instruments import PREFERRED_OPRA_ROOT
 from volatility_trading.config.schemas import (
     ORATS_VENDOR_TO_PROCESSED,
     CORE_ORATS_WIDE_COLUMNS,
@@ -153,7 +154,7 @@ def build_orats_panel_for_ticker(
     # --- 2) Normalise vendor names -> processed names ---
     lf = scan.rename(ORATS_VENDOR_TO_PROCESSED)
 
-    # --- 2bis) Unify spot for index vs stock/ETF ---
+    # --- 2b) Unify spot for index vs stock/ETF ---
     # For index options:
     #   spot_price      = cash index
     #   underlying_price = per-expiry forward
