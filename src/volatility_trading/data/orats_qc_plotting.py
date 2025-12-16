@@ -27,7 +27,6 @@ def plot_smiles_by_delta(
     nrows: int = 3,
     ncols: int = 3,
     event_labels: Mapping[date, str] | None = None,
-    option_type: Literal["C", "P"] = "P",  # use puts to get equity-style skew
 ) -> None:
     """
     Plot smoothed IV smiles vs |delta| for several DTE targets on multiple dates.
@@ -182,6 +181,164 @@ def plot_term_structures_by_delta(
         axes[k].set_axis_off()
 
     fig.tight_layout()
+    plt.show()
+
+
+def plot_avg_volume_by_delta(
+    df_long: pl.DataFrame,
+    delta_bins: np.ndarray | None = None,
+    *,
+    dte_min: int = 10,
+    dte_max: int = 60,
+    label_step: int = 2,
+) -> None:
+    """
+    Plot average option volume by |delta| bucket, separately for calls and puts.
+
+    Parameters
+    ----------
+    df_long :
+        LONG ORATS panel with at least:
+        ["dte", "delta", "option_type", "volume"].
+    delta_bins :
+        Array of bin edges for |delta|, e.g. np.linspace(0.0, 1.0, 21).
+        If None, use 0.00–1.00 in steps of 0.05.
+    dte_min, dte_max :
+        Restrict to options with dte in [dte_min, dte_max].
+    label_step :
+        Show every `label_step`th bucket label on the x-axis for readability.
+    """
+    if delta_bins is None:
+        delta_bins = np.linspace(0.0, 1.0, 21)
+
+    vol_by_delta = (
+        df_long
+        .filter(pl.col("dte").is_between(dte_min, dte_max))
+        .with_columns(
+            delta_bucket = pl.col("delta").abs().cut(delta_bins),
+        )
+        .group_by(["delta_bucket", "option_type"])
+        .agg(pl.col("volume").mean().alias("avg_volume"))
+        .sort(["delta_bucket", "option_type"])
+        .to_pandas()
+    )
+
+    if vol_by_delta.empty:
+        return
+
+    pivot = vol_by_delta.pivot_table(
+        index="delta_bucket",
+        columns="option_type",   # "C" / "P"
+        values="avg_volume",
+    )
+
+    # Build human-readable labels from bin edges
+    edges = np.asarray(delta_bins)
+    labels = [f"{edges[i]:.2f}-{edges[i+1]:.2f}" for i in range(len(edges) - 1)]
+
+    x = np.arange(len(pivot))
+
+    plt.figure(figsize=(8, 4))
+
+    if "C" in pivot.columns:
+        plt.plot(x, pivot["C"], marker="o", label="Call volume")
+    if "P" in pivot.columns:
+        plt.plot(x, pivot["P"], marker="o", label="Put volume")
+
+    # Avoid index/label mismatch if some bins are empty
+    step = max(label_step, 1)
+    plt.xticks(x[::step], labels[::step], rotation=25)
+
+    plt.xlabel("|Delta| bucket")
+    plt.ylabel("Average volume")
+    plt.title("Average Option Volume by |Delta|")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_liquidity_by_dte(
+    df_long: pl.DataFrame,
+    *,
+    dte_bins: Sequence[int] | None = None,
+    dte_labels: Sequence[str] | None = None,
+    delta_min: float = 0.1,
+    delta_max: float = 0.9,
+) -> None:
+    """
+    Plot average volume and open interest by DTE bucket (bar chart, dual axis).
+
+    Parameters
+    ----------
+    df_long :
+        LONG ORATS panel with at least:
+        ["dte", "delta", "volume", "open_interest"].
+    dte_bins :
+        Bin edges for DTE bucketing. If None, use [0, 10, 15, 20, 30, 45, 60, 90].
+    dte_labels :
+        Labels for the buckets; if None, they are generated from dte_bins
+        as "[low, high)" strings.
+    delta_min, delta_max :
+        Restrict to options with |delta| in [delta_min, delta_max].
+    """
+    if dte_bins is None:
+        dte_bins = [0, 10, 15, 20, 30, 45, 60, 90]
+
+    dte_bins = list(dte_bins)
+
+    if dte_labels is None:
+        dte_labels = [
+            f"({dte_bins[i]}–{dte_bins[i + 1]}]"
+            for i in range(len(dte_bins) - 1)
+        ]
+    else:
+        dte_labels = list(dte_labels)
+
+    if len(dte_labels) != len(dte_bins) - 1:
+        raise ValueError(
+            f"dte_labels must have length len(dte_bins)-1 = {len(dte_bins) - 1}, "
+            f"got {len(dte_labels)}"
+        )
+
+    liq_by_dte = (
+        df_long
+        .filter(pl.col("delta").abs().is_between(delta_min, delta_max))
+        .with_columns(
+            dte_bucket = pl.col("dte").cut(dte_bins).alias("dte_bucket"),
+        )
+        .group_by("dte_bucket")
+        .agg(
+            pl.col("volume").mean().alias("avg_volume"),
+            pl.col("open_interest").mean().alias("avg_open_interest"),
+        )
+        .sort("dte_bucket")
+    )
+
+    if not liq_by_dte.height:
+        return
+
+    x = np.arange(liq_by_dte.height)
+
+    fig, ax1 = plt.subplots(figsize=(8, 4))
+    ax2 = ax1.twinx()
+
+    ax1.bar(x - 0.15, liq_by_dte["avg_volume"],
+            width=0.3, label="Avg volume")
+    ax2.bar(x + 0.15, liq_by_dte["avg_open_interest"],
+            width=0.3, alpha=0.7, label="Avg open interest")
+
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(dte_labels, rotation=0)
+    ax1.set_xlabel("DTE bucket")
+    ax1.set_ylabel("Avg volume")
+    ax2.set_ylabel("Avg open interest")
+    ax1.set_title("Liquidity vs time to expiry")
+
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right")
+
+    plt.tight_layout()
     plt.show()
 
 
