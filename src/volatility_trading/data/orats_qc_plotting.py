@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
+from volatility_trading.iv_surface.term_structure import pick_closest_dte
+
 
 # ======================================================================
 # Public API
@@ -186,18 +188,6 @@ def plot_term_structures_by_delta(
 # ======================================================================
 # Internal helpers
 # ======================================================================
-
-def pick_closest_dte(
-    dtes: Sequence[int],
-    target: int,
-    max_tol: int = 5,
-) -> int | None:
-    """Return the DTE in `dtes` closest to `target` within `max_tol` days."""
-    if not dtes:
-        return None
-    best = min(dtes, key=lambda d: abs(d - target))
-    return best if abs(best - target) <= max_tol else None
-
 
 def _make_facet_axes(
     picked_dates: Sequence[date],
