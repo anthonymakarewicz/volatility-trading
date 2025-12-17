@@ -4,6 +4,7 @@ from collections.abc import Sequence, Iterable
 from pathlib import Path
 
 import polars as pl
+import numpy as np
 
 from volatility_trading.config.constants import CALENDAR_DAYS_PER_YEAR
 from volatility_trading.config.instruments import PREFERRED_OPRA_ROOT
@@ -271,3 +272,139 @@ def build_orats_panel_for_ticker(
 
     df.write_parquet(out_path)
     return out_path
+
+
+def _weighted_median(x: np.ndarray, w: np.ndarray) -> float:
+    x = np.asarray(x, float)
+    w = np.asarray(w, float)
+    m = np.isfinite(x) & np.isfinite(w) & (w > 0)
+    x, w = x[m], w[m]
+    if x.size == 0:
+        return np.nan
+    order = np.argsort(x)
+    x, w = x[order], w[order]
+    cw = np.cumsum(w)
+    cutoff = 0.5 * w.sum()
+    return float(x[np.searchsorted(cw, cutoff)])
+
+
+def _infer_q_term_structure(
+    df: pl.DataFrame,
+    *,
+    group_cols=("trade_date", "dte"),
+    strike_col="strike",
+    spot_col="underlying_price",
+    rate_col="risk_free_rate",
+    yte_col="yte",
+    call_price_col="call_model_price",
+    put_price_col="put_model_price",
+    call_delta_col="call_delta",
+    # Optional realtive spread quality weight (set to None if not available)
+    call_rel_spread_col: str | None = None,  # e.g. "call_rel_spread"
+    put_rel_spread_col: str | None = None,   # e.g. "put_rel_spread"
+    # Filters
+    delta_lo=0.25,
+    delta_hi=0.75,
+    # Weights
+    lambda_atm=40.0,   # set to 0.0 to disable ATM weighting
+    eps=1e-12,
+) -> pl.DataFrame:
+    use_spreads = (call_rel_spread_col is not None) and (put_rel_spread_col is not None)
+
+    # Base filters + compute qK and weights in Polars
+    exprs = [
+        pl.col(spot_col).alias("S"),
+        pl.col(strike_col).alias("K"),
+        pl.col(rate_col).alias("r"),
+        pl.col(yte_col).alias("T"),
+        pl.col(call_price_col).alias("C"),
+        pl.col(put_price_col).alias("P"),
+    ]
+
+    lf = df.lazy().with_columns(exprs)
+
+    # Delta band filter (calls only: typically in [0,1])
+    lf = lf.filter(
+        pl.col(call_delta_col).is_between(delta_lo, delta_hi),
+        (pl.col("C") > 0) & (pl.col("P") > 0)
+    )
+
+    # e^{-qT} = ((C-P) + K e^{-rT}) / S
+    lf = (
+        lf
+        .with_columns(
+            (((pl.col("C") - pl.col("P")) + pl.col("K") * (-pl.col("r") * pl.col("T")).exp()) / pl.col("S"))
+            .alias("e_m_qT"),
+        )
+        .filter(
+            pl.col("e_m_qT").is_finite() & (pl.col("e_m_qT") > 0)
+        )
+    )
+
+    # qK = -ln(e^{-qT}) / T
+    lf = lf.with_columns([
+        (-(pl.col("e_m_qT").log()) / pl.col("T")).alias("qK"),
+    ]).filter(
+        pl.col("qK").is_finite()
+    )
+
+    # Weights: (optional) “near-ATM” proxy via |ln(K/S)|  + (optional) spread weight if you have bid/ask
+    lf = (
+        lf
+        .with_columns(
+            (pl.col("K") / pl.col("S")).log().abs().alias("abs_logm")
+        )
+        .with_columns(
+            (-pl.lit(lambda_atm) * pl.col("abs_logm")).exp().alias("w_atm")
+        )
+    )
+
+    if use_spreads:
+        # spread_rel may be NaN (your mid=0 case) => fallback to w_spread=1.0
+        lf = (
+            lf
+            .with_columns([
+                (pl.col(call_rel_spread_col) + pl.col(put_rel_spread_col)).alias("spread_rel")
+            ])
+            .with_columns([
+                pl.when(pl.col("spread_rel").is_finite() & (pl.col("spread_rel") >= 0))
+                  .then(1.0 / (pl.col("spread_rel") ** 2 + eps))
+                  .otherwise(1.0)
+                  .alias("w_spread")
+            ])
+            .with_columns([(pl.col("w_atm") * pl.col("w_spread")).alias("w")])
+        )
+    else:
+        lf = lf.with_columns([pl.col("w_atm").alias("w")])
+
+    core = lf.select([*group_cols, "T", "qK", "w"]).collect()
+    
+    out = (
+        core
+        .group_by(list(group_cols), maintain_order=True)
+        .agg([
+            pl.first("T").alias("T"),
+            pl.len().alias("n_used"),
+            pl.col("qK").alias("qK_list"),
+            pl.col("w").alias("w_list"),
+        ])
+        .with_columns([
+            pl.struct(["qK_list", "w_list"]).map_elements(
+                lambda s: _weighted_median(np.array(s["qK_list"], float), np.array(s["w_list"], float)),
+                return_dtype=pl.Float64,
+            ).alias("q_implied"),
+
+            pl.col("qK_list").map_elements(
+                lambda xs: float(np.nanpercentile(np.array(xs, float), 25)) if len(xs) else np.nan,
+                return_dtype=pl.Float64,
+            ).alias("q_p25"),
+
+            pl.col("qK_list").map_elements(
+                lambda xs: float(np.nanpercentile(np.array(xs, float), 75)) if len(xs) else np.nan,
+                return_dtype=pl.Float64,
+            ).alias("q_p75"),
+        ])
+        .drop(["qK_list", "w_list"])
+    )
+
+    return out
