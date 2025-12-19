@@ -52,6 +52,4 @@ class InstrumentConfig:
     preferred_opra_root: str | None = None
     tradable_delta_band: tuple[float, float] = (0.1, 0.9)
     tradable_dte_band: tuple[int, int] = (10, 60)
-
-
 ```

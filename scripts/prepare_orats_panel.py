@@ -23,7 +23,7 @@ YEARS = None # e.g. range(2007, 2026)
 
 # DTE and moneyness bands used in the cleaning step
 DTE_MIN = 1
-DTE_MAX = 252*3
+DTE_MAX = 252
 MONEYNESS_MIN = 0.5
 MONEYNESS_MAX = 1.5
 

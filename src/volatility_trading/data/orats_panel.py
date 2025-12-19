@@ -13,6 +13,8 @@ from volatility_trading.config.schemas import (
     CORE_ORATS_WIDE_COLUMNS,
 )
 
+# TODO: Include the renaming of the ORATS cols + filter by extrem delta ([1%, 99%], DTE outside (1, 252))
+
 
 def _scan_orats_intermediate_for_ticker(
     inter_root: Path | str,
