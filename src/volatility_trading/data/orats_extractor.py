@@ -129,7 +129,6 @@ def extract_tickers_from_orats(
             for zip_path in sorted(year_dir.glob("*.zip")):
                 if verbose:
                     print(f"    Reading {zip_path.name} ...")
-
                 try:
                     df = read_orats_zip_to_polars(zip_path)
                 except (FileNotFoundError, NoDataError) as e:
