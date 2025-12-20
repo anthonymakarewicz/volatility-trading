@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import json
 import requests
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,28 +13,65 @@ import polars as pl
 # Small utilities
 # ----------------------------
 
-def orats_fields_param(fields: Iterable[str] | None) -> str | None:
+def orats_list_param(values: Iterable[str] | None) -> str | None:
+    """Convert a list/iterable of ORATS values into a comma-separated string.
+
+    Use for request params like:
+      - ticker="SPX,NDX,VIX"
+      - fields="tradeDate,expirDate,calVol"
+
+    Behavior:
+      - strips whitespace
+      - drops empties / None
+      - dedupes while preserving order
+      - joins with commas (no spaces)
     """
-    Convert a list/iterable of ORATS tickers/fields into the comma-separated `fields=` string.
-    - Strips whitespace
-    - Drops empties / None
-    - Dedupes while preserving order
-    """
-    if fields is None:
+    if values is None:
         return None
 
     out: list[str] = []
     seen: set[str] = set()
-    for f in fields:
-        if f is None:
+    for v in values:
+        if v is None:
             continue
-        f = str(f).strip()
-        if not f or f in seen:
+        s = str(v).strip()
+        if not s or s in seen:
             continue
-        out.append(f)
-        seen.add(f)
+        out.append(s)
+        seen.add(s)
 
     return ",".join(out) if out else None
+
+
+def normalize_orats_params(params: Mapping[str, Any]) -> dict[str, str]:
+    """Normalize ORATS query params.
+
+    - Drops keys whose value is None
+    - If a value is a Sequence[str] (list/tuple), convert to comma-separated string via `orats_list_param`
+    - Otherwise casts scalars to str
+
+    This lets higher-level code pass params naturally, e.g.
+        {"ticker": ["SPX", "NDX"], "tradeDate": "2019-11-29", "fields": ["tradeDate", "expirDate"]}
+
+    And output the expected format by ORATS API:
+        {"ticker": "SPX,NDX", "tradeDate": "2019-11-29", "fields": "tradeDate,expirDate"}
+    """
+    out: dict[str, str] = {}
+
+    for k, v in params.items():
+        if v is None:
+            continue
+
+        # list/tuple of strings -> comma-separated
+        if isinstance(v, Sequence) and not isinstance(v, (str, bytes, bytearray)):
+            joined = orats_list_param(v)  # type: ignore[arg-type]
+            if joined is not None:
+                out[str(k)] = joined
+            continue
+
+        out[str(k)] = str(v)
+
+    return out
 
 
 def orats_payload_to_polars(payload: dict) -> pl.DataFrame:
@@ -56,7 +92,7 @@ def orats_payload_to_polars(payload: dict) -> pl.DataFrame:
 @dataclass(frozen=True)
 class OratsClient:
     token: str
-    base_url: str = "https://api.orats.com"   # adjust if your endpoint differs
+    base_url: str = "https://api.orats.io"   # adjust if endpoint differs
     timeout_s: float = 30.0
     max_retries: int = 5
     backoff_s: float = 0.75  # exponential-ish with jitter
@@ -64,7 +100,7 @@ class OratsClient:
     def _get(
         self,
         path: str,
-        params: dict[str, str],
+        params: Mapping[str, Any],
         *,
         session: requests.Session | None = None,
     ) -> requests.Response:
@@ -74,8 +110,8 @@ class OratsClient:
         url = self.base_url.rstrip("/") + "/" + path.lstrip("/")
         sess = session or requests.Session()
 
-        # always include token
-        params = dict(params)
+        # normalize params (lists -> comma-separated strings) and always include token
+        params = normalize_orats_params(params)
         params["token"] = self.token
 
         last_err: Exception | None = None
@@ -113,10 +149,12 @@ class OratsClient:
     def get_df(
         self,
         path: str,
-        params: dict[str, Any],
+        params: Mapping[str, Any],
         *,
         session: requests.Session | None = None,
     ) -> pl.DataFrame:
         """GET endpoint and return Polars DataFrame from its JSON payload."""
         resp = self._get(path, params, session=session)
-        return orats_payload_to_polars(resp.json())
+        payload = resp.json()
+        df = orats_payload_to_polars(payload)
+        return df
