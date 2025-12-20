@@ -9,6 +9,10 @@ from typing import Any
 import polars as pl
 
 
+# ----------------------------
+# Configuration
+# ----------------------------
+
 ORATS_BASE_URL = "https://api.orats.io"
 
 @dataclass(frozen=True)
@@ -136,7 +140,6 @@ def _validate_endpoint_params(endpoint: str, params: Mapping[str, Any]) -> None:
         )
 
 
-
 # ----------------------------
 # HTTP client
 # ----------------------------
@@ -144,7 +147,7 @@ def _validate_endpoint_params(endpoint: str, params: Mapping[str, Any]) -> None:
 @dataclass(frozen=True)
 class OratsClient:
     token: str
-    base_url: str = ORATS_BASE_URL   # adjust if endpoint differs
+    base_url: str = ORATS_BASE_URL  
     timeout_s: float = 30.0
     max_retries: int = 5
     backoff_s: float = 0.75  # exponential-ish with jitter
@@ -157,47 +160,76 @@ class OratsClient:
         session: requests.Session | None = None,
     ) -> requests.Response:
         """
-        Low-level GET with retries. Raises on final failure.
+        Low-level GET with retries. Returns requests.Response on success.
+        Retries on: 429, 5xx, timeouts / transient connection errors.
+        Does NOT retry on: other 4xx (bad params/auth/etc.).
+        Closes an internally-created Session.
         """
         url = self.base_url.rstrip("/") + "/" + path.lstrip("/")
+
+        created_session = session is None
         sess = session or requests.Session()
 
         # normalize params (lists -> comma-separated strings) and always include token
-        params = _normalize_orats_params(params)
-        params["token"] = self.token
+        wire_params = _normalize_orats_params(params)
+        wire_params["token"] = self.token
 
         last_err: Exception | None = None
 
-        for attempt in range(self.max_retries + 1):
-            try:
-                resp = sess.get(url, params=params, timeout=self.timeout_s)
+        try:
+            for attempt in range(self.max_retries + 1):
+                try:
+                    resp = sess.get(url, params=wire_params, timeout=self.timeout_s)
 
-                # Retry on 429 / 5xx
-                if resp.status_code == 429 or 500 <= resp.status_code <= 599:
-                    # try respect Retry-After if present
-                    ra = resp.headers.get("Retry-After")
-                    if ra is not None:
-                        try:
-                            sleep_s = float(ra)
-                        except ValueError:
+                    # Permanent client errors (except 429) -> fail fast (no retry)
+                    if 400 <= resp.status_code <= 499 and resp.status_code != 429:
+                        resp.raise_for_status()
+
+                    # Retry on rate-limit / server errors
+                    if resp.status_code == 429 or 500 <= resp.status_code <= 599:
+                        ra = resp.headers.get("Retry-After")
+                        if ra is not None:
+                            try:
+                                sleep_s = float(ra)
+                            except ValueError:
+                                sleep_s = self.backoff_s * (2 ** attempt)
+                        else:
                             sleep_s = self.backoff_s * (2 ** attempt)
-                    else:
-                        sleep_s = self.backoff_s * (2 ** attempt)
 
-                    time.sleep(min(30.0, sleep_s))
-                    continue
+                        time.sleep(min(30.0, sleep_s))
+                        continue
 
-                resp.raise_for_status()
-                return resp
+                    resp.raise_for_status()
+                    return resp
 
-            except Exception as e:
-                last_err = e
-                if attempt >= self.max_retries:
-                    break
-                time.sleep(min(30.0, self.backoff_s * (2 ** attempt)))
+                except requests.exceptions.HTTPError as e:
+                    last_err = e
+                    # If it's a non-429 4xx, do not retry
+                    r = getattr(e, "response", None)
+                    if r is not None and 400 <= r.status_code <= 499 and r.status_code != 429:
+                        break
 
-        raise RuntimeError(f"ORATS GET failed after retries: {url} params={params}") from last_err
+                    if attempt >= self.max_retries:
+                        break
+                    time.sleep(min(30.0, self.backoff_s * (2 ** attempt)))
 
+                except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                    last_err = e
+                    if attempt >= self.max_retries:
+                        break
+                    time.sleep(min(30.0, self.backoff_s * (2 ** attempt)))
+
+                except Exception as e:
+                    last_err = e
+                    if attempt >= self.max_retries:
+                        break
+                    time.sleep(min(30.0, self.backoff_s * (2 ** attempt)))
+        finally:
+            if created_session:
+                sess.close()
+
+        raise RuntimeError(f"ORATS GET failed after retries: {url} params={wire_params}") from last_err
+    
     def get_df(
         self,
         endpoint: str,
