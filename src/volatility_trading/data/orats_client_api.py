@@ -9,22 +9,44 @@ from typing import Any
 import polars as pl
 
 
+ORATS_BASE_URL = "https://api.orats.io"
+
+@dataclass(frozen=True)
+class EndpointSpec:
+    path: str
+    required: tuple[str, ...]
+    optional: tuple[str, ...] = ()
+
+
+ENDPOINTS: dict[str, EndpointSpec] = {
+    "monies_implied": EndpointSpec(
+        path="/datav2/hist/monies/implied",
+        required=("ticker", "tradeDate"),
+        optional=("fields",),
+    ),
+    "cores": EndpointSpec(
+        path="/datav2/hist/cores",
+        required=("ticker", "tradeDate"),
+        optional=("fields",),
+    ),
+    "summaries": EndpointSpec(
+        path="/datav2/hist/summaries",
+        required=("ticker", "tradeDate"),
+        optional=("fields",),
+    ),
+}
+
+
 # ----------------------------
 # Small utilities
 # ----------------------------
 
-def orats_list_param(values: Iterable[str] | None) -> str | None:
+def _orats_list_param(values: Iterable[str] | None) -> str | None:
     """Convert a list/iterable of ORATS values into a comma-separated string.
 
     Use for request params like:
       - ticker="SPX,NDX,VIX"
       - fields="tradeDate,expirDate,calVol"
-
-    Behavior:
-      - strips whitespace
-      - drops empties / None
-      - dedupes while preserving order
-      - joins with commas (no spaces)
     """
     if values is None:
         return None
@@ -43,13 +65,8 @@ def orats_list_param(values: Iterable[str] | None) -> str | None:
     return ",".join(out) if out else None
 
 
-def normalize_orats_params(params: Mapping[str, Any]) -> dict[str, str]:
+def _normalize_orats_params(params: Mapping[str, Any]) -> dict[str, str]:
     """Normalize ORATS query params.
-
-    - Drops keys whose value is None
-    - If a value is a Sequence[str] (list/tuple), convert to comma-separated string via `orats_list_param`
-    - Otherwise casts scalars to str
-
     This lets higher-level code pass params naturally, e.g.
         {"ticker": ["SPX", "NDX"], "tradeDate": "2019-11-29", "fields": ["tradeDate", "expirDate"]}
 
@@ -64,7 +81,7 @@ def normalize_orats_params(params: Mapping[str, Any]) -> dict[str, str]:
 
         # list/tuple of strings -> comma-separated
         if isinstance(v, Sequence) and not isinstance(v, (str, bytes, bytearray)):
-            joined = orats_list_param(v)  # type: ignore[arg-type]
+            joined = _orats_list_param(v)  # type: ignore[arg-type]
             if joined is not None:
                 out[str(k)] = joined
             continue
@@ -74,7 +91,7 @@ def normalize_orats_params(params: Mapping[str, Any]) -> dict[str, str]:
     return out
 
 
-def orats_payload_to_polars(payload: dict) -> pl.DataFrame:
+def _orats_payload_to_polars(payload: dict) -> pl.DataFrame:
     data = payload.get("data", [])
     if not data:
         return pl.DataFrame()
@@ -85,6 +102,41 @@ def orats_payload_to_polars(payload: dict) -> pl.DataFrame:
     return df
 
 
+def _get_endpoint_spec(endpoint: str) -> EndpointSpec:
+    """Return the spec (path + required params) for a supported ORATS endpoint name."""
+    try:
+        return ENDPOINTS[endpoint]
+    except KeyError as e:
+        supported = ", ".join(sorted(ENDPOINTS.keys()))
+        raise KeyError(f"Unknown ORATS endpoint '{endpoint}'. Supported: {supported}") from e
+
+
+def _is_missing_param_value(v: Any) -> bool:
+    if v is None:
+        return True
+    if isinstance(v, str):
+        return len(v.strip()) == 0
+    # lists/tuples of values (e.g., tickers/fields)
+    if isinstance(v, Sequence) and not isinstance(v, (str, bytes, bytearray)):
+        return len([x for x in v if x is not None and str(x).strip()]) == 0
+    return False
+
+
+def _validate_endpoint_params(endpoint: str, params: Mapping[str, Any]) -> None:
+    """Validate required params for a given endpoint before sending an HTTP request."""
+    spec = _get_endpoint_spec(endpoint)
+    missing: list[str] = []
+    for k in spec.required:
+        if k not in params or _is_missing_param_value(params.get(k)):
+            missing.append(k)
+    if missing:
+        raise ValueError(
+            f"Missing required params for endpoint '{endpoint}': {missing}. "
+            f"Required: {spec.required}"
+        )
+
+
+
 # ----------------------------
 # HTTP client
 # ----------------------------
@@ -92,7 +144,7 @@ def orats_payload_to_polars(payload: dict) -> pl.DataFrame:
 @dataclass(frozen=True)
 class OratsClient:
     token: str
-    base_url: str = "https://api.orats.io"   # adjust if endpoint differs
+    base_url: str = ORATS_BASE_URL   # adjust if endpoint differs
     timeout_s: float = 30.0
     max_retries: int = 5
     backoff_s: float = 0.75  # exponential-ish with jitter
@@ -111,7 +163,7 @@ class OratsClient:
         sess = session or requests.Session()
 
         # normalize params (lists -> comma-separated strings) and always include token
-        params = normalize_orats_params(params)
+        params = _normalize_orats_params(params)
         params["token"] = self.token
 
         last_err: Exception | None = None
@@ -148,13 +200,15 @@ class OratsClient:
 
     def get_df(
         self,
-        path: str,
+        endpoint: str,
         params: Mapping[str, Any],
         *,
         session: requests.Session | None = None,
     ) -> pl.DataFrame:
         """GET endpoint and return Polars DataFrame from its JSON payload."""
-        resp = self._get(path, params, session=session)
+        _validate_endpoint_params(endpoint, params)
+        spec = _get_endpoint_spec(endpoint)
+        resp = self._get(spec.path, params, session=session)
         payload = resp.json()
-        df = orats_payload_to_polars(payload)
+        df = _orats_payload_to_polars(payload)
         return df
