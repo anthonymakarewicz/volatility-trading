@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import requests
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 import polars as pl
+import requests
 
 from .orats_client_api import ENDPOINTS
 

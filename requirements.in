@@ -8,6 +8,7 @@ pandas
 polars
 python-dotenv
 py7zr
+requests
 scikit-learn
 scipy
 seaborn
