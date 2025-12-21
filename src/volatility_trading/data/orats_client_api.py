@@ -8,7 +8,7 @@ from typing import Any
 import polars as pl
 import requests
 
-from .orats_client_api import ENDPOINTS
+from .orats_client_api import ENDPOINTS, get_endpoint_spec
 
 ORATS_BASE_URL = "https://api.orats.io"
 
@@ -78,15 +78,6 @@ def _orats_payload_to_polars(payload: dict) -> pl.DataFrame:
     return df
 
 
-def _get_endpoint_spec(endpoint: str) -> EndpointSpec:
-    """Return the spec (path + required params) for a supported ORATS endpoint name."""
-    try:
-        return ENDPOINTS[endpoint]
-    except KeyError as e:
-        supported = ", ".join(sorted(ENDPOINTS.keys()))
-        raise KeyError(f"Unknown ORATS endpoint '{endpoint}'. Supported: {supported}") from e
-
-
 def _is_missing_param_value(v: Any) -> bool:
     if v is None:
         return True
@@ -100,7 +91,7 @@ def _is_missing_param_value(v: Any) -> bool:
 
 def _validate_endpoint_params(endpoint: str, params: Mapping[str, Any]) -> None:
     """Validate required params for a given endpoint before sending an HTTP request."""
-    spec = _get_endpoint_spec(endpoint)
+    spec = get_endpoint_spec(endpoint)
     missing: list[str] = []
     for k in spec.required:
         if k not in params or _is_missing_param_value(params.get(k)):
@@ -214,7 +205,7 @@ class OratsClient:
     ) -> pl.DataFrame:
         """GET endpoint and return Polars DataFrame from its JSON payload."""
         _validate_endpoint_params(endpoint, params)
-        spec = _get_endpoint_spec(endpoint)
+        spec = get_endpoint_spec(endpoint)
         resp = self._get(spec.path, params, session=session)
         payload = resp.json()
         df = _orats_payload_to_polars(payload)

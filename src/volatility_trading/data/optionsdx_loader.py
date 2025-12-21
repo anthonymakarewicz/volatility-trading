@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
+
+import numpy as np
 import py7zr
 import pandas as pd
-import shutil
-import numpy as np
-
-from pathlib import Path
 from pandas.tseries.offsets import BMonthEnd
 from pandas.errors import EmptyDataError
 
@@ -337,6 +337,7 @@ def extract_eom_options(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def prepare_option_panel(
+    *,
     raw_root: str | Path,
     output_path: str | Path,
     start_year: int = 2012,

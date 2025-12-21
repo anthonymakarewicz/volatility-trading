@@ -46,11 +46,11 @@ def read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
 
 
 def extract_tickers_from_orats(
+    *,
     raw_root: str | Path,
     out_root: str | Path,
     tickers: Sequence[str],
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
-    *,
     root_col: str = "ticker",
     verbose: bool = True,
 ) -> None:
@@ -180,11 +180,11 @@ def extract_tickers_from_orats(
 
 
 def extract_ticker_from_orats(
+    *,
     raw_root: str | Path,
     out_root: str | Path,
     ticker: str,
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
-    *,
     root_col: str = "ticker",
     verbose: bool = True,
 ) -> None:

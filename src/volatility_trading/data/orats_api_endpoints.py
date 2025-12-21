@@ -12,9 +12,9 @@ class DownloadStrategy(Enum):
 @dataclass(frozen=True)
 class EndpointSpec:
     path: str
+    strategy: DownloadStrategy
     required: tuple[str, ...]
     optional: tuple[str, ...] = ()
-    strategy: DownloadStrategy
 
 
 ENDPOINTS: dict[str, EndpointSpec] = {
@@ -37,3 +37,12 @@ ENDPOINTS: dict[str, EndpointSpec] = {
         strategy=DownloadStrategy.FULL_HISTORY,
     ),
 }
+
+
+def get_endpoint_spec(endpoint: str) -> EndpointSpec:
+    """Return the spec (path + required params) for a supported ORATS endpoint name."""
+    try:
+        return ENDPOINTS[endpoint]
+    except KeyError as e:
+        supported = ", ".join(sorted(ENDPOINTS.keys()))
+        raise KeyError(f"Unknown ORATS endpoint '{endpoint}'. Supported: {supported}") from e

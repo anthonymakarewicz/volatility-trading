@@ -108,13 +108,13 @@ def ensure_file(
 
 
 def _download_one_year(
+    *,
     host: str,
     user: str,
     password: str,
     base: str,
     year_name: str,
     raw_root: Path,
-    *,
     validate_zip: bool,
     verbose: bool,
 ) -> None:
@@ -158,13 +158,13 @@ def _download_one_year(
 
 
 def download_orats_raw(
+    *,
     host: str,
     user: str,
     password: str,
     remote_base_dirs: Iterable[str],
     raw_root: str | Path,
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
-    *,
     validate_zip: bool = True,
     verbose: bool = True,
     max_workers: int = 1,
@@ -273,12 +273,12 @@ def download_orats_raw(
     if max_workers <= 1:
         for base, year_name in jobs:
             _download_one_year(
-                host,
-                user,
-                password,
-                base,
-                year_name,
-                raw_root,
+                host=host,
+                user=user,
+                password=password,
+                base=base,
+                year_name=year_name,
+                raw_root=raw_root,
                 validate_zip=validate_zip,
                 verbose=verbose,
             )
@@ -291,12 +291,12 @@ def download_orats_raw(
         futures = [
             executor.submit(
                 _download_one_year,
-                host,
-                user,
-                password,
-                base,
-                year_name,
-                raw_root,
+                host=host,
+                user=user,
+                password=password,
+                base=base,
+                year_name=year_name,
+                raw_root=raw_root,
                 validate_zip=validate_zip,
                 verbose=verbose,
             )

@@ -9,7 +9,7 @@ from typing import Any, Callable
 import polars as pl
 import requests
 
-from .orats_api_endpoints import ENDPOINTS, DownloadStrategy
+from .orats_api_endpoints import ENDPOINTS, DownloadStrategy, get_endpoint_spec
 from .orats_client_api import OratsClient
 
 MAX_PER_CALL: int = 10
@@ -74,10 +74,6 @@ def _raw_path_full_history(raw_root: Path, endpoint: str, ticker: str) -> Path:
     return raw_root / f"endpoint={endpoint}" / f"underlying={ticker}" / "full.parquet"
 
 
-def _supported_endpoints_str() -> str:
-    return ", ".join(sorted(ENDPOINTS.keys()))
-
-
 # ----------------------
 # Download handlers (private)
 # ----------------------
@@ -99,6 +95,7 @@ def _download_full_history(
         if fields_list is not None:
             params["fields"] = fields_list
 
+        # Add a try except block to ctahc the exception
         df = client.get_df(endpoint=endpoint, params=params, session=session)
         if df.height == 0:
             continue
@@ -183,10 +180,7 @@ def download(
     if not tickers_clean:
         raise ValueError("tickers must be non-empty")
 
-    try:
-        spec = ENDPOINTS[endpoint]
-    except KeyError as e:
-        raise ValueError(f"Unknown endpoint '{endpoint}'. Supported: {_supported_endpoints_str()}") from e
+    spec = get_endpoint_spec(endpoint)
 
     handler = DOWNLOAD_HANDLERS.get(spec.strategy)
     if handler is None:
