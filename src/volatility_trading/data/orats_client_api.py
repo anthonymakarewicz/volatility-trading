@@ -68,7 +68,10 @@ def _normalize_orats_params(params: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _orats_payload_to_polars(payload: dict) -> pl.DataFrame:
-    data = payload.get("data", [])
+    if "data" not in payload:
+        raise ValueError(f"Unexpected ORATS payload: {payload.keys()}")
+
+    data = payload["data"]
     if not data:
         return pl.DataFrame()
 
@@ -210,3 +213,13 @@ class OratsClient:
         payload = resp.json()
         df = _orats_payload_to_polars(payload)
         return df
+    
+def _orats_payload_to_polars(payload: dict) -> pl.DataFrame:
+    data = payload.get("data", [])
+    if not data:
+        return pl.DataFrame()
+
+    cleaned = [{k.strip(): v for k, v in row.items()} for row in data]
+    df = pl.DataFrame(cleaned)
+
+    return df
