@@ -8,37 +8,9 @@ from typing import Any
 
 import polars as pl
 
-
-# ----------------------------
-# Configuration
-# ----------------------------
+from .orats_client_api import ENDPOINTS
 
 ORATS_BASE_URL = "https://api.orats.io"
-
-@dataclass(frozen=True)
-class EndpointSpec:
-    path: str
-    required: tuple[str, ...]
-    optional: tuple[str, ...] = ()
-
-
-ENDPOINTS: dict[str, EndpointSpec] = {
-    "monies_implied": EndpointSpec(
-        path="/datav2/hist/monies/implied",
-        required=("ticker", "tradeDate"),
-        optional=("fields",),
-    ),
-    "cores": EndpointSpec(
-        path="/datav2/hist/cores",
-        required=("ticker", "tradeDate"),
-        optional=("fields",),
-    ),
-    "summaries": EndpointSpec(
-        path="/datav2/hist/summaries",
-        required=("ticker", "tradeDate"),
-        optional=("fields",),
-    ),
-}
 
 
 # ----------------------------
@@ -146,10 +118,13 @@ def _validate_endpoint_params(endpoint: str, params: Mapping[str, Any]) -> None:
 
 @dataclass(frozen=True)
 class OratsClient:
+    """
+    OratsClient class for HTTP GET requests with smart Retry policy.
+    """
     token: str
     base_url: str = ORATS_BASE_URL  
     timeout_s: float = 30.0
-    max_retries: int = 5
+    max_retries: int = 1
     backoff_s: float = 0.75  # exponential-ish with jitter
 
     def _get(
