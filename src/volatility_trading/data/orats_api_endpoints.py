@@ -45,4 +45,6 @@ def get_endpoint_spec(endpoint: str) -> EndpointSpec:
         return ENDPOINTS[endpoint]
     except KeyError as e:
         supported = ", ".join(sorted(ENDPOINTS.keys()))
-        raise KeyError(f"Unknown ORATS endpoint '{endpoint}'. Supported: {supported}") from e
+        raise KeyError(
+            f"Unknown ORATS endpoint '{endpoint}'. Supported: {supported}"
+        ) from e
