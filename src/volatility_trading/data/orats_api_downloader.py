@@ -1,24 +1,29 @@
+"""Download ORATS API endpoints and store raw parquet snapshots."""
 from __future__ import annotations
 
 import datetime as dt
 import logging
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import exchange_calendars as xcals
-import pandas as pd
 import polars as pl
 import requests
 
 from .orats_api_endpoints import DownloadStrategy, get_endpoint_spec
 from .orats_client_api import OratsClient
 
+logger = logging.getLogger(__name__)
+
+
+# ----------------------
+# Constants
+# ----------------------
+
 MAX_PER_CALL: int = 10
 MIN_YEAR: int = 2007
-
-logger = logging.getLogger(__name__)
 
 # Progress logging cadence (kept small to avoid log spam)
 LOG_EVERY_N_DATES: int = 25
@@ -60,8 +65,8 @@ def _validate_years(
 def _get_trading_days(year: int) -> list[str]:
     """Get the NYSE trading sessions for a given year (XNYS calendar)."""
     cal = xcals.get_calendar("XNYS")
-    start = pd.Timestamp(f"{year}-01-01")
-    end = pd.Timestamp(f"{year}-12-31")
+    start = dt.date(year, 1, 1).isoformat()
+    end = dt.date(year, 12, 31).isoformat()
     sessions = cal.sessions_in_range(start, end)
     return [d.date().isoformat() for d in sessions]
 
@@ -136,6 +141,7 @@ def _download_full_history(
     tickers: Sequence[str],
     fields: Sequence[str] | None,
     sleep_s: float,
+    overwrite: bool,
 ) -> None:
     fields_list = list(fields) if fields else None
 
@@ -153,10 +159,10 @@ def _download_full_history(
 
     for ticker in tickers:
         out_path = _raw_path_full_history(raw_root, endpoint, ticker)
-        if out_path.exists():
+        if (not overwrite) and out_path.exists():
             n_skipped_parquet += 1
             continue
-        if _empty_marker_path(out_path).exists():
+        if (not overwrite) and _empty_marker_path(out_path).exists():
             n_skipped_empty += 1
             continue
 
@@ -168,6 +174,8 @@ def _download_full_history(
         df = client.get_df(endpoint=endpoint, params=params, session=session)
 
         if df.height == 0:
+            if overwrite and out_path.exists():
+                out_path.unlink()
             _write_empty_marker(out_path)
             n_empty_marked += 1
             logger.debug(
@@ -178,6 +186,9 @@ def _download_full_history(
             continue
 
         _write_parquet_atomic(df, out_path)
+        marker = _empty_marker_path(out_path)
+        if marker.exists():
+            marker.unlink()
         n_written += 1
         logger.debug(
             "Wrote parquet. endpoint=%s ticker=%s rows=%d path=%s",
@@ -222,6 +233,7 @@ def _download_by_trade_date(
     years: Sequence[int],
     fields: Sequence[str] | None,
     sleep_s: float,
+    overwrite: bool,
 ) -> None:
     chunks = _chunk_tickers(tickers)
     fields_list = list(fields) if fields else None
@@ -262,10 +274,10 @@ def _download_by_trade_date(
                     trade_date=trade_date,
                     part=part,
                 )
-                if out_path.exists():
+                if (not overwrite) and out_path.exists():
                     n_skipped_parquet += 1
                     continue
-                if _empty_marker_path(out_path).exists():
+                if (not overwrite) and _empty_marker_path(out_path).exists():
                     n_skipped_empty += 1
                     continue
 
@@ -288,6 +300,8 @@ def _download_by_trade_date(
                 )
 
                 if df.height == 0:
+                    if overwrite and out_path.exists():
+                        out_path.unlink()
                     _write_empty_marker(out_path)
                     n_empty_marked += 1
                     logger.debug(
@@ -299,6 +313,9 @@ def _download_by_trade_date(
                     continue
 
                 _write_parquet_atomic(df, out_path)
+                marker = _empty_marker_path(out_path)
+                if marker.exists():
+                    marker.unlink()
                 n_written += 1
                 logger.debug(
                     "Wrote parquet. endpoint=%s tradeDate=%s part=%d rows=%d "
@@ -339,7 +356,7 @@ def _download_by_trade_date(
     )
 
 
-DOWNLOAD_HANDLERS: dict[DownloadStrategy,Callable[..., None]] = {
+DOWNLOAD_HANDLERS: dict[DownloadStrategy, Callable[..., None]] = {
     DownloadStrategy.FULL_HISTORY: _download_full_history,
     DownloadStrategy.BY_TRADE_DATE: _download_by_trade_date,
 }
@@ -358,6 +375,7 @@ def download(
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
     fields: Sequence[str] | None = None,
     sleep_s: float = 0.0,
+    overwrite: bool = False,
 ) -> None:
     """Download ORATS API data into raw parquet files.
 
@@ -379,13 +397,14 @@ def download(
 
     logger.info(
         "Download requested endpoint=%s tickers=%d years=%s fields=%s "
-        "raw_root=%s sleep_s=%s",
+        "raw_root=%s sleep_s=%s overwrite=%s",
         endpoint,
         len(tickers_clean),
         (list(year_whitelist) if year_whitelist is not None else None),
         (len(fields) if fields is not None else "ALL"),
         raw_root,
         sleep_s,
+        overwrite,
     )
 
     spec = get_endpoint_spec(endpoint)
@@ -413,6 +432,7 @@ def download(
                 tickers=tickers_clean,
                 fields=fields,
                 sleep_s=sleep_s,
+                overwrite=overwrite,
             )
             return
 
@@ -432,4 +452,5 @@ def download(
             years=years,
             fields=fields,
             sleep_s=sleep_s,
+            overwrite=overwrite,
         )

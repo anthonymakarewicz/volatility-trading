@@ -9,6 +9,8 @@ from polars.exceptions import NoDataError
 
 from volatility_trading.config.schemas import ORATS_DTYPE
 
+ROOT_COl: str = "ticker"
+
 
 def read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
     """
@@ -51,7 +53,7 @@ def extract_tickers_from_orats(
     out_root: str | Path,
     tickers: Sequence[str],
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
-    root_col: str = "ticker",
+    root_col: str = ROOT_COl,
     verbose: bool = True,
 ) -> None:
     """
@@ -185,7 +187,7 @@ def extract_ticker_from_orats(
     out_root: str | Path,
     ticker: str,
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
-    root_col: str = "ticker",
+    root_col: str = ROOT_COl,
     verbose: bool = True,
 ) -> None:
     """

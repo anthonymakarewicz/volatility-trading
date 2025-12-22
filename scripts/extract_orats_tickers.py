@@ -28,13 +28,22 @@ RAW_ORATS_ROOT = RAW_ORATS
 OUT_ROOT = INTER_ORATS_BY_TICKER
 
 # Choose which tickers you want to extract
-TICKERS = ["QQQ", "AAPL", "NDX"]  # e.g. ["SPX", "SPY", "QQQ"]
+TICKERS = [
+    "SPX",
+    "SPY",
+    "NDX",
+    "QQQ",
+    "IWM",
+    "AAPL",
+    "TSLA",
+    "NVDA",
+    "MSFT",
+    "VIX",
+]
 
 # Restrict to specific years if you want (ints or strings), or None for all:
 # YEAR_WHITELIST = {2013, 2014}
 YEAR_WHITELIST = None
-
-ROOT_COL = "ticker"  # ORATS column that contains the underlying root
 VERBOSE = True
 
 
@@ -54,7 +63,6 @@ def main() -> None:
         out_root=OUT_ROOT,
         tickers=TICKERS,
         year_whitelist=YEAR_WHITELIST,
-        root_col=ROOT_COL,
         verbose=VERBOSE,
     )
 
