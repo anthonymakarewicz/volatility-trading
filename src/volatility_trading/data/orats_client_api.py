@@ -11,9 +11,9 @@ import requests
 
 from .orats_api_endpoints import get_endpoint_spec
 
-ORATS_BASE_URL = "https://api.orats.io"
-
 logger = logging.getLogger(__name__)
+
+ORATS_BASE_URL = "https://api.orats.io"
 
 
 # ----------------------------

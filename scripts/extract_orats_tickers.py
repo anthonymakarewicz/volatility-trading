@@ -19,8 +19,11 @@ Output layout (this script):
 Usage:
     python scripts/extract_orats_tickers.py
 """
+import logging
+
 from volatility_trading.config.paths import RAW_ORATS, INTER_ORATS_BY_TICKER
 from volatility_trading.data import extract_tickers_from_orats
+from volatility_trading.utils.logging_config import setup_logging
 
 # ---- CONFIG ----
 
@@ -30,31 +33,35 @@ OUT_ROOT = INTER_ORATS_BY_TICKER
 # Choose which tickers you want to extract
 TICKERS = [
     "SPX",
-    "SPY",
-    "NDX",
-    "QQQ",
-    "IWM",
-    "AAPL",
-    "TSLA",
-    "NVDA",
-    "MSFT",
-    "VIX",
 ]
 
 # Restrict to specific years if you want (ints or strings), or None for all:
 # YEAR_WHITELIST = {2013, 2014}
-YEAR_WHITELIST = None
-VERBOSE = True
+YEAR_WHITELIST = [2007]
+
+# Logging
+LOG_LEVEL = "DEBUG"  # change to "DEBUG" for more detail
+LOG_FMT_CONSOLE = "%(asctime)s %(levelname)s %(shortname)s - %(message)s" 
+LOG_FILE = None  # e.g. "logs/extract_orats_tickers.log"
+LOG_COLORED = True
 
 
 def main() -> None:
-    print(f"Raw ORATS root:          {RAW_ORATS_ROOT}")
-    print(f"Output (by-ticker) root: {OUT_ROOT}")
-    print(f"Tickers:                 {TICKERS}")
+    setup_logging(
+        LOG_LEVEL,
+        fmt_console=LOG_FMT_CONSOLE,
+        log_file=LOG_FILE,
+        colored=LOG_COLORED,
+    )
+    logger = logging.getLogger(__name__)
+
+    logger.info("Raw ORATS root:          %s", RAW_ORATS_ROOT)
+    logger.info("Output (by-ticker) root: %s", OUT_ROOT)
+    logger.info("Tickers:                 %s", TICKERS)
     if YEAR_WHITELIST is not None:
-        print(f"Years:                   {sorted(str(y) for y in YEAR_WHITELIST)}")
+        logger.info("Years:                   %s", sorted(str(y) for y in YEAR_WHITELIST))
     else:
-        print("Years:                   ALL")
+        logger.info("Years:                   ALL")
 
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -63,7 +70,6 @@ def main() -> None:
         out_root=OUT_ROOT,
         tickers=TICKERS,
         year_whitelist=YEAR_WHITELIST,
-        verbose=VERBOSE,
     )
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import zipfile
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -9,10 +10,12 @@ from polars.exceptions import NoDataError
 
 from volatility_trading.config.schemas import ORATS_DTYPE
 
+logger = logging.getLogger(__name__)
+
 ROOT_COl: str = "ticker"
 
 
-def read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
+def _read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
     """
     Open an ORATS SMV Strikes ZIP and return a Polars DataFrame.
 
@@ -54,7 +57,6 @@ def extract_tickers_from_orats(
     tickers: Sequence[str],
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
     root_col: str = ROOT_COl,
-    verbose: bool = True,
 ) -> None:
     """
     Extract multiple tickers from raw ORATS SMV Strikes ZIP files and
@@ -91,10 +93,9 @@ def extract_tickers_from_orats(
     else:
         year_whitelist_str = None
 
-    if verbose:
-        print(f"\n=== Extracting tickers: {', '.join(tickers)} ===")
-        print(f"Raw root: {raw_root}")
-        print(f"Out root: {out_root}")
+    logger.info("=== Extracting tickers: %s ===", ", ".join(tickers))
+    logger.info("Raw root: %s", raw_root)
+    logger.info("Out root: %s", out_root)
 
     # collect errors once per ZIP (not per ticker)
     zip_errors: list[tuple[str, str]] = []  # (zip_path, message)
@@ -104,8 +105,7 @@ def extract_tickers_from_orats(
         if not base_dir.is_dir():
             continue
 
-        if verbose:
-            print(f"\nBase directory: {base_dir.name}")
+        logger.info("Base directory: %s", base_dir.name)
 
         # iterate over year subdirectories
         for year_dir in sorted(base_dir.iterdir()):
@@ -116,11 +116,13 @@ def extract_tickers_from_orats(
             if not year_name.isdigit():
                 continue
 
-            if year_whitelist_str is not None and year_name not in year_whitelist_str:
+            if (
+                year_whitelist_str is not None and 
+                year_name not in year_whitelist_str
+            ):
                 continue
 
-            if verbose:
-                print(f"  Year {year_name} ...")
+            logger.info("Year %s ...", year_name)
 
             # per-year accumulator: ticker -> list of DataFrames
             dfs_by_ticker: dict[str, list[pl.DataFrame]] = {
@@ -129,15 +131,12 @@ def extract_tickers_from_orats(
 
             # loop over daily ZIP files in this year
             for zip_path in sorted(year_dir.glob("*.zip")):
-                if verbose:
-                    print(f"    Reading {zip_path.name} ...")
+                logger.debug("Reading %s ...", zip_path.name)
                 try:
-                    df = read_orats_zip_to_polars(zip_path)
+                    df = _read_orats_zip_to_polars(zip_path)
                 except (FileNotFoundError, NoDataError) as e:
-                    msg = f"{zip_path}: {e}"
                     zip_errors.append((str(zip_path), str(e)))
-                    if verbose:
-                        print(f"    [ERROR] {msg}")
+                    logger.error("[ERROR] %s: %s", zip_path, e)
                     continue
 
                 # filter once per ticker, reusing the same df
@@ -150,8 +149,11 @@ def extract_tickers_from_orats(
             for ticker in tickers:
                 dfs = dfs_by_ticker[ticker]
                 if not dfs:
-                    if verbose:
-                        print(f"    No rows for {ticker} in {year_name}, skipping.")
+                    logger.info(
+                        "No rows for %s in %s, skipping.",
+                        ticker,
+                        year_name,
+                    )
                     continue
 
                 out_df = pl.concat(dfs, how="vertical").rechunk()
@@ -160,25 +162,26 @@ def extract_tickers_from_orats(
                 out_dir.mkdir(parents=True, exist_ok=True)
                 out_path = out_dir / "part-0000.parquet"
 
-                if verbose:
-                    print(
-                        f"    Writing {out_path} "
-                        f"(ticker={ticker}, rows={out_df.height}, cols={out_df.width})"
-                    )
+                logger.info(
+                    "Writing %s (ticker=%s, rows=%d, cols=%d)",
+                    out_path,
+                    ticker,
+                    out_df.height,
+                    out_df.width,
+                )
 
                 out_df.write_parquet(out_path)
 
     # after all base dirs / years
     if zip_errors:
-        print("\n=== ERRORS DURING EXTRACTION ===")
+        logger.error("=== ERRORS DURING EXTRACTION ===")
         for path, msg in zip_errors:
-            print(f"- {path}: {msg}")
+            logger.error("- %s: %s", path, msg)
         raise RuntimeError(
             f"Extraction finished with {len(zip_errors)} problematic ZIP files."
         )
 
-    if verbose:
-        print("\nFinished extracting tickers:", ", ".join(tickers))
+    logger.info("Finished extracting tickers: %s", ", ".join(tickers))
 
 
 def extract_ticker_from_orats(
@@ -188,7 +191,6 @@ def extract_ticker_from_orats(
     ticker: str,
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
     root_col: str = ROOT_COl,
-    verbose: bool = True,
 ) -> None:
     """
     Convenience wrapper around `extract_tickers_from_orats` for a single ticker.
@@ -199,5 +201,4 @@ def extract_ticker_from_orats(
         tickers=[ticker],
         year_whitelist=year_whitelist,
         root_col=root_col,
-        verbose=verbose,
     )
