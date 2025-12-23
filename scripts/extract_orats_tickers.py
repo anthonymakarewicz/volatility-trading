@@ -21,14 +21,17 @@ Usage:
 """
 import logging
 
-from volatility_trading.config.paths import RAW_ORATS, INTER_ORATS_BY_TICKER
+from volatility_trading.config.paths import RAW_ORATS_FTP, INTER_ORATS_FTP_BY_TICKER
 from volatility_trading.data import extract_tickers_from_orats
 from volatility_trading.utils.logging_config import setup_logging
 
-# ---- CONFIG ----
 
-RAW_ORATS_ROOT = RAW_ORATS
-OUT_ROOT = INTER_ORATS_BY_TICKER
+# ----------------------------------------------------------------------------
+# CONFIG
+# ----------------------------------------------------------------------------
+
+RAW_ORATS_ROOT = RAW_ORATS_FTP
+OUT_ROOT = INTER_ORATS_FTP_BY_TICKER
 
 # Choose which tickers you want to extract
 TICKERS = [

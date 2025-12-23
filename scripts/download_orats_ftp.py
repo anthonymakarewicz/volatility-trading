@@ -27,10 +27,16 @@ Usage:
 import os
 from dotenv import load_dotenv
 
-from volatility_trading.config.paths import RAW_ORATS
-from volatility_trading.data.orats_downloader import download_orats_raw
+from volatility_trading.config.paths import RAW_ORATS_FTP
+from volatility_trading.data.orats_downloader_ftp import download_orats_raw
 
-# ---- CONFIG ----
+
+# ----------------------------------------------------------------------------
+# CONFIG
+# ----------------------------------------------------------------------------
+
+ORATS_FTP_USER_ENV = "ORATS_FTP_USER"
+ORATS_FTP_PASS_ENV = "ORATS_FTP_PASS"
 
 HOST = "orats.hostedftp.com"  # or "de1.hostedftp.com"
 REMOTE_BASE_DIRS = [
@@ -49,9 +55,8 @@ MAX_WORKERS = 3  # or 1 for sequential, or 2–4 for some parallelism
 
 def main() -> None:
     load_dotenv()
-
-    user = os.getenv("ORATS_FTP_USER")
-    password = os.getenv("ORATS_FTP_PASS")
+    user = os.getenv(ORATS_FTP_USER_ENV)
+    password = os.getenv(ORATS_FTP_PASS_ENV)
 
     if not user or not password:
         raise SystemExit(
@@ -59,7 +64,7 @@ def main() -> None:
             "Set them in your environment or in a .env file at the project root."
         )
 
-    print(f"Raw ORATS root: {RAW_ORATS}")
+    print(f"Raw ORATS root: {RAW_ORATS_FTP}")
     if YEAR_WHITELIST is not None:
         print(f"Year whitelist: {sorted(str(y) for y in YEAR_WHITELIST)}")
     else:
@@ -70,7 +75,7 @@ def main() -> None:
         user=user,
         password=password,
         remote_base_dirs=REMOTE_BASE_DIRS,
-        raw_root=RAW_ORATS,
+        raw_root=RAW_ORATS_FTP,
         year_whitelist=YEAR_WHITELIST,
         validate_zip=VALIDATE_ZIP,
         verbose=VERBOSE,

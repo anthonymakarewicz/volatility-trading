@@ -8,11 +8,13 @@ Expected layout:
 Output:
     data/processed/optionsdx/optionsdx_panel_<START>_<END>.parquet
 """
-from pathlib import Path
 from volatility_trading.config.paths import RAW_OPTIONSDX, PROC_OPTIONSDX
 from volatility_trading.data.optionsdx_loader import prepare_option_panel
 
-# ---- CONFIG ----
+
+# ----------------------------------------------------------------------------
+# CONFIG
+# ----------------------------------------------------------------------------
 
 START_YEAR = 2010
 END_YEAR = 2023
