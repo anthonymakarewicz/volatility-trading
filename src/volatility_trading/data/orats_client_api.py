@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 ORATS_BASE_URL = "https://api.orats.io"
 
 
-# ----------------------------
-# Small utilities
-# ----------------------------
+# ----------------------------------------------------------------------------
+# Private Helpers
+# ----------------------------------------------------------------------------
 
 def _orats_list_param(values: Iterable[str] | None) -> str | None:
     """Convert a list/iterable of ORATS values into a comma-separated string.
@@ -135,9 +135,9 @@ def _orats_payload_to_polars(payload: dict[str, Any]) -> pl.DataFrame:
     return pl.DataFrame(cleaned)
 
 
-# ----------------------------
-# HTTP client
-# ----------------------------
+# ----------------------------------------------------------------------------
+# Public API (HTTP client)
+# ----------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class OratsClient:

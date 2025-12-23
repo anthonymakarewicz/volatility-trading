@@ -91,11 +91,6 @@ def _coerce_level(level: int | str) -> int:
         raise ValueError(f"Unknown logging level: {level!r}") from e
 
 
-# --------------
-# Public API
-# --------------
-
-
 def setup_logging(
     level: int | str = "INFO",
     *,

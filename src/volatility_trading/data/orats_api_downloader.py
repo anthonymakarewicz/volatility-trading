@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import logging
 import time
 from collections.abc import Callable, Iterable, Sequence
@@ -18,9 +19,9 @@ from .orats_client_api import OratsClient
 logger = logging.getLogger(__name__)
 
 
-# ----------------------
+# ----------------------------------------------------------------------------
 # Constants
-# ----------------------
+# ----------------------------------------------------------------------------
 
 MAX_PER_CALL: int = 10
 MIN_YEAR: int = 2007
@@ -30,14 +31,32 @@ LOG_EVERY_N_DATES: int = 25
 LOG_EVERY_N_TICKERS: int = 10
 
 
-# ----------------------
-# Helpers
-# ----------------------
+# ----------------------------------------------------------------------------
+# Private Helpers
+# ----------------------------------------------------------------------------
+
+def _unique_preserve_order(items: Sequence[str]) -> list[str]:
+    """Return unique items while preserving first-seen order."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for x in items:
+        if x in seen:
+            continue
+        seen.add(x)
+        out.append(x)
+    return out
+
 
 def _chunk_tickers(tickers: Sequence[str]) -> list[list[str]]:
-    """Split tickers into chunks of <= MAX_PER_CALL (strip + drop empties)."""
-    clean = [str(t).strip() for t in tickers if t is not None and str(t).strip()]
-    return [clean[i : i + MAX_PER_CALL] for i in range(0, len(clean), MAX_PER_CALL)]
+    """Split *already-clean* tickers into chunks of <= MAX_PER_CALL.
+
+    Assumes tickers were preprocessed by `download()`:
+      - stripped
+      - non-empty
+      - unique (stable order)
+    """
+    t = list(tickers)
+    return [t[i : i + MAX_PER_CALL] for i in range(0, len(t), MAX_PER_CALL)]
 
 
 def _validate_years(
@@ -75,6 +94,10 @@ def _ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
 
 
+def _utc_now_iso() -> str:
+    return dt.datetime.now(dt.UTC).isoformat().replace("+00:00", "Z")
+
+
 def _write_parquet_atomic(df: pl.DataFrame, path: Path) -> None:
     """Write parquet atomically (best-effort) to avoid partial files."""
     _ensure_dir(path.parent)
@@ -90,13 +113,64 @@ def _empty_marker_path(parquet_path: Path) -> Path:
     return parquet_path.with_suffix(".empty")
 
 
-def _write_empty_marker(parquet_path: Path) -> None:
-    """Create an '.empty' marker atomically to skip empties on reruns."""
+def _write_empty_marker(parquet_path: Path, meta: dict[str, Any]) -> None:
+    """Create an '.empty' marker atomically.
+
+    We write a small JSON payload so that an empty marker is inspectable and
+    debuggable (and can be expired/ignored later if desired).
+    """
     marker = _empty_marker_path(parquet_path)
     _ensure_dir(marker.parent)
+
+    payload = dict(meta)
+    payload.setdefault("created_at", _utc_now_iso())
+
     tmp = marker.with_suffix(marker.suffix + ".tmp")
-    tmp.write_text("empty\n", encoding="utf-8")
+    tmp.write_text(
+        json.dumps(payload, ensure_ascii=False) + "\n", 
+        encoding="utf-8"
+    )
     tmp.replace(marker)
+
+
+def _marker_should_skip(marker_path: Path, *, ttl_days: int | None) -> bool:
+    """Return True if an existing empty marker should cause a skip.
+
+    If ttl_days is None, markers never expire.
+    If ttl_days is set, markers older than ttl_days are ignored (download retried).
+    """
+    if ttl_days is None:
+        return True
+
+    try:
+        txt = marker_path.read_text(encoding="utf-8").strip()
+        if not txt:
+            return True
+        payload = json.loads(txt)
+        created_at = payload.get("created_at")
+        if not isinstance(created_at, str) or not created_at:
+            return True
+
+        # Parse ISO time with optional 'Z'
+        s = created_at.replace("Z", "+00:00")
+        created = dt.datetime.fromisoformat(s)
+        now = dt.datetime.now(dt.UTC)
+        age = now - created
+        return age <= dt.timedelta(days=int(ttl_days))
+    except Exception:
+        # If marker is unreadable, be conservative and skip.
+        return True
+
+
+def _empty_marker_exists_and_valid(
+    parquet_path: Path,
+    *,
+    ttl_days: int | None,
+) -> bool:
+    marker = _empty_marker_path(parquet_path)
+    if not marker.exists():
+        return False
+    return _marker_should_skip(marker, ttl_days=ttl_days)
 
 
 def _raw_path_by_trade_date(
@@ -128,10 +202,6 @@ def _raw_path_full_history(raw_root: Path, endpoint: str, ticker: str) -> Path:
     )
 
 
-# ----------------------
-# Download handlers (private)
-# ----------------------
-
 def _download_full_history(
     *,
     client: OratsClient,
@@ -141,6 +211,7 @@ def _download_full_history(
     tickers: Sequence[str],
     fields: Sequence[str] | None,
     sleep_s: float,
+    empty_marker_ttl_days: int | None,
     overwrite: bool,
 ) -> None:
     fields_list = list(fields) if fields else None
@@ -162,7 +233,9 @@ def _download_full_history(
         if (not overwrite) and out_path.exists():
             n_skipped_parquet += 1
             continue
-        if (not overwrite) and _empty_marker_path(out_path).exists():
+        if (not overwrite) and _empty_marker_exists_and_valid(
+            out_path, ttl_days=empty_marker_ttl_days
+        ):
             n_skipped_empty += 1
             continue
 
@@ -176,7 +249,15 @@ def _download_full_history(
         if df.height == 0:
             if overwrite and out_path.exists():
                 out_path.unlink()
-            _write_empty_marker(out_path)
+            _write_empty_marker(
+                out_path,
+                {
+                    "endpoint": endpoint,
+                    "strategy": "FULL_HISTORY",
+                    "ticker": ticker,
+                    "fields": (fields_list if fields_list is not None else "ALL"),
+                },
+            )
             n_empty_marked += 1
             logger.debug(
                 "Empty result (marked). endpoint=%s ticker=%s",
@@ -223,6 +304,10 @@ def _download_full_history(
     )
 
 
+# ----------------------------------------------------------------------------
+# Download Handlers (private)
+# ----------------------------------------------------------------------------
+
 def _download_by_trade_date(
     *,
     client: OratsClient,
@@ -233,6 +318,7 @@ def _download_by_trade_date(
     years: Sequence[int],
     fields: Sequence[str] | None,
     sleep_s: float,
+    empty_marker_ttl_days: int | None,
     overwrite: bool,
 ) -> None:
     chunks = _chunk_tickers(tickers)
@@ -277,7 +363,9 @@ def _download_by_trade_date(
                 if (not overwrite) and out_path.exists():
                     n_skipped_parquet += 1
                     continue
-                if (not overwrite) and _empty_marker_path(out_path).exists():
+                if (not overwrite) and _empty_marker_exists_and_valid(
+                    out_path, ttl_days=empty_marker_ttl_days
+                ):
                     n_skipped_empty += 1
                     continue
 
@@ -302,7 +390,17 @@ def _download_by_trade_date(
                 if df.height == 0:
                     if overwrite and out_path.exists():
                         out_path.unlink()
-                    _write_empty_marker(out_path)
+                    _write_empty_marker(
+                        out_path,
+                        {
+                            "endpoint": endpoint,
+                            "strategy": "BY_TRADE_DATE",
+                            "tradeDate": trade_date,
+                            "part": part,
+                            "tickers": list(ticker_chunk),
+                            "fields": (fields_list if fields_list is not None else "ALL"),
+                        },
+                    )
                     n_empty_marked += 1
                     logger.debug(
                         "Empty result (marked). endpoint=%s tradeDate=%s part=%d",
@@ -362,9 +460,9 @@ DOWNLOAD_HANDLERS: dict[DownloadStrategy, Callable[..., None]] = {
 }
 
 
-# ----------------------
+# ----------------------------------------------------------------------------
 # Public API
-# ----------------------
+# ----------------------------------------------------------------------------
 
 def download(
     *,
@@ -375,6 +473,7 @@ def download(
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
     fields: Sequence[str] | None = None,
     sleep_s: float = 0.0,
+    empty_marker_ttl_days: int | None = None,
     overwrite: bool = False,
 ) -> None:
     """Download ORATS API data into raw parquet files.
@@ -388,22 +487,30 @@ def download(
         raw_root/endpoint=<endpoint>/year=YYYY/YYYY-MM-DD_XXX.parquet
       - FULL_HISTORY:
         raw_root/endpoint=<endpoint>/underlying=<TICKER>/full.parquet
+
+    Empty responses create ".empty" marker files with metadata.
+    The empty_marker_ttl_days parameter can be used to ignore old markers and retry.
     """
     raw_root = Path(raw_root)
 
-    tickers_clean = [str(t).strip() for t in tickers if t and str(t).strip()]
+    tickers_clean = [
+        str(t).strip() for t in tickers 
+        if t is not None and str(t).strip()
+    ]
+    tickers_clean = _unique_preserve_order(tickers_clean)
     if not tickers_clean:
         raise ValueError("tickers must be non-empty")
 
     logger.info(
         "Download requested endpoint=%s tickers=%d years=%s fields=%s "
-        "raw_root=%s sleep_s=%s overwrite=%s",
+        "raw_root=%s sleep_s=%s empty_marker_ttl_days=%s overwrite=%s",
         endpoint,
         len(tickers_clean),
         (list(year_whitelist) if year_whitelist is not None else None),
         (len(fields) if fields is not None else "ALL"),
         raw_root,
         sleep_s,
+        empty_marker_ttl_days,
         overwrite,
     )
 
@@ -432,6 +539,7 @@ def download(
                 tickers=tickers_clean,
                 fields=fields,
                 sleep_s=sleep_s,
+                empty_marker_ttl_days=empty_marker_ttl_days,
                 overwrite=overwrite,
             )
             return
@@ -452,5 +560,6 @@ def download(
             years=years,
             fields=fields,
             sleep_s=sleep_s,
+            empty_marker_ttl_days=empty_marker_ttl_days,
             overwrite=overwrite,
         )
