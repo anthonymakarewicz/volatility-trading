@@ -347,13 +347,6 @@ class OratsClient:
             If the response body is not valid JSON.
         TypeError
             If the decoded JSON is not a JSON object (dict).
-
-        Notes
-        -----
-        Use `get_payload` when you want to snapshot/store the raw API response 
-        or perform custom downstream parsing. If you maintain a 
-        `get_df` convenience elsewhere, prefer that when you only need the 
-        `data` table as a DataFrame.
         """
         _validate_endpoint_params(endpoint, params)
         spec = get_endpoint_spec(endpoint)

@@ -33,7 +33,7 @@ ORATS_API_KEY_ENV = "ORATS_API_KEY"
 RAW_ORATS_ROOT = RAW_ORATS_API
 
 # Supported endpoint name (must exist in ENDPOINTS mapping)
-ENDPOINT = "monies_implied"
+ENDPOINT = "cores"
 # Examples you likely have:
 # ENDPOINT = "monies_implied"
 # ENDPOINT = "cores"
@@ -41,6 +41,8 @@ ENDPOINT = "monies_implied"
 
 TICKERS = [
     "SPX", 
+]
+"""
     "NDX", 
     "VIX",
     "SPY",
@@ -51,9 +53,10 @@ TICKERS = [
     "NVDA",
     "MSFT",
 ]
+"""
 
 # Only used for BY_TRADE_DATE endpoints (e.g., monies_implied)
-YEAR_WHITELIST = [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]
+YEAR_WHITELIST = None#[2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]
 
 # Optional: request only specific fields (None means “all fields returned”)
 FIELDS = None
@@ -61,9 +64,6 @@ FIELDS = None
 # Downloader behavior
 SLEEP_S = 0.10
 OVERWRITE = False
-
-# Empty-marker safety: retry empties after N days (None = never expire)
-EMPTY_MARKER_TTL_DAYS = 7
 
 # Logging
 LOG_LEVEL = "DEBUG"
@@ -104,7 +104,6 @@ def main() -> None:
         year_whitelist=YEAR_WHITELIST,
         fields=FIELDS,
         sleep_s=SLEEP_S,
-        empty_marker_ttl_days=EMPTY_MARKER_TTL_DAYS,
         overwrite=OVERWRITE,
     )
 
