@@ -1,3 +1,10 @@
+"""ORATS API client utilities.
+
+This module provides a small, typed HTTP client (`OratsClient`) plus helpers for
+validating and normalizing request parameters. It is designed to be used by
+downloader/orchestrator code that snapshots ORATS API responses to disk.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -6,7 +13,6 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-import polars as pl
 import requests
 
 from .orats_api_endpoints import get_endpoint_spec
@@ -21,12 +27,7 @@ ORATS_BASE_URL = "https://api.orats.io"
 # ----------------------------------------------------------------------------
 
 def _orats_list_param(values: Iterable[str] | None) -> str | None:
-    """Convert a list/iterable of ORATS values into a comma-separated string.
-
-    Use for request params like:
-      - ticker="SPX,NDX,VIX"
-      - fields="tradeDate,expirDate,calVol"
-    """
+    """Normalize list-like ORATS params into a comma-separated string."""
     if values is None:
         return None
 
@@ -45,7 +46,7 @@ def _orats_list_param(values: Iterable[str] | None) -> str | None:
 
 
 def _validate_endpoint_params(endpoint: str, params: Mapping[str, Any]) -> None:
-    """Validate required params for a given endpoint before sending a request."""
+    """Ensure required params for an endpoint are present and non-empty."""
     spec = get_endpoint_spec(endpoint)
     missing: list[str] = []
     for k in spec.required:
@@ -59,22 +60,7 @@ def _validate_endpoint_params(endpoint: str, params: Mapping[str, Any]) -> None:
     
 
 def _normalize_orats_params(params: Mapping[str, Any]) -> dict[str, str]:
-    """Normalize ORATS query params.
-
-    Allows higher-level code to pass params naturally, e.g.
-        {
-            "ticker": ["SPX", "NDX"],
-            "tradeDate": "2019-11-29",
-            "fields": ["tradeDate", "expirDate"],
-        }
-
-    And outputs the expected ORATS API wire format:
-        {
-            "ticker": "SPX,NDX",
-            "tradeDate": "2019-11-29",
-            "fields": "tradeDate,expirDate",
-        }
-    """
+    """Convert higher-level params into ORATS wire-format query parameters."""
     out: dict[str, str] = {}
 
     for k, v in params.items():
@@ -94,7 +80,7 @@ def _normalize_orats_params(params: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _params_summary(wire_params: Mapping[str, str]) -> str:
-    """Small, safe summary for logs/errors (never includes token)."""
+    """Create a safe, compact params summary for logs (never includes the token)."""
     keys = [k for k in wire_params.keys() if k != "token"]
     keys.sort()
     parts: list[str] = []
@@ -113,6 +99,7 @@ def _params_summary(wire_params: Mapping[str, str]) -> str:
 
 
 def _is_missing_param_value(v: Any) -> bool:
+    """Return True if a param value should be considered missing/empty."""
     if v is None:
         return True
     if isinstance(v, str):
@@ -123,26 +110,36 @@ def _is_missing_param_value(v: Any) -> bool:
     return False
 
 
-def _orats_payload_to_polars(payload: dict[str, Any]) -> pl.DataFrame:
-    if "data" not in payload:
-        raise ValueError(f"Unexpected ORATS payload keys: {list(payload.keys())}")
-
-    data = payload["data"]
-    if not data:
-        return pl.DataFrame()
-
-    cleaned = [{k.strip(): v for k, v in row.items()} for row in data]
-    return pl.DataFrame(cleaned)
-
-
 # ----------------------------------------------------------------------------
 # Public API (HTTP client)
 # ----------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class OratsClient:
-    """HTTP GET client for ORATS API with retries and safe logging."""
+    """HTTP client for ORATS API requests.
 
+    The client wraps `requests` and provides:
+    - endpoint-aware parameter validation (required args per endpoint)
+    - normalization of list-like params into ORATS' comma-separated wire format
+    - retries with exponential backoff for transient failures
+
+    Retry policy (high level):
+    - Retries on HTTP 429 (rate limit) and HTTP 5xx (server errors)
+    - Retries on transport-level issues (timeouts / connection errors)
+    - Does *not* retry on other HTTP 4xx responses (bad params, auth, etc.)
+
+    Session handling:
+    - You may pass a shared `requests.Session` to reuse connections across many calls.
+    - If you do not pass a session, the client creates one internally and closes it.
+
+    Logging:
+    - Request logs use a redacted params summary that never includes the API token.
+
+    Exceptions:
+    - Non-429 HTTP 4xx errors raise `requests.HTTPError` (fail-fast).
+    - If all retries are exhausted for a retryable failure, the client raises
+      `RuntimeError` with the original exception attached as `__cause__`.
+    """
     token: str
     base_url: str = ORATS_BASE_URL
     timeout_s: float = 30.0
@@ -156,12 +153,7 @@ class OratsClient:
         *,
         session: requests.Session | None = None,
     ) -> requests.Response:
-        """Low-level GET with retries.
-
-        Retries on: 429, 5xx, timeouts / transient connection errors.
-        Does NOT retry on: other 4xx (bad params/auth/etc.).
-        Closes an internally-created Session.
-        """
+        """Low-level GET with retries for transient failures (429/5xx/transport)."""
         url = self.base_url.rstrip("/") + "/" + path.lstrip("/")
 
         created_session = session is None
@@ -191,11 +183,17 @@ class OratsClient:
                     )
 
                     # Fail fast on permanent client errors (except 429)
-                    if 400 <= resp.status_code <= 499 and resp.status_code != 429:
+                    if (
+                        400 <= resp.status_code <= 499
+                        and resp.status_code != 429
+                    ):
                         resp.raise_for_status()
 
                     # Retry on rate limit / server errors
-                    if resp.status_code == 429 or 500 <= resp.status_code <= 599:
+                    if (
+                        resp.status_code == 429
+                        or 500 <= resp.status_code <= 599
+                    ):
                         ra = resp.headers.get("Retry-After")
                         if ra is not None:
                             try:
@@ -309,16 +307,63 @@ class OratsClient:
             f"ORATS GET failed after retries: path={path} params=[{params_log}]"
         ) from last_err
 
-    def get_df(
+    def get_payload(
         self,
         endpoint: str,
         params: Mapping[str, Any],
         *,
         session: requests.Session | None = None,
-    ) -> pl.DataFrame:
-        """GET endpoint and return Polars DataFrame from its JSON payload."""
+    ) -> dict[str, Any]:
+        """Fetch an ORATS endpoint and return the raw JSON payload.
+
+        Parameters
+        ----------
+        endpoint:
+            Logical endpoint name (key in `orats_api_endpoints.ENDPOINTS`).
+            The client resolves this to an HTTP path and 
+            validates required parameters.
+        params:
+            Query parameters for the endpoint. Values may be passed naturally
+            (e.g. lists for `ticker` / `fields`), and will be normalized 
+            into ORATS' expected comma-separated wire format.
+        session:
+            Optional shared `requests.Session` for connection reuse.
+
+        Returns
+        -------
+        dict
+            The parsed JSON payload returned by ORATS (typically containing 
+            a `data` list plus metadata fields).
+
+        Raises
+        ------
+        ValueError
+            If required endpoint parameters are missing/empty.
+        requests.HTTPError
+            For non-429 HTTP 4xx responses (fail-fast).
+        RuntimeError
+            If retries are exhausted for a retryable failure (429/5xx/transport).
+        json.JSONDecodeError
+            If the response body is not valid JSON.
+        TypeError
+            If the decoded JSON is not a JSON object (dict).
+
+        Notes
+        -----
+        Use `get_payload` when you want to snapshot/store the raw API response 
+        or perform custom downstream parsing. If you maintain a 
+        `get_df` convenience elsewhere, prefer that when you only need the 
+        `data` table as a DataFrame.
+        """
         _validate_endpoint_params(endpoint, params)
         spec = get_endpoint_spec(endpoint)
+
         resp = self._get(spec.path, params, session=session)
+
+        # Let json() raise if the payload is not valid JSON
         payload = resp.json()
-        return _orats_payload_to_polars(payload)
+        if not isinstance(payload, dict):
+            raise TypeError(
+                f"Expected ORATS JSON payload to be an object/dict, got {type(payload)}"
+            )
+        return payload

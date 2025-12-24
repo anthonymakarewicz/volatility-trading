@@ -26,13 +26,25 @@ ENDPOINTS: dict[str, EndpointSpec] = {
     ),
     "cores": EndpointSpec(
         path="/datav2/hist/cores",
-        required=("ticker", "tradeDate"),
+        required=("ticker",),
         optional=("fields",),
         strategy=DownloadStrategy.FULL_HISTORY,
     ),
     "summaries": EndpointSpec(
         path="/datav2/hist/summaries",
-        required=("ticker", "tradeDate"),
+        required=("ticker",),
+        optional=("fields",),
+        strategy=DownloadStrategy.FULL_HISTORY,
+    ),
+    "earnings": EndpointSpec(
+        path="/datav2/hist/earnings",
+        required=("ticker",),
+        optional=("fields",),
+        strategy=DownloadStrategy.FULL_HISTORY,
+    ),
+    "dailies": EndpointSpec(
+        path="/datav2/hist/dailies", # Daily OHLCV of underlying
+        required=("ticker",),
         optional=("fields",),
         strategy=DownloadStrategy.FULL_HISTORY,
     ),
