@@ -1,4 +1,14 @@
-"""Download ORATS API endpoints and store raw parquet snapshots."""
+"""ORATS API downloader.
+
+This module downloads ORATS API endpoints and snapshots the *raw JSON payloads*
+to disk. It is intended as an ingestion layer:
+- raw = "exactly what ORATS returned" (one JSON file per request)
+- downstream code can build curated parquet datasets in intermediate/processed
+
+The downloader dispatches to a strategy based on the endpoint specification:
+- BY_TRADE_DATE: one request per trading date and ticker chunk
+- FULL_HISTORY: one request per ticker (no tradeDate)
+"""
 from __future__ import annotations
 
 import datetime as dt
@@ -10,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 import exchange_calendars as xcals
-import polars as pl
 import requests
 
 from .orats_api_endpoints import DownloadStrategy, get_endpoint_spec
@@ -32,7 +41,7 @@ LOG_EVERY_N_TICKERS: int = 10
 
 
 # ----------------------------------------------------------------------------
-# Private Helpers
+# Private helpers
 # ----------------------------------------------------------------------------
 
 def _unique_preserve_order(items: Sequence[str]) -> list[str]:
@@ -48,30 +57,21 @@ def _unique_preserve_order(items: Sequence[str]) -> list[str]:
 
 
 def _chunk_tickers(tickers: Sequence[str]) -> list[list[str]]:
-    """Split *already-clean* tickers into chunks of <= MAX_PER_CALL.
-
-    Assumes tickers were preprocessed by `download()`:
-      - stripped
-      - non-empty
-      - unique (stable order)
-    """
+    """Split tickers into <= MAX_PER_CALL chunks for ORATS list-style params."""
     t = list(tickers)
     return [t[i : i + MAX_PER_CALL] for i in range(0, len(t), MAX_PER_CALL)]
 
 
 def _validate_years(
-    year_whitelist: Iterable[int | str],
+    years: Iterable[int | str],
     *,
     min_year: int = MIN_YEAR,
     max_year: int | None = None,
 ) -> list[int]:
+    """Validate and coerce the year whitelist into a bounded list of ints."""
     if max_year is None:
         max_year = dt.date.today().year
-
-    years = [int(y) for y in year_whitelist]
-    if not years:
-        raise ValueError("year_whitelist must be non-empty")
-
+        
     bad = [y for y in years if y < min_year or y > max_year]
     if bad:
         raise ValueError(
@@ -91,86 +91,19 @@ def _get_trading_days(year: int) -> list[str]:
 
 
 def _ensure_dir(p: Path) -> None:
+    """Create a directory (and parents) if needed."""
     p.mkdir(parents=True, exist_ok=True)
 
 
-def _utc_now_iso() -> str:
-    return dt.datetime.now(dt.UTC).isoformat().replace("+00:00", "Z")
-
-
-def _write_parquet_atomic(df: pl.DataFrame, path: Path) -> None:
-    """Write parquet atomically (best-effort) to avoid partial files."""
+def _write_json_atomic(payload: dict[str, Any], path: Path) -> None:
+    """Write a JSON payload atomically (best-effort) to avoid partial files."""
     _ensure_dir(path.parent)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    df.write_parquet(tmp, compression="zstd")
-    tmp.replace(path)
-
-
-def _empty_marker_path(parquet_path: Path) -> Path:
-    """Marker path recording an empty API response for this parquet output."""
-    # YYYY-MM-DD_000.parquet -> YYYY-MM-DD_000.empty
-    # full.parquet          -> full.empty
-    return parquet_path.with_suffix(".empty")
-
-
-def _write_empty_marker(parquet_path: Path, meta: dict[str, Any]) -> None:
-    """Create an '.empty' marker atomically.
-
-    We write a small JSON payload so that an empty marker is inspectable and
-    debuggable (and can be expired/ignored later if desired).
-    """
-    marker = _empty_marker_path(parquet_path)
-    _ensure_dir(marker.parent)
-
-    payload = dict(meta)
-    payload.setdefault("created_at", _utc_now_iso())
-
-    tmp = marker.with_suffix(marker.suffix + ".tmp")
     tmp.write_text(
-        json.dumps(payload, ensure_ascii=False) + "\n", 
-        encoding="utf-8"
+        json.dumps(payload, ensure_ascii=False) + "\n",
+        encoding="utf-8",
     )
-    tmp.replace(marker)
-
-
-def _marker_should_skip(marker_path: Path, *, ttl_days: int | None) -> bool:
-    """Return True if an existing empty marker should cause a skip.
-
-    If ttl_days is None, markers never expire.
-    If ttl_days is set, markers older than ttl_days are ignored (download retried).
-    """
-    if ttl_days is None:
-        return True
-
-    try:
-        txt = marker_path.read_text(encoding="utf-8").strip()
-        if not txt:
-            return True
-        payload = json.loads(txt)
-        created_at = payload.get("created_at")
-        if not isinstance(created_at, str) or not created_at:
-            return True
-
-        # Parse ISO time with optional 'Z'
-        s = created_at.replace("Z", "+00:00")
-        created = dt.datetime.fromisoformat(s)
-        now = dt.datetime.now(dt.UTC)
-        age = now - created
-        return age <= dt.timedelta(days=int(ttl_days))
-    except Exception:
-        # If marker is unreadable, be conservative and skip.
-        return True
-
-
-def _empty_marker_exists_and_valid(
-    parquet_path: Path,
-    *,
-    ttl_days: int | None,
-) -> bool:
-    marker = _empty_marker_path(parquet_path)
-    if not marker.exists():
-        return False
-    return _marker_should_skip(marker, ttl_days=ttl_days)
+    tmp.replace(path)
 
 
 def _raw_path_by_trade_date(
@@ -182,25 +115,30 @@ def _raw_path_by_trade_date(
     """Raw file path for trade-date based endpoints.
 
     Layout:
-      raw_root/endpoint=<endpoint>/year=YYYY/<tradeDate>_<part>.parquet
+      raw_root/endpoint=<endpoint>/year=YYYY/<tradeDate>_<part>.json
     """
     year = int(trade_date[:4])
     return (
         raw_root
         / f"endpoint={endpoint}"
         / f"year={year}"
-        / f"{trade_date}_{part:03d}.parquet"
+        / f"{trade_date}_{part:03d}.json"
     )
 
 
 def _raw_path_full_history(raw_root: Path, endpoint: str, ticker: str) -> Path:
+    """Raw file path for full-history endpoints (one file per ticker)."""
     return (
-        raw_root 
-        / f"endpoint={endpoint}" 
-        / f"underlying={ticker}" 
-        / "full.parquet"
+        raw_root
+        / f"endpoint={endpoint}"
+        / f"underlying={ticker}"
+        / "full.json"
     )
 
+
+# ----------------------------------------------------------------------------
+# Download handlers (private)
+# ----------------------------------------------------------------------------
 
 def _download_full_history(
     *,
@@ -211,15 +149,14 @@ def _download_full_history(
     tickers: Sequence[str],
     fields: Sequence[str] | None,
     sleep_s: float,
-    empty_marker_ttl_days: int | None,
     overwrite: bool,
 ) -> None:
+    """Download a FULL_HISTORY endpoint (one request per ticker) and write JSON."""
     fields_list = list(fields) if fields else None
 
     n_written = 0
-    n_skipped_parquet = 0
-    n_skipped_empty = 0
-    n_empty_marked = 0
+    n_skipped = 0
+    n_empty_payloads = 0
 
     logger.info(
         "Starting FULL_HISTORY download endpoint=%s tickers=%d fields=%s",
@@ -231,82 +168,55 @@ def _download_full_history(
     for ticker in tickers:
         out_path = _raw_path_full_history(raw_root, endpoint, ticker)
         if (not overwrite) and out_path.exists():
-            n_skipped_parquet += 1
-            continue
-        if (not overwrite) and _empty_marker_exists_and_valid(
-            out_path, ttl_days=empty_marker_ttl_days
-        ):
-            n_skipped_empty += 1
+            # Skip existing files to avoid redundant downloads
+            n_skipped += 1
             continue
 
         params: dict[str, Any] = {"ticker": [ticker]}
         if fields_list is not None:
             params["fields"] = fields_list
 
-        logger.debug("Fetching endpoint=%s ticker=%s", endpoint, ticker)
-        df = client.get_df(endpoint=endpoint, params=params, session=session)
+        # Propagate any HTTP exception
+        payload = client.get_payload(
+            endpoint=endpoint,
+            params=params,
+            session=session,
+        )
 
-        if df.height == 0:
-            if overwrite and out_path.exists():
-                out_path.unlink()
-            _write_empty_marker(
-                out_path,
-                {
-                    "endpoint": endpoint,
-                    "strategy": "FULL_HISTORY",
-                    "ticker": ticker,
-                    "fields": (fields_list if fields_list is not None else "ALL"),
-                },
-            )
-            n_empty_marked += 1
+        data = payload.get("data", [])
+        if not data:
+            n_empty_payloads += 1
             logger.debug(
-                "Empty result (marked). endpoint=%s ticker=%s",
+                "Empty payload data. endpoint=%s ticker=%s",
                 endpoint,
                 ticker,
             )
-            continue
 
-        _write_parquet_atomic(df, out_path)
-        marker = _empty_marker_path(out_path)
-        if marker.exists():
-            marker.unlink()
+        _write_json_atomic(payload, out_path)
         n_written += 1
-        logger.debug(
-            "Wrote parquet. endpoint=%s ticker=%s rows=%d path=%s",
-            endpoint,
-            ticker,
-            df.height,
-            out_path,
-        )
 
         if (n_written % LOG_EVERY_N_TICKERS) == 0:
             logger.info(
-                "Progress FULL_HISTORY endpoint=%s written=%d "
-                "skipped_parquet=%d skipped_empty=%d empty_marked=%d",
+                "Progress FULL_HISTORY endpoint=%s written=%d skipped=%d "
+                "empty_payloads=%d",
                 endpoint,
                 n_written,
-                n_skipped_parquet,
-                n_skipped_empty,
-                n_empty_marked,
+                n_skipped,
+                n_empty_payloads,
             )
 
         if sleep_s > 0:
             time.sleep(sleep_s)
 
     logger.info(
-        "Finished FULL_HISTORY endpoint=%s written=%d skipped_parquet=%d "
-        "skipped_empty=%d empty_marked=%d",
+        "Finished FULL_HISTORY endpoint=%s written=%d skipped=%d "
+        "empty_payloads=%d",
         endpoint,
         n_written,
-        n_skipped_parquet,
-        n_skipped_empty,
-        n_empty_marked,
+        n_skipped,
+        n_empty_payloads,
     )
 
-
-# ----------------------------------------------------------------------------
-# Download Handlers (private)
-# ----------------------------------------------------------------------------
 
 def _download_by_trade_date(
     *,
@@ -318,9 +228,9 @@ def _download_by_trade_date(
     years: Sequence[int],
     fields: Sequence[str] | None,
     sleep_s: float,
-    empty_marker_ttl_days: int | None,
     overwrite: bool,
 ) -> None:
+    """Download a BY_TRADE_DATE endpoint (years -> sessions -> ticker chunks)."""
     chunks = _chunk_tickers(tickers)
     fields_list = list(fields) if fields else None
 
@@ -329,9 +239,8 @@ def _download_by_trade_date(
         params_base["fields"] = fields_list
 
     n_written = 0
-    n_skipped_parquet = 0
-    n_skipped_empty = 0
-    n_empty_marked = 0
+    n_skipped = 0
+    n_empty_payloads = 0
 
     logger.info(
         "Starting BY_TRADE_DATE download endpoint=%s years=%d tickers=%d "
@@ -360,97 +269,58 @@ def _download_by_trade_date(
                     trade_date=trade_date,
                     part=part,
                 )
+
                 if (not overwrite) and out_path.exists():
-                    n_skipped_parquet += 1
-                    continue
-                if (not overwrite) and _empty_marker_exists_and_valid(
-                    out_path, ttl_days=empty_marker_ttl_days
-                ):
-                    n_skipped_empty += 1
+                    # Skip existing files to avoid redundant downloads
+                    n_skipped += 1
                     continue
 
                 params = dict(params_base)
                 params["tradeDate"] = trade_date
-                params["ticker"] = ticker_chunk  # ORATS expects 'ticker'
+                params["ticker"] = ticker_chunk
 
-                logger.debug(
-                    "Fetching endpoint=%s tradeDate=%s part=%d tickers=%s",
-                    endpoint,
-                    trade_date,
-                    part,
-                    ",".join(ticker_chunk),
-                )
-
-                df = client.get_df(
-                    endpoint=endpoint, 
+                # Propagate any HTTP exception
+                payload = client.get_payload(
+                    endpoint=endpoint,
                     params=params,
-                    session=session
+                    session=session,
                 )
 
-                if df.height == 0:
-                    if overwrite and out_path.exists():
-                        out_path.unlink()
-                    _write_empty_marker(
-                        out_path,
-                        {
-                            "endpoint": endpoint,
-                            "strategy": "BY_TRADE_DATE",
-                            "tradeDate": trade_date,
-                            "part": part,
-                            "tickers": list(ticker_chunk),
-                            "fields": (fields_list if fields_list is not None else "ALL"),
-                        },
-                    )
-                    n_empty_marked += 1
+                data = payload.get("data", [])
+                if not data:
+                    n_empty_payloads += 1
                     logger.debug(
-                        "Empty result (marked). endpoint=%s tradeDate=%s part=%d",
+                        "Empty payload data. endpoint=%s tradeDate=%s part=%d",
                         endpoint,
                         trade_date,
                         part,
                     )
-                    continue
 
-                _write_parquet_atomic(df, out_path)
-                marker = _empty_marker_path(out_path)
-                if marker.exists():
-                    marker.unlink()
+                _write_json_atomic(payload, out_path)
                 n_written += 1
-                logger.debug(
-                    "Wrote parquet. endpoint=%s tradeDate=%s part=%d rows=%d "
-                    "path=%s",
-                    endpoint,
-                    trade_date,
-                    part,
-                    df.height,
-                    out_path,
-                )
 
                 if sleep_s > 0:
                     time.sleep(sleep_s)
 
-            # Progress log every N dates (per year)
             if (td_i % LOG_EVERY_N_DATES) == 0:
                 logger.info(
                     "Progress BY_TRADE_DATE endpoint=%s year=%s date=%s "
-                    "written=%d skipped_parquet=%d skipped_empty=%d "
-                    "empty_marked=%d",
+                    "written=%d skipped=%d empty_payloads=%d",
                     endpoint,
                     year,
                     trade_date,
                     n_written,
-                    n_skipped_parquet,
-                    n_skipped_empty,
-                    n_empty_marked,
+                    n_skipped,
+                    n_empty_payloads,
                 )
 
     logger.info(
-        "Finished BY_TRADE_DATE endpoint=%s written=%d skipped_parquet=%d "
-        "skipped_empty=%d empty_marked=%d",
+        "Finished BY_TRADE_DATE endpoint=%s written=%d skipped=%d "
+        "empty_payloads=%d",
         endpoint,
         n_written,
-        n_skipped_parquet,
-        n_skipped_empty,
-        n_empty_marked,
+        n_skipped,
+        n_empty_payloads,
     )
 
 
@@ -473,48 +343,96 @@ def download(
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
     fields: Sequence[str] | None = None,
     sleep_s: float = 0.0,
-    empty_marker_ttl_days: int | None = None,
     overwrite: bool = False,
 ) -> None:
-    """Download ORATS API data into raw parquet files.
+    """Download an ORATS API endpoint and store raw JSON payload snapshots.
 
-    Dispatches download strategy based on endpoint spec:
-      - BY_TRADE_DATE: loops years -> trading sessions -> ticker chunks
-      - FULL_HISTORY:  one call per ticker (no tradeDate)
+    This is an ingestion utility that writes *one JSON file per API request*,
+    preserving the response as returned by ORATS ("raw" layer). Downstream
+    pipelines can later parse these snapshots into curated parquet datasets.
 
-    Raw layout:
-      - BY_TRADE_DATE:
-        raw_root/endpoint=<endpoint>/year=YYYY/YYYY-MM-DD_XXX.parquet
-      - FULL_HISTORY:
-        raw_root/endpoint=<endpoint>/underlying=<TICKER>/full.parquet
+    Strategy
+    --------
+    The endpoint determines the download strategy via `get_endpoint_spec(endpoint)`:
 
-    Empty responses create ".empty" marker files with metadata.
-    The empty_marker_ttl_days parameter can be used to ignore old markers and retry.
+    - BY_TRADE_DATE:
+        Iterates over NYSE trading sessions (XNYS) for the requested years, and
+        downloads one payload per (tradeDate, ticker_chunk). Tickers are chunked
+        to respect ORATS list-parameter size limits.
+
+    - FULL_HISTORY:
+        Downloads one payload per ticker (no `tradeDate`). Any `year_whitelist`
+        passed by the caller is ignored (and a warning is logged).
+
+    Storage layout
+    --------------
+    - BY_TRADE_DATE:
+        raw_root/endpoint=<endpoint>/year=YYYY/YYYY-MM-DD_XXX.json
+
+    - FULL_HISTORY:
+        raw_root/endpoint=<endpoint>/underlying=<TICKER>/full.json
+
+    Parameters
+    ----------
+    token:
+        ORATS API token.
+    endpoint:
+        Logical endpoint name (key in `orats_api_endpoints.ENDPOINTS`).
+    raw_root:
+        Root folder where raw snapshots will be written.
+    tickers:
+        Iterable of tickers. Values are stripped, de-duplicated (preserving first
+        occurrence), and then (for BY_TRADE_DATE) chunked into <= MAX_PER_CALL.
+    year_whitelist:
+        Years to download for BY_TRADE_DATE endpoints. Required for BY_TRADE_DATE
+        and ignored for FULL_HISTORY.
+    fields:
+        Optional list of ORATS fields to request. If None, ORATS returns its
+        default field set for the endpoint.
+    sleep_s:
+        Optional polite delay (seconds) between requests.
+    overwrite:
+        If False (default), existing output files are skipped. If True, existing
+        files are replaced.
+
+    Notes
+    -----
+    - JSON payloads are written even when `payload['data']` is empty.
+    - No `.empty`/`.error` markers are written. If a request fails (non-OK HTTP or
+      retries exhausted), an exception is raised and the run stops; the
+      corresponding output JSON file will be missing.
     """
     raw_root = Path(raw_root)
 
+    # Normalize tickers early so chunking and logging are stable.
     tickers_clean = [
-        str(t).strip() for t in tickers 
-        if t is not None and str(t).strip()
+        str(t).strip() for t in tickers if t is not None and str(t).strip()
     ]
     tickers_clean = _unique_preserve_order(tickers_clean)
     if not tickers_clean:
         raise ValueError("tickers must be non-empty")
 
+    years_list: list[int] | None
+    if year_whitelist is None:
+        years_list = None
+    else:
+        years_list = [int(y) for y in year_whitelist]
+
     logger.info(
         "Download requested endpoint=%s tickers=%d years=%s fields=%s "
-        "raw_root=%s sleep_s=%s empty_marker_ttl_days=%s overwrite=%s",
+        "raw_root=%s sleep_s=%s overwrite=%s",
         endpoint,
         len(tickers_clean),
-        (list(year_whitelist) if year_whitelist is not None else None),
+        years_list,
         (len(fields) if fields is not None else "ALL"),
         raw_root,
         sleep_s,
-        empty_marker_ttl_days,
         overwrite,
     )
 
+    # Resolve endpoint -> (path, required params, download strategy).
     spec = get_endpoint_spec(endpoint)
+    client = OratsClient(token=token)
 
     handler = DOWNLOAD_HANDLERS.get(spec.strategy)
     if handler is None:
@@ -522,8 +440,7 @@ def download(
             f"No download handler registered for strategy: {spec.strategy}"
         )
 
-    client = OratsClient(token=token)
-
+    # Shared session = connection reuse across many requests.
     with requests.Session() as session:
         if spec.strategy == DownloadStrategy.FULL_HISTORY:
             if year_whitelist is not None:
@@ -539,17 +456,16 @@ def download(
                 tickers=tickers_clean,
                 fields=fields,
                 sleep_s=sleep_s,
-                empty_marker_ttl_days=empty_marker_ttl_days,
                 overwrite=overwrite,
             )
             return
 
-        # BY_TRADE_DATE
-        if year_whitelist is None:
+        # BY_TRADE_DATE endpoints require an explicit year whitelist.
+        if years_list is None:
             raise ValueError(
                 "year_whitelist must be provided for BY_TRADE_DATE endpoints"
             )
-        years = _validate_years(year_whitelist)
+        years = _validate_years(years_list)
 
         handler(
             client=client,
@@ -560,6 +476,5 @@ def download(
             years=years,
             fields=fields,
             sleep_s=sleep_s,
-            empty_marker_ttl_days=empty_marker_ttl_days,
             overwrite=overwrite,
         )

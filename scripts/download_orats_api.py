@@ -19,6 +19,7 @@ from pathlib import Path
 
 from volatility_trading.utils import setup_logging
 from volatility_trading.data.orats_downloader_api import download
+from volatility_trading.config.paths import RAW_ORATS_API
 
 
 # ----------------------------------------------------------------------------
@@ -29,18 +30,30 @@ from volatility_trading.data.orats_downloader_api import download
 ORATS_API_KEY_ENV = "ORATS_API_KEY"
 
 # Where to store raw API outputs (adjust to your layout)
-RAW_API_ROOT = Path("data/raw/orats_api")
+RAW_ORATS_ROOT = RAW_ORATS_API
 
 # Supported endpoint name (must exist in ENDPOINTS mapping)
 ENDPOINT = "monies_implied"
 # Examples you likely have:
+# ENDPOINT = "monies_implied"
 # ENDPOINT = "cores"
 # ENDPOINT = "summaries"
 
-TICKERS = ["SPX"]
+TICKERS = [
+    "SPX", 
+    "NDX", 
+    "VIX",
+    "SPY",
+    "QQQ",
+    "IWM",
+    "AAPL",
+    "TSLA",
+    "NVDA",
+    "MSFT",
+]
 
 # Only used for BY_TRADE_DATE endpoints (e.g., monies_implied)
-YEAR_WHITELIST = None
+YEAR_WHITELIST = [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]
 
 # Optional: request only specific fields (None means “all fields returned”)
 FIELDS = None
@@ -75,18 +88,18 @@ def main() -> None:
             f"Missing ORATS API token. Set env var {ORATS_API_KEY_ENV}."
         )
 
-    logger.info("RAW API root: %s", RAW_API_ROOT)
+    logger.info("RAW API root: %s", RAW_ORATS_ROOT)
     logger.info("Endpoint:     %s", ENDPOINT)
     logger.info("Tickers:      %s", TICKERS)
     logger.info("Years:        %s", YEAR_WHITELIST)
     logger.info("Fields:       %s", "ALL" if FIELDS is None else len(FIELDS))
 
-    RAW_API_ROOT.mkdir(parents=True, exist_ok=True)
+    RAW_ORATS_ROOT.mkdir(parents=True, exist_ok=True)
 
     download(
         token=TOKEN,
         endpoint=ENDPOINT,
-        raw_root=RAW_API_ROOT,
+        raw_root=RAW_ORATS_ROOT,
         tickers=TICKERS,
         year_whitelist=YEAR_WHITELIST,
         fields=FIELDS,

@@ -81,11 +81,11 @@ def _scan_orats_intermediate_for_ticker(
 
 
 def build_orats_panel_for_ticker(
+    *,
     inter_root: Path | str,
     proc_root: Path | str,
     ticker: str,
     years: Iterable[int] | Iterable[str] | None = None,
-    *,
     dte_min: int = 7,
     dte_max: int = 60,
     moneyness_min: float = 0.5,
