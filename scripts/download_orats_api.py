@@ -32,8 +32,7 @@ ORATS_API_KEY_ENV = "ORATS_API_KEY"
 RAW_ORATS_ROOT = RAW_ORATS_API
 
 # Supported endpoint name (must exist in ENDPOINTS mapping)
-ENDPOINT = "earnings"
-# Examples you likely have:
+ENDPOINT = "monies_implied"
 # ENDPOINT = "monies_implied"
 # ENDPOINT = "cores"
 # ENDPOINT = "summaries"
@@ -53,7 +52,7 @@ TICKERS = [
 
 
 # Only used for BY_TRADE_DATE endpoints (e.g., monies_implied)
-YEAR_WHITELIST = None
+YEAR_WHITELIST = [2020]
 
 # Optional: request only specific fields (None means “all fields returned”)
 FIELDS = None

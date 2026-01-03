@@ -1,9 +1,7 @@
 """ORATS API downloader.
 
 This module downloads ORATS API endpoints and snapshots the *raw JSON payloads*
-to disk. It is intended as an ingestion layer:
-- raw = "exactly what ORATS returned" (one JSON file per request)
-- downstream code can build curated parquet datasets in intermediate/processed
+to disk.
 
 The downloader dispatches to a strategy based on the endpoint specification:
 - BY_TRADE_DATE: one request per trading date and ticker chunk

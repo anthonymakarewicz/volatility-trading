@@ -1,28 +1,13 @@
-# src/volatility_trading/data/orats_extractor_api.py
 """ORATS API extractor (raw JSON snapshots -> intermediate parquet).
 
-This module converts ORATS API raw snapshots (stored as JSON/JSON.GZ) into
-intermediate parquet files, partitioned for fast downstream usage.
+Reads raw snapshots written by `orats_downloader_api.py` and writes
+ticker-centric parquet files under:
+  intermediate_root/endpoint=<endpoint>/underlying=<TICKER>/full.parquet
 
-The raw layout is assumed to match `orats_downloader_api.py`:
-
-FULL_HISTORY endpoints:
-    raw_root/endpoint=<endpoint>/underlying=<TICKER>/data.json(.gz)
-
-BY_TRADE_DATE endpoints:
-    raw_root/endpoint=<endpoint>/year=YYYY/YYYY-MM-DD_chunkXXX.json(.gz)
-
-Intermediate output layout (default):
-    intermediate_root/endpoint=<endpoint>/underlying=<TICKER>/full.parquet
-
-Notes:
-    - FULL_HISTORY raw is already ticker-centric.
-    - BY_TRADE_DATE raw is date-centric, but intermediate is ticker-centric for
-      downstream joins/usage.
+Raw layout depends on endpoint strategy (FULL_HISTORY vs BY_TRADE_DATE).
 """
 from __future__ import annotations
 
-import datetime as dt
 import gzip
 import json
 import logging
@@ -33,11 +18,18 @@ from typing import Any
 import polars as pl
 
 from .orats_api_endpoints import DownloadStrategy, get_endpoint_spec
+from .orats_api_io import (
+    ALLOWED_COMPRESSIONS,
+    ensure_dir,
+    intermediate_full_history,
+    json_suffix,
+    raw_by_trade_date_dir,
+    raw_full_history_dir,
+    validate_years,
+)
+from volatility_trading.config.orats_api_schemas import get_schema_spec
 
 logger = logging.getLogger(__name__)
-
-MIN_YEAR: int = 2007
-ALLOWED_COMPRESSIONS: set[str] = {"gz", "none"}
 
 
 # ----------------------------------------------------------------------------
@@ -61,33 +53,6 @@ class ExtractApiResult:
 # Private helpers
 # ----------------------------------------------------------------------------
 
-def _ensure_dir(p: Path) -> None:
-    """Create a directory (and parents) if needed."""
-    p.mkdir(parents=True, exist_ok=True)
-
-
-def _validate_years(
-    years: list[int],
-    *,
-    min_year: int = MIN_YEAR,
-    max_year: int | None = None,
-) -> list[int]:
-    """Validate and coerce years to a bounded list of ints."""
-    if max_year is None:
-        max_year = dt.date.today().year
-
-    if not years:
-        raise ValueError("year_whitelist must be non-empty")
-
-    bad = [y for y in years if y < min_year or y > max_year]
-    if bad:
-        raise ValueError(
-            f"Invalid years {bad}. Expected range [{min_year}, {max_year}]."
-        )
-
-    return years
-
-
 def _load_payload(path: Path, *, compression: str) -> dict[str, Any]:
     """Load a JSON payload from disk (optionally gzip-compressed)."""
     if compression == "gz":
@@ -106,9 +71,10 @@ def _clean_rows(
     *,
     max_abs_value: float | None,
 ) -> list[dict[str, Any]]:
-    """Clean row dicts:
-    - strip whitespace from keys
-    - optionally null-out extreme numeric values
+    """Clean row dicts.
+
+    - Strip whitespace from keys.
+    - Optionally replace extreme numeric values with None.
     """
     cleaned: list[dict[str, Any]] = []
 
@@ -144,36 +110,95 @@ def _payload_to_df(
     return pl.DataFrame(cleaned)
 
 
-def _raw_year_dir(raw_root: Path, endpoint: str, year: int) -> Path:
-    return raw_root / f"endpoint={endpoint}" / f"year={year}"
+def _safe_rename(df: pl.DataFrame, renames: dict[str, str]) -> pl.DataFrame:
+    """Rename only columns that exist (avoid hard failures on missing cols)."""
+    if not renames or df.is_empty():
+        return df
+
+    mapping = {
+        src: dst
+        for src, dst in renames.items()
+        if src in df.columns and dst and src != dst
+    }
+    if not mapping:
+        return df
+
+    return df.rename(mapping)
 
 
-def _raw_full_dir(raw_root: Path, endpoint: str, ticker: str) -> Path:
-    return raw_root / f"endpoint={endpoint}" / f"underlying={ticker}"
+def _cast_expr(col: str, dtype: pl.DataType) -> pl.Expr:
+    """Best-effort casting, with ISO date/datetime parsing when requested."""
 
-
-def _intermediate_full_history(
-    intermediate_root: Path,
-    endpoint: str,
-    ticker: str,
-) -> Path:
-    return (
-        intermediate_root
-        / f"endpoint={endpoint}"
-        / f"underlying={ticker}"
-        / "full.parquet"
+    # Polars needs explicit parsing for date/datetime from strings.
+    is_date = dtype == pl.Date
+    is_dt = getattr(dtype, "__class__", None) is not None and (
+        dtype == pl.Datetime or dtype.__class__.__name__ == "Datetime"
     )
+
+    if is_date:
+        return pl.col(col).str.strptime(pl.Date, strict=False).alias(col)
+
+    if is_dt:
+        return pl.col(col).str.strptime(dtype, strict=False).alias(col)
+
+    return pl.col(col).cast(dtype, strict=False).alias(col)
+
+
+def _apply_endpoint_schema(
+    endpoint: str,
+    df: pl.DataFrame,
+    *,
+    use_clip: bool,
+) -> pl.DataFrame:
+    """Apply endpoint-specific schema transforms (rename/cast/clip/keep).
+
+    Notes
+    -----
+    - Clipping is controlled by `use_clip`. If False, schema clip bounds are
+      ignored.
+    """
+    spec = get_schema_spec(endpoint)
+    if spec is None or df.is_empty():
+        return df
+
+    renames: dict[str, str] = getattr(spec, "renames", {})
+    dtypes: dict[str, pl.DataType] = getattr(spec, "dtypes", {})
+    keep: list[str] | None = getattr(spec, "keep", None)
+    clip: dict[str, tuple[float, float]] = getattr(spec, "clip", {})
+
+    df2 = _safe_rename(df, renames)
+
+    if dtypes:
+        exprs: list[pl.Expr] = []
+        for c, dt_ in dtypes.items():
+            if c in df2.columns:
+                exprs.append(_cast_expr(c, dt_))
+        if exprs:
+            df2 = df2.with_columns(exprs)
+
+    if use_clip and clip:
+        exprs2: list[pl.Expr] = []
+        for c, bounds in clip.items():
+            if c not in df2.columns:
+                continue
+            if not isinstance(bounds, (tuple, list)) or len(bounds) != 2:
+                continue
+            lo, hi = bounds
+            exprs2.append(pl.col(c).clip(lo, hi).alias(c))
+        if exprs2:
+            df2 = df2.with_columns(exprs2)
+
+    if keep:
+        cols = [c for c in keep if c in df2.columns]
+        if cols:
+            df2 = df2.select(cols)
+
+    return df2
 
 
 def _glob_raw_suffix(compression: str) -> str:
-    if compression == "gz":
-        return "*.json.gz"
-    if compression == "none":
-        return "*.json"
-    raise ValueError(
-        f"Unsupported compression '{compression}'. Allowed: "
-        f"{sorted(ALLOWED_COMPRESSIONS)}"
-    )
+    """Glob pattern for raw snapshot files for a given compression mode."""
+    return f"*{json_suffix(compression)}"
 
 
 # ----------------------------------------------------------------------------
@@ -190,6 +215,7 @@ def _extract_full_history(
     overwrite: bool,
     parquet_compression: str,
     max_abs_value: float | None,
+    use_clip: bool,
 ) -> ExtractApiResult:
     """Extract FULL_HISTORY raw payloads (one file per ticker)."""
     out_paths: list[Path] = []
@@ -219,7 +245,7 @@ def _extract_full_history(
     suffix = _glob_raw_suffix(compression)
 
     for ticker in tickers:
-        raw_dir = _raw_full_dir(raw_root, endpoint, ticker)
+        raw_dir = raw_full_history_dir(raw_root, endpoint, ticker)
         files = sorted(raw_dir.glob(suffix))
         if not files:
             continue
@@ -228,10 +254,10 @@ def _extract_full_history(
         for fp in files:
             n_seen += 1
 
-            out_path = _intermediate_full_history(
-                intermediate_root, 
-                endpoint, 
-                ticker
+            out_path = intermediate_full_history(
+                intermediate_root,
+                endpoint,
+                ticker,
             )
             if (not overwrite) and out_path.exists():
                 logger.debug(
@@ -245,6 +271,7 @@ def _extract_full_history(
             try:
                 payload = _load_payload(fp, compression=compression)
                 df = _payload_to_df(payload, max_abs_value=max_abs_value)
+                df = _apply_endpoint_schema(endpoint, df, use_clip=use_clip)
                 n_read += 1
 
                 if df.height == 0:
@@ -255,13 +282,13 @@ def _extract_full_history(
                         fp,
                     )
                     # Still write empty parquet if overwrite or file missing.
-                    _ensure_dir(out_path.parent)
+                    ensure_dir(out_path.parent)
                     df.write_parquet(out_path, compression=parquet_compression)
                     out_paths.append(out_path)
                     continue
 
                 n_rows += df.height
-                _ensure_dir(out_path.parent)
+                ensure_dir(out_path.parent)
                 df.write_parquet(out_path, compression=parquet_compression)
                 out_paths.append(out_path)
 
@@ -291,6 +318,7 @@ def _extract_by_trade_date(
     overwrite: bool,
     parquet_compression: str,
     max_abs_value: float | None,
+    use_clip: bool,
 ) -> ExtractApiResult:
     """Extract BY_TRADE_DATE raw payloads and write one parquet per ticker.
 
@@ -315,7 +343,7 @@ def _extract_by_trade_date(
     per_ticker: dict[str, list[pl.DataFrame]] = {}
 
     for year in years:
-        year_dir = _raw_year_dir(raw_root, endpoint, year)
+        year_dir = raw_by_trade_date_dir(raw_root, endpoint, year)
         files = sorted(year_dir.glob(suffix))
         if not files:
             continue
@@ -340,8 +368,13 @@ def _extract_by_trade_date(
                     if df.height == 0:
                         continue
 
-                for t, g in df.group_by("ticker", maintain_order=True):
-                    t_str = str(t)
+                for key, g in df.group_by("ticker", maintain_order=True):
+                    # Polars yields the group key as a tuple even for 1 column.
+                    if isinstance(key, tuple):
+                        t_val = key[0]
+                    else:
+                        t_val = key
+                    t_str = str(t_val)
                     per_ticker.setdefault(t_str, []).append(g)
 
                 n_rows += df.height
@@ -351,7 +384,7 @@ def _extract_by_trade_date(
 
     # Write one parquet per ticker (full history).
     for t, dfs in per_ticker.items():
-        out_path = _intermediate_full_history(
+        out_path = intermediate_full_history(
             intermediate_root,
             endpoint,
             t,
@@ -367,7 +400,8 @@ def _extract_by_trade_date(
             continue
 
         df_all = pl.concat(dfs, how="diagonal_relaxed")
-        _ensure_dir(out_path.parent)
+        df_all = _apply_endpoint_schema(endpoint, df_all, use_clip=use_clip)
+        ensure_dir(out_path.parent)
         df_all.write_parquet(out_path, compression=parquet_compression)
         out_paths.append(out_path)
 
@@ -397,7 +431,8 @@ def extract(
     compression: str = "gz",
     overwrite: bool = False,
     parquet_compression: str = "zstd",
-    max_abs_value: float | None = 1e20,
+    max_abs_value: float | None = None,
+    use_clip: bool = True,
 ) -> ExtractApiResult:
     """Extract ORATS raw API snapshots into intermediate parquet.
 
@@ -422,8 +457,12 @@ def extract(
     parquet_compression:
         Parquet compression (e.g. "zstd", "snappy").
     max_abs_value:
-        If not None, any numeric value with abs(value) > max_abs_value is
-        replaced by None during extraction (helps avoid insane data glitches).
+        Optional safety filter to replace extreme numeric values with None.
+        Applied before schema transforms. If None, no max-abs filtering is
+        performed.
+    use_clip:
+        If True (default), apply endpoint-specific clip bounds from
+        `API_SCHEMAS[endpoint].clip`. If False, skip clipping entirely.
 
     Returns
     -------
@@ -440,6 +479,8 @@ def extract(
         )
 
     spec = get_endpoint_spec(endpoint)
+    if not use_clip:
+        logger.warning("Clipping disabled (use_clip=False) endpoint=%s", endpoint)
 
     if spec.strategy == DownloadStrategy.FULL_HISTORY:
         if year_whitelist is not None:
@@ -456,6 +497,7 @@ def extract(
             overwrite=overwrite,
             parquet_compression=parquet_compression,
             max_abs_value=max_abs_value,
+            use_clip=use_clip,
         )
 
     # BY_TRADE_DATE
@@ -463,7 +505,7 @@ def extract(
         raise ValueError(
             "year_whitelist must be provided for BY_TRADE_DATE endpoints"
         )
-    years = _validate_years([int(y) for y in year_whitelist])
+    years = validate_years(year_whitelist)
 
     return _extract_by_trade_date(
         endpoint=endpoint,
@@ -475,4 +517,5 @@ def extract(
         overwrite=overwrite,
         parquet_compression=parquet_compression,
         max_abs_value=max_abs_value,
+        use_clip=use_clip,
     )
