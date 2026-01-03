@@ -31,9 +31,11 @@ from .orats_api_io import (
 from volatility_trading.config.orats_api_schemas import get_schema_spec
 
 logger = logging.getLogger(__name__)
-
-# TODO: Replace clipping extreme values by setting to Nan
-
+ 
+# TODO: Remove the max_absolute value threshold and replace it clipping 
+# extreme values by setting to Nan
+# TODO: Build a funciton that read the raw and look for json.gz or json 
+# and if both exist maybe rais an excpetion or read only .gz
 
 # ----------------------------------------------------------------------------
 # Result object
@@ -44,15 +46,12 @@ class ExtractApiResult:
     """Summary of an extraction run."""
     endpoint: str
     strategy: DownloadStrategy
-
     n_raw_files_seen: int
     n_raw_files_read: int
     n_failed: int
-
     n_rows_total: int
     n_out_files: int
     duration_s: float
-
     out_paths: list[Path]
     failed_paths: list[Path]
 
@@ -305,6 +304,7 @@ def _extract_full_history(
                 failed.append(fp)
                 logger.debug("Failed to read raw file=%s err=%r", fp, e)
 
+    duration_s = time.perf_counter() - t0
     result = ExtractApiResult(
         endpoint=endpoint,
         strategy=DownloadStrategy.FULL_HISTORY,
@@ -313,7 +313,7 @@ def _extract_full_history(
         n_failed=len(failed),
         n_rows_total=n_rows,
         n_out_files=len(out_paths),
-        duration_s=time.perf_counter() - t0,
+        duration_s=duration_s,
         out_paths=out_paths,
         failed_paths=failed,
     )
@@ -346,7 +346,8 @@ def _extract_by_trade_date(
     max_abs_value: float | None,
     use_clip: bool,
 ) -> ExtractApiResult:
-    """Extract BY_TRADE_DATE raw payloads and write one parquet per ticker.
+    """
+    Extract BY_TRADE_DATE raw payloads and write one parquet per ticker.
 
     Raw is partitioned by year/date chunks (for download/resume).
     Intermediate is ticker-centric across the full history (for joins/usage).
@@ -479,7 +480,8 @@ def extract(
     max_abs_value: float | None = None,
     use_clip: bool = True,
 ) -> ExtractApiResult:
-    """Extract ORATS raw API snapshots into intermediate parquet.
+    """
+    Extract ORATS raw API snapshots into intermediate parquet.
 
     Parameters
     ----------

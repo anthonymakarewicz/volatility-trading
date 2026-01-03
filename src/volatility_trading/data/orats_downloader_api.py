@@ -17,7 +17,8 @@ import json
 import logging
 import time
 import tempfile
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -37,10 +38,6 @@ from .orats_client_api import OratsClient
 
 logger = logging.getLogger(__name__)
 
-# TODO: Add APIResult object for sum up and unit testing
-# TODO: Catch the HTTP error exceptioon and continue downloading
-# TODO: Add a MANIFEST file for storing metadata
-
 
 # ----------------------------------------------------------------------------
 # Constants
@@ -51,6 +48,25 @@ MAX_PER_CALL: int = 10
 # Progress logging cadence (kept small to avoid log spam)
 LOG_EVERY_N_DATES: int = 25
 LOG_EVERY_N_TICKERS: int = 10
+
+
+# ----------------------------------------------------------------------------
+# Downloader result dataclass
+# ----------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class DownloadApiResult:
+    """Summary of a download run."""
+    endpoint: str
+    strategy: DownloadStrategy
+    n_requests_total: int
+    n_written: int
+    n_skipped: int
+    n_empty_payloads: int
+    n_failed: int
+    duration_s: float
+    out_paths: list[Path]
+    failed_paths: list[Path]
 
 
 # ----------------------------------------------------------------------------
@@ -90,7 +106,8 @@ def _write_json_atomic(
     *,
     compression: str,
 ) -> None:
-    """Write a JSON payload atomically using a temp file + rename.
+    """
+    Write a JSON payload atomically using a temp file + rename.
 
     This prevents partially-written *final* files by writing to a unique temp
     file in the same directory (same filesystem) and then swapping it into
@@ -181,13 +198,18 @@ def _download_full_history(
     sleep_s: float,
     overwrite: bool,
     compression: str,
-) -> None:
+) -> DownloadApiResult:
     """Download a FULL_HISTORY endpoint (one request per ticker) and write JSON."""
     fields_list = list(fields) if fields else None
 
+    t0 = time.time()
+    out_paths: list[Path] = []
+    failed_paths: list[Path] = []
     n_written = 0
     n_skipped = 0
     n_empty_payloads = 0
+    n_failed = 0
+    n_requests_total = 0
 
     logger.info(
         "Starting FULL_HISTORY download endpoint=%s tickers=%d fields=%s",
@@ -218,46 +240,78 @@ def _download_full_history(
         if fields_list is not None:
             params["fields"] = fields_list
 
-        # TODO: Catch the exception here 
-        payload = client.get_payload(
-            endpoint=endpoint,
-            params=params,
-            session=session,
-        )
-
-        data = payload.get("data", [])
-        if not data:
-            n_empty_payloads += 1
-            logger.debug(
-                "Empty payload data. endpoint=%s ticker=%s",
-                endpoint,
-                ticker,
+        n_requests_total += 1
+        try:
+            payload = client.get_payload(
+                endpoint=endpoint,
+                params=params,
+                session=session,
             )
 
-        _write_json_atomic(payload, out_path, compression=compression)
-        n_written += 1
+            data = payload.get("data", [])
+            if not data:
+                n_empty_payloads += 1
+                logger.debug(
+                    "Empty payload data. endpoint=%s ticker=%s",
+                    endpoint,
+                    ticker,
+                )
 
-        if (n_written % LOG_EVERY_N_TICKERS) == 0:
+            _write_json_atomic(payload, out_path, compression=compression)
+            n_written += 1
+            out_paths.append(out_path)
+        except Exception:
+            n_failed += 1
+            failed_paths.append(out_path)
+            logger.error(
+                "Failed FULL_HISTORY endpoint=%s ticker=%s path=%s",
+                endpoint,
+                ticker,
+                out_path,
+                exc_info=True,
+            )
+            continue
+
+        if (n_written % LOG_EVERY_N_TICKERS) == 0 and n_written > 0:
             logger.info(
                 "Progress FULL_HISTORY endpoint=%s written=%d skipped=%d "
-                "empty_payloads=%d",
+                "empty_payloads=%d failed=%d",
                 endpoint,
                 n_written,
                 n_skipped,
                 n_empty_payloads,
+                n_failed,
             )
 
         if sleep_s > 0:
             time.sleep(sleep_s)
 
+    duration_s = time.time() - t0
+    result = DownloadApiResult(
+        endpoint=endpoint,
+        strategy=DownloadStrategy.FULL_HISTORY,
+        n_requests_total=n_requests_total,
+        n_written=n_written,
+        n_skipped=n_skipped,
+        n_empty_payloads=n_empty_payloads,
+        n_failed=n_failed,
+        duration_s=duration_s,
+        out_paths=out_paths,
+        failed_paths=failed_paths,
+    )
+
     logger.info(
         "Finished FULL_HISTORY endpoint=%s written=%d skipped=%d "
-        "empty_payloads=%d",
+        "empty_payloads=%d failed=%d duration=%.2fs",
         endpoint,
         n_written,
         n_skipped,
         n_empty_payloads,
+        n_failed,
+        duration_s,
     )
+
+    return result
 
 
 def _download_by_trade_date(
@@ -272,7 +326,7 @@ def _download_by_trade_date(
     sleep_s: float,
     overwrite: bool,
     compression: str,
-) -> None:
+) -> DownloadApiResult:
     """Download a BY_TRADE_DATE endpoint (years -> sessions -> ticker chunks)."""
     chunks = _chunk_tickers(tickers)
     fields_list = list(fields) if fields else None
@@ -281,9 +335,14 @@ def _download_by_trade_date(
     if fields_list is not None:
         params_base["fields"] = fields_list
 
+    t0 = time.perf_counter()
+    out_paths: list[Path] = []
+    failed_paths: list[Path] = []
     n_written = 0
     n_skipped = 0
     n_empty_payloads = 0
+    n_failed = 0
+    n_requests_total = 0
 
     logger.info(
         "Starting BY_TRADE_DATE download endpoint=%s years=%d tickers=%d "
@@ -328,25 +387,39 @@ def _download_by_trade_date(
                 params["tradeDate"] = trade_date
                 params["ticker"] = ticker_chunk
 
-                # Propagate any HTTP exception
-                payload = client.get_payload(
-                    endpoint=endpoint,
-                    params=params,
-                    session=session,
-                )
+                n_requests_total += 1
+                try:
+                    payload = client.get_payload(
+                        endpoint=endpoint,
+                        params=params,
+                        session=session,
+                    )
 
-                data = payload.get("data", [])
-                if not data:
-                    n_empty_payloads += 1
-                    logger.debug(
-                        "Empty payload data. endpoint=%s tradeDate=%s part=%d",
+                    data = payload.get("data", [])
+                    if not data:
+                        n_empty_payloads += 1
+                        logger.debug(
+                            "Empty payload data. endpoint=%s tradeDate=%s part=%d",
+                            endpoint,
+                            trade_date,
+                            part,
+                        )
+
+                    _write_json_atomic(payload, out_path, compression=compression)
+                    n_written += 1
+                    out_paths.append(out_path)
+                except Exception:
+                    n_failed += 1
+                    failed_paths.append(out_path)
+                    logger.error(
+                        "Failed BY_TRADE_DATE endpoint=%s tradeDate=%s part=%d path=%s",
                         endpoint,
                         trade_date,
                         part,
+                        out_path,
+                        exc_info=True,
                     )
-
-                _write_json_atomic(payload, out_path, compression=compression)
-                n_written += 1
+                    continue
 
                 if sleep_s > 0:
                     time.sleep(sleep_s)
@@ -354,26 +427,45 @@ def _download_by_trade_date(
             if (td_i % LOG_EVERY_N_DATES) == 0:
                 logger.info(
                     "Progress BY_TRADE_DATE endpoint=%s year=%s date=%s "
-                    "written=%d skipped=%d empty_payloads=%d",
+                    "written=%d skipped=%d empty_payloads=%d failed=%d",
                     endpoint,
                     year,
                     trade_date,
                     n_written,
                     n_skipped,
                     n_empty_payloads,
+                    n_failed,
                 )
+
+    duration_s = time.perf_counter() - t0
+    result = DownloadApiResult(
+        endpoint=endpoint,
+        strategy=DownloadStrategy.BY_TRADE_DATE,
+        n_requests_total=n_requests_total,
+        n_written=n_written,
+        n_skipped=n_skipped,
+        n_empty_payloads=n_empty_payloads,
+        n_failed=n_failed,
+        duration_s=duration_s,
+        out_paths=out_paths,
+        failed_paths=failed_paths,
+    )
 
     logger.info(
         "Finished BY_TRADE_DATE endpoint=%s written=%d skipped=%d "
-        "empty_payloads=%d",
+        "empty_payloads=%d failed=%d duration=%.2fs",
         endpoint,
         n_written,
         n_skipped,
         n_empty_payloads,
+        n_failed,
+        duration_s,
     )
 
+    return result
 
-DOWNLOAD_HANDLERS: dict[DownloadStrategy, Callable[..., None]] = {
+
+DOWNLOAD_HANDLERS: dict[DownloadStrategy, Callable[..., DownloadApiResult]] = {
     DownloadStrategy.FULL_HISTORY: _download_full_history,
     DownloadStrategy.BY_TRADE_DATE: _download_by_trade_date,
 }
@@ -389,13 +481,14 @@ def download(
     endpoint: str,
     raw_root: str | Path,
     tickers: Sequence[str],
-    year_whitelist: Iterable[int] | Iterable[str] | None = None,
+    year_whitelist: Sequence[int] | Sequence[str] | None = None,
     fields: Sequence[str] | None = None,
     compression: str = DEFAULT_COMPRESSION,
     sleep_s: float = 0.0,
     overwrite: bool = False,
-) -> None:
-    """Download an ORATS API endpoint and store raw JSON payload snapshots.
+) -> DownloadApiResult:
+    """
+    Download an ORATS API endpoint and store raw JSON payload snapshots.
 
     This is an ingestion utility that writes *one JSON file per API request*,
     preserving the response as returned by ORATS ("raw" layer). Downstream
@@ -450,9 +543,8 @@ def download(
     Notes
     -----
     - JSON payloads are written even when `payload['data']` is empty.
-    - No `.empty`/`.error` markers are written. If a request fails 
-    (non-OK HTTP or retries exhausted), an exception is raised and the run stops;
-    the corresponding output JSON file will be missing.
+    - No `.empty`/`.error` markers are written.
+    - **Failures are logged and recorded in the returned result; the downloader continues.**
     """
     raw_root = Path(raw_root)
 
@@ -507,7 +599,7 @@ def download(
                     "year_whitelist is ignored for endpoint=%s (FULL_HISTORY)",
                     endpoint,
                 )
-            handler(
+            return handler(
                 client=client,
                 session=session,
                 endpoint=endpoint,
@@ -518,7 +610,6 @@ def download(
                 overwrite=overwrite,
                 compression=compression,
             )
-            return
 
         # BY_TRADE_DATE endpoints require an explicit year whitelist.
         if years_list is None:
@@ -527,7 +618,7 @@ def download(
             )
         years = validate_years(years_list)
 
-        handler(
+        return handler(
             client=client,
             session=session,
             endpoint=endpoint,
