@@ -25,9 +25,21 @@ import exchange_calendars as xcals
 import requests
 
 from .orats_api_endpoints import DownloadStrategy, get_endpoint_spec
+from .orats_api_io import (
+    ALLOWED_COMPRESSIONS,
+    DEFAULT_COMPRESSION,
+    ensure_dir,
+    raw_path_by_trade_date,
+    raw_path_full_history,
+    validate_years,
+)
 from .orats_client_api import OratsClient
 
 logger = logging.getLogger(__name__)
+
+# TODO: Add APIResult object for sum up and unit testing
+# TODO: Catch the HTTP error exceptioon and continue downloading
+# TODO: Add a MANIFEST file for storing metadata
 
 
 # ----------------------------------------------------------------------------
@@ -35,11 +47,6 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------------
 
 MAX_PER_CALL: int = 10
-MIN_YEAR: int = 2007
-
-# Raw snapshot compression
-DEFAULT_COMPRESSION: str = "gz"  # "gz" or "none"
-ALLOWED_COMPRESSIONS: set[str] = {"gz", "none"}
 
 # Progress logging cadence (kept small to avoid log spam)
 LOG_EVERY_N_DATES: int = 25
@@ -68,25 +75,6 @@ def _chunk_tickers(tickers: Sequence[str]) -> list[list[str]]:
     return [t[i : i + MAX_PER_CALL] for i in range(0, len(t), MAX_PER_CALL)]
 
 
-def _validate_years(
-    years: Iterable[int | str],
-    *,
-    min_year: int = MIN_YEAR,
-    max_year: int | None = None,
-) -> list[int]:
-    """Validate and coerce the year whitelist into a bounded list of ints."""
-    if max_year is None:
-        max_year = dt.date.today().year
-        
-    bad = [y for y in years if y < min_year or y > max_year]
-    if bad:
-        raise ValueError(
-            f"Invalid years {bad}. Expected range [{min_year}, {max_year}]."
-        )
-
-    return years
-
-
 def _get_trading_days(year: int) -> list[str]:
     """Get the NYSE trading sessions for a given year (XNYS calendar)."""
     cal = xcals.get_calendar("XNYS")
@@ -94,23 +82,6 @@ def _get_trading_days(year: int) -> list[str]:
     end = dt.date(year, 12, 31).isoformat()
     sessions = cal.sessions_in_range(start, end)
     return [d.date().isoformat() for d in sessions]
-
-
-def _ensure_dir(p: Path) -> None:
-    """Create a directory (and parents) if needed."""
-    p.mkdir(parents=True, exist_ok=True)
-
-
-def _json_suffix(compression: str) -> str:
-    """Return the file suffix for a given compression mode."""
-    if compression == "gz":
-        return ".json.gz"
-    if compression == "none":
-        return ".json"
-    raise ValueError(
-        f"Unsupported compression '{compression}'. Allowed: "
-        f"{sorted(ALLOWED_COMPRESSIONS)}"
-    )
 
 
 def _write_json_atomic(
@@ -129,7 +100,7 @@ def _write_json_atomic(
     against crashes/power loss (at some performance cost). Directory fsync is
     attempted best-effort on POSIX.
     """
-    _ensure_dir(path.parent)
+    ensure_dir(path.parent)
 
     if compression not in ALLOWED_COMPRESSIONS:
         raise ValueError(
@@ -195,42 +166,6 @@ def _write_json_atomic(
         raise
 
 
-def _raw_path_by_trade_date(
-    raw_root: Path,
-    endpoint: str,
-    trade_date: str,
-    part: int,
-    compression: str,
-) -> Path:
-    """Raw file path for trade-date based endpoints.
-
-    Layout:
-      raw_root/endpoint=<endpoint>/year=YYYY/YYYY-MM-DD_chunk000.json.gz
-    """
-    year = int(trade_date[:4])
-    return (
-        raw_root
-        / f"endpoint={endpoint}"
-        / f"year={year}"
-        / f"{trade_date}_chunk{part:03d}{_json_suffix(compression)}"
-    )
-
-
-def _raw_path_full_history(
-    raw_root: Path, 
-    endpoint: str, 
-    ticker: str, 
-    compression: str
-) -> Path:
-    """Raw file path for full-history endpoints (one file per ticker)."""
-    return (
-        raw_root
-        / f"endpoint={endpoint}"
-        / f"underlying={ticker}"
-        / f"data{_json_suffix(compression)}"
-    )
-
-
 # ----------------------------------------------------------------------------
 # Download handlers (private)
 # ----------------------------------------------------------------------------
@@ -262,11 +197,11 @@ def _download_full_history(
     )
 
     for ticker in tickers:
-        out_path = _raw_path_full_history(
-            raw_root=raw_root, 
-            endpoint=endpoint, 
-            ticker=ticker, 
-            compression=compression
+        out_path = raw_path_full_history(
+            raw_root=raw_root,
+            endpoint=endpoint,
+            ticker=ticker,
+            compression=compression,
         )
         if (not overwrite) and out_path.exists():
             # Skip existing files to avoid redundant downloads
@@ -283,7 +218,7 @@ def _download_full_history(
         if fields_list is not None:
             params["fields"] = fields_list
 
-        # Propagate any HTTP exception
+        # TODO: Catch the exception here 
         payload = client.get_payload(
             endpoint=endpoint,
             params=params,
@@ -371,7 +306,7 @@ def _download_by_trade_date(
 
         for td_i, trade_date in enumerate(trade_dates, start=1):
             for part, ticker_chunk in enumerate(chunks):
-                out_path = _raw_path_by_trade_date(
+                out_path = raw_path_by_trade_date(
                     raw_root=raw_root,
                     endpoint=endpoint,
                     trade_date=trade_date,
@@ -590,7 +525,7 @@ def download(
             raise ValueError(
                 "year_whitelist must be provided for BY_TRADE_DATE endpoints"
             )
-        years = _validate_years(years_list)
+        years = validate_years(years_list)
 
         handler(
             client=client,

@@ -11,6 +11,7 @@ from __future__ import annotations
 import gzip
 import json
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,8 @@ from volatility_trading.config.orats_api_schemas import get_schema_spec
 
 logger = logging.getLogger(__name__)
 
+# TODO: Replace clipping extreme values by setting to Nan
+
 
 # ----------------------------------------------------------------------------
 # Result object
@@ -41,10 +44,15 @@ class ExtractApiResult:
     """Summary of an extraction run."""
     endpoint: str
     strategy: DownloadStrategy
+
     n_raw_files_seen: int
     n_raw_files_read: int
     n_failed: int
+
     n_rows_total: int
+    n_out_files: int
+    duration_s: float
+
     out_paths: list[Path]
     failed_paths: list[Path]
 
@@ -218,6 +226,7 @@ def _extract_full_history(
     use_clip: bool,
 ) -> ExtractApiResult:
     """Extract FULL_HISTORY raw payloads (one file per ticker)."""
+    t0 = time.perf_counter()
     out_paths: list[Path] = []
     failed: list[Path] = []
     n_seen = 0
@@ -292,19 +301,36 @@ def _extract_full_history(
                 df.write_parquet(out_path, compression=parquet_compression)
                 out_paths.append(out_path)
 
-            except Exception:
+            except Exception as e:
                 failed.append(fp)
+                logger.debug("Failed to read raw file=%s err=%r", fp, e)
 
-    return ExtractApiResult(
+    result = ExtractApiResult(
         endpoint=endpoint,
         strategy=DownloadStrategy.FULL_HISTORY,
         n_raw_files_seen=n_seen,
         n_raw_files_read=n_read,
         n_failed=len(failed),
         n_rows_total=n_rows,
+        n_out_files=len(out_paths),
+        duration_s=time.perf_counter() - t0,
         out_paths=out_paths,
         failed_paths=failed,
     )
+
+    logger.info(
+        "Finished extract FULL_HISTORY endpoint=%s seen=%d read=%d written=%d "
+        "failed=%d rows=%d duration_s=%.2f",
+        result.endpoint,
+        result.n_raw_files_seen,
+        result.n_raw_files_read,
+        result.n_out_files,
+        result.n_failed,
+        result.n_rows_total,
+        result.duration_s,
+    )
+
+    return result
 
 
 def _extract_by_trade_date(
@@ -325,6 +351,7 @@ def _extract_by_trade_date(
     Raw is partitioned by year/date chunks (for download/resume).
     Intermediate is ticker-centric across the full history (for joins/usage).
     """
+    t0 = time.perf_counter()
     out_paths: list[Path] = []
     failed: list[Path] = []
     n_seen = 0
@@ -379,8 +406,9 @@ def _extract_by_trade_date(
 
                 n_rows += df.height
 
-            except Exception:
+            except Exception as e:
                 failed.append(fp)
+                logger.debug("Failed to read raw file=%s err=%r", fp, e)
 
     # Write one parquet per ticker (full history).
     for t, dfs in per_ticker.items():
@@ -405,16 +433,33 @@ def _extract_by_trade_date(
         df_all.write_parquet(out_path, compression=parquet_compression)
         out_paths.append(out_path)
 
-    return ExtractApiResult(
+    result = ExtractApiResult(
         endpoint=endpoint,
         strategy=DownloadStrategy.BY_TRADE_DATE,
         n_raw_files_seen=n_seen,
         n_raw_files_read=n_read,
         n_failed=len(failed),
         n_rows_total=n_rows,
+        n_out_files=len(out_paths),
+        duration_s=time.perf_counter() - t0,
         out_paths=out_paths,
         failed_paths=failed,
     )
+
+    logger.info(
+        "Finished extract BY_TRADE_DATE endpoint=%s years=%d seen=%d read=%d "
+        "written=%d failed=%d rows=%d duration_s=%.2f",
+        result.endpoint,
+        len(years),
+        result.n_raw_files_seen,
+        result.n_raw_files_read,
+        result.n_out_files,
+        result.n_failed,
+        result.n_rows_total,
+        result.duration_s,
+    )
+
+    return result
 
 
 # ----------------------------------------------------------------------------
