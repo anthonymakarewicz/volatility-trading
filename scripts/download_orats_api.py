@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 import os
 from dotenv import load_dotenv
-from pathlib import Path
 
 from volatility_trading.utils import setup_logging
 from volatility_trading.data.orats_downloader_api import download
@@ -33,7 +32,7 @@ ORATS_API_KEY_ENV = "ORATS_API_KEY"
 RAW_ORATS_ROOT = RAW_ORATS_API
 
 # Supported endpoint name (must exist in ENDPOINTS mapping)
-ENDPOINT = "cores"
+ENDPOINT = "earnings"
 # Examples you likely have:
 # ENDPOINT = "monies_implied"
 # ENDPOINT = "cores"
@@ -41,8 +40,6 @@ ENDPOINT = "cores"
 
 TICKERS = [
     "SPX", 
-]
-"""
     "NDX", 
     "VIX",
     "SPY",
@@ -53,10 +50,10 @@ TICKERS = [
     "NVDA",
     "MSFT",
 ]
-"""
+
 
 # Only used for BY_TRADE_DATE endpoints (e.g., monies_implied)
-YEAR_WHITELIST = None#[2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]
+YEAR_WHITELIST = None
 
 # Optional: request only specific fields (None means “all fields returned”)
 FIELDS = None

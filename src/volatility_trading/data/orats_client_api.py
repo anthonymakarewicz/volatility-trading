@@ -8,6 +8,7 @@ downloader/orchestrator code that snapshots ORATS API responses to disk.
 from __future__ import annotations
 
 import logging
+import random
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -25,6 +26,12 @@ ORATS_BASE_URL = "https://api.orats.io"
 # ----------------------------------------------------------------------------
 # Private Helpers
 # ----------------------------------------------------------------------------
+
+def _jitter_sleep(base_s: float) -> float:
+    """Apply random jitter to backoff sleeps to avoid thundering herd."""
+    # Jitter factor in [0.7, 1.3)
+    return base_s * (0.7 + 0.6 * random.random())
+
 
 def _orats_list_param(values: Iterable[str] | None) -> str | None:
     """Normalize list-like ORATS params into a comma-separated string."""
@@ -143,7 +150,7 @@ class OratsClient:
     token: str
     base_url: str = ORATS_BASE_URL
     timeout_s: float = 30.0
-    max_retries: int = 5
+    max_retries: int = 1
     backoff_s: float = 0.75
 
     def _get(
@@ -166,12 +173,12 @@ class OratsClient:
         last_err: Exception | None = None
 
         try:
-            for attempt in range(self.max_retries + 1):
+            for attempt in range(self.max_retries+1):
                 try:
                     logger.debug(
                         "ORATS GET attempt=%d/%d path=%s params=[%s]",
                         attempt + 1,
-                        self.max_retries + 1,
+                        self.max_retries+1,
                         path,
                         params_log,
                     )
@@ -199,9 +206,13 @@ class OratsClient:
                             try:
                                 sleep_s = float(ra)
                             except ValueError:
-                                sleep_s = self.backoff_s * (2**attempt)
+                                sleep_s = _jitter_sleep(
+                                    self.backoff_s * (2**attempt)
+                                )
                         else:
-                            sleep_s = self.backoff_s * (2**attempt)
+                            sleep_s = _jitter_sleep(
+                                self.backoff_s * (2**attempt)
+                            )
 
                         sleep_s = min(30.0, sleep_s)
 
@@ -250,7 +261,10 @@ class OratsClient:
                     if attempt >= self.max_retries:
                         break
 
-                    sleep_s = min(30.0, self.backoff_s * (2**attempt))
+                    sleep_s = min(
+                        30.0,
+                        _jitter_sleep(self.backoff_s * (2**attempt)),
+                    )
                     logger.warning(
                         "ORATS HTTPError retrying path=%s params=[%s] "
                         "sleep_s=%.2f",
@@ -268,7 +282,10 @@ class OratsClient:
                     if attempt >= self.max_retries:
                         break
 
-                    sleep_s = min(30.0, self.backoff_s * (2**attempt))
+                    sleep_s = min(
+                        30.0,
+                        _jitter_sleep(self.backoff_s * (2**attempt)),
+                    )
                     logger.warning(
                         "ORATS transport error retrying path=%s params=[%s] "
                         "sleep_s=%.2f err=%r",
@@ -284,7 +301,10 @@ class OratsClient:
                     if attempt >= self.max_retries:
                         break
 
-                    sleep_s = min(30.0, self.backoff_s * (2**attempt))
+                    sleep_s = min(
+                        30.0,
+                        _jitter_sleep(self.backoff_s * (2**attempt)),
+                    )
                     logger.warning(
                         "ORATS unexpected error retrying path=%s params=[%s] "
                         "sleep_s=%.2f err=%r",
@@ -357,6 +377,7 @@ class OratsClient:
         payload = resp.json()
         if not isinstance(payload, dict):
             raise TypeError(
-                f"Expected ORATS JSON payload to be an object/dict, got {type(payload)}"
+                f"Expected ORATS JSON payload to be an object/dict, "
+                f"got {type(payload)}"
             )
         return payload

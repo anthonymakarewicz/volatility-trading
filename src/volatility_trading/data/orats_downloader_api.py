@@ -130,15 +130,6 @@ def _write_json_atomic(
     We also `flush` + `os.fsync` the underlying file to improve durability
     against crashes/power loss (at some performance cost). Directory fsync is
     attempted best-effort on POSIX.
-
-    Parameters
-    ----------
-    payload:
-        JSON-serializable dict (typically the ORATS response payload).
-    path:
-        Destination path including suffix (e.g. .json or .json.gz).
-    compression:
-        Either "gz" or "none".
     """
     _ensure_dir(path.parent)
 
@@ -282,6 +273,12 @@ def _download_full_history(
         if (not overwrite) and out_path.exists():
             # Skip existing files to avoid redundant downloads
             n_skipped += 1
+            logger.debug(
+                "Skipping existing file endpoint=%s ticker=%s path=%s",
+                endpoint,
+                ticker,
+                out_path,
+            )
             continue
 
         params: dict[str, Any] = {"ticker": [ticker]}
@@ -387,6 +384,11 @@ def _download_by_trade_date(
                 if (not overwrite) and out_path.exists():
                     # Skip existing files to avoid redundant downloads
                     n_skipped += 1
+                    logger.debug(
+                        "Skipping existing file endpoint=%s path=%s",
+                        endpoint,
+                        out_path,
+                    )
                     continue
 
                 params = dict(params_base)
