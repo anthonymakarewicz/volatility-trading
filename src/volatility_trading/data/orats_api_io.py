@@ -182,5 +182,5 @@ def intermediate_full_history(
         intermediate_root
         / f"endpoint={endpoint}"
         / f"underlying={ticker}"
-        / "full.parquet"
+        / "part-0000.parquet"
     )

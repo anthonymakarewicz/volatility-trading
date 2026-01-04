@@ -35,7 +35,7 @@ from volatility_trading.config.orats_api_schemas import get_schema_spec
 
 logger = logging.getLogger(__name__)
 
-# TODO: Add logger.exption or logger.error(exc_info=True)
+
 
 # ----------------------------------------------------------------------------
 # Result object
@@ -59,6 +59,22 @@ class ExtractApiResult:
 # ----------------------------------------------------------------------------
 # Private helpers
 # ----------------------------------------------------------------------------
+
+def _is_non_fatal_extract_error(e: Exception) -> bool:
+    """Return True for errors where we should record+continue.
+
+    These are typically file-level corruption/IO/parse issues. Everything else
+    is treated as fatal and re-raised.
+    """
+    return isinstance(
+        e, (
+            OSError,
+            gzip.BadGzipFile,
+            json.JSONDecodeError,
+            UnicodeDecodeError,
+            pl.exceptions.PolarsError,
+        ),
+    )
 
 def _load_payload(path: Path, *, compression: str) -> dict[str, Any]:
     """Load a JSON payload from disk (optionally gzip-compressed)."""
@@ -138,30 +154,58 @@ def _write_parquet_atomic(
         raise
 
 
-def _clean_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Clean row dicts.
-
-    - Strip whitespace from keys.
-    """
-    cleaned: list[dict[str, Any]] = []
-
-    for row in rows:
-        out: dict[str, Any] = {}
-        for k, v in row.items():
-            out[str(k).strip()] = v
-        cleaned.append(out)
-
-    return cleaned
-
-
-def _payload_to_df(payload: dict[str, Any]) -> pl.DataFrame:
+def _payload_to_df(endpoint: str, payload: dict[str, Any]) -> pl.DataFrame:
     """Convert ORATS payload -> Polars DataFrame from payload['data']."""
     rows = payload.get("data", [])
     if not rows:
         return pl.DataFrame()
 
-    cleaned = _clean_rows(rows)
-    return pl.DataFrame(cleaned)
+    spec = get_schema_spec(endpoint)
+    if spec is None:
+        # Fall back to full-row inference.
+        return pl.DataFrame(rows, infer_schema_length=None)
+
+    dtypes: dict[str, pl.DataType] = dict(getattr(spec, "dtypes", {}))
+    date_cols: tuple[str, ...] = getattr(spec, "date_cols", ())
+    datetime_cols: tuple[str, ...] = getattr(spec, "datetime_cols", ())
+
+    # Apply vendor-name dtypes at construction time.
+    df = pl.from_dicts(
+        rows,
+        schema_overrides=dtypes if dtypes else None,
+        infer_schema_length=None,
+    )
+
+    # Parse declared date columns (vendor/original names).
+    if date_cols:
+        exprs: list[pl.Expr] = []
+        for c in date_cols:
+            if c in df.columns:
+                exprs.append(
+                    pl.col(c)
+                    .cast(pl.Utf8, strict=False)
+                    .str.strptime(pl.Date, strict=False)
+                    .alias(c)
+                )
+        if exprs:
+            df = df.with_columns(exprs)
+
+    # Parse declared datetime columns (vendor/original names).
+    if datetime_cols:
+        exprs2: list[pl.Expr] = []
+        dt_type = pl.Datetime(time_zone="UTC")
+        for c in datetime_cols:
+            if c in df.columns:
+                exprs2.append(
+                    pl.col(c)
+                    .cast(pl.Utf8, strict=False)
+                    .str.strptime(dt_type, strict=False)
+                    .alias(c)
+                )
+        if exprs2:
+            df = df.with_columns(exprs2)
+
+    return df
 
 
 def _safe_rename(df: pl.DataFrame, renames: dict[str, str]) -> pl.DataFrame:
@@ -180,60 +224,22 @@ def _safe_rename(df: pl.DataFrame, renames: dict[str, str]) -> pl.DataFrame:
     return df.rename(mapping)
 
 
-def _cast_expr(col: str, dtype: pl.DataType) -> pl.Expr:
-    """Best-effort casting, with ISO date/datetime parsing when requested."""
-
-    # Polars needs explicit parsing for date/datetime from strings.
-    is_date = dtype == pl.Date
-    is_dt = getattr(dtype, "__class__", None) is not None and (
-        dtype == pl.Datetime or dtype.__class__.__name__ == "Datetime"
-    )
-
-    if is_date:
-        return pl.col(col).str.strptime(pl.Date, strict=False).alias(col)
-
-    if is_dt:
-        return pl.col(col).str.strptime(dtype, strict=False).alias(col)
-
-    return pl.col(col).cast(dtype, strict=False).alias(col)
-
-
 def _apply_endpoint_schema(
     endpoint: str,
     df: pl.DataFrame,
     *,
     use_bounds: bool,
 ) -> pl.DataFrame:
-    """Apply endpoint-specific schema transforms (rename/cast/bounds/keep)."""
+    """Apply endpoint-specific schema transforms (rename/bounds/keep)."""
     spec = get_schema_spec(endpoint)
     if spec is None or df.is_empty():
         return df
 
     renames: dict[str, str] = getattr(spec, "renames", {})
-    dtypes: dict[str, pl.DataType] = getattr(spec, "dtypes", {})
     keep: tuple[str, ...] | None = getattr(spec, "keep", None)
-    date_cols: tuple[str, ...] = getattr(spec, "date_cols", ())
-    datetime_cols: tuple[str, ...] = getattr(spec, "datetime_cols", ())
     bounds: dict[str, tuple[float, float]] | None = getattr(spec, "bounds", None)
 
-    # Allow schemas to specify date/datetime parsing without repeating dtypes.
-    if date_cols:
-        for c in date_cols:
-            dtypes.setdefault(c, pl.Date)
-
-    if datetime_cols:
-        for c in datetime_cols:
-            dtypes.setdefault(c, pl.Datetime)
-
     df2 = _safe_rename(df, renames)
-
-    if dtypes:
-        exprs: list[pl.Expr] = []
-        for c, dt_ in dtypes.items():
-            if c in df2.columns:
-                exprs.append(_cast_expr(c, dt_))
-        if exprs:
-            df2 = df2.with_columns(exprs)
 
     if use_bounds and bounds:
         exprs2: list[pl.Expr] = []
@@ -353,7 +359,7 @@ def _extract_full_history(
 
         try:
             payload = _load_payload(fp, compression=compression)
-            df = _payload_to_df(payload)
+            df = _payload_to_df(endpoint, payload)
             df = _apply_endpoint_schema(endpoint, df, use_bounds=use_bounds)
             n_read += 1
 
@@ -375,13 +381,23 @@ def _extract_full_history(
 
         except Exception as e:
             failed.append(fp)
-            logger.debug(
-                "Failed to read raw file=%s endpoint=%s ticker=%s err=%r",
-                fp,
+
+            if _is_non_fatal_extract_error(e):
+                logger.exception(
+                    "Non-fatal extract error endpoint=%s ticker=%s file=%s",
+                    endpoint,
+                    ticker,
+                    fp,
+                )
+                continue
+
+            logger.exception(
+                "Fatal extract error endpoint=%s ticker=%s file=%s",
                 endpoint,
                 ticker,
-                e,
+                fp,
             )
+            raise
 
     result = ExtractApiResult(
         endpoint=endpoint,
@@ -458,7 +474,7 @@ def _extract_by_trade_date(
 
             try:
                 payload = _load_payload(fp, compression=compression)
-                df = _payload_to_df(payload)
+                df = _payload_to_df(endpoint, payload)
                 n_read += 1
 
                 if df.height == 0:
@@ -486,7 +502,21 @@ def _extract_by_trade_date(
 
             except Exception as e:
                 failed.append(fp)
-                logger.debug("Failed to read raw file=%s err=%r", fp, e)
+
+                if _is_non_fatal_extract_error(e):
+                    logger.exception(
+                        "Non-fatal extract error endpoint=%s file=%s",
+                        endpoint,
+                        fp,
+                    )
+                    continue
+
+                logger.exception(
+                    "Fatal extract error endpoint=%s file=%s",
+                    endpoint,
+                    fp,
+                )
+                raise
 
     # Write one parquet per ticker (full history).
     for t, dfs in per_ticker.items():
