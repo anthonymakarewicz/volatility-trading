@@ -35,6 +35,7 @@ from volatility_trading.config.orats_api_schemas import get_schema_spec
 
 logger = logging.getLogger(__name__)
 
+# TODO: Add logger.exption or logger.error(exc_info=True)
 
 # ----------------------------------------------------------------------------
 # Result object

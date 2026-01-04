@@ -100,6 +100,61 @@ def _get_trading_days(year: int) -> list[str]:
     return [d.date().isoformat() for d in sessions]
 
 
+def _http_status_from_error(err: BaseException) -> int | None:
+    """Best-effort extract an HTTP status code from an exception."""
+    if isinstance(err, requests.exceptions.HTTPError):
+        resp = getattr(err, "response", None)
+        if resp is not None:
+            return getattr(resp, "status_code", None)
+        return None
+
+    # Our client raises RuntimeError(... ) from the last underlying error.
+    if isinstance(err, RuntimeError):
+        cause = err.__cause__
+        if cause is not None and isinstance(cause, BaseException):
+            return _http_status_from_error(cause)
+
+    return None
+
+
+def _is_fatal_download_error(err: BaseException) -> bool:
+    """Return True for errors that should stop the run.
+
+    We fail-fast on configuration/contract/auth errors (e.g., bad params/token,
+    non-JSON responses) and only continue on transient server/network failures.
+    """
+    # Obvious programming/config issues.
+    if isinstance(err, (ValueError, KeyError, TypeError, json.JSONDecodeError)):
+        return True
+
+    # If the underlying cause is fatal, treat the wrapper as fatal.
+    if isinstance(err, RuntimeError):
+        cause = err.__cause__
+        if cause is not None and isinstance(cause, BaseException):
+            return _is_fatal_download_error(cause)
+
+    status = _http_status_from_error(err)
+
+    # Non-429 4xx are permanent client errors => stop.
+    if status is not None and 400 <= status <= 499 and status != 429:
+        return True
+
+    # Otherwise treat as transient only if it's clearly a transport/server issue.
+    if status is not None and (status == 429 or 500 <= status <= 599):
+        return False
+
+    if isinstance(
+        err, (
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        ),
+    ):
+        return False
+
+    # Unknown exception types: be conservative and stop.
+    return True
+
+
 def _write_json_atomic(
     payload: dict[str, Any],
     path: Path,
@@ -260,17 +315,21 @@ def _download_full_history(
 
             _write_json_atomic(payload, out_path, compression=compression)
             out_paths.append(out_path)
+            n_written += 1
 
-        except Exception:
-            n_failed += 1
+        except Exception as e:
             failed_paths.append(out_path)
-            logger.error(
+            logger.exception(
                 "Failed FULL_HISTORY endpoint=%s ticker=%s path=%s",
                 endpoint,
                 ticker,
                 out_path,
-                exc_info=True,
             )
+
+            if _is_fatal_download_error(e):
+                raise
+
+            n_failed += 1
             continue
 
         if (n_written % LOG_EVERY_N_TICKERS) == 0 and n_written > 0:
@@ -400,7 +459,8 @@ def _download_by_trade_date(
                     if not data:
                         n_empty_payloads += 1
                         logger.debug(
-                            "Empty payload data. endpoint=%s tradeDate=%s part=%d",
+                            "Empty payload data. endpoint=%s "
+                            "tradeDate=%s part=%d",
                             endpoint,
                             trade_date,
                             part,
@@ -409,17 +469,22 @@ def _download_by_trade_date(
                     _write_json_atomic(payload, out_path, compression=compression)
                     n_written += 1
                     out_paths.append(out_path)
-                except Exception:
-                    n_failed += 1
+
+                except Exception as e:
                     failed_paths.append(out_path)
-                    logger.error(
-                        "Failed BY_TRADE_DATE endpoint=%s tradeDate=%s part=%d path=%s",
+                    logger.exception(
+                        "Failed BY_TRADE_DATE endpoint=%s tradeDate=%s " 
+                        "part=%d path=%s",
                         endpoint,
                         trade_date,
                         part,
                         out_path,
-                        exc_info=True,
                     )
+
+                    if _is_fatal_download_error(e):
+                        raise
+
+                    n_failed += 1
                     continue
 
                 if sleep_s > 0:
@@ -545,7 +610,10 @@ def download(
     -----
     - JSON payloads are written even when `payload['data']` is empty.
     - No `.empty`/`.error` markers are written.
-    - **Failures are logged and recorded in the returned result; the downloader continues.**
+    - Transient failures are logged and recorded in the returned result; the
+      downloader continues.
+    - Fatal failures (e.g., non-429 4xx, bad params, non-JSON responses) are
+      re-raised to stop the run.
     """
     raw_root = Path(raw_root)
 
