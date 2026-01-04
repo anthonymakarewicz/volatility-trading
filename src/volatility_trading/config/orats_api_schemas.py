@@ -9,7 +9,7 @@ These specs are meant for the **raw -> intermediate** step:
 - select a curated set of columns to keep in intermediate
 - cast columns to stable Polars dtypes
 - parse date/datetime columns
-- (optional) clip obviously-bad numeric outliers to null
+- (optional) null-out obviously-bad numeric outliers using bounds
 """
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ class EndpointSchemaSpec:
         Canonical columns to parse/cast as `pl.Date`.
     datetime_cols:
         Canonical columns to parse/cast as `pl.Datetime`.
-    clip:
+    bounds:
         Optional mapping canonical numeric column -> (lo, hi) bounds.
         Values outside bounds should be set to null.
 
@@ -51,14 +51,14 @@ class EndpointSchemaSpec:
     dtypes: dict[str, pl.DataType]
     date_cols: tuple[str, ...] = ()
     datetime_cols: tuple[str, ...] = ()
-    clip: dict[str, tuple[float, float]] | None = None
+    bounds: dict[str, tuple[float, float]] | None = None
 
 
 # -----------------------------------------------------------------------------
 # Endpoint: monies_implied
 # -----------------------------------------------------------------------------
 
-_MONIES_IMPLIED_RENAMES: Final[dict[str, str]] = {
+_MONIES_IMPLIED_RENAMES: dict[str, str] = {
     # Keys
     "ticker": "ticker",
     "tradeDate": "trade_date",
@@ -118,7 +118,7 @@ _MONIES_IMPLIED_RENAMES: Final[dict[str, str]] = {
 }
 
 
-_MONIES_IMPLIED_KEEP: Final[tuple[str, ...]] = (
+_MONIES_IMPLIED_KEEP: tuple[str, ...] = (
     # Keys
     "ticker",
     "trade_date",
@@ -148,7 +148,7 @@ _MONIES_IMPLIED_KEEP: Final[tuple[str, ...]] = (
 )
 
 
-_MONIES_IMPLIED_DTYPES: Final[dict[str, pl.DataType]] = {
+_MONIES_IMPLIED_DTYPES: dict[str, pl.DataType] = {
     "ticker": pl.Utf8,
     "trade_date": pl.Date,
     "expiry": pl.Date,
@@ -173,12 +173,11 @@ _MONIES_IMPLIED_DTYPES: Final[dict[str, pl.DataType]] = {
 }
 
 
-_MONIES_IMPLIED_DATE_COLS: Final[tuple[str, ...]] = ("trade_date", "expiry")
-_MONIES_IMPLIED_DATETIME_COLS: Final[tuple[str, ...]] = ("quote_ts", "updated_ts")
+_MONIES_IMPLIED_DATE_COLS: tuple[str, ...] = ("trade_date", "expiry")
+_MONIES_IMPLIED_DATETIME_COLS: tuple[str, ...] = ("quote_ts", "updated_ts")
 
-# Guardrails: clip absurd numeric values to null to avoid ingestion failures.
-# These bounds are intentionally very wide.
-_MONIES_IMPLIED_CLIP: Final[dict[str, tuple[float, float]]] = {
+ # Guardrails: null-out absurd numeric values to avoid ingestion failures.
+_MONIES_IMPLIED_BOUNDS: dict[str, tuple[float, float]] = {
     # vols / effects should never be astronomically large
     "atm_iv": (-10.0, 10.0),
     "cal_vol": (-10.0, 10.0),
@@ -197,7 +196,7 @@ _MONIES_IMPLIED_CLIP: Final[dict[str, tuple[float, float]]] = {
 # Endpoint: summaries
 # -----------------------------------------------------------------------------
 
-_SUMMARIES_RENAMES: Final[dict[str, str]] = {
+_SUMMARIES_RENAMES: dict[str, str] = {
     "ticker": "ticker",
     "tradeDate": "trade_date",
 
@@ -265,7 +264,7 @@ _SUMMARIES_RENAMES: Final[dict[str, str]] = {
     "updatedAt": "updated_ts",
 }
 
-_SUMMARIES_KEEP: Final[tuple[str, ...]] = (
+_SUMMARIES_KEEP: tuple[str, ...] = (
     "ticker",
     "trade_date",
     "spot",
@@ -298,7 +297,7 @@ _SUMMARIES_KEEP: Final[tuple[str, ...]] = (
     "updated_ts",
 )
 
-_SUMMARIES_DTYPES: Final[dict[str, pl.DataType]] = {
+_SUMMARIES_DTYPES: dict[str, pl.DataType] = {
     "ticker": pl.Utf8,
     "trade_date": pl.Date,
     "underlying_price": pl.Float64,
@@ -327,10 +326,10 @@ _SUMMARIES_DTYPES: Final[dict[str, pl.DataType]] = {
     "updated_ts": pl.Datetime(time_zone="UTC"),
 }
 
-_SUMMARIES_DATE_COLS: Final[tuple[str, ...]] = ("trade_date",)
-_SUMMARIES_DATETIME_COLS: Final[tuple[str, ...]] = ("quote_ts", "updated_ts")
+_SUMMARIES_DATE_COLS: tuple[str, ...] = ("trade_date",)
+_SUMMARIES_DATETIME_COLS: tuple[str, ...] = ("quote_ts", "updated_ts")
 
-_SUMMARIES_CLIP: Final[dict[str, tuple[float, float]]] = {
+_SUMMARIES_BOUNDS: dict[str, tuple[float, float]] = {
     # IVs and related quantities should never be astronomically large
     "iv_10d": (-10.0, 10.0),
     "iv_20d": (-10.0, 10.0),
@@ -365,7 +364,7 @@ API_SCHEMAS: Final[dict[str, EndpointSchemaSpec]] = {
         dtypes=_MONIES_IMPLIED_DTYPES,
         date_cols=_MONIES_IMPLIED_DATE_COLS,
         datetime_cols=_MONIES_IMPLIED_DATETIME_COLS,
-        clip=_MONIES_IMPLIED_CLIP,
+        bounds=_MONIES_IMPLIED_BOUNDS,
     ),
     "summaries": EndpointSchemaSpec(
         renames=_SUMMARIES_RENAMES,
@@ -373,7 +372,7 @@ API_SCHEMAS: Final[dict[str, EndpointSchemaSpec]] = {
         dtypes=_SUMMARIES_DTYPES,
         date_cols=_SUMMARIES_DATE_COLS,
         datetime_cols=_SUMMARIES_DATETIME_COLS,
-        clip=_SUMMARIES_CLIP,
+        bounds=_SUMMARIES_BOUNDS,
     ),
 }
 
