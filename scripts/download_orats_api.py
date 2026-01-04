@@ -36,7 +36,7 @@ ORATS_API_KEY_ENV = "ORATS_API_KEY"
 RAW_ORATS_ROOT = RAW_ORATS_API
 
 # Supported endpoint name (must exist in ENDPOINTS mapping)
-ENDPOINT = "summaries"
+ENDPOINT = "cores"
 # ENDPOINT = "monies_implied"
 # ENDPOINT = "cores"
 # ENDPOINT = "summaries"

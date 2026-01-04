@@ -34,11 +34,7 @@ from .orats_api_io import (
 from volatility_trading.config.orats_api_schemas import get_schema_spec
 
 logger = logging.getLogger(__name__)
- 
-# TODO: Remove the max_absolute value threshold and replace it clipping 
-# extreme values by setting to Nan
-# TODO: Build a funciton that read the raw and look for json.gz or json 
-# and if both exist maybe rais an excpetion or read only .gz
+
 
 # ----------------------------------------------------------------------------
 # Result object
@@ -141,47 +137,29 @@ def _write_parquet_atomic(
         raise
 
 
-def _clean_rows(
-    rows: list[dict[str, Any]],
-    *,
-    max_abs_value: float | None,
-) -> list[dict[str, Any]]:
+def _clean_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Clean row dicts.
 
     - Strip whitespace from keys.
-    - Optionally replace extreme numeric values with None.
     """
     cleaned: list[dict[str, Any]] = []
 
     for row in rows:
         out: dict[str, Any] = {}
-
         for k, v in row.items():
-            key = str(k).strip()
-
-            if max_abs_value is not None and isinstance(v, (int, float)):
-                if abs(v) > max_abs_value:
-                    out[key] = None
-                    continue
-
-            out[key] = v
-
+            out[str(k).strip()] = v
         cleaned.append(out)
 
     return cleaned
 
 
-def _payload_to_df(
-    payload: dict[str, Any],
-    *,
-    max_abs_value: float | None,
-) -> pl.DataFrame:
+def _payload_to_df(payload: dict[str, Any]) -> pl.DataFrame:
     """Convert ORATS payload -> Polars DataFrame from payload['data']."""
     rows = payload.get("data", [])
     if not rows:
         return pl.DataFrame()
 
-    cleaned = _clean_rows(rows, max_abs_value=max_abs_value)
+    cleaned = _clean_rows(rows)
     return pl.DataFrame(cleaned)
 
 
@@ -223,23 +201,28 @@ def _apply_endpoint_schema(
     endpoint: str,
     df: pl.DataFrame,
     *,
-    use_clip: bool,
+    use_bounds: bool,
 ) -> pl.DataFrame:
-    """Apply endpoint-specific schema transforms (rename/cast/clip/keep).
-
-    Notes
-    -----
-    - Clipping is controlled by `use_clip`. If False, schema clip bounds are
-      ignored.
-    """
+    """Apply endpoint-specific schema transforms (rename/cast/bounds/keep)."""
     spec = get_schema_spec(endpoint)
     if spec is None or df.is_empty():
         return df
 
     renames: dict[str, str] = getattr(spec, "renames", {})
     dtypes: dict[str, pl.DataType] = getattr(spec, "dtypes", {})
-    keep: list[str] | None = getattr(spec, "keep", None)
-    clip: dict[str, tuple[float, float]] = getattr(spec, "clip", {})
+    keep: tuple[str, ...] | None = getattr(spec, "keep", None)
+    date_cols: tuple[str, ...] = getattr(spec, "date_cols", ())
+    datetime_cols: tuple[str, ...] = getattr(spec, "datetime_cols", ())
+    bounds: dict[str, tuple[float, float]] | None = getattr(spec, "bounds", None)
+
+    # Allow schemas to specify date/datetime parsing without repeating dtypes.
+    if date_cols:
+        for c in date_cols:
+            dtypes.setdefault(c, pl.Date)
+
+    if datetime_cols:
+        for c in datetime_cols:
+            dtypes.setdefault(c, pl.Datetime)
 
     df2 = _safe_rename(df, renames)
 
@@ -251,15 +234,31 @@ def _apply_endpoint_schema(
         if exprs:
             df2 = df2.with_columns(exprs)
 
-    if use_clip and clip:
+    if use_bounds and bounds:
         exprs2: list[pl.Expr] = []
-        for c, bounds in clip.items():
+        schema = df2.schema
+
+        for c, b in bounds.items():
             if c not in df2.columns:
                 continue
-            if not isinstance(bounds, (tuple, list)) or len(bounds) != 2:
+            if not isinstance(b, (tuple, list)) or len(b) != 2:
                 continue
-            lo, hi = bounds
-            exprs2.append(pl.col(c).clip(lo, hi).alias(c))
+
+            lo, hi = b
+            dt_ = schema.get(c)
+
+            expr = (
+                pl.when((pl.col(c) >= lo) & (pl.col(c) <= hi))
+                .then(pl.col(c))
+                .otherwise(pl.lit(None))
+            )
+
+            # Preserve the original dtype when possible.
+            if dt_ is not None:
+                expr = expr.cast(dt_, strict=False)
+
+            exprs2.append(expr.alias(c))
+
         if exprs2:
             df2 = df2.with_columns(exprs2)
 
@@ -289,8 +288,7 @@ def _extract_full_history(
     compression: str,
     overwrite: bool,
     parquet_compression: str,
-    max_abs_value: float | None,
-    use_clip: bool,
+    use_bounds: bool,
 ) -> ExtractApiResult:
     """Extract FULL_HISTORY raw payloads (one file per ticker)."""
     t0 = time.perf_counter()
@@ -318,57 +316,71 @@ def _extract_full_history(
         len(tickers),
     )
 
-    suffix = _glob_raw_suffix(compression)
-
     for ticker in tickers:
         raw_dir = raw_full_history_dir(raw_root, endpoint, ticker)
-        files = sorted(raw_dir.glob(suffix))
-        if not files:
+        fp = raw_dir / f"data{json_suffix(compression)}"
+
+        # Contract: FULL_HISTORY raw is exactly one file per ticker.
+        if not fp.exists():
             continue
 
-        # Usually only one file, but we tolerate multiple.
-        for fp in files:
-            n_seen += 1
+        # Best-effort warning if both compressed/uncompressed snapshots exist.
+        other = raw_dir / (
+            "data.json" if compression == "gz" else "data.json.gz"
+        )
+        if other.exists():
+            logger.warning(
+                "Multiple raw snapshots found. Using %s and ignoring %s",
+                fp,
+                other,
+            )
 
-            out_path = intermediate_full_history(
-                intermediate_root,
+        n_seen += 1
+        out_path = intermediate_full_history(
+            intermediate_root,
+            endpoint,
+            ticker,
+        )
+        if (not overwrite) and out_path.exists():
+            logger.debug(
+                "Skipping existing intermediate endpoint=%s ticker=%s path=%s",
                 endpoint,
                 ticker,
+                out_path,
             )
-            if (not overwrite) and out_path.exists():
+            continue
+
+        try:
+            payload = _load_payload(fp, compression=compression)
+            df = _payload_to_df(payload)
+            df = _apply_endpoint_schema(endpoint, df, use_bounds=use_bounds)
+            n_read += 1
+
+            if df.height == 0:
                 logger.debug(
-                    "Skipping existing intermediate endpoint=%s ticker=%s path=%s",
+                    "Empty data endpoint=%s ticker=%s file=%s",
                     endpoint,
                     ticker,
-                    out_path,
+                    fp,
                 )
-                continue
-
-            try:
-                payload = _load_payload(fp, compression=compression)
-                df = _payload_to_df(payload, max_abs_value=max_abs_value)
-                df = _apply_endpoint_schema(endpoint, df, use_clip=use_clip)
-                n_read += 1
-
-                if df.height == 0:
-                    logger.debug(
-                        "Empty data endpoint=%s ticker=%s file=%s",
-                        endpoint,
-                        ticker,
-                        fp,
-                    )
-                    # Still write empty parquet if overwrite or file missing.
-                    _write_parquet_atomic(df, out_path, compression=parquet_compression)
-                    out_paths.append(out_path)
-                    continue
-
-                n_rows += df.height
+                # Still write empty parquet if overwrite or file missing.
                 _write_parquet_atomic(df, out_path, compression=parquet_compression)
                 out_paths.append(out_path)
+                continue
 
-            except Exception as e:
-                failed.append(fp)
-                logger.debug("Failed to read raw file=%s err=%r", fp, e)
+            n_rows += df.height
+            _write_parquet_atomic(df, out_path, compression=parquet_compression)
+            out_paths.append(out_path)
+
+        except Exception as e:
+            failed.append(fp)
+            logger.debug(
+                "Failed to read raw file=%s endpoint=%s ticker=%s err=%r",
+                fp,
+                endpoint,
+                ticker,
+                e,
+            )
 
     result = ExtractApiResult(
         endpoint=endpoint,
@@ -408,8 +420,7 @@ def _extract_by_trade_date(
     compression: str,
     overwrite: bool,
     parquet_compression: str,
-    max_abs_value: float | None,
-    use_clip: bool,
+    use_bounds: bool,
 ) -> ExtractApiResult:
     """
     Extract BY_TRADE_DATE raw payloads and write one parquet per ticker.
@@ -446,7 +457,7 @@ def _extract_by_trade_date(
 
             try:
                 payload = _load_payload(fp, compression=compression)
-                df = _payload_to_df(payload, max_abs_value=max_abs_value)
+                df = _payload_to_df(payload)
                 n_read += 1
 
                 if df.height == 0:
@@ -494,7 +505,7 @@ def _extract_by_trade_date(
             continue
 
         df_all = pl.concat(dfs, how="diagonal_relaxed")
-        df_all = _apply_endpoint_schema(endpoint, df_all, use_clip=use_clip)
+        df_all = _apply_endpoint_schema(endpoint, df_all, use_bounds=use_bounds)
         _write_parquet_atomic(df_all, out_path, compression=parquet_compression)
         out_paths.append(out_path)
 
@@ -541,8 +552,7 @@ def extract(
     compression: str = "gz",
     overwrite: bool = False,
     parquet_compression: str = "zstd",
-    max_abs_value: float | None = None,
-    use_clip: bool = True,
+    use_bounds: bool = True,
 ) -> ExtractApiResult:
     """
     Extract ORATS raw API snapshots into intermediate parquet.
@@ -567,13 +577,9 @@ def extract(
         If False (default), skip intermediate files that already exist.
     parquet_compression:
         Parquet compression (e.g. "zstd", "snappy").
-    max_abs_value:
-        Optional safety filter to replace extreme numeric values with None.
-        Applied before schema transforms. If None, no max-abs filtering is
-        performed.
-    use_clip:
-        If True (default), apply endpoint-specific clip bounds from
-        `API_SCHEMAS[endpoint].clip`. If False, skip clipping entirely.
+    use_bounds:
+        If True (default), apply endpoint-specific bounds from the schema spec.
+        Values outside bounds are set to null.
 
     Returns
     -------
@@ -588,10 +594,26 @@ def extract(
             f"Unsupported compression '{compression}'. Allowed: "
             f"{sorted(ALLOWED_COMPRESSIONS)}"
         )
+    
+    tickers_clean: list[str] | None
+    if tickers is None:
+        tickers_clean = None
+    else:
+        tickers_clean = [
+            str(t).strip()
+            for t in tickers
+            if t is not None and str(t).strip()
+        ]
+        if not tickers_clean:
+            raise ValueError("tickers is passed but none of them is valid")
 
     spec = get_endpoint_spec(endpoint)
-    if not use_clip:
-        logger.warning("Clipping disabled (use_clip=False) endpoint=%s", endpoint)
+
+    if not use_bounds:
+        logger.warning(
+            "Bounds filtering disabled (use_bounds=False) endpoint=%s",
+            endpoint,
+        )
 
     if spec.strategy == DownloadStrategy.FULL_HISTORY:
         if year_whitelist is not None:
@@ -603,12 +625,11 @@ def extract(
             endpoint=endpoint,
             raw_root=raw_root_p,
             intermediate_root=interm_root_p,
-            tickers=tickers,
+            tickers=tickers_clean,
             compression=compression,
             overwrite=overwrite,
             parquet_compression=parquet_compression,
-            max_abs_value=max_abs_value,
-            use_clip=use_clip,
+            use_bounds=use_bounds,
         )
 
     # BY_TRADE_DATE
@@ -622,11 +643,10 @@ def extract(
         endpoint=endpoint,
         raw_root=raw_root_p,
         intermediate_root=interm_root_p,
-        tickers=tickers,
+        tickers=tickers_clean,
         years=years,
         compression=compression,
         overwrite=overwrite,
         parquet_compression=parquet_compression,
-        max_abs_value=max_abs_value,
-        use_clip=use_clip,
+        use_bounds=use_bounds,
     )

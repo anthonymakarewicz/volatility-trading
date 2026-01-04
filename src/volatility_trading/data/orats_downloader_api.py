@@ -17,7 +17,7 @@ import json
 import logging
 import time
 import tempfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Sequence, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -202,7 +202,7 @@ def _download_full_history(
     """Download a FULL_HISTORY endpoint (one request per ticker) and write JSON."""
     fields_list = list(fields) if fields else None
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     out_paths: list[Path] = []
     failed_paths: list[Path] = []
     n_written = 0
@@ -225,6 +225,7 @@ def _download_full_history(
             ticker=ticker,
             compression=compression,
         )
+
         if (not overwrite) and out_path.exists():
             # Skip existing files to avoid redundant downloads
             n_skipped += 1
@@ -258,8 +259,8 @@ def _download_full_history(
                 )
 
             _write_json_atomic(payload, out_path, compression=compression)
-            n_written += 1
             out_paths.append(out_path)
+
         except Exception:
             n_failed += 1
             failed_paths.append(out_path)
@@ -286,7 +287,7 @@ def _download_full_history(
         if sleep_s > 0:
             time.sleep(sleep_s)
 
-    duration_s = time.time() - t0
+    duration_s = time.perf_counter() - t0
     result = DownloadApiResult(
         endpoint=endpoint,
         strategy=DownloadStrategy.FULL_HISTORY,
@@ -304,7 +305,7 @@ def _download_full_history(
         "Finished FULL_HISTORY endpoint=%s written=%d skipped=%d "
         "empty_payloads=%d failed=%d duration=%.2fs",
         endpoint,
-        n_written,
+        result.n_written,
         n_skipped,
         n_empty_payloads,
         n_failed,
@@ -480,8 +481,8 @@ def download(
     token: str,
     endpoint: str,
     raw_root: str | Path,
-    tickers: Sequence[str],
-    year_whitelist: Sequence[int] | Sequence[str] | None = None,
+    tickers: Iterable[str],
+    year_whitelist: Iterable[int] | Iterable[str] | None = None,
     fields: Sequence[str] | None = None,
     compression: str = DEFAULT_COMPRESSION,
     sleep_s: float = 0.0,
@@ -524,7 +525,7 @@ def download(
     raw_root:
         Root folder where raw snapshots will be written.
     tickers:
-        Iterable of tickers. Values are stripped, de-duplicated (preserving first
+        Sequence of tickers. Values are stripped, de-duplicated (preserving first
         occurrence), and then (for BY_TRADE_DATE) chunked into <= MAX_PER_CALL.
     year_whitelist:
         Years to download for BY_TRADE_DATE endpoints. Required for BY_TRADE_DATE
