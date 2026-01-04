@@ -11,7 +11,10 @@ from __future__ import annotations
 import gzip
 import json
 import logging
+import os
+import tempfile
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -71,6 +74,71 @@ def _load_payload(path: Path, *, compression: str) -> dict[str, Any]:
         f"Unsupported compression '{compression}'. Allowed: "
         f"{sorted(ALLOWED_COMPRESSIONS)}"
     )
+
+
+def _write_parquet_atomic(
+    df: pl.DataFrame,
+    path: Path,
+    *,
+    compression: str,
+) -> None:
+    """Write parquet atomically using a temp file + rename.
+
+    Writes to a unique temp file in the same directory (same filesystem) and
+    then swaps it into place with `os.replace`, which is atomic on POSIX.
+
+    We also attempt `os.fsync` on the temp file and its parent directory
+    (best-effort) to improve durability against crashes/power loss.
+    """
+    ensure_dir(path.parent)
+    tmp_path: str | None = None
+
+    try:
+        # Unique temp file in the same directory => atomic swap works.
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            delete=False,
+            dir=str(path.parent),
+            prefix=path.name + ".",
+            suffix=".tmp",
+        ) as f:
+            tmp_path = f.name
+
+        if tmp_path is None:
+            raise RuntimeError("Failed to allocate a temporary file")
+
+        # Polars writes the parquet file.
+        df.write_parquet(tmp_path, compression=compression)
+
+        # Best-effort fsync of file contents.
+        try:
+            with open(tmp_path, mode="rb") as fh:
+                os.fsync(fh.fileno())
+        except OSError:
+            pass
+
+        os.replace(tmp_path, path)
+
+        # Best-effort directory fsync (POSIX). Helps make the rename durable.
+        try:
+            dir_fd = os.open(str(path.parent), os.O_DIRECTORY)
+        except OSError:
+            dir_fd = None
+
+        if dir_fd is not None:
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+
+    except Exception:
+        # Best-effort cleanup of temp file on failure.
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        raise
 
 
 def _clean_rows(
@@ -290,21 +358,18 @@ def _extract_full_history(
                         fp,
                     )
                     # Still write empty parquet if overwrite or file missing.
-                    ensure_dir(out_path.parent)
-                    df.write_parquet(out_path, compression=parquet_compression)
+                    _write_parquet_atomic(df, out_path, compression=parquet_compression)
                     out_paths.append(out_path)
                     continue
 
                 n_rows += df.height
-                ensure_dir(out_path.parent)
-                df.write_parquet(out_path, compression=parquet_compression)
+                _write_parquet_atomic(df, out_path, compression=parquet_compression)
                 out_paths.append(out_path)
 
             except Exception as e:
                 failed.append(fp)
                 logger.debug("Failed to read raw file=%s err=%r", fp, e)
 
-    duration_s = time.perf_counter() - t0
     result = ExtractApiResult(
         endpoint=endpoint,
         strategy=DownloadStrategy.FULL_HISTORY,
@@ -313,7 +378,7 @@ def _extract_full_history(
         n_failed=len(failed),
         n_rows_total=n_rows,
         n_out_files=len(out_paths),
-        duration_s=duration_s,
+        duration_s=time.perf_counter() - t0,
         out_paths=out_paths,
         failed_paths=failed,
     )
@@ -430,8 +495,7 @@ def _extract_by_trade_date(
 
         df_all = pl.concat(dfs, how="diagonal_relaxed")
         df_all = _apply_endpoint_schema(endpoint, df_all, use_clip=use_clip)
-        ensure_dir(out_path.parent)
-        df_all.write_parquet(out_path, compression=parquet_compression)
+        _write_parquet_atomic(df_all, out_path, compression=parquet_compression)
         out_paths.append(out_path)
 
     result = ExtractApiResult(
@@ -472,8 +536,8 @@ def extract(
     endpoint: str,
     raw_root: str | Path,
     intermediate_root: str | Path,
-    tickers: list[str] | None = None,
-    year_whitelist: list[int] | list[str] | None = None,
+    tickers: Iterable[str] | None = None,
+    year_whitelist: Iterable[int] | Iterable[str] | None = None,
     compression: str = "gz",
     overwrite: bool = False,
     parquet_compression: str = "zstd",
