@@ -29,16 +29,16 @@ class EndpointSchemaSpec:
 
     Attributes
     ----------
+    dtypes:
+        Mapping ORATS API field name -> Polars dtype to cast to.
     renames:
         Mapping from ORATS API field name -> canonical column name.
     keep:
         Canonical column names to keep in intermediate (after rename).
-    dtypes:
-        Mapping canonical column name -> Polars dtype to cast to.
     date_cols:
-        Canonical columns to parse/cast as `pl.Date`.
+        ORATS API field name to parse/cast as `pl.Date`.
     datetime_cols:
-        Canonical columns to parse/cast as `pl.Datetime`.
+        ORATS API field name to parse/cast as `pl.Datetime`.
     bounds:
         Optional mapping canonical numeric column -> (lo, hi) bounds.
         Values outside bounds should be set to null.
@@ -46,9 +46,9 @@ class EndpointSchemaSpec:
         Use this sparingly, mainly to prevent absurd values from breaking
         ingestion (e.g., 1e147). This is not meant to be strategy QC.
     """
+    dtypes: dict[str, pl.DataType]
     renames: dict[str, str]
     keep: tuple[str, ...]
-    dtypes: dict[str, pl.DataType]
     date_cols: tuple[str, ...] = ()
     datetime_cols: tuple[str, ...] = ()
     bounds: dict[str, tuple[float, float]] | None = None
@@ -58,6 +58,69 @@ class EndpointSchemaSpec:
 # Endpoint: monies_implied
 # -----------------------------------------------------------------------------
 
+_MONIES_IMPLIED_DTYPES: dict[str, pl.DataType] = {
+    # Keys
+    "ticker": pl.Utf8,
+    "tradeDate": pl.Utf8,
+    "expirDate": pl.Utf8,
+
+    # Underlying + rates
+    "stockPrice": pl.Float64,
+    "spotPrice": pl.Float64,
+    "riskFreeRate": pl.Float64,
+
+    # Dividend/yield model fields
+    "yieldRate": pl.Float64,
+    "residualYieldRate": pl.Float64,
+    "residualRateSlp": pl.Float64,
+    "residualR2": pl.Float64,
+    "confidence": pl.Float64,
+
+    # ATM vols / calibration
+    "atmiv": pl.Float64,
+    "calVol": pl.Float64,
+    "unadjVol": pl.Float64,
+    "earnEffect": pl.Float64,
+
+    # Metadata timestamps (parse later)
+    "quoteDate": pl.Utf8,
+    "updatedAt": pl.Utf8,
+
+    # Optional model diagnostics / additional fields
+    "mwVol": pl.Float64,
+    "typeFlag": pl.Int64,
+    "slope": pl.Float64,
+    "deriv": pl.Float64,
+    "fit": pl.Float64,
+
+    # Delta-slice vols (ORATS uses vol95..vol5 etc.)
+    "vol100": pl.Float64,
+    "vol95": pl.Float64,
+    "vol90": pl.Float64,
+    "vol85": pl.Float64,
+    "vol80": pl.Float64,
+    "vol75": pl.Float64,
+    "vol70": pl.Float64,
+    "vol65": pl.Float64,
+    "vol60": pl.Float64,
+    "vol55": pl.Float64,
+    "vol50": pl.Float64,
+    "vol45": pl.Float64,
+    "vol40": pl.Float64,
+    "vol35": pl.Float64,
+    "vol30": pl.Float64,
+    "vol25": pl.Float64,
+    "vol20": pl.Float64,
+    "vol15": pl.Float64,
+    "vol10": pl.Float64,
+    "vol5": pl.Float64,
+    "vol0": pl.Float64,
+}
+
+_MONIES_IMPLIED_DATE_COLS: tuple[str, ...] = ("tradeDate", "expirDate")
+_MONIES_IMPLIED_DATETIME_COLS: tuple[str, ...] = ("quoteDate", "updatedAt")
+
+
 _MONIES_IMPLIED_RENAMES: dict[str, str] = {
     # Keys
     "ticker": "ticker",
@@ -65,8 +128,8 @@ _MONIES_IMPLIED_RENAMES: dict[str, str] = {
     "expirDate": "expiry",
 
     # Underlying + rates
-    "stockPrice": "spot",
-    "spotPrice": "spot",  # sometimes both exist; both map to spot
+    "stockPrice": "underlying_price",
+    "spotPrice": "spot_price",  # sometimes both exist; both map to spot
     "riskFreeRate": "risk_free_rate",
 
     # Dividend/yield model fields
@@ -125,7 +188,8 @@ _MONIES_IMPLIED_KEEP: tuple[str, ...] = (
     "expiry",
 
     # Underlying + rates
-    "spot",
+    "underlying_price",
+    "spot_price",
     "risk_free_rate",
 
     # Yield decomposition (main reason you are calling this endpoint)
@@ -148,53 +212,94 @@ _MONIES_IMPLIED_KEEP: tuple[str, ...] = (
 )
 
 
-_MONIES_IMPLIED_DTYPES: dict[str, pl.DataType] = {
-    "ticker": pl.Utf8,
-    "trade_date": pl.Date,
-    "expiry": pl.Date,
-
-    "spot": pl.Float64,
-    "risk_free_rate": pl.Float64,
-
-    "yield_rate": pl.Float64,
-    "residual_yield_rate": pl.Float64,
-    "residual_rate_slp": pl.Float64,
-    "residual_r2": pl.Float64,
-    "confidence": pl.Float64,
-
-    "atm_iv": pl.Float64,
-    "cal_vol": pl.Float64,
-    "unadj_vol": pl.Float64,
-    "earn_effect": pl.Float64,
-
-    "type_flag": pl.Int64,
-    "quote_ts": pl.Datetime(time_zone="UTC"),
-    "updated_ts": pl.Datetime(time_zone="UTC"),
-}
-
-
-_MONIES_IMPLIED_DATE_COLS: tuple[str, ...] = ("trade_date", "expiry")
-_MONIES_IMPLIED_DATETIME_COLS: tuple[str, ...] = ("quote_ts", "updated_ts")
-
- # Guardrails: null-out absurd numeric values to avoid ingestion failures.
 _MONIES_IMPLIED_BOUNDS: dict[str, tuple[float, float]] = {
     # vols / effects should never be astronomically large
-    "atm_iv": (-10.0, 10.0),
-    "cal_vol": (-10.0, 10.0),
-    "unadj_vol": (-10.0, 10.0),
+    "atm_iv": (0.0, 10.0),
+    "cal_vol": (0.0, 10.0),
+    "unadj_vol": (0.0, 10.0),
     "earn_effect": (-10.0, 10.0),
 
     # rates/yields should be within sane annualized ranges
     "risk_free_rate": (-1.0, 1.0),
+    "underlying_price": (0.0, 1e7),
+    "spot_price": (0.0, 1e7),
     "yield_rate": (-1.0, 1.0),
     "residual_yield_rate": (-1.0, 1.0),
-    "residual_rate_slp": (-1.0, 1.0),
+    "residual_rate_slp": (-10.0, 10.0),
 }
 
 
 # -----------------------------------------------------------------------------
 # Endpoint: summaries
 # -----------------------------------------------------------------------------
+
+_SUMMARIES_DTYPES: dict[str, pl.DataType] = {
+    "ticker": pl.Utf8,
+    "tradeDate": pl.Utf8,
+    "stockPrice": pl.Float64,
+
+    "annActDiv": pl.Float64,
+    "annIdiv": pl.Float64,
+    "nextDiv": pl.Float64,
+    "impliedNextDiv": pl.Float64,
+    "borrow30": pl.Float64,
+    "borrow2y": pl.Float64,
+    "riskFree30": pl.Float64,
+    "riskFree2y": pl.Float64,
+
+    "confidence": pl.Float64,
+    "totalErrorConf": pl.Float64,
+
+    "iv10d": pl.Float64,
+    "iv20d": pl.Float64,
+    "iv30d": pl.Float64,
+    "iv60d": pl.Float64,
+    "iv90d": pl.Float64,
+    "iv6m": pl.Float64,
+    "iv1y": pl.Float64,
+
+    # Delta-slice IV (common deltas)
+    "dlt5Iv10d": pl.Float64,
+    "dlt5Iv20d": pl.Float64,
+    "dlt5Iv30d": pl.Float64,
+    "dlt5Iv60d": pl.Float64,
+    "dlt5Iv90d": pl.Float64,
+    "dlt5Iv6m": pl.Float64,
+    "dlt5Iv1y": pl.Float64,
+
+    "dlt25Iv10d": pl.Float64,
+    "dlt25Iv20d": pl.Float64,
+    "dlt25Iv30d": pl.Float64,
+    "dlt25Iv60d": pl.Float64,
+    "dlt25Iv90d": pl.Float64,
+    "dlt25Iv6m": pl.Float64,
+    "dlt25Iv1y": pl.Float64,
+
+    "dlt75Iv10d": pl.Float64,
+    "dlt75Iv20d": pl.Float64,
+    "dlt75Iv30d": pl.Float64,
+    "dlt75Iv60d": pl.Float64,
+    "dlt75Iv90d": pl.Float64,
+    "dlt75Iv6m": pl.Float64,
+    "dlt75Iv1y": pl.Float64,
+
+    "dlt95Iv10d": pl.Float64,
+    "dlt95Iv20d": pl.Float64,
+    "dlt95Iv30d": pl.Float64,
+    "dlt95Iv60d": pl.Float64,
+    "dlt95Iv90d": pl.Float64,
+    "dlt95Iv6m": pl.Float64,
+    "dlt95Iv1y": pl.Float64,
+
+    # Timestamps (parse after load, before rename)
+    "quoteDate": pl.Utf8,
+    "updatedAt": pl.Utf8,
+}
+
+
+_SUMMARIES_DATE_COLS: tuple[str, ...] = ("tradeDate",)
+_SUMMARIES_DATETIME_COLS: tuple[str, ...] = ("quoteDate", "updatedAt")
+
 
 _SUMMARIES_RENAMES: dict[str, str] = {
     "ticker": "ticker",
@@ -264,10 +369,11 @@ _SUMMARIES_RENAMES: dict[str, str] = {
     "updatedAt": "updated_ts",
 }
 
+
 _SUMMARIES_KEEP: tuple[str, ...] = (
     "ticker",
     "trade_date",
-    "spot",
+    "underlying_price",
 
     # Dividends / borrow / rates
     "ann_actual_div",
@@ -297,47 +403,16 @@ _SUMMARIES_KEEP: tuple[str, ...] = (
     "updated_ts",
 )
 
-_SUMMARIES_DTYPES: dict[str, pl.DataType] = {
-    "ticker": pl.Utf8,
-    "trade_date": pl.Date,
-    "underlying_price": pl.Float64,
-
-    "ann_actual_div": pl.Float64,
-    "ann_implied_div": pl.Float64,
-    "next_div": pl.Float64,
-    "implied_next_div": pl.Float64,
-    "borrow_rate_30d": pl.Float64,
-    "borrow_rate_2y": pl.Float64,
-    "risk_free_rate_30d": pl.Float64,
-    "risk_free_rate_2y": pl.Float64,
-
-    "confidence": pl.Float64,
-    "total_error_conf": pl.Float64,
-
-    "iv_10d": pl.Float64,
-    "iv_20d": pl.Float64,
-    "iv_30d": pl.Float64,
-    "iv_60d": pl.Float64,
-    "iv_90d": pl.Float64,
-    "iv_6m": pl.Float64,
-    "iv_1y": pl.Float64,
-
-    "quote_ts": pl.Datetime(time_zone="UTC"),
-    "updated_ts": pl.Datetime(time_zone="UTC"),
-}
-
-_SUMMARIES_DATE_COLS: tuple[str, ...] = ("trade_date",)
-_SUMMARIES_DATETIME_COLS: tuple[str, ...] = ("quote_ts", "updated_ts")
 
 _SUMMARIES_BOUNDS: dict[str, tuple[float, float]] = {
     # IVs and related quantities should never be astronomically large
-    "iv_10d": (-10.0, 10.0),
-    "iv_20d": (-10.0, 10.0),
-    "iv_30d": (-10.0, 10.0),
-    "iv_60d": (-10.0, 10.0),
-    "iv_90d": (-10.0, 10.0),
-    "iv_6m": (-10.0, 10.0),
-    "iv_1y": (-10.0, 10.0),
+    "iv_10d": (0.0, 10.0),
+    "iv_20d": (0.0, 10.0),
+    "iv_30d": (0.0, 10.0),
+    "iv_60d": (0.0, 10.0),
+    "iv_90d": (0.0, 10.0),
+    "iv_6m": (0.0, 10.0),
+    "iv_1y": (0.0, 10.0),
 
     # Rates and borrow
     "risk_free_rate_30d": (-1.0, 1.0),

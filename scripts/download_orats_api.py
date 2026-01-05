@@ -41,6 +41,7 @@ ENDPOINT = "monies_implied"
 # ENDPOINT = "cores"
 # ENDPOINT = "summaries"
 
+# Data information
 TICKERS = [
     "SPX", 
     "NDX", 
@@ -53,19 +54,8 @@ TICKERS = [
     "NVDA",
     "MSFT",
 ]
-
-# Only used for BY_TRADE_DATE endpoints (e.g., monies_implied)
-YEAR_WHITELIST = [2020]
-
-# Optional: request only specific fields (None means “all fields returned”)
+YEAR_WHITELIST = [2020] # Only used for BY_TRADE_DATE endpoints
 FIELDS = None
-
-# Downloader behavior
-SLEEP_S = 0.10
-OVERWRITE = False
-
-# Raw snapshot compression ("gz" or "none")
-COMPRESSION = "gz"
 
 # Logging
 LOG_LEVEL = "DEBUG"
@@ -73,8 +63,13 @@ LOG_FMT_CONSOLE = "%(asctime)s %(levelname)s %(shortname)s - %(message)s"
 LOG_FILE = None  # e.g. "logs/download_orats_api.log"
 LOG_COLORED = True
 
+# Downloading options
+COMPRESSION = "gz"
+OVERWRITE = False
+SLEEP_S = 0.10
 
-def main():
+
+def main() -> None:
     setup_logging(
         LOG_LEVEL,
         fmt_console=LOG_FMT_CONSOLE,
@@ -122,8 +117,6 @@ def main():
         compression=COMPRESSION,
     )
 
-    return result
-
 
 if __name__ == "__main__":
-    _result = main()
+    main()
