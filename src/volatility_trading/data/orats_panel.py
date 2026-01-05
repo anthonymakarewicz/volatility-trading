@@ -8,9 +8,9 @@ import numpy as np
 
 from volatility_trading.config.constants import CALENDAR_DAYS_PER_YEAR
 from volatility_trading.config.instruments import PREFERRED_OPRA_ROOT
-from volatility_trading.config.schemas import (
-    ORATS_VENDOR_TO_PROCESSED,
-    CORE_ORATS_WIDE_COLUMNS,
+from volatility_trading.config.orats_ftp_schemas import (
+    STRIKES_RENAMES_VENDOR_TO_CANONICAL,
+    STRIKES_KEEP_CANONICAL,
 )
 
 # TODO: Include the renaming of the ORATS cols + filter by extrem delta ([1%, 99%], DTE outside (1, 252))
@@ -155,7 +155,7 @@ def build_orats_panel_for_ticker(
     )
 
     # --- 2) Normalise vendor names -> processed names ---
-    lf = scan.rename(ORATS_VENDOR_TO_PROCESSED)
+    lf = scan.rename(STRIKES_RENAMES_VENDOR_TO_CANONICAL)
 
     # --- 2a) Optional OPRA-root filtering (e.g. SPX vs SPXW) ---
     preferred_root = PREFERRED_OPRA_ROOT.get(ticker)
@@ -258,7 +258,7 @@ def build_orats_panel_for_ticker(
 
     # --- 8) Final column selection & materialisation ---
     if columns is None:
-        cols = CORE_ORATS_WIDE_COLUMNS
+        cols = STRIKES_KEEP_CANONICAL
 
     lf = lf.sort(["trade_date", "expiry_date", "strike"])
     df = lf.select(cols).collect()

@@ -36,7 +36,6 @@ from volatility_trading.config.orats_api_schemas import get_schema_spec
 logger = logging.getLogger(__name__)
 
 
-
 # ----------------------------------------------------------------------------
 # Result object
 # ----------------------------------------------------------------------------
@@ -165,9 +164,9 @@ def _payload_to_df(endpoint: str, payload: dict[str, Any]) -> pl.DataFrame:
         # Fall back to full-row inference.
         return pl.DataFrame(rows, infer_schema_length=None)
 
-    dtypes: dict[str, pl.DataType] = dict(getattr(spec, "dtypes", {}))
-    date_cols: tuple[str, ...] = getattr(spec, "date_cols", ())
-    datetime_cols: tuple[str, ...] = getattr(spec, "datetime_cols", ())
+    dtypes: dict[str, pl.DataType] = dict(getattr(spec, "vendor_dtypes", {}))
+    date_cols: tuple[str, ...] = getattr(spec, "vendor_date_cols", ())
+    datetime_cols: tuple[str, ...] = getattr(spec, "vendor_datetime_cols", ())
 
     # Apply vendor-name dtypes at construction time.
     df = pl.from_dicts(
@@ -235,9 +234,11 @@ def _apply_endpoint_schema(
     if spec is None or df.is_empty():
         return df
 
-    renames: dict[str, str] = getattr(spec, "renames", {})
-    keep: tuple[str, ...] | None = getattr(spec, "keep", None)
-    bounds: dict[str, tuple[float, float]] | None = getattr(spec, "bounds", None)
+    renames: dict[str, str] = getattr(spec, "renames_vendor_to_canonical", {})
+    keep: tuple[str, ...] | None = getattr(spec, "keep_canonical", None)
+    bounds: dict[str, tuple[float, float]] | None = getattr(
+        spec, "bounds_canonical", None
+    )
 
     df2 = _safe_rename(df, renames)
 

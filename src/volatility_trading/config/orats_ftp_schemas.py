@@ -3,13 +3,16 @@ from __future__ import annotations
 import polars as pl
 
 # --- ORATS SMV Strikes schema (Near-EOD) ------------------------------------ #
+# Naming convention in this module:
+# - STRIKES_VENDOR_*  : raw ORATS/FTP column names
+# - STRIKES_CANONICAL_* : canonical (your snake_case) column names
 # Dtypes are chosen to be robust for ETL:
 # - prices/greeks/rates/IVs  -> Float64
 # - volumes / open interest  -> Int64
 # - dates                    -> Utf8 (parsed to Date later in cleaning)
 # - tickers                  -> Utf8
 
-ORATS_DTYPE = {
+STRIKES_VENDOR_DTYPES = {
     # identifiers
     "ticker": pl.Utf8,
     "cOpra": pl.Utf8,   # OCC/OPRA call symbol
@@ -68,7 +71,7 @@ ORATS_DTYPE = {
     "trade_date": pl.Utf8,
 }
 
-ORATS_COLUMN_DOCS = {
+STRIKES_VENDOR_COL_DOCS = {
     "ticker": "Underlying symbol representing the stock or index.",
     "cOpra": (
         "Full OCC/OPRA symbol for the call contract (present from ~2010 onward)"
@@ -136,7 +139,7 @@ ORATS_COLUMN_DOCS = {
 # --- ORATS processed WIDE panel schema ------------------------------------- #
 # This describes the *processed* per-ticker panel written by build_orats_panel_for_ticker.
 
-ORATS_VENDOR_TO_PROCESSED = {
+STRIKES_RENAMES_VENDOR_TO_CANONICAL = {
     # identifiers
     "ticker": "ticker",
     "cOpra": "call_opra",
@@ -195,7 +198,7 @@ ORATS_VENDOR_TO_PROCESSED = {
     "extPTheo": "ext_put_theo",
 }
 
-ORATS_PROCESSED_COLUMN_DOCS = {
+STRIKES_CANONICAL_COL_DOCS = {
     # New / derived stuff (worth documenting explicitly)
     "dte": "Days to expiry: expiry_date - trade_date in calendar days.",
     "moneyness_ks": "Strike divided by spot_price (K / S), dimensionless moneyness.",
@@ -240,7 +243,7 @@ ORATS_PROCESSED_COLUMN_DOCS = {
 }
 
 # Core processed WIDE schema (the default selection in build_orats_panel_for_ticker)
-CORE_ORATS_WIDE_COLUMNS = [
+STRIKES_KEEP_CANONICAL = [
     # identifiers / dates
     "ticker",
     "trade_date",

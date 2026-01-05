@@ -8,7 +8,7 @@ from pathlib import Path
 import polars as pl
 from polars.exceptions import NoDataError
 
-from volatility_trading.config.schemas import ORATS_DTYPE
+from volatility_trading.config.orats_ftp_schemas import STRIKES_VENDOR_DTYPES
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def _read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
         with zf.open(csv_name) as f:
             df = pl.read_csv(
                 f, 
-                schema_overrides=ORATS_DTYPE, 
+                schema_overrides=STRIKES_VENDOR_DTYPES, 
                 null_values=["NULL"]
             )
 

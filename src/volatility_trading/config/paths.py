@@ -17,15 +17,9 @@ RAW_OPTIONSDX = DATA_RAW / "optionsdx"
 # ----- Options – intermediate -----
 INTER_ORATS = DATA_INTER / "orats"  # provider root
 
-# Legacy (pre-split) location kept for backward compatibility
-INTER_ORATS_BY_TICKER = INTER_ORATS / "by_ticker"
-
 # Preferred split layout
-INTER_ORATS_FTP = INTER_ORATS / "ftp"
-INTER_ORATS_FTP_BY_TICKER = INTER_ORATS_FTP / "by_ticker"
-
+INTER_ORATS_FTP = INTER_ORATS / "ftp" / "strikes"
 INTER_ORATS_API = INTER_ORATS / "api"
-INTER_ORATS_API_BY_TICKER = INTER_ORATS_API / "by_ticker"
 
 INTER_OPTIONSDX = DATA_INTER / "optionsdx"
 

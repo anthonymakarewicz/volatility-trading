@@ -21,7 +21,7 @@ Usage:
 """
 import logging
 
-from volatility_trading.config.paths import RAW_ORATS_FTP, INTER_ORATS_FTP_BY_TICKER
+from volatility_trading.config.paths import RAW_ORATS_FTP, INTER_ORATS_FTP
 from volatility_trading.data import extract_tickers_from_orats
 from volatility_trading.utils.logging_config import setup_logging
 
@@ -31,7 +31,7 @@ from volatility_trading.utils.logging_config import setup_logging
 # ----------------------------------------------------------------------------
 
 RAW_ORATS_ROOT = RAW_ORATS_FTP
-OUT_ROOT = INTER_ORATS_FTP_BY_TICKER
+OUT_ROOT = INTER_ORATS_FTP
 
 # Choose which tickers you want to extract
 TICKERS = [

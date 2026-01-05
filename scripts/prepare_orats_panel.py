@@ -8,7 +8,7 @@ This is a thin wrapper around
 so you can regenerate panels from the command line.
 """
 
-from volatility_trading.config.paths import INTER_ORATS_FTP_BY_TICKER, PROC_ORATS
+from volatility_trading.config.paths import INTER_ORATS_FTP, PROC_ORATS
 from volatility_trading.data.orats_panel import build_orats_panel_for_ticker
 
 
@@ -36,7 +36,7 @@ def main() -> None:
     for ticker in TICKERS:
         print(f"\n=== Building panel for {ticker} ===")
         build_orats_panel_for_ticker(
-            inter_root=INTER_ORATS_FTP_BY_TICKER,
+            inter_root=INTER_ORATS_FTP,
             proc_root=PROC_ORATS,
             ticker=ticker,
             years=YEARS,

@@ -29,36 +29,36 @@ class EndpointSchemaSpec:
 
     Attributes
     ----------
-    dtypes:
+    vendor_dtypes:
         Mapping ORATS API field name -> Polars dtype to cast to.
-    renames:
+    vendor_date_cols:
+        ORATS API field names to parse/cast as `pl.Date`.
+    vendor_datetime_cols:
+        ORATS API field names to parse/cast as `pl.Datetime`.
+    renames_vendor_to_canonical:
         Mapping from ORATS API field name -> canonical column name.
-    keep:
+    keep_canonical:
         Canonical column names to keep in intermediate (after rename).
-    date_cols:
-        ORATS API field name to parse/cast as `pl.Date`.
-    datetime_cols:
-        ORATS API field name to parse/cast as `pl.Datetime`.
-    bounds:
+    bounds_canonical:
         Optional mapping canonical numeric column -> (lo, hi) bounds.
         Values outside bounds should be set to null.
 
         Use this sparingly, mainly to prevent absurd values from breaking
         ingestion (e.g., 1e147). This is not meant to be strategy QC.
     """
-    dtypes: dict[str, pl.DataType]
-    renames: dict[str, str]
-    keep: tuple[str, ...]
-    date_cols: tuple[str, ...] = ()
-    datetime_cols: tuple[str, ...] = ()
-    bounds: dict[str, tuple[float, float]] | None = None
+    vendor_dtypes: dict[str, pl.DataType]
+    vendor_date_cols: tuple[str, ...] = ()
+    vendor_datetime_cols: tuple[str, ...] = ()
+    renames_vendor_to_canonical: dict[str, str]
+    keep_canonical: tuple[str, ...]
+    bounds_canonical: dict[str, tuple[float, float]] | None = None
 
 
 # -----------------------------------------------------------------------------
 # Endpoint: monies_implied
 # -----------------------------------------------------------------------------
 
-_MONIES_IMPLIED_DTYPES: dict[str, pl.DataType] = {
+_MONIES_IMPLIED_VENDOR_DTYPES: dict[str, pl.DataType] = {
     # Keys
     "ticker": pl.Utf8,
     "tradeDate": pl.Utf8,
@@ -117,11 +117,11 @@ _MONIES_IMPLIED_DTYPES: dict[str, pl.DataType] = {
     "vol0": pl.Float64,
 }
 
-_MONIES_IMPLIED_DATE_COLS: tuple[str, ...] = ("tradeDate", "expirDate")
-_MONIES_IMPLIED_DATETIME_COLS: tuple[str, ...] = ("quoteDate", "updatedAt")
+_MONIES_IMPLIED_VENDOR_DATE_COLS: tuple[str, ...] = ("tradeDate", "expirDate")
+_MONIES_IMPLIED_VENDOR_DATETIME_COLS: tuple[str, ...] = ("quoteDate", "updatedAt")
 
 
-_MONIES_IMPLIED_RENAMES: dict[str, str] = {
+_MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     # Keys
     "ticker": "ticker",
     "tradeDate": "trade_date",
@@ -181,7 +181,7 @@ _MONIES_IMPLIED_RENAMES: dict[str, str] = {
 }
 
 
-_MONIES_IMPLIED_KEEP: tuple[str, ...] = (
+_MONIES_IMPLIED_KEEP_CANONICAL: tuple[str, ...] = (
     # Keys
     "ticker",
     "trade_date",
@@ -212,7 +212,7 @@ _MONIES_IMPLIED_KEEP: tuple[str, ...] = (
 )
 
 
-_MONIES_IMPLIED_BOUNDS: dict[str, tuple[float, float]] = {
+_MONIES_IMPLIED_BOUNDS_CANONICAL: dict[str, tuple[float, float]] = {
     # vols / effects should never be astronomically large
     "atm_iv": (0.0, 10.0),
     "cal_vol": (0.0, 10.0),
@@ -233,7 +233,7 @@ _MONIES_IMPLIED_BOUNDS: dict[str, tuple[float, float]] = {
 # Endpoint: summaries
 # -----------------------------------------------------------------------------
 
-_SUMMARIES_DTYPES: dict[str, pl.DataType] = {
+_SUMMARIES_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "ticker": pl.Utf8,
     "tradeDate": pl.Utf8,
     "stockPrice": pl.Float64,
@@ -296,12 +296,11 @@ _SUMMARIES_DTYPES: dict[str, pl.DataType] = {
     "updatedAt": pl.Utf8,
 }
 
+_SUMMARIES_VENDOR_DATE_COLS: tuple[str, ...] = ("tradeDate",)
+_SUMMARIES_VENDOR_DATETIME_COLS: tuple[str, ...] = ("quoteDate", "updatedAt")
 
-_SUMMARIES_DATE_COLS: tuple[str, ...] = ("tradeDate",)
-_SUMMARIES_DATETIME_COLS: tuple[str, ...] = ("quoteDate", "updatedAt")
 
-
-_SUMMARIES_RENAMES: dict[str, str] = {
+_SUMMARIES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "ticker": "ticker",
     "tradeDate": "trade_date",
 
@@ -370,7 +369,7 @@ _SUMMARIES_RENAMES: dict[str, str] = {
 }
 
 
-_SUMMARIES_KEEP: tuple[str, ...] = (
+_SUMMARIES_KEEP_CANONICAL: tuple[str, ...] = (
     "ticker",
     "trade_date",
     "underlying_price",
@@ -404,7 +403,7 @@ _SUMMARIES_KEEP: tuple[str, ...] = (
 )
 
 
-_SUMMARIES_BOUNDS: dict[str, tuple[float, float]] = {
+_SUMMARIES_BOUNDS_CANONICAL: dict[str, tuple[float, float]] = {
     # IVs and related quantities should never be astronomically large
     "iv_10d": (0.0, 10.0),
     "iv_20d": (0.0, 10.0),
@@ -434,20 +433,20 @@ _SUMMARIES_BOUNDS: dict[str, tuple[float, float]] = {
 
 API_SCHEMAS: Final[dict[str, EndpointSchemaSpec]] = {
     "monies_implied": EndpointSchemaSpec(
-        renames=_MONIES_IMPLIED_RENAMES,
-        keep=_MONIES_IMPLIED_KEEP,
-        dtypes=_MONIES_IMPLIED_DTYPES,
-        date_cols=_MONIES_IMPLIED_DATE_COLS,
-        datetime_cols=_MONIES_IMPLIED_DATETIME_COLS,
-        bounds=_MONIES_IMPLIED_BOUNDS,
+        vendor_dtypes=_MONIES_IMPLIED_VENDOR_DTYPES,
+        vendor_date_cols=_MONIES_IMPLIED_VENDOR_DATE_COLS,
+        vendor_datetime_cols=_MONIES_IMPLIED_VENDOR_DATETIME_COLS,
+        renames_vendor_to_canonical=_MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL,
+        keep_canonical=_MONIES_IMPLIED_KEEP_CANONICAL,
+        bounds_canonical=_MONIES_IMPLIED_BOUNDS_CANONICAL,
     ),
     "summaries": EndpointSchemaSpec(
-        renames=_SUMMARIES_RENAMES,
-        keep=_SUMMARIES_KEEP,
-        dtypes=_SUMMARIES_DTYPES,
-        date_cols=_SUMMARIES_DATE_COLS,
-        datetime_cols=_SUMMARIES_DATETIME_COLS,
-        bounds=_SUMMARIES_BOUNDS,
+        vendor_dtypes=_SUMMARIES_VENDOR_DTYPES,
+        vendor_date_cols=_SUMMARIES_VENDOR_DATE_COLS,
+        vendor_datetime_cols=_SUMMARIES_VENDOR_DATETIME_COLS,
+        renames_vendor_to_canonical=_SUMMARIES_RENAMES_VENDOR_TO_CANONICAL,
+        keep_canonical=_SUMMARIES_KEEP_CANONICAL,
+        bounds_canonical=_SUMMARIES_BOUNDS_CANONICAL,
     ),
 }
 
