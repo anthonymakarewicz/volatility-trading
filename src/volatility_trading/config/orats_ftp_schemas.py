@@ -71,6 +71,10 @@ STRIKES_VENDOR_DTYPES = {
     "trade_date": pl.Utf8,
 }
 
+STRIKES_VENDOR_DATE_COLS: tuple[str, ...] = ("trade_date", "expirDate")
+STRIKES_VENDOR_DATETIME_COLS: tuple[str, ...] = ()  
+
+
 STRIKES_VENDOR_COL_DOCS = {
     "ticker": "Underlying symbol representing the stock or index.",
     "cOpra": (

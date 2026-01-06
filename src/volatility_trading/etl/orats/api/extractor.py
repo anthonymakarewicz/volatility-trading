@@ -210,7 +210,6 @@ def _payload_to_df(endpoint: str, payload: dict[str, Any]) -> pl.DataFrame:
             if c in df.columns:
                 exprs.append(
                     pl.col(c)
-                    .cast(pl.Utf8, strict=False)
                     .str.strptime(pl.Date, strict=False)
                     .alias(c)
                 )
@@ -225,7 +224,6 @@ def _payload_to_df(endpoint: str, payload: dict[str, Any]) -> pl.DataFrame:
             if c in df.columns:
                 exprs2.append(
                     pl.col(c)
-                    .cast(pl.Utf8, strict=False)
                     .str.strptime(dt_type, strict=False)
                     .alias(c)
                 )

@@ -8,11 +8,69 @@ from pathlib import Path
 import polars as pl
 from polars.exceptions import NoDataError
 
-from volatility_trading.config.orats_ftp_schemas import STRIKES_VENDOR_DTYPES
+from volatility_trading.config.orats_ftp_schemas import (
+    STRIKES_VENDOR_DTYPES,
+    STRIKES_VENDOR_DATE_COLS,
+    STRIKES_VENDOR_DATETIME_COLS,
+    STRIKES_RENAMES_VENDOR_TO_CANONICAL,
+)
 
 logger = logging.getLogger(__name__)
 
 ROOT_COL: str = "ticker"
+DATE_FMT: str = "%m/%d/%Y"
+
+
+def _normalize_strikes_vendor_df(df: pl.DataFrame) -> pl.DataFrame:
+    """Normalize a vendor-format ORATS strikes DataFrame.
+
+    Steps
+    -----
+    1) Parse vendor date columns to `pl.Date` (best-effort).
+    2) Rename vendor columns -> canonical columns.
+
+    Notes
+    -----
+    - Vendor dates are expected as strings like MM/DD/YYYY.
+    - Parsing is best-effort (`strict=False`); unparseable values become null.
+    """
+    if df.is_empty():
+        return df
+
+    # 1) Parse vendor date/datetime columns (before rename)
+    exprs: list[pl.Expr] = []
+
+    # Dates (vendor format is typically MM/DD/YYYY)
+    for c in STRIKES_VENDOR_DATE_COLS:
+        if c in df.columns:
+            exprs.append(
+                pl.col(c)
+                .str.strptime(pl.Date, format=DATE_FMT, strict=False)
+                .alias(c)
+            )
+
+    # Datetimes (if ever provided by the vendor). We keep this generic.
+    for c in STRIKES_VENDOR_DATETIME_COLS:
+        if c in df.columns:
+            exprs.append(
+                pl.col(c)
+                .str.strptime(pl.Datetime, strict=False)
+                .alias(c)
+            )
+
+    if exprs:
+        df = df.with_columns(exprs)
+
+    # 2) Rename vendor -> canonical (only if present)
+    mapping = {
+        src: dst
+        for src, dst in STRIKES_RENAMES_VENDOR_TO_CANONICAL.items()
+        if src in df.columns and dst and src != dst
+    }
+    if mapping:
+        df = df.rename(mapping)
+
+    return df
 
 
 def _read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
@@ -46,6 +104,7 @@ def _read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
                 schema_overrides=STRIKES_VENDOR_DTYPES, 
                 null_values=["NULL"]
             )
+            df = _normalize_strikes_vendor_df(df)
 
     return df
 
@@ -82,6 +141,9 @@ def extract(
     -----
     - Each ZIP is read *once*, then filtered for all requested tickers.
       This is much faster than reading each ZIP once per ticker.
+    - Output DataFrames are normalized to canonical column names.
+    - `trade_date` and `expiry_date` columns are parsed as `pl.Date`.
+    - Duplicate rows are removed before writing.
     """
     raw_root = Path(raw_root)
     out_root = Path(out_root)
@@ -156,6 +218,20 @@ def extract(
                     continue
 
                 out_df = pl.concat(dfs, how="vertical").rechunk()
+
+                # De-duplicate exact duplicate rows (best-effort stable order)
+                before = out_df.height
+                out_df = out_df.unique(maintain_order=True)
+                after = out_df.height
+                if after != before:
+                    logger.info(
+                        "De-duplicated rows for ticker=%s year=%s: %d -> %d (dropped=%d)",
+                        ticker,
+                        year_name,
+                        before,
+                        after,
+                        before - after,
+                    )
 
                 out_dir = out_root / f"underlying={ticker}" / f"year={year_name}"
                 out_dir.mkdir(parents=True, exist_ok=True)

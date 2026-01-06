@@ -17,7 +17,7 @@ Output layout (this script):
         ...
 
 Usage:
-    python scripts/extract_orats_tickers.py
+    python scripts/extract_orats_ftp.py
 """
 import logging
 
@@ -35,12 +35,21 @@ OUT_ROOT = INTER_ORATS_FTP
 
 # Choose which tickers you want to extract
 TICKERS = [
-    "SPX",
+    "SPX", 
+    "NDX", 
+    "VIX",
+    "SPY",
+    "QQQ",
+    "IWM",
+    "AAPL",
+    "TSLA",
+    "NVDA",
+    "MSFT",
 ]
 
 # Restrict to specific years if you want (ints or strings), or None for all:
 # YEAR_WHITELIST = {2013, 2014}
-YEAR_WHITELIST = [2007]
+YEAR_WHITELIST = None
 
 # Logging
 LOG_LEVEL = "DEBUG"  # change to "DEBUG" for more detail
