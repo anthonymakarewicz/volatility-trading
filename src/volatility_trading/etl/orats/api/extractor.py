@@ -153,6 +153,34 @@ def _write_parquet_atomic(
         raise
 
 
+def _remove_duplicates(
+    df: pl.DataFrame,
+    *,
+    endpoint: str,
+    context: str,
+) -> pl.DataFrame:
+    """Remove exact duplicate rows and log if row count changes."""
+    if df.is_empty():
+        return df
+
+    n0 = df.height
+    df2 = df.unique(maintain_order=True)
+    n1 = df2.height
+
+    if n1 != n0:
+        logger.warning(
+            "Dropped duplicate rows endpoint=%s %s "
+            "before=%d after=%d dropped=%d",
+            endpoint,
+            context,
+            n0,
+            n1,
+            n0 - n1,
+        )
+
+    return df2
+
+
 def _payload_to_df(endpoint: str, payload: dict[str, Any]) -> pl.DataFrame:
     """Convert ORATS payload -> Polars DataFrame from payload['data']."""
     rows = payload.get("data", [])
@@ -226,49 +254,16 @@ def _safe_rename(df: pl.DataFrame, renames: dict[str, str]) -> pl.DataFrame:
 def _apply_endpoint_schema(
     endpoint: str,
     df: pl.DataFrame,
-    *,
-    use_bounds: bool,
 ) -> pl.DataFrame:
-    """Apply endpoint-specific schema transforms (rename/bounds/keep)."""
+    """Apply endpoint-specific schema transforms (rename/keep)."""
     spec = get_schema_spec(endpoint)
     if spec is None or df.is_empty():
         return df
 
     renames: dict[str, str] = getattr(spec, "renames_vendor_to_canonical", {})
     keep: tuple[str, ...] | None = getattr(spec, "keep_canonical", None)
-    bounds: dict[str, tuple[float, float]] | None = getattr(
-        spec, "bounds_canonical", None
-    )
 
     df2 = _safe_rename(df, renames)
-
-    if use_bounds and bounds:
-        exprs2: list[pl.Expr] = []
-        schema = df2.schema
-
-        for c, b in bounds.items():
-            if c not in df2.columns:
-                continue
-            if not isinstance(b, (tuple, list)) or len(b) != 2:
-                continue
-
-            lo, hi = b
-            dt_ = schema.get(c)
-
-            expr = (
-                pl.when((pl.col(c) >= lo) & (pl.col(c) <= hi))
-                .then(pl.col(c))
-                .otherwise(pl.lit(None))
-            )
-
-            # Preserve the original dtype when possible.
-            if dt_ is not None:
-                expr = expr.cast(dt_, strict=False)
-
-            exprs2.append(expr.alias(c))
-
-        if exprs2:
-            df2 = df2.with_columns(exprs2)
 
     if keep:
         cols = [c for c in keep if c in df2.columns]
@@ -296,7 +291,6 @@ def _extract_full_history(
     compression: str,
     overwrite: bool,
     parquet_compression: str,
-    use_bounds: bool,
 ) -> ExtractApiResult:
     """Extract FULL_HISTORY raw payloads (one file per ticker)."""
     t0 = time.perf_counter()
@@ -330,6 +324,12 @@ def _extract_full_history(
 
         # Contract: FULL_HISTORY raw is exactly one file per ticker.
         if not fp.exists():
+            logger.debug(
+                "Missing raw snapshot endpoint=%s ticker=%s expected=%s",
+                endpoint,
+                ticker,
+                fp,
+            )
             continue
 
         # Best-effort warning if both compressed/uncompressed snapshots exist.
@@ -361,7 +361,12 @@ def _extract_full_history(
         try:
             payload = _load_payload(fp, compression=compression)
             df = _payload_to_df(endpoint, payload)
-            df = _apply_endpoint_schema(endpoint, df, use_bounds=use_bounds)
+            df = _apply_endpoint_schema(endpoint, df)
+            df = _remove_duplicates(
+                df, 
+                endpoint=endpoint, 
+                context=f"ticker={ticker}"
+            )
             n_read += 1
 
             if df.height == 0:
@@ -372,7 +377,11 @@ def _extract_full_history(
                     fp,
                 )
                 # Still write empty parquet if overwrite or file missing.
-                _write_parquet_atomic(df, out_path, compression=parquet_compression)
+                _write_parquet_atomic(
+                    df, 
+                    out_path, 
+                    compression=parquet_compression
+                )
                 out_paths.append(out_path)
                 continue
 
@@ -400,6 +409,18 @@ def _extract_full_history(
             )
             raise
 
+        if (n_seen % 5) == 0:
+            logger.info(
+                "Progress FULL_HISTORY endpoint=%s seen=%d "
+                "read=%d written=%d failed=%d rows=%d",
+                endpoint,
+                n_seen,
+                n_read,
+                len(out_paths),
+                len(failed),
+                n_rows,
+            )
+
     result = ExtractApiResult(
         endpoint=endpoint,
         strategy=DownloadStrategy.FULL_HISTORY,
@@ -414,8 +435,8 @@ def _extract_full_history(
     )
 
     logger.info(
-        "Finished extract FULL_HISTORY endpoint=%s seen=%d read=%d written=%d "
-        "failed=%d rows=%d duration_s=%.2f",
+        "Finished extract FULL_HISTORY endpoint=%s seen=%d read=%d "
+        "written=%d failed=%d rows=%d duration_s=%.2f",
         result.endpoint,
         result.n_raw_files_seen,
         result.n_raw_files_read,
@@ -438,7 +459,6 @@ def _extract_by_trade_date(
     compression: str,
     overwrite: bool,
     parquet_compression: str,
-    use_bounds: bool,
 ) -> ExtractApiResult:
     """
     Extract BY_TRADE_DATE raw payloads and write one parquet per ticker.
@@ -465,10 +485,24 @@ def _extract_by_trade_date(
     per_ticker: dict[str, list[pl.DataFrame]] = {}
 
     for year in years:
+        year_t0 = time.perf_counter()
         year_dir = raw_by_trade_date_dir(raw_root, endpoint, year)
         files = sorted(year_dir.glob(suffix))
         if not files:
+            logger.debug(
+                "No raw files for endpoint=%s year=%d dir=%s",
+                endpoint,
+                year,
+                year_dir,
+            )
             continue
+
+        logger.info(
+            "Year %d: found %d raw files for endpoint=%s",
+            year,
+            len(files),
+            endpoint,
+        )
 
         for fp in files:
             n_seen += 1
@@ -519,6 +553,20 @@ def _extract_by_trade_date(
                 )
                 raise
 
+        logger.info(
+            "Year %d done endpoint=%s files=%d seen=%d read=%d "
+            "failed=%d rows=%d tickers=%d duration_s=%.2f",
+            year,
+            endpoint,
+            len(files),
+            n_seen,
+            n_read,
+            len(failed),
+            n_rows,
+            len(per_ticker),
+            time.perf_counter() - year_t0,
+        )
+
     # Write one parquet per ticker (full history).
     for t, dfs in per_ticker.items():
         out_path = intermediate_full_history(
@@ -537,7 +585,8 @@ def _extract_by_trade_date(
             continue
 
         df_all = pl.concat(dfs, how="diagonal_relaxed")
-        df_all = _apply_endpoint_schema(endpoint, df_all, use_bounds=use_bounds)
+        df_all = _apply_endpoint_schema(endpoint, df_all)
+        df_all = _remove_duplicates(df_all, endpoint=endpoint, context=f"ticker={t}")
         _write_parquet_atomic(df_all, out_path, compression=parquet_compression)
         out_paths.append(out_path)
 
@@ -555,8 +604,8 @@ def _extract_by_trade_date(
     )
 
     logger.info(
-        "Finished extract BY_TRADE_DATE endpoint=%s years=%d seen=%d read=%d "
-        "written=%d failed=%d rows=%d duration_s=%.2f",
+        "Finished extract BY_TRADE_DATE endpoint=%s years=%d seen=%d "
+        "read=%d written=%d failed=%d rows=%d duration_s=%.2f",
         result.endpoint,
         len(years),
         result.n_raw_files_seen,
@@ -584,7 +633,6 @@ def extract(
     compression: str = "gz",
     overwrite: bool = False,
     parquet_compression: str = "zstd",
-    use_bounds: bool = True,
 ) -> ExtractApiResult:
     """
     Extract ORATS raw API snapshots into intermediate parquet.
@@ -609,9 +657,6 @@ def extract(
         If False (default), skip intermediate files that already exist.
     parquet_compression:
         Parquet compression (e.g. "zstd", "snappy").
-    use_bounds:
-        If True (default), apply endpoint-specific bounds from the schema spec.
-        Values outside bounds are set to null.
 
     Returns
     -------
@@ -641,12 +686,6 @@ def extract(
 
     spec = get_endpoint_spec(endpoint)
 
-    if not use_bounds:
-        logger.warning(
-            "Bounds filtering disabled (use_bounds=False) endpoint=%s",
-            endpoint,
-        )
-
     if spec.strategy == DownloadStrategy.FULL_HISTORY:
         if year_whitelist is not None:
             logger.warning(
@@ -661,7 +700,6 @@ def extract(
             compression=compression,
             overwrite=overwrite,
             parquet_compression=parquet_compression,
-            use_bounds=use_bounds,
         )
 
     # BY_TRADE_DATE
@@ -680,5 +718,4 @@ def extract(
         compression=compression,
         overwrite=overwrite,
         parquet_compression=parquet_compression,
-        use_bounds=use_bounds,
     )

@@ -47,10 +47,10 @@ class EndpointSchemaSpec:
         ingestion (e.g., 1e147). This is not meant to be strategy QC.
     """
     vendor_dtypes: dict[str, pl.DataType]
-    vendor_date_cols: tuple[str, ...] = ()
-    vendor_datetime_cols: tuple[str, ...] = ()
     renames_vendor_to_canonical: dict[str, str]
     keep_canonical: tuple[str, ...]
+    vendor_date_cols: tuple[str, ...] = ()
+    vendor_datetime_cols: tuple[str, ...] = ()
     bounds_canonical: dict[str, tuple[float, float]] | None = None
 
 

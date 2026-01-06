@@ -66,7 +66,6 @@ LOG_FMT_CONSOLE = "%(asctime)s %(levelname)s %(shortname)s - %(message)s"
 # Extraction options
 OVERWRITE = True
 PARQUET_COMPRESSION = "zstd"  # "zstd" is a good default for intermediate
-USE_BOUNDS = True  # apply endpoint bounds (out-of-range -> null)
 
 
 def main() -> None:
@@ -86,7 +85,6 @@ def main() -> None:
     logger.info("Raw compression:      %s", RAW_COMPRESSION)
     logger.info("Overwrite:            %s", OVERWRITE)
     logger.info("Parquet compression:  %s", PARQUET_COMPRESSION)
-    logger.info("Use bounds:           %s", USE_BOUNDS)
 
     RAW_ORATS_API.mkdir(parents=True, exist_ok=True)
     INTER_ORATS_API.mkdir(parents=True, exist_ok=True)
@@ -100,7 +98,6 @@ def main() -> None:
         compression=RAW_COMPRESSION,
         overwrite=OVERWRITE,
         parquet_compression=PARQUET_COMPRESSION,
-        use_bounds=USE_BOUNDS,
     )
 
 

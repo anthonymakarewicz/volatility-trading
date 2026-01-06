@@ -140,7 +140,7 @@ def extract(
 
                 # filter once per ticker, reusing the same df
                 for ticker in tickers:
-                    df_ticker = df.filter(pl.col(root_col) == ticker)
+                    df_ticker = df.filter(pl.col(ROOT_COL) == ticker)
                     if df_ticker.height > 0:
                         dfs_by_ticker[ticker].append(df_ticker)
 
