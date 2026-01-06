@@ -1,84 +1,89 @@
 #!/usr/bin/env python
-"""
-Download raw ORATS SMV Strikes ZIP files from HostedFTP into data/raw/options/orats
-(using the configured RAW_ORATS path).
+"""Download ORATS HostedFTP SMV Strikes ZIP files to disk (raw).
 
-Expected remote layout (on HostedFTP):
-    smvstrikes_2007_2012/2007/*.zip
-    smvstrikes_2007_2012/2008/*.zip
-    ...
-    smvstrikes/2013/*.zip
-    ...
+Typical usage:
+    python scripts/download_orats_ftp.py
 
-Local layout after running (example if RAW_ORATS points to data/raw/options/orats):
-    data/raw/options/orats/smvstrikes_2007_2012/2007/*.zip
-    data/raw/options/orats/smvstrikes/2013/*.zip
-    ...
-
-Usage:
-    1. Create a .env file (or export env vars) with:
-        ORATS_FTP_USER=your_orats_username
-        ORATS_FTP_PASS=your_orats_password
-
-    2. Run:
-        python scripts/download_orats_raw.py
+Notes
+-----
+- Reads FTP credentials from env vars (or a .env file at project root).
+- The remote host and base directories are owned by the FTP downloader module
+  and should usually not be changed from the script.
 """
 
+from __future__ import annotations
+
+import logging
 import os
+
 from dotenv import load_dotenv
 
 from volatility_trading.config.paths import RAW_ORATS_FTP
 from volatility_trading.etl.orats.ftp import download
+from volatility_trading.utils import setup_logging
 
 
 # ----------------------------------------------------------------------------
 # CONFIG
 # ----------------------------------------------------------------------------
 
+# Credentials: recommended via env vars
 ORATS_FTP_USER_ENV = "ORATS_FTP_USER"
 ORATS_FTP_PASS_ENV = "ORATS_FTP_PASS"
 
-HOST = "orats.hostedftp.com"  # or "de1.hostedftp.com"
-REMOTE_BASE_DIRS = [
-    "smvstrikes_2007_2012",  # 2007–2012
-    "smvstrikes",            # 2013–present
-]
+# Where to store raw FTP outputs
+RAW_ORATS_ROOT = RAW_ORATS_FTP
 
 # Limit to specific years (as ints or strings) if you want to test first.
 # Example: YEAR_WHITELIST = {2013, 2014}
 YEAR_WHITELIST = None
 
+# Download options
 VALIDATE_ZIP = True
-VERBOSE = True
-MAX_WORKERS = 3  # or 1 for sequential, or 2–4 for some parallelism
+MAX_WORKERS = 3  # 1 for sequential, or 2–4 for some parallelism
+
+# Logging
+LOG_LEVEL = "INFO"
+LOG_FMT_CONSOLE = "%(asctime)s %(levelname)s %(shortname)s - %(message)s"
+LOG_FILE = None  # e.g. "logs/download_orats_ftp.log"
+LOG_COLORED = True
 
 
 def main() -> None:
+    setup_logging(
+        LOG_LEVEL,
+        fmt_console=LOG_FMT_CONSOLE,
+        log_file=LOG_FILE,
+        colored=LOG_COLORED,
+    )
+    logger = logging.getLogger(__name__)
+
     load_dotenv()
     user = os.getenv(ORATS_FTP_USER_ENV)
     password = os.getenv(ORATS_FTP_PASS_ENV)
-
     if not user or not password:
-        raise SystemExit(
-            "Missing ORATS_FTP_USER or ORATS_FTP_PASS.\n"
-            "Set them in your environment or in a .env file at the project root."
+        raise RuntimeError(
+            "Missing ORATS FTP credentials. Set env vars "
+            f"{ORATS_FTP_USER_ENV} and {ORATS_FTP_PASS_ENV}."
         )
 
-    print(f"Raw ORATS root: {RAW_ORATS_FTP}")
-    if YEAR_WHITELIST is not None:
-        print(f"Year whitelist: {sorted(str(y) for y in YEAR_WHITELIST)}")
-    else:
-        print("Year whitelist: ALL years in the remote base dirs.")
+    logger.info("RAW FTP root:  %s", RAW_ORATS_ROOT)
+    logger.info(
+        "Years:         %s",
+        "ALL" if YEAR_WHITELIST is None else sorted(str(y) for y in YEAR_WHITELIST),
+    )
+    logger.info("Validate ZIP:  %s", VALIDATE_ZIP)
+    logger.info("Max workers:   %s", MAX_WORKERS)
 
-    download(
-        host=HOST,
+    RAW_ORATS_ROOT.mkdir(parents=True, exist_ok=True)
+
+    # Host and remote base dirs are typically defaults owned by the downloader.
+    result = download(
         user=user,
         password=password,
-        remote_base_dirs=REMOTE_BASE_DIRS,
-        raw_root=RAW_ORATS_FTP,
+        raw_root=RAW_ORATS_ROOT,
         year_whitelist=YEAR_WHITELIST,
         validate_zip=VALIDATE_ZIP,
-        verbose=VERBOSE,
         max_workers=MAX_WORKERS,
     )
 

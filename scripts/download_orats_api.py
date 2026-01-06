@@ -31,11 +31,8 @@ ORATS_API_KEY_ENV = "ORATS_API_KEY"
 # Where to store raw API outputs (adjust to your layout)
 RAW_ORATS_ROOT = RAW_ORATS_API
 
-# Supported endpoint name (must exist in ENDPOINTS mapping)
+# Supported endpoint name (must exist in ENDPOINTS mapping e.g. "cores", "summaries")
 ENDPOINT = "monies_implied"
-# ENDPOINT = "monies_implied"
-# ENDPOINT = "cores"
-# ENDPOINT = "summaries"
 
 # Data information
 TICKERS = [
