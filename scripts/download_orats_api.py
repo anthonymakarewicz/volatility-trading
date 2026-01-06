@@ -17,11 +17,7 @@ import os
 from dotenv import load_dotenv
 
 from volatility_trading.utils import setup_logging
-from volatility_trading.etl.orats.api.orats_api_endpoints import (
-    DownloadStrategy,
-    get_endpoint_spec,
-)
-from volatility_trading.etl.orats.api.orats_downloader_api import download
+from volatility_trading.etl.orats.api import download
 from volatility_trading.config.paths import RAW_ORATS_API
 
 
@@ -85,10 +81,8 @@ def main() -> None:
             f"Missing ORATS API token. Set env var {ORATS_API_KEY_ENV}."
         )
 
-    spec = get_endpoint_spec(ENDPOINT)
     logger.info("RAW API root: %s", RAW_ORATS_ROOT)
     logger.info("Endpoint:     %s", ENDPOINT)
-    logger.info("Strategy:     %s", spec.strategy.value)
     logger.info("Tickers:      %s", TICKERS)
     logger.info("Years:        %s", YEAR_WHITELIST)
     logger.info("Fields:       %s", "ALL" if FIELDS is None else len(FIELDS))
@@ -96,21 +90,12 @@ def main() -> None:
 
     RAW_ORATS_ROOT.mkdir(parents=True, exist_ok=True)
 
-    year_whitelist = YEAR_WHITELIST
-    if spec.strategy == DownloadStrategy.FULL_HISTORY:
-        if YEAR_WHITELIST is not None:
-            logger.warning(
-                "YEAR_WHITELIST is ignored for FULL_HISTORY endpoint=%s",
-                ENDPOINT,
-            )
-        year_whitelist = None
-
     result = download(
         token=TOKEN,
         endpoint=ENDPOINT,
         raw_root=RAW_ORATS_ROOT,
         tickers=TICKERS,
-        year_whitelist=year_whitelist,
+        year_whitelist=YEAR_WHITELIST,
         fields=FIELDS,
         sleep_s=SLEEP_S,
         overwrite=OVERWRITE,

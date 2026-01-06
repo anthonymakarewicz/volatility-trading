@@ -28,7 +28,7 @@ import os
 from dotenv import load_dotenv
 
 from volatility_trading.config.paths import RAW_ORATS_FTP
-from volatility_trading.etl.orats.ftp.orats_downloader_ftp import download_orats_raw
+from volatility_trading.etl.orats.ftp import download
 
 
 # ----------------------------------------------------------------------------
@@ -70,7 +70,7 @@ def main() -> None:
     else:
         print("Year whitelist: ALL years in the remote base dirs.")
 
-    download_orats_raw(
+    download(
         host=HOST,
         user=user,
         password=password,

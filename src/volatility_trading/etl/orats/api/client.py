@@ -16,7 +16,7 @@ from typing import Any
 
 import requests
 
-from .orats_api_endpoints import get_endpoint_spec
+from .endpoints import get_endpoint_spec
 
 logger = logging.getLogger(__name__)
 

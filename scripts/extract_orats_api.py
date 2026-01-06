@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 
 from volatility_trading.utils.logging_config import setup_logging
-from volatility_trading.etl.orats.api.orats_extractor_api import extract
+from volatility_trading.etl.orats.api import extract
 from volatility_trading.config.paths import RAW_ORATS_API, INTER_ORATS_API
 
 

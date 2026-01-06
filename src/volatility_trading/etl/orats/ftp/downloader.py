@@ -1,26 +1,18 @@
 from __future__ import annotations
 
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from ftplib import FTP
 from pathlib import Path
 
 
-def is_valid_zip(path: Path) -> bool:
-    """
-    Quick check whether a local file is a valid ZIP archive.
+# ----------------------------------------------------------------------------
+# Private Helpers
+# ----------------------------------------------------------------------------
 
-    Parameters
-    ----------
-    path : Path
-        Path to the local .zip file.
-
-    Returns
-    -------
-    bool
-        True if the file can be opened as a ZIP and its namelist read, False otherwise.
-    """
+def _is_valid_zip(path: Path) -> bool:
+    """Quick check whether a local file is a valid ZIP archive."""
     try:
         with zipfile.ZipFile(path, "r") as zf:
             zf.namelist()
@@ -29,7 +21,7 @@ def is_valid_zip(path: Path) -> bool:
         return False
 
 
-def ensure_file(
+def _ensure_file(
     ftp: FTP,
     remote_name: str,
     local_path: Path,
@@ -38,7 +30,8 @@ def ensure_file(
     verbose: bool = True,
 ) -> None:
     """
-    Ensure that `local_path` is a correct, complete copy of `remote_name` on the FTP server.
+    Ensure that `local_path` is a correct, complete copy of `remote_name`
+    on the FTP server.
 
     Logic:
     - If the local file exists:
@@ -47,19 +40,6 @@ def ensure_file(
         - If sizes differ or ZIP is invalid, delete and re-download.
     - If the local file does not exist:
         - Download it without querying the remote size (no MB log).
-
-    Parameters
-    ----------
-    ftp : ftplib.FTP
-        Active FTP connection positioned in the directory containing `remote_name`.
-    remote_name : str
-        File name on the FTP server (relative to current working directory).
-    local_path : Path
-        Local path to save the file.
-    validate_zip : bool, optional
-        If True, also verify that the local file is a valid ZIP archive, by default True.
-    verbose : bool, optional
-        If True, print progress messages, by default True.
     """
     remote_size: int | None = None
 
@@ -74,7 +54,7 @@ def ensure_file(
 
         local_size = local_path.stat().st_size
         if local_size == remote_size:
-            if validate_zip and not is_valid_zip(local_path):
+            if validate_zip and not _is_valid_zip(local_path):
                 if verbose:
                     print(
                         f"    [warn] {remote_name} has correct size but invalid ZIP, "
@@ -143,7 +123,7 @@ def _download_one_year(
                 continue
 
             local_path = local_year_dir / remote_name
-            ensure_file(
+            _ensure_file(
                 ftp,
                 remote_name,
                 local_path,
@@ -157,7 +137,11 @@ def _download_one_year(
             print(f"[worker] Finished {base}/{year_name}")
 
 
-def download_orats_raw(
+# ----------------------------------------------------------------------------
+# Public API (HTTP client)
+# ----------------------------------------------------------------------------
+
+def download(
     *,
     host: str,
     user: str,

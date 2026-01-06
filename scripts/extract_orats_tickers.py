@@ -22,7 +22,7 @@ Usage:
 import logging
 
 from volatility_trading.config.paths import RAW_ORATS_FTP, INTER_ORATS_FTP
-from volatility_trading.etl import extract_tickers_from_orats
+from volatility_trading.etl.orats.ftp import extract
 from volatility_trading.utils.logging_config import setup_logging
 
 
@@ -61,6 +61,7 @@ def main() -> None:
     logger.info("Raw ORATS root:          %s", RAW_ORATS_ROOT)
     logger.info("Output (by-ticker) root: %s", OUT_ROOT)
     logger.info("Tickers:                 %s", TICKERS)
+    
     if YEAR_WHITELIST is not None:
         logger.info("Years:                   %s", sorted(str(y) for y in YEAR_WHITELIST))
     else:
@@ -68,7 +69,7 @@ def main() -> None:
 
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
-    extract_tickers_from_orats(
+    extract(
         raw_root=RAW_ORATS_ROOT,
         out_root=OUT_ROOT,
         tickers=TICKERS,

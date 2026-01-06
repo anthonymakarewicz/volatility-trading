@@ -21,8 +21,8 @@ from typing import Any
 
 import polars as pl
 
-from .orats_api_endpoints import DownloadStrategy, get_endpoint_spec
-from .orats_api_io import (
+from .endpoints import DownloadStrategy, get_endpoint_spec
+from .io import (
     ALLOWED_COMPRESSIONS,
     ensure_dir,
     intermediate_full_history,

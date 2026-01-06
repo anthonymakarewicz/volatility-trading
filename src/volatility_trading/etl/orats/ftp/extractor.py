@@ -12,7 +12,7 @@ from volatility_trading.config.orats_ftp_schemas import STRIKES_VENDOR_DTYPES
 
 logger = logging.getLogger(__name__)
 
-ROOT_COl: str = "ticker"
+ROOT_COL: str = "ticker"
 
 
 def _read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
@@ -50,13 +50,12 @@ def _read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
     return df
 
 
-def extract_tickers_from_orats(
+def extract(
     *,
     raw_root: str | Path,
     out_root: str | Path,
     tickers: Sequence[str],
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
-    root_col: str = ROOT_COl,
 ) -> None:
     """
     Extract multiple tickers from raw ORATS SMV Strikes ZIP files and
@@ -182,23 +181,3 @@ def extract_tickers_from_orats(
         )
 
     logger.info("Finished extracting tickers: %s", ", ".join(tickers))
-
-
-def extract_ticker_from_orats(
-    *,
-    raw_root: str | Path,
-    out_root: str | Path,
-    ticker: str,
-    year_whitelist: Iterable[int] | Iterable[str] | None = None,
-    root_col: str = ROOT_COl,
-) -> None:
-    """
-    Convenience wrapper around `extract_tickers_from_orats` for a single ticker.
-    """
-    extract_tickers_from_orats(
-        raw_root=raw_root,
-        out_root=out_root,
-        tickers=[ticker],
-        year_whitelist=year_whitelist,
-        root_col=root_col,
-    )

@@ -25,8 +25,8 @@ from typing import Any
 import exchange_calendars as xcals
 import requests
 
-from .orats_api_endpoints import DownloadStrategy, get_endpoint_spec
-from .orats_api_io import (
+from .endpoints import DownloadStrategy, get_endpoint_spec
+from .io import (
     ALLOWED_COMPRESSIONS,
     DEFAULT_COMPRESSION,
     ensure_dir,
@@ -34,7 +34,7 @@ from .orats_api_io import (
     raw_path_full_history,
     validate_years,
 )
-from .orats_client_api import OratsClient
+from .client import OratsClient
 
 logger = logging.getLogger(__name__)
 
@@ -636,19 +636,6 @@ def download(
         years_list = None
     else:
         years_list = [int(y) for y in year_whitelist]
-
-    logger.info(
-        "Download requested endpoint=%s tickers=%d years=%s fields=%s "
-        "compression=%s raw_root=%s sleep_s=%s overwrite=%s",
-        endpoint,
-        len(tickers_clean),
-        years_list,
-        (len(fields) if fields is not None else "ALL"),
-        compression,
-        raw_root,
-        sleep_s,
-        overwrite,
-    )
 
     # Resolve endpoint -> (path, required params, download strategy).
     spec = get_endpoint_spec(endpoint)
