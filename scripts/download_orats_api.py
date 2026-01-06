@@ -17,11 +17,11 @@ import os
 from dotenv import load_dotenv
 
 from volatility_trading.utils import setup_logging
-from volatility_trading.data.orats_api_endpoints import (
+from volatility_trading.etl.orats.api.orats_api_endpoints import (
     DownloadStrategy,
     get_endpoint_spec,
 )
-from volatility_trading.data.orats_downloader_api import download
+from volatility_trading.etl.orats.api.orats_downloader_api import download
 from volatility_trading.config.paths import RAW_ORATS_API
 
 

@@ -28,7 +28,7 @@ import os
 from dotenv import load_dotenv
 
 from volatility_trading.config.paths import RAW_ORATS_FTP
-from volatility_trading.data.orats_downloader_ftp import download_orats_raw
+from volatility_trading.etl.orats.ftp.orats_downloader_ftp import download_orats_raw
 
 
 # ----------------------------------------------------------------------------

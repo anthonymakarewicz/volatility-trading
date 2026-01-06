@@ -9,7 +9,7 @@ so you can regenerate panels from the command line.
 """
 
 from volatility_trading.config.paths import INTER_ORATS_FTP, PROC_ORATS
-from volatility_trading.data.orats_panel import build_orats_panel_for_ticker
+from volatility_trading.etl.orats.processed.orats_panel import build_orats_panel_for_ticker
 
 
 # --------------------------------------------------------------------------- #

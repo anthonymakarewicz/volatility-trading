@@ -22,7 +22,7 @@ Usage:
 import logging
 
 from volatility_trading.config.paths import RAW_ORATS_FTP, INTER_ORATS_FTP
-from volatility_trading.data import extract_tickers_from_orats
+from volatility_trading.etl import extract_tickers_from_orats
 from volatility_trading.utils.logging_config import setup_logging
 
 
