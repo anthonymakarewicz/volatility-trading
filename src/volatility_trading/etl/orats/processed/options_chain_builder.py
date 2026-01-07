@@ -4,6 +4,9 @@ import logging
 from collections.abc import Sequence, Iterable
 from pathlib import Path
 
+import time
+from dataclasses import dataclass
+
 import polars as pl
 
 from volatility_trading.config.constants import CALENDAR_DAYS_PER_YEAR
@@ -13,7 +16,102 @@ from volatility_trading.config.paths import INTER_ORATS_API
 
 logger = logging.getLogger(__name__)
 
-# TODO: Replacign filetrign by moneyness with delta ([1%, 99%], DTE outside (1, 252))
+
+# ----------------------------------------------------------------------------
+# Result object
+# ----------------------------------------------------------------------------
+@dataclass(frozen=True)
+class BuildOptionsChainResult:
+    """Summary of a processed options-chain build for one ticker.
+
+    Notes
+    -----
+    When `collect_stats=False`, most counters are left as None to avoid
+    additional scans.
+    """
+    ticker: str
+    out_path: Path
+    duration_s: float
+
+    # Final materialised output
+    n_rows_written: int
+
+    # Optional stats (only when collect_stats=True)
+    n_rows_input: int | None
+    n_rows_after_dedupe: int | None
+
+    n_rows_yield_input: int | None
+    n_rows_yield_after_dedupe: int | None
+    n_rows_join_missing_yield: int | None
+
+    n_rows_after_trading_filter: int | None
+    n_rows_after_hard_filters: int | None
+
+
+# ----------------------------------------------------------------------------
+# Private helpers
+# ----------------------------------------------------------------------------
+
+def _count_rows(lf: pl.LazyFrame) -> int:
+    """Count rows in a LazyFrame (forces a small collect)."""
+    return int(lf.select(pl.len()).collect().item())
+
+
+def _fmt_int(n: int | None) -> str:
+    """Format integers with thousands separators for logging."""
+    if n is None:
+        return "NA"
+    return f"{int(n):,}"
+
+
+def _log_before_after(
+    *,
+    label: str,
+    ticker: str,
+    before: int | None,
+    after: int | None,
+    removed_word: str = "removed",
+) -> None:
+    """Log a standard before/after counter line with percent removed."""
+    if before is None or after is None:
+        return
+    removed = int(before) - int(after)
+    pct = (100.0 * removed / before) if before else 0.0
+    logger.info(
+        "%s ticker=%s before=%s after=%s %s=%s (%.2f%%)",
+        label,
+        ticker,
+        _fmt_int(before),
+        _fmt_int(after),
+        removed_word,
+        _fmt_int(removed),
+        pct,
+    )
+
+
+def _log_total_missing(
+    *,
+    label: str,
+    ticker: str,
+    total: int | None,
+    missing: int | None,
+    total_word: str = "rows",
+    missing_word: str = "missing",
+) -> None:
+    """Log a standard total/missing counter line with percent missing."""
+    if total is None or missing is None:
+        return
+    pct = (100.0 * int(missing) / int(total)) if total else 0.0
+    logger.info(
+        "%s ticker=%s %s=%s %s=%s (%.2f%%)",
+        label,
+        ticker,
+        total_word,
+        _fmt_int(total),
+        missing_word,
+        _fmt_int(missing),
+        pct,
+    )
 
 
 def _scan_strikes_intermediate(
@@ -181,6 +279,10 @@ def _dedupe_on_keys(
     return pl.concat([lf_with, lf_without], how="vertical")
 
 
+# ----------------------------------------------------------------------------
+# Public API
+# ----------------------------------------------------------------------------
+
 def build_options_chain(
     *,
     inter_root: Path | str,
@@ -193,8 +295,9 @@ def build_options_chain(
     moneyness_max: float = 1.5,
     monies_implied_inter_root: Path | str | None = INTER_ORATS_API,
     merge_dividend_yield: bool = True,
+    collect_stats: bool = False,
     columns: Sequence[str] | None = None,
-) -> None:
+) -> BuildOptionsChainResult:
     """
     Build a cleaned, WIDE ORATS panel for a single ticker.
 
@@ -243,6 +346,9 @@ def build_options_chain(
         If True (default), replace/overwrite `dividend_yield` in the options chain
         using `yield_rate` from the monies_implied endpoint joined on
         (ticker, trade_date, expiry_date).
+    collect_stats:
+        If True, collect all the rows counts from filtering operations e.g.
+        removed duplicates, remove negative prices ...
     columns:
         Optional explicit list of columns for the output schema.
         If None, uses CORE_ORATS_WIDE_COLUMNS.
@@ -250,10 +356,24 @@ def build_options_chain(
 
     Returns
     -------
-    None
+    BuildOptionsChainResult
+        Summary including optional row-drop stats when `collect_stats=True`.
     """
     inter_root = Path(inter_root)
     proc_root = Path(proc_root)
+
+    t0 = time.perf_counter()
+
+    # Stats (only filled when collect_stats=True)
+    n_rows_input: int | None = None
+    n_rows_after_dedupe: int | None = None
+
+    n_rows_yield_input: int | None = None
+    n_rows_yield_after_dedupe: int | None = None
+    n_rows_join_missing_yield: int | None = None
+
+    n_rows_after_trading_filter: int | None = None
+    n_rows_after_hard_filters: int | None = None
 
     # --- 1) Scan intermediate per-year parquet files lazily ---
     lf = _scan_strikes_intermediate(
@@ -261,6 +381,15 @@ def build_options_chain(
         ticker=ticker,
         years=years,
     )
+
+    if collect_stats:
+        lf = lf.cache()
+        n_rows_input = _count_rows(lf)
+        logger.info(
+            "Input rows (strikes intermediate) ticker=%s rows=%s",
+            ticker,
+            _fmt_int(n_rows_input),
+        )
 
     # --- 2) Optional OPRA-root filtering (e.g. SPX vs SPXW) ---
     preferred_root = PREFERRED_OPRA_ROOT.get(ticker)
@@ -276,6 +405,11 @@ def build_options_chain(
         "Applying key null-checks and de-duplication for ticker=%s",
         ticker,
     )
+
+    n_before_dedupe: int | None = None
+    if collect_stats:
+        n_before_dedupe = _count_rows(lf)
+
     lf = _dedupe_on_keys(
         lf,
         key_common=["ticker", "trade_date", "expiry_date", "strike"],
@@ -290,6 +424,16 @@ def build_options_chain(
         stable_sort=False,
     )
 
+    if collect_stats:
+        n_rows_after_dedupe = _count_rows(lf)
+        _log_before_after(
+            label="Dedupe (options chain)",
+            ticker=ticker,
+            before=n_before_dedupe,
+            after=n_rows_after_dedupe,
+            removed_word="removed",
+        )
+
     # --- 4) Optionally replace dividend_yield using ORATS API monies_implied ---
     if merge_dividend_yield and monies_implied_inter_root is not None:
         logger.info(
@@ -303,11 +447,34 @@ def build_options_chain(
             endpoint="monies_implied",
         )
 
+        if collect_stats:
+            lf_yield = lf_yield.cache()
+            n_rows_yield_input = _count_rows(lf_yield)
+            logger.info(
+                "Input rows (monies_implied intermediate) ticker=%s rows=%s",
+                ticker,
+                _fmt_int(n_rows_yield_input),
+            )
+
+        n_before_yield_dedupe: int | None = None
+        if collect_stats:
+            n_before_yield_dedupe = _count_rows(lf_yield)
+
         lf_yield = _dedupe_on_keys(
             lf_yield,
             key_common=["ticker", "trade_date", "expiry_date"],
             stable_sort=False,
         )
+
+        if collect_stats:
+            n_rows_yield_after_dedupe = _count_rows(lf_yield)
+            _log_before_after(
+                label="Dedupe (monies_implied)",
+                ticker=ticker,
+                before=n_before_yield_dedupe,
+                after=n_rows_yield_after_dedupe,
+                removed_word="removed",
+            )
 
         # monies_implied is expiry-specific, so join on 
         # (ticker, trade_date, expiry_date)
@@ -323,20 +490,36 @@ def build_options_chain(
             how="left",
         )
 
-        # Replace existing dividend_yield if present; otherwise create it.
-        names = set(lf.collect_schema().names())
-        if "dividend_yield" in names:
-            lf = lf.with_columns(
-                pl.coalesce([
-                    pl.col("_dividend_yield_api"),
-                    pl.col("dividend_yield"),
-                ]).alias("dividend_yield")
-            )
-        else:
-            lf = lf.with_columns(
-                pl.col("_dividend_yield_api").alias("dividend_yield")
-            )
+        if collect_stats:
+            try:
+                n_total_join = _count_rows(lf)
+                n_miss = _count_rows(
+                    lf.filter(pl.col("_dividend_yield_api").is_null())
+                )
+                n_rows_join_missing_yield = n_miss
+                _log_total_missing(
+                    label="Yield join",
+                    ticker=ticker,
+                    total=n_total_join,
+                    missing=n_miss,
+                    total_word="rows",
+                    missing_word="missing",
+                )
+            except Exception:
+                # Best-effort stats only
+                logger.debug(
+                    "Yield-join stats failed for ticker=%s",
+                    ticker,
+                    exc_info=True
+                )
 
+        # Replace existing dividend_yield
+        lf = lf.with_columns(
+            pl.coalesce([
+                pl.col("_dividend_yield_api"),
+                pl.col("dividend_yield"),
+            ]).alias("dividend_yield")
+        )
         lf = lf.drop(["_dividend_yield_api"])
 
     # --- 5) Unify spot for index vs stock/ETF ---
@@ -382,13 +565,35 @@ def build_options_chain(
         ),
     )
     
-    # --- 7) Filters: DTE band, sanity checks, moneyness trim, dead rows ---
+    # --- 7) Filters (two-stage so we can log drops) ---
+    if collect_stats:
+        n_before_filters = _count_rows(lf)
+    else:
+        n_before_filters = None
+
+    # 7A) Trading band filters
     lf = lf.filter(
-        # Trading filter
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("moneyness_ks").is_between(moneyness_min, moneyness_max),
+    )
 
-        # Bad rows
+    if collect_stats:
+        n_rows_after_trading_filter = _count_rows(lf)
+        _log_before_after(
+            label="Trading filters",
+            ticker=ticker,
+            before=n_before_filters,
+            after=n_rows_after_trading_filter,
+            removed_word="dropped",
+        )
+
+    # 7B) Hard sanity filters
+    if collect_stats:
+        n_before_hard = _count_rows(lf)
+    else:
+        n_before_hard = None
+
+    lf = lf.filter(
         pl.col("spot_price") > 0,
         pl.col("strike") > 0,
         pl.col("call_ask_price") >= pl.col("call_bid_price"),
@@ -402,6 +607,16 @@ def build_options_chain(
             & (pl.col("put_model_price") == 0)
         ),
     )
+
+    if collect_stats:
+        n_rows_after_hard_filters = _count_rows(lf)
+        _log_before_after(
+            label="Hard filters",
+            ticker=ticker,
+            before=n_before_hard,
+            after=n_rows_after_hard_filters,
+            removed_word="dropped",
+        )
 
     # --- 8) Put greeks via European put–call parity ---
     disc_q = (-pl.col("dividend_yield") * pl.col("yte")).exp()
@@ -435,10 +650,34 @@ def build_options_chain(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     logger.info(
-        "Writing processed options chain: %s (rows=%d, cols=%d)", 
-        out_path, 
-        df.height, 
-        len(df.columns)
+        "Writing processed options chain: %s (rows=%s, cols=%s)",
+        out_path,
+        _fmt_int(df.height),
+        _fmt_int(len(df.columns)),
     )
 
     df.write_parquet(out_path)
+
+    result = BuildOptionsChainResult(
+        ticker=str(ticker),
+        out_path=out_path,
+        duration_s=time.perf_counter() - t0,
+        n_rows_written=int(df.height),
+        n_rows_input=n_rows_input,
+        n_rows_after_dedupe=n_rows_after_dedupe,
+        n_rows_yield_input=n_rows_yield_input,
+        n_rows_yield_after_dedupe=n_rows_yield_after_dedupe,
+        n_rows_join_missing_yield=n_rows_join_missing_yield,
+        n_rows_after_trading_filter=n_rows_after_trading_filter,
+        n_rows_after_hard_filters=n_rows_after_hard_filters,
+    )
+
+    logger.info(
+        "Finished building options chain ticker=%s "
+        "rows_written=%s duration_s=%.2f",
+        result.ticker,
+        _fmt_int(result.n_rows_written),
+        result.duration_s,
+    )
+
+    return result

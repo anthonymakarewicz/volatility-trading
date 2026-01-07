@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 """
-Build cleaned ORATS panels for a list of tickers from intermediate by-ticker
-parquet files.
+Build processed options-chain panels from intermediate data.
 
-This is a thin wrapper around
+This script is a thin wrapper around:
     volatility_trading.etl.orats.processed.build_options_chain
-so you can regenerate panels from the command line.
+
+It builds a per-ticker options chain under the processed root and (optionally)
+merges dividend/yield information from the ORATS API `monies_implied` endpoint
+(intermediate parquet) to populate/overwrite `dividend_yield`.
 """
 
 import logging
@@ -13,6 +15,7 @@ import logging
 from volatility_trading.utils import setup_logging
 from volatility_trading.etl.orats.processed import build_options_chain
 from volatility_trading.config.paths import (
+    INTER_ORATS_API,
     INTER_ORATS_FTP,
     PROC_ORATS_OPTIONS_CHAIN,
 )
@@ -23,7 +26,12 @@ from volatility_trading.config.paths import (
 # --------------------------------------------------------------------------- #
 
 PROC_ROOT = PROC_ORATS_OPTIONS_CHAIN
-INTER_ROOT = INTER_ORATS_FTP
+INTER_STRIKES_ROOT = INTER_ORATS_FTP
+INTER_API_ROOT = INTER_ORATS_API
+MONIES_IMPLIED_ENDPOINT = "monies_implied"
+
+# Collect and log build stats (dedupe drops, join misses, filter drops)
+COLLECT_STATS = True
 
 # Underlyings to build panels for
 TICKERS = ["SPY"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
@@ -56,18 +64,23 @@ def main() -> None:
     )
     logger = logging.getLogger(__name__)
 
-    logger.info("INTER root: %s", INTER_ROOT)
+    logger.info("INTER strikes root: %s", INTER_STRIKES_ROOT)
+    logger.info("INTER API root:     %s", INTER_API_ROOT)
+    logger.info("API yield endpoint: %s", MONIES_IMPLIED_ENDPOINT)
     logger.info("PROC root:  %s", PROC_ROOT)
     logger.info("Tickers:    %s", TICKERS)
     logger.info("Years:      %s", YEARS)
     logger.info("DTE:        [%s, %s]", DTE_MIN, DTE_MAX)
     logger.info("Moneyness:  [%s, %s]", MONEYNESS_MIN, MONEYNESS_MAX)
     logger.info("Columns:    %s", "DEFAULT" if COLUMNS is None else len(COLUMNS))
+    logger.info("Collect stats: %s", COLLECT_STATS)
+
+    PROC_ROOT.mkdir(parents=True, exist_ok=True)
 
     for ticker in TICKERS:
         logger.info("Building options chain ticker=%s", ticker)
-        build_options_chain(
-            inter_root=INTER_ROOT,
+        result = build_options_chain(
+            inter_root=INTER_STRIKES_ROOT,
             proc_root=PROC_ROOT,
             ticker=ticker,
             years=YEARS,
@@ -76,7 +89,9 @@ def main() -> None:
             moneyness_min=MONEYNESS_MIN,
             moneyness_max=MONEYNESS_MAX,
             columns=COLUMNS,
+            collect_stats=COLLECT_STATS,
         )
+        logger.info("Build result ticker=%s: %s", ticker, result)
 
 
 if __name__ == "__main__":
