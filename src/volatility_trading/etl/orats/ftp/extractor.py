@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+import time
 import zipfile
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from dataclasses import dataclass
 
 import polars as pl
 from polars.exceptions import NoDataError
@@ -21,19 +23,26 @@ ROOT_COL: str = "ticker"
 DATE_FMT: str = "%m/%d/%Y"
 
 
+@dataclass(frozen=True)
+class ExtractFtpResult:
+    """Summary of an ORATS FTP extraction run."""
+    n_zip_files_seen: int
+    n_zip_files_read: int
+    n_zip_files_failed: int
+
+    n_rows_total_before_dedup: int
+    n_rows_total_after_dedup: int
+    n_duplicates_dropped: int
+
+    n_out_files: int
+    duration_s: float
+
+    out_paths: list[Path]
+    failed_paths: list[Path]
+
+
 def _normalize_strikes_vendor_df(df: pl.DataFrame) -> pl.DataFrame:
-    """Normalize a vendor-format ORATS strikes DataFrame.
-
-    Steps
-    -----
-    1) Parse vendor date columns to `pl.Date` (best-effort).
-    2) Rename vendor columns -> canonical columns.
-
-    Notes
-    -----
-    - Vendor dates are expected as strings like MM/DD/YYYY.
-    - Parsing is best-effort (`strict=False`); unparseable values become null.
-    """
+    """Parse vendor date columns and rename vendor columns to canonical."""
     if df.is_empty():
         return df
 
@@ -74,13 +83,7 @@ def _normalize_strikes_vendor_df(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
-    """
-    Open an ORATS SMV Strikes ZIP and return a Polars DataFrame.
-
-    Handles both layouts:
-    - file.csv
-    - some_folder/file.csv
-    """
+    """Read one ORATS strikes ZIP (containing a CSV) into a normalized DataFrame."""
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
 
@@ -115,13 +118,17 @@ def extract(
     out_root: str | Path,
     tickers: Sequence[str],
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
-) -> None:
-    """
-    Extract multiple tickers from raw ORATS SMV Strikes ZIP files and
-    store them as Parquet partitioned by year.
+    strict: bool = True,
+) -> ExtractFtpResult:
+    """Extract ORATS SMV strikes from raw ZIPs into intermediate Parquet.
 
-    Expected local layout (raw_root)
-    --------------------------------
+    This function reads daily ZIP snapshots from the ORATS hosted FTP dump,
+    normalizes vendor columns (date parsing + rename to canonical), filters for
+    the requested tickers, de-duplicates exact rows, and writes Parquet files
+    partitioned by underlying and year.
+
+    Expected raw layout
+    -------------------
     raw_root/
         smvstrikes_2007_2012/
             2007/*.zip
@@ -132,22 +139,50 @@ def extract(
             2014/*.zip
             ...
 
-    Output layout (out_root)
-    ------------------------
+    Output layout
+    -------------
     out_root/
         underlying=<TICKER>/year=<YYYY>/part-0000.parquet
 
-    Notes
-    -----
-    - Each ZIP is read *once*, then filtered for all requested tickers.
-      This is much faster than reading each ZIP once per ticker.
-    - Output DataFrames are normalized to canonical column names.
-    - `trade_date` and `expiry_date` columns are parsed as `pl.Date`.
-    - Duplicate rows are removed before writing.
+    Parameters
+    ----------
+    raw_root:
+        Root directory containing the FTP ZIP dumps.
+    out_root:
+        Output root directory for intermediate Parquet partitions.
+    tickers:
+        Underlying tickers to extract (e.g. ["SPX", "AAPL"]).
+    year_whitelist:
+        Optional year allowlist. If provided, only those year folders are read.
+    strict:
+        If True (default), raise a RuntimeError if any ZIP files failed to read.
+        If False, record failures in the returned result and continue.
+
+    Returns
+    -------
+    ExtractFtpResult
+        Summary including counts, duration, written Parquet paths and failed ZIPs.
+
+    Raises
+    ------
+    RuntimeError
+        If `strict=True` and at least one ZIP failed to read.
     """
     raw_root = Path(raw_root)
     out_root = Path(out_root)
     tickers = list(tickers)
+
+    t0 = time.perf_counter()
+    out_paths: list[Path] = []
+    failed_paths: list[Path] = []
+
+    n_seen = 0
+    n_read = 0
+    n_failed = 0
+
+    n_rows_before = 0
+    n_rows_after = 0
+    n_dupes_dropped = 0
 
     if year_whitelist is not None:
         year_whitelist_str = {str(y) for y in year_whitelist}
@@ -157,9 +192,6 @@ def extract(
     logger.info("=== Extracting tickers: %s ===", ", ".join(tickers))
     logger.info("Raw root: %s", raw_root)
     logger.info("Out root: %s", out_root)
-
-    # collect errors once per ZIP (not per ticker)
-    zip_errors: list[tuple[str, str]] = []  # (zip_path, message)
 
     # iterate over base dirs: smvstrikes_2007_2012, smvstrikes, ...
     for base_dir in sorted(raw_root.iterdir()):
@@ -192,11 +224,14 @@ def extract(
 
             # loop over daily ZIP files in this year
             for zip_path in sorted(year_dir.glob("*.zip")):
+                n_seen += 1
                 logger.debug("Reading %s ...", zip_path.name)
                 try:
                     df = _read_orats_zip_to_polars(zip_path)
+                    n_read += 1
                 except (FileNotFoundError, NoDataError) as e:
-                    zip_errors.append((str(zip_path), str(e)))
+                    n_failed += 1
+                    failed_paths.append(zip_path)
                     logger.error("[ERROR] %s: %s", zip_path, e)
                     continue
 
@@ -218,19 +253,25 @@ def extract(
                     continue
 
                 out_df = pl.concat(dfs, how="vertical").rechunk()
+                before = out_df.height
 
                 # De-duplicate exact duplicate rows (best-effort stable order)
-                before = out_df.height
                 out_df = out_df.unique(maintain_order=True)
                 after = out_df.height
-                if after != before:
+
+                n_rows_before += before
+                n_rows_after += after
+                dropped = before - after
+                if dropped:
+                    n_dupes_dropped += dropped
                     logger.info(
-                        "De-duplicated rows for ticker=%s year=%s: %d -> %d (dropped=%d)",
+                        "De-duplicated rows for ticker=%s year=%s: %d ->"
+                        " %d (dropped=%d)",
                         ticker,
                         year_name,
                         before,
                         after,
-                        before - after,
+                        dropped,
                     )
 
                 out_dir = out_root / f"underlying={ticker}" / f"year={year_name}"
@@ -246,14 +287,36 @@ def extract(
                 )
 
                 out_df.write_parquet(out_path)
+                out_paths.append(out_path)
 
-    # after all base dirs / years
-    if zip_errors:
-        logger.error("=== ERRORS DURING EXTRACTION ===")
-        for path, msg in zip_errors:
-            logger.error("- %s: %s", path, msg)
+    result = ExtractFtpResult(
+        n_zip_files_seen=n_seen,
+        n_zip_files_read=n_read,
+        n_zip_files_failed=n_failed,
+        n_rows_total_before_dedup=n_rows_before,
+        n_rows_total_after_dedup=n_rows_after,
+        n_duplicates_dropped=n_dupes_dropped,
+        n_out_files=len(out_paths),
+        duration_s=time.perf_counter() - t0,
+        out_paths=out_paths,
+        failed_paths=failed_paths,
+    )
+
+    logger.info(
+        "Finished FTP extract seen=%d read=%d "
+        "written=%d failed=%d rows=%d duration_s=%.2f",
+        result.n_zip_files_seen,
+        result.n_zip_files_read,
+        result.n_out_files,
+        result.n_zip_files_failed,
+        result.n_rows_total_after_dedup,
+        result.duration_s,
+    )
+
+    if strict and result.n_zip_files_failed:
         raise RuntimeError(
-            f"Extraction finished with {len(zip_errors)} problematic ZIP files."
+            f"Extraction finished with {result.n_zip_files_failed} "
+            "problematic ZIP files."
         )
 
-    logger.info("Finished extracting tickers: %s", ", ".join(tickers))
+    return result

@@ -36,26 +36,20 @@ OUT_ROOT = INTER_ORATS_FTP
 # Choose which tickers you want to extract
 TICKERS = [
     "SPX", 
-    "NDX", 
-    "VIX",
-    "SPY",
-    "QQQ",
-    "IWM",
-    "AAPL",
-    "TSLA",
-    "NVDA",
-    "MSFT",
 ]
 
 # Restrict to specific years if you want (ints or strings), or None for all:
 # YEAR_WHITELIST = {2013, 2014}
-YEAR_WHITELIST = None
+YEAR_WHITELIST = [2007]
 
 # Logging
 LOG_LEVEL = "DEBUG"  # change to "DEBUG" for more detail
 LOG_FMT_CONSOLE = "%(asctime)s %(levelname)s %(shortname)s - %(message)s" 
 LOG_FILE = None  # e.g. "logs/extract_orats_tickers.log"
 LOG_COLORED = True
+
+# Raise an exception at the end for failed zip files
+STRICT = True
 
 
 def main() -> None:
@@ -78,11 +72,12 @@ def main() -> None:
 
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
-    extract(
+    result = extract(
         raw_root=RAW_ORATS_ROOT,
         out_root=OUT_ROOT,
         tickers=TICKERS,
         year_whitelist=YEAR_WHITELIST,
+        strict=STRICT,
     )
 
 
