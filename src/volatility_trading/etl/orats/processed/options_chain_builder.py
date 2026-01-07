@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence, Iterable
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from volatility_trading.config.constants import CALENDAR_DAYS_PER_YEAR
 from volatility_trading.config.instruments import PREFERRED_OPRA_ROOT
 from volatility_trading.config.orats_ftp_schemas import STRIKES_KEEP_CANONICAL
 
+logger = logging.getLogger(__name__)
+
 # TODO: Replacign filetrign by moneyness with delta ([1%, 99%], DTE outside (1, 252))
 
 
@@ -16,8 +19,6 @@ def _scan_orats_intermediate(
     inter_root: Path | str,
     ticker: str,
     years: Iterable[int] | Iterable[str] | None = None,
-    *,
-    verbose: bool = True,
 ) -> pl.LazyFrame:
     """
     Build a lazy scan over intermediate ORATS files for a single ticker.
@@ -35,9 +36,8 @@ def _scan_orats_intermediate(
             f"No ORATS directory found for {ticker!r} at {root}"
         )
 
-    if verbose:
-        print(f"\n=== Building ORATS WIDE panel for {ticker} ===")
-        print(f"Reading from: {root}")
+    logger.info("Building ORATS options chain for ticker=%s", ticker)
+    logger.info("Reading intermediate from: %s", root)
 
     # optional year whitelist (as strings, e.g. {"2009", "2010"})
     if years is not None:
@@ -59,12 +59,10 @@ def _scan_orats_intermediate(
 
         part = year_dir / "part-0000.parquet"
         if not part.exists():
-            if verbose:
-                print(f"  [skip] missing {part}")
+            logger.debug("Skipping missing intermediate file: %s", part)
             continue
 
-        if verbose:
-            print(f"  [scan] {part}")
+        logger.debug("Scanning intermediate file: %s", part)
         scans.append(pl.scan_parquet(str(part)))
 
     if not scans:
@@ -83,6 +81,56 @@ def _get_options_chain_path(proc_root: Path,ticker: str) -> Path:
     return proc_root / f"underlying={t}" / "part-0000.parquet"
 
 
+def _dedupe_on_keys(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Drop exact duplicates using best-available key columns.
+
+    Strategy
+    --------
+    - If both OPRA codes are present, dedupe on:
+        (ticker, trade_date, strike, call_opra, put_opra)
+    - If OPRA codes are missing (older data), dedupe on:
+        (ticker, trade_date, expiry_date, strike)
+
+    Returns
+    -------
+    pl.LazyFrame
+        LazyFrame with duplicates removed.
+    """
+    key_common = ["ticker", "trade_date", "expiry_date", "strike"]
+    key_with_opra = ["ticker", "trade_date", "strike", "call_opra", "put_opra"]
+
+    schema = lf.collect_schema()
+    names = set(schema.names())
+
+    # Null removal on the always-required keys.
+    req_exprs: list[pl.Expr] = []
+    for c in key_common:
+        if c in names:
+            req_exprs.append(pl.col(c).is_not_null())
+
+    if req_exprs:
+        lf = lf.filter(pl.all_horizontal(req_exprs))
+
+    has_opra_cols = ("call_opra" in names) and ("put_opra" in names)
+    # Duplicates removal
+    if not has_opra_cols:
+        return lf.unique(subset=key_common, maintain_order=True)
+
+    lf_with = lf.filter(
+        pl.col("call_opra").is_not_null()
+        & pl.col("put_opra").is_not_null()
+    )
+    lf_without = lf.filter(
+        pl.col("call_opra").is_null()
+        | pl.col("put_opra").is_null()
+    )
+
+    lf_with = lf_with.unique(subset=key_with_opra, maintain_order=True)
+    lf_without = lf_without.unique(subset=key_common, maintain_order=True)
+
+    return pl.concat([lf_with, lf_without], how="vertical")
+
+
 def build_options_chain(
     *,
     inter_root: Path | str,
@@ -94,7 +142,6 @@ def build_options_chain(
     moneyness_min: float = 0.5,
     moneyness_max: float = 1.5,
     columns: Sequence[str] | None = None,
-    verbose: bool = True,
 ) -> Path:
     """
     Build a cleaned, WIDE ORATS panel for a single ticker.
@@ -138,8 +185,6 @@ def build_options_chain(
         Optional explicit list of columns for the output schema.
         If None, uses CORE_ORATS_WIDE_COLUMNS.
         REQUIRED_ORATS_WIDE_COLUMNS must always be included.
-    verbose:
-        If True, print basic progress messages.
 
     Returns
     -------
@@ -154,10 +199,9 @@ def build_options_chain(
         inter_root=inter_root,
         ticker=ticker,
         years=years,
-        verbose=verbose,
     )
 
-    # --- 2a) Optional OPRA-root filtering (e.g. SPX vs SPXW) ---
+    # --- 2) Optional OPRA-root filtering (e.g. SPX vs SPXW) ---
     preferred_root = PREFERRED_OPRA_ROOT.get(ticker)
     if preferred_root is not None:
         lf = lf.filter(
@@ -166,7 +210,14 @@ def build_options_chain(
             | pl.col("call_opra").str.starts_with(preferred_root)
         )
 
-    # --- 3) Unify spot for index vs stock/ETF ---
+    # --- 3) Remove duplicates rows & remove Nan in core cols ---
+    logger.info(
+        "Applying key null-checks and de-duplication for ticker=%s",
+        ticker
+    )
+    lf = _dedupe_on_keys(lf)
+
+    # --- 4) Unify spot for index vs stock/ETF ---
     """
     For index options:
         spot_price = cash index
@@ -211,12 +262,15 @@ def build_options_chain(
     
     # --- 6) Filters: DTE band, sanity checks, moneyness trim, dead rows ---
     lf = lf.filter(
+        # Trading filter
         pl.col("dte").is_between(dte_min, dte_max),
+        pl.col("moneyness_ks").is_between(moneyness_min, moneyness_max),
+
+        # Bad rows
         pl.col("spot_price") > 0,
         pl.col("strike") > 0,
         pl.col("call_ask_price") >= pl.col("call_bid_price"),
         pl.col("put_ask_price") >= pl.col("put_bid_price"),
-        pl.col("moneyness_ks").is_between(moneyness_min, moneyness_max),
         ~(
             (pl.col("call_bid_price") == 0)
             & (pl.col("call_ask_price") == 0)
@@ -249,6 +303,8 @@ def build_options_chain(
     # --- 8) Final column selection & materialisation ---
     if columns is None:
         cols = STRIKES_KEEP_CANONICAL
+    else:
+        cols = columns
 
     lf = lf.sort(["trade_date", "expiry_date", "strike"])
     df = lf.select(cols).collect()
@@ -256,11 +312,12 @@ def build_options_chain(
     out_path = _get_options_chain_path(proc_root=proc_root, ticker=ticker)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if verbose:
-        print(
-            f"Writing cleaned WIDE panel to: {out_path} "
-            f"(rows={df.height}, cols={len(df.columns)})"
-        )
+    logger.info(
+        "Writing processed options chain: %s (rows=%d, cols=%d)", 
+        out_path, 
+        df.height, 
+        len(df.columns)
+    )
 
     df.write_parquet(out_path)
     return out_path
