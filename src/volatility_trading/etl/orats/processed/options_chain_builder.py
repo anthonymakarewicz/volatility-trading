@@ -4,7 +4,6 @@ from collections.abc import Sequence, Iterable
 from pathlib import Path
 
 import polars as pl
-import numpy as np
 
 from volatility_trading.config.constants import CALENDAR_DAYS_PER_YEAR
 from volatility_trading.config.instruments import PREFERRED_OPRA_ROOT
@@ -13,7 +12,7 @@ from volatility_trading.config.orats_ftp_schemas import STRIKES_KEEP_CANONICAL
 # TODO: Replacign filetrign by moneyness with delta ([1%, 99%], DTE outside (1, 252))
 
 
-def _scan_orats_intermediate_for_ticker(
+def _scan_orats_intermediate(
     inter_root: Path | str,
     ticker: str,
     years: Iterable[int] | Iterable[str] | None = None,
@@ -77,7 +76,14 @@ def _scan_orats_intermediate_for_ticker(
     return pl.concat(scans, how="diagonal")
 
 
-def build_orats_panel_for_ticker(
+def _get_options_chain_path(proc_root: Path,ticker: str) -> Path:
+    t = str(ticker).strip()
+    if not t:
+        raise ValueError("ticker must be non-empty")
+    return proc_root / f"underlying={t}" / "part-0000.parquet"
+
+
+def build_options_chain(
     *,
     inter_root: Path | str,
     proc_root: Path | str,
@@ -144,7 +150,7 @@ def build_orats_panel_for_ticker(
     proc_root = Path(proc_root)
 
     # --- 1) Scan intermediate per-year parquet files lazily ---
-    lf = _scan_orats_intermediate_for_ticker(
+    lf = _scan_orats_intermediate(
         inter_root=inter_root,
         ticker=ticker,
         years=years,
@@ -247,8 +253,8 @@ def build_orats_panel_for_ticker(
     lf = lf.sort(["trade_date", "expiry_date", "strike"])
     df = lf.select(cols).collect()
 
-    proc_root.mkdir(parents=True, exist_ok=True)
-    out_path = proc_root / f"orats_panel_{ticker}.parquet"
+    out_path = _get_options_chain_path(proc_root=proc_root, ticker=ticker)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if verbose:
         print(

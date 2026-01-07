@@ -4,20 +4,26 @@ Build cleaned ORATS panels for a list of tickers from intermediate by-ticker
 parquet files.
 
 This is a thin wrapper around
-    volatility_trading.data.orats_panel.build_orats_panel_for_ticker
+    volatility_trading.etl.orats.processed.build_options_chain
 so you can regenerate panels from the command line.
 """
 
-from volatility_trading.config.paths import INTER_ORATS_FTP, PROC_ORATS
-from volatility_trading.etl.orats.processed.orats_panel import build_orats_panel_for_ticker
+from volatility_trading.etl.orats.processed import build_options_chain
+from volatility_trading.config.paths import (
+    INTER_ORATS_FTP, 
+    PROC_ORATS_OPTIONS_CHAIN,
+)
 
 
 # --------------------------------------------------------------------------- #
 # CONFIG
 # --------------------------------------------------------------------------- #
 
+PROC_ROOT = PROC_ORATS_OPTIONS_CHAIN
+INTER_ROOT = INTER_ORATS_FTP
+
 # Underlyings to build panels for
-TICKERS = ["SPY"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
+TICKERS = ["SPX"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
 
 # Restrict to a subset of years, or None for all available
 YEARS = None # e.g. range(2007, 2026)
@@ -35,9 +41,9 @@ COLUMNS = None
 def main() -> None:
     for ticker in TICKERS:
         print(f"\n=== Building panel for {ticker} ===")
-        build_orats_panel_for_ticker(
-            inter_root=INTER_ORATS_FTP,
-            proc_root=PROC_ORATS,
+        build_options_chain(
+            inter_root=INTER_ROOT,
+            proc_root=PROC_ROOT,
             ticker=ticker,
             years=YEARS,
             dte_min=DTE_MIN,
