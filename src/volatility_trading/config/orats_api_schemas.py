@@ -125,7 +125,7 @@ _MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     # Keys
     "ticker": "ticker",
     "tradeDate": "trade_date",
-    "expirDate": "expiry",
+    "expirDate": "expiry_date",
 
     # Underlying + rates
     "stockPrice": "underlying_price",
@@ -185,7 +185,7 @@ _MONIES_IMPLIED_KEEP_CANONICAL: tuple[str, ...] = (
     # Keys
     "ticker",
     "trade_date",
-    "expiry",
+    "expiry_date",
 
     # Underlying + rates
     "underlying_price",
@@ -199,7 +199,7 @@ _MONIES_IMPLIED_KEEP_CANONICAL: tuple[str, ...] = (
     "residual_r2",
     "confidence",
 
-    # Vol surface summary at expiry
+    # Vol surface summary at expiry_date
     "atm_iv",
     "cal_vol",
     "unadj_vol",

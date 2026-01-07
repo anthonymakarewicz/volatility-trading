@@ -26,7 +26,7 @@ PROC_ROOT = PROC_ORATS_OPTIONS_CHAIN
 INTER_ROOT = INTER_ORATS_FTP
 
 # Underlyings to build panels for
-TICKERS = ["SPX"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
+TICKERS = ["SPY"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
 
 # Restrict to a subset of years, or None for all available
 YEARS = None # e.g. range(2007, 2026)
