@@ -184,52 +184,54 @@ _STRIKES_KEEP_CANONICAL: tuple[str, ...] = (
     "ticker",
     "trade_date",
     "expiry_date",
-    "dte",
     "yte",
-
-    # underlying & strike
-    "underlying_price",
-    "spot_price",
     "strike",
 
-    # volume & open interest
+    # underlying
+    "underlying_price",
+    "spot_price",
+
+    # identifiers (useful for de-dupe; optional but I’d keep)
+    "call_opra",
+    "put_opra",
+
+    # volume / OI
     "call_volume",
     "put_volume",
     "call_open_interest",
     "put_open_interest",
 
-    # prices
+    # quotes
     "call_bid_price",
-    "call_mid_price",
     "call_model_price",
     "call_ask_price",
-    "call_rel_spread",
     "put_bid_price",
-    "put_mid_price",
     "put_model_price",
     "put_ask_price",
-    "put_rel_spread",
 
-    # main vols
+    # vols
     "smoothed_iv",
     "call_mid_iv",
     "put_mid_iv",
 
-    # Greeks (already split C/P)
+    # curves
+    "risk_free_rate",
+    "dividend_yield",
+    "residual_rate_data",
+
+    # call greeks (vendor only)
     "call_delta",
     "call_gamma",
     "call_theta",
     "call_vega",
     "call_rho",
-    "put_delta",
-    "put_gamma",
-    "put_theta",
-    "put_vega",
-    "put_rho",
 
-    # curves
-    "risk_free_rate",
-    "dividend_yield",
+    # optional vendor-only columns if you actually use them downstream
+    # "phi",
+    # "driftless_theta",
+    # "ext_iv",
+    # "ext_call_theo",
+    # "ext_put_theo",
 )
 
 

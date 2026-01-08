@@ -76,6 +76,12 @@ def _normalize_strikes_vendor_df(df: pl.DataFrame) -> pl.DataFrame:
     if mapping:
         df = df.rename(mapping)
 
+    # 3) Keep only canonical columns requested by the schema (best-effort)
+    if getattr(spec, "keep_canonical", None):
+        keep = [c for c in spec.keep_canonical if c in df.columns]
+        if keep:
+            df = df.select(keep)
+
     return df
 
 

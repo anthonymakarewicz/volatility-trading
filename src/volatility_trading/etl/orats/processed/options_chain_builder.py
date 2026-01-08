@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence, Iterable
-from pathlib import Path
-
 import time
+from collections.abc import Sequence, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 
 import polars as pl
 
@@ -18,6 +17,60 @@ from volatility_trading.config.orats.ftp_schemas import (
 from volatility_trading.config.paths import INTER_ORATS_API
 
 logger = logging.getLogger(__name__)
+
+
+OPTIONS_CHAIN_CORE_COLUMNS: tuple[str, ...] = (
+    # identifiers / dates
+    "ticker",
+    "trade_date",
+    "expiry_date",
+    "dte",
+    "yte",
+
+    # underlying & strike
+    "underlying_price",
+    "spot_price",
+    "strike",
+
+    # volume & open interest
+    "call_volume",
+    "put_volume",
+    "call_open_interest",
+    "put_open_interest",
+
+    # prices
+    "call_bid_price",
+    "call_mid_price",
+    "call_model_price",
+    "call_ask_price",
+    "call_rel_spread",
+    "put_bid_price",
+    "put_mid_price",
+    "put_model_price",
+    "put_ask_price",
+    "put_rel_spread",
+
+    # vols
+    "smoothed_iv",
+    "call_mid_iv",
+    "put_mid_iv",
+
+    # greeks (C + parity-derived P)
+    "call_delta",
+    "call_gamma",
+    "call_theta",
+    "call_vega",
+    "call_rho",
+    "put_delta",
+    "put_gamma",
+    "put_theta",
+    "put_vega",
+    "put_rho",
+
+    # curves
+    "risk_free_rate",
+    "dividend_yield",
+)
 
 
 # ----------------------------------------------------------------------------
@@ -299,8 +352,8 @@ def build_options_chain(
     moneyness_max: float = 1.5,
     monies_implied_inter_root: Path | str | None = INTER_ORATS_API,
     merge_dividend_yield: bool = True,
-    collect_stats: bool = False,
-    columns: Sequence[str] | None = None,
+    collect_stats: bool = True,
+    columns: Sequence[str] | None = OPTIONS_CHAIN_CORE_COLUMNS,
 ) -> BuildOptionsChainResult:
     """
     Build a cleaned, WIDE ORATS panel for a single ticker.
@@ -355,8 +408,7 @@ def build_options_chain(
         removed duplicates, remove negative prices ...
     columns:
         Optional explicit list of columns for the output schema.
-        If None, uses CORE_ORATS_WIDE_COLUMNS.
-        REQUIRED_ORATS_WIDE_COLUMNS must always be included.
+        If None, uses OPTIONS_CHAIN_CORE_COLUMNS.
 
     Returns
     -------
@@ -643,7 +695,7 @@ def build_options_chain(
 
     # --- 9) Final column selection & materialisation ---
     if columns is None:
-        cols = spec.keep_canonical
+        cols = OPTIONS_CHAIN_CORE_COLUMNS
     else:
         cols = columns
 
