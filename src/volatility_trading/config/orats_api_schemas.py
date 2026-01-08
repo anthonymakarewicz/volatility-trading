@@ -9,7 +9,9 @@ These specs are meant for the **raw -> intermediate** step:
 - select a curated set of columns to keep in intermediate
 - cast columns to stable Polars dtypes
 - parse date/datetime columns
-- (optional) null-out obviously-bad numeric outliers using bounds
+- (optional) apply numeric bounds in two tiers:
+  - drop rows when structural columns are out-of-bounds (bounds_drop_canonical)
+  - set values to null when non-structural columns are out-of-bounds (bounds_null_canonical)
 """
 from __future__ import annotations
 
@@ -39,7 +41,13 @@ class EndpointSchemaSpec:
         Mapping from ORATS API field name -> canonical column name.
     keep_canonical:
         Canonical column names to keep in intermediate (after rename).
-    bounds_canonical:
+    bounds_drop_canonical:
+        Optional mapping canonical numeric column -> (lo, hi) bounds.
+        Rows with values outside bounds should be dropped.
+
+        Use this sparingly, mainly to prevent absurd values from breaking
+        ingestion (e.g., 1e147). This is not meant to be strategy QC.
+    bounds_null_canonical:
         Optional mapping canonical numeric column -> (lo, hi) bounds.
         Values outside bounds should be set to null.
 
@@ -51,7 +59,8 @@ class EndpointSchemaSpec:
     keep_canonical: tuple[str, ...]
     vendor_date_cols: tuple[str, ...] = ()
     vendor_datetime_cols: tuple[str, ...] = ()
-    bounds_canonical: dict[str, tuple[float, float]] | None = None
+    bounds_drop_canonical: dict[str, tuple[float, float]] | None = None
+    bounds_null_canonical: dict[str, tuple[float, float]] | None = None
 
 
 # -----------------------------------------------------------------------------
@@ -212,17 +221,22 @@ _MONIES_IMPLIED_KEEP_CANONICAL: tuple[str, ...] = (
 )
 
 
-_MONIES_IMPLIED_BOUNDS_CANONICAL: dict[str, tuple[float, float]] = {
-    # vols / effects should never be astronomically large
+_MONIES_IMPLIED_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
+    # Structural fields: if these are absurd, the row is unusable.
+    "underlying_price": (0.0, 1e7),
+    "spot_price": (0.0, 1e7),
+}
+
+
+_MONIES_IMPLIED_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
+    # Vols / effects should never be astronomically large
     "atm_iv": (0.0, 10.0),
     "cal_vol": (0.0, 10.0),
     "unadj_vol": (0.0, 10.0),
     "earn_effect": (-10.0, 10.0),
 
-    # rates/yields should be within sane annualized ranges
+    # Rates/yields should be within sane annualized ranges
     "risk_free_rate": (-1.0, 1.0),
-    "underlying_price": (0.0, 1e7),
-    "spot_price": (0.0, 1e7),
     "yield_rate": (-1.0, 1.0),
     "residual_yield_rate": (-1.0, 1.0),
     "residual_rate_slp": (-10.0, 10.0),
@@ -403,7 +417,13 @@ _SUMMARIES_KEEP_CANONICAL: tuple[str, ...] = (
 )
 
 
-_SUMMARIES_BOUNDS_CANONICAL: dict[str, tuple[float, float]] = {
+_SUMMARIES_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
+    # Structural fields: if these are absurd, the row is unusable.
+    "underlying_price": (0.0, 1e7),
+}
+
+
+_SUMMARIES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     # IVs and related quantities should never be astronomically large
     "iv_10d": (0.0, 10.0),
     "iv_20d": (0.0, 10.0),
@@ -438,7 +458,8 @@ API_SCHEMAS: Final[dict[str, EndpointSchemaSpec]] = {
         vendor_datetime_cols=_MONIES_IMPLIED_VENDOR_DATETIME_COLS,
         renames_vendor_to_canonical=_MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL,
         keep_canonical=_MONIES_IMPLIED_KEEP_CANONICAL,
-        bounds_canonical=_MONIES_IMPLIED_BOUNDS_CANONICAL,
+        bounds_drop_canonical=_MONIES_IMPLIED_BOUNDS_DROP_CANONICAL,
+        bounds_null_canonical=_MONIES_IMPLIED_BOUNDS_NULL_CANONICAL,
     ),
     "summaries": EndpointSchemaSpec(
         vendor_dtypes=_SUMMARIES_VENDOR_DTYPES,
@@ -446,7 +467,8 @@ API_SCHEMAS: Final[dict[str, EndpointSchemaSpec]] = {
         vendor_datetime_cols=_SUMMARIES_VENDOR_DATETIME_COLS,
         renames_vendor_to_canonical=_SUMMARIES_RENAMES_VENDOR_TO_CANONICAL,
         keep_canonical=_SUMMARIES_KEEP_CANONICAL,
-        bounds_canonical=_SUMMARIES_BOUNDS_CANONICAL,
+        bounds_drop_canonical=_SUMMARIES_BOUNDS_DROP_CANONICAL,
+        bounds_null_canonical=_SUMMARIES_BOUNDS_NULL_CANONICAL,
     ),
 }
 

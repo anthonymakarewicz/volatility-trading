@@ -1,16 +1,47 @@
+"""volatility_trading.config.orats_ftp_schemas
+
+ORATS FTP (SMV Strikes) schema definitions.
+
+This module is intentionally **mechanical**: it defines the column contracts
+needed by the ETL pipeline to ingest the ORATS-hosted FTP "smvstrikes" CSVs
+and normalize them into our canonical snake_case schema.
+
+Scope
+-----
+These constants are used by:
+- **raw -> intermediate** extraction (vendor dtypes + vendor date parsing)
+- **intermediate -> processed** builds (rename to canonical, column selection)
+- optional **bounds** handling in processed (drop vs null tiers)
+
+Naming convention
+-----------------
+- `STRIKES_VENDOR_*`    : raw ORATS/FTP column names (as seen in the CSVs)
+- `STRIKES_CANONICAL_*` : canonical (our snake_case) column names
+
+Notes
+-----
+- Vendor date columns are ingested as strings and parsed to `pl.Date` during
+  normalization (FTP uses month/day/year formatting).
+- Bounds are expressed in **canonical** names and are meant to prevent
+  pathological values from contaminating downstream features.
+"""
 from __future__ import annotations
 
 import polars as pl
 
-# --- ORATS SMV Strikes schema (Near-EOD) ------------------------------------ #
-# Naming convention in this module:
-# - STRIKES_VENDOR_*  : raw ORATS/FTP column names
-# - STRIKES_CANONICAL_* : canonical (your snake_case) column names
-# Dtypes are chosen to be robust for ETL:
-# - prices/greeks/rates/IVs  -> Float64
-# - volumes / open interest  -> Int64
-# - dates                    -> Utf8 (parsed to Date later in cleaning)
-# - tickers                  -> Utf8
+
+# -------------------------------------------------------------------------
+# Dtypes (vendor)
+# -------------------------------------------------------------------------
+# Dtypes are chosen to be robust for ingestion:
+# - Identifiers                    -> Utf8
+# - Prices / IVs / Greeks / Rates  -> Float64
+# - Volumes / Open interest        -> Int64
+# - Dates                          -> Utf8 (parsed later; see *_VENDOR_DATE_COLS)
+#
+# Rationale: the FTP CSVs can contain missing values or occasional type noise.
+# Using explicit dtypes avoids costly inference and keeps the raw->intermediate
+# step stable across years.
 
 STRIKES_VENDOR_DTYPES = {
     # identifiers
@@ -71,77 +102,27 @@ STRIKES_VENDOR_DTYPES = {
     "trade_date": pl.Utf8,
 }
 
+
+# -------------------------------------------------------------------------
+# Date/datetime columns (vendor)
+# -------------------------------------------------------------------------
+# These columns are present as strings in the FTP extracts and should be
+# parsed during normalization.
+#
+# - `trade_date` and `expirDate` are typically formatted as MM/DD/YYYY.
+# - Datetime columns are not currently provided by this FTP dataset.
+
 STRIKES_VENDOR_DATE_COLS: tuple[str, ...] = ("trade_date", "expirDate")
-STRIKES_VENDOR_DATETIME_COLS: tuple[str, ...] = ()  
+STRIKES_VENDOR_DATETIME_COLS: tuple[str, ...] = ()
 
 
-STRIKES_VENDOR_COL_DOCS = {
-    "ticker": "Underlying symbol representing the stock or index.",
-    "cOpra": (
-        "Full OCC/OPRA symbol for the call contract (present from ~2010 onward)"
-        "(e.g. 'SPXW140118C01375000')."
-    ),
-    "pOpra": (
-        "Full OCC/OPRA symbol for the put contract (present from ~2010 onward)"
-        "(e.g. 'SPXW140118P01375000')."
-    ),
-    "stkPx": (
-        "Current price of the underlying stock at the time of the "
-        "options snapshot capture (14 minutes before the close)."
-        "For indexes, this is the solved implied futures price "
-        "using put-call parity for each expiration."
-    ),
-    "expirDate": "Calendar date on which the option expires (MM/DD/YYYY).",
-    "yte": "Time to expiration expressed in years.",
-    "strike": "Strike price at which the option can be exercised.",
-
-    "cVolu": "Total number of call contracts traded on the quote date.",
-    "pVolu": "Total number of put contracts traded on the quote date.",
-    "cOi": "Total outstanding call open interest reported by OCC the night before.",
-    "pOi": "Total outstanding put open interest reported by OCC the night before.",
-
-    "cBidPx": "NBBO bid price at which a market maker is willing to buy the call.",
-    "cValue": "Theoretical call value based on a smooth volatility assumption.",
-    "cAskPx": "NBBO ask price at which a market maker is willing to sell the call.",
-
-    "pBidPx": "NBBO bid price at which a market maker is willing to buy the put.",
-    "pValue": "Theoretical put value based on a smooth volatility assumption.",
-    "pAskPx": "NBBO ask price at which a market maker is willing to sell the put.",
-
-    "cBidIv": "Implied volatility of the call at the NBBO bid price.",
-    "cMidIv": "Implied volatility of the call at the NBBO mid price.",
-    "cAskIv": "Implied volatility of the call at the NBBO ask price.",
-    "smoothSmvVol": "Smoothed implied volatility from the ORATS surface model.",
-
-    "pBidIv": "Implied volatility of the put at the NBBO bid price.",
-    "pMidIv": "Implied volatility of the put at the NBBO mid price.",
-    "pAskIv": "Implied volatility of the put at the NBBO ask price.",
-
-    "iRate": "Continuously-compounded risk-free interest rate.",
-    "divRate": "Continuous dividend yield implied by discrete dividends / borrow.",
-    "residualRateData": "Residual interest rate inferred from the option pricing model.",
-
-    "delta": "Change in option price for a one-unit change in underlying price.",
-    "gamma": "Change in delta for a one-unit change in underlying price.",
-    "theta": "One-day time decay of the option's value.",
-    "vega": "Change in option price for a one-point change in implied volatility.",
-    "rho": "Change in option price for a one-percent change in interest rates.",
-    "phi": "Convexity measure of the option price with respect to underlying price.",
-    "driftlessTheta": "Theta of the option ignoring drift in the underlying price.",
-
-    "extVol": "External implied volatility for the underlying, from the ORATS forecast volatility.",
-    "extCTheo": "External theoretical value of the call, from a third-party source.",
-    "extPTheo": "External theoretical value of the put, from a third-party source.",
-
-    "spot_px": ("The current market price of the underlying asset."
-                "For indexes this is the cash price."
-    ),
-    "trade_date": "Date on which the option was traded / quoted (as string MM/DD/YYYY).",
-}
-
-
-# --- ORATS processed WIDE panel schema ------------------------------------- #
-# This describes the *processed* per-ticker panel written by build_orats_panel_for_ticker.
+# -------------------------------------------------------------------------
+# Renames (vendor -> canonical)
+# -------------------------------------------------------------------------
+# Maps raw ORATS/FTP field names into our canonical snake_case schema.
+#
+# This is used after vendor parsing/casting. Downstream code should reference
+# **canonical** names only.
 
 STRIKES_RENAMES_VENDOR_TO_CANONICAL = {
     # identifiers
@@ -150,10 +131,10 @@ STRIKES_RENAMES_VENDOR_TO_CANONICAL = {
     "pOpra": "put_opra",
 
     # underlying / dates
-    "stkPx": "underlying_price",   # stock/ETF: spot; index: parity-implied forward per expiry
+    "stkPx": "underlying_price",  # stock/ETF: spot; index: parity-implied forward per expiry
     "spot_px": "spot_price",      # cash spot for stock/ETF and index (same across expiries)
-    "expirDate": "expiry_date",   
-    "trade_date": "trade_date", 
+    "expirDate": "expiry_date",
+    "trade_date": "trade_date",
     "yte": "yte",
     "strike": "strike",
 
@@ -202,51 +183,108 @@ STRIKES_RENAMES_VENDOR_TO_CANONICAL = {
     "extPTheo": "ext_put_theo",
 }
 
-STRIKES_CANONICAL_COL_DOCS = {
-    # New / derived stuff (worth documenting explicitly)
-    "dte": "Days to expiry: expiry_date - trade_date in calendar days.",
-    "moneyness_ks": "Strike divided by spot_price (K / S), dimensionless moneyness.",
 
-    "call_mid_price": "Mid price for the call: (call_bid + call_ask) / 2.",
-    "put_mid_price": "Mid price for the put: (put_bid + put_ask) / 2.",
+# -------------------------------------------------------------------------
+# Bounds (canonical)
+# -------------------------------------------------------------------------
+# Bounds are expressed in canonical column names.
+#
+# Purpose
+# -------
+# Prevent pathological values (e.g. 1e147, negative prices, etc.) from
+# contaminating downstream features and joins.
+#
+# Two tiers
+# ---------
+# - *_DROP_* : out-of-bounds => drop the whole row (structural invalidity)
+# - *_NULL_* : out-of-bounds => set the value to null (row can survive)
+#
+# Guidance
+# --------
+# Keep these bounds *wide* and mechanical. Strategy-specific filters belong
+# in processed builders / research code.
 
-    "call_spread": "Call bid–ask spread in price units: call_ask - call_bid.",
-    "put_spread": "Put bid–ask spread in price units: put_ask - put_bid.",
+STRIKES_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
+    # Contract / underlying validity
+    "underlying_price": (0.0, 1e7),
+    "spot_price": (0.0, 1e7),
+    "strike": (0.0, 1e9),
+    "yte": (0.0, 10.0),
+    "dte": (0.0, 3650.0),
 
-    "call_rel_spread": (
-        "Call bid–ask spread as a fraction of call_mid, used as a liquidity "
-        "proxy (None when mid <= 0 or spread < 0)."
-    ),
-    "put_rel_spread": (
-        "Put bid–ask spread as a fraction of put_mid, used as a liquidity "
-        "proxy (None when mid <= 0 or spread < 0)."
-    ),
-
-    # Put Greeks (parity-based, deserve explicit explanation)
-    "put_delta": (
-        "Put delta reconstructed via European put–call parity, using call_delta, "
-        "risk_free_rate, dividend_yield and yte (BS-style model with continuous "
-        "dividend yield)."
-    ),
-    "put_gamma": (
-        "Put gamma set equal to call_gamma via put–call parity (same gamma for "
-        "calls and puts under BS-style model)."
-    ),
-    "put_theta": (
-        "Put theta reconstructed via put–call parity, consistent with call_theta, "
-        "risk_free_rate, dividend_yield and yte."
-    ),
-    "put_vega": (
-        "Put vega set equal to call_vega via put–call parity (same vega under "
-        "BS-style model)."
-    ),
-    "put_rho": (
-        "Put rho reconstructed via put–call parity, consistent with call_rho and "
-        "the forward/discounting used by ORATS."
-    ),
+    # Quote integrity (negative prices are invalid; absurdly large prices too)
+    "call_bid_price": (0.0, 1e7),
+    "call_ask_price": (0.0, 1e7),
+    "put_bid_price": (0.0, 1e7),
+    "put_ask_price": (0.0, 1e7),
 }
 
-# Core processed WIDE schema (the default selection in build_orats_panel_for_ticker)
+
+STRIKES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
+    # Volumes / open interest (null if absurd)
+    "call_volume": (0.0, 1e9),
+    "put_volume": (0.0, 1e9),
+    "call_open_interest": (0.0, 1e9),
+    "put_open_interest": (0.0, 1e9),
+
+    # Prices / derived price features (null if absurd)
+    "call_model_price": (0.0, 1e7),
+    "put_model_price": (0.0, 1e7),
+    "call_mid_price": (0.0, 1e7),
+    "put_mid_price": (0.0, 1e7),
+    "call_spread": (0.0, 1e7),
+    "put_spread": (0.0, 1e7),
+    "call_rel_spread": (0.0, 10.0),
+    "put_rel_spread": (0.0, 10.0),
+
+    # Moneyness (dimensionless)
+    "moneyness_ks": (0.0, 1000.0),
+
+    # Implied vols
+    "smoothed_iv": (0.0, 10.0),
+    "call_bid_iv": (0.0, 10.0),
+    "call_mid_iv": (0.0, 10.0),
+    "call_ask_iv": (0.0, 10.0),
+    "put_bid_iv": (0.0, 10.0),
+    "put_mid_iv": (0.0, 10.0),
+    "put_ask_iv": (0.0, 10.0),
+
+    # Rates / yields
+    "risk_free_rate": (-1.0, 1.0),
+    "dividend_yield": (-5.0, 5.0),
+    "residual_rate_data": (-5.0, 5.0),
+
+    # Greeks (wide bounds; aim is to kill absurd values, not do strategy QC)
+    "call_delta": (-5.0, 5.0),
+    "put_delta": (-5.0, 5.0),
+    "call_gamma": (-1000.0, 1000.0),
+    "put_gamma": (-1000.0, 1000.0),
+    "call_theta": (-1e6, 1e6),
+    "put_theta": (-1e6, 1e6),
+    "call_vega": (-1e6, 1e6),
+    "put_vega": (-1e6, 1e6),
+    "call_rho": (-1e6, 1e6),
+    "put_rho": (-1e6, 1e6),
+    "phi": (-1e6, 1e6),
+    "driftless_theta": (-1e6, 1e6),
+
+    # External vol / theo
+    "ext_iv": (0.0, 10.0),
+    "ext_call_theo": (0.0, 1e7),
+    "ext_put_theo": (0.0, 1e7),
+}
+
+
+# -------------------------------------------------------------------------
+# Keep (canonical)
+# -------------------------------------------------------------------------
+# Canonical columns retained in the processed options-chain output.
+#
+# Notes:
+# - This list is intentionally curated (not "keep everything").
+# - Additive growth is fine: when you add new canonical columns, you can
+#   update this list and (optionally) extend bounds to cover them.
+
 STRIKES_KEEP_CANONICAL = [
     # identifiers / dates
     "ticker",

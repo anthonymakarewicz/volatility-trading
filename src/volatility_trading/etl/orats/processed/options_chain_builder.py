@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------------
 # Result object
 # ----------------------------------------------------------------------------
+
 @dataclass(frozen=True)
 class BuildOptionsChainResult:
     """Summary of a processed options-chain build for one ticker.
@@ -565,7 +566,7 @@ def build_options_chain(
         ),
     )
     
-    # --- 7) Filters (two-stage so we can log drops) ---
+    # --- 7) Filters (two-stage) ---
     if collect_stats:
         n_before_filters = _count_rows(lf)
     else:
