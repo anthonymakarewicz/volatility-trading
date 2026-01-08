@@ -101,8 +101,8 @@ class BuildOptionsChainResult:
     n_rows_yield_after_dedupe: int | None
     n_rows_join_missing_yield: int | None
 
-    n_rows_after_trading_filter: int | None
-    n_rows_after_hard_filters: int | None
+    n_rows_after_trading: int | None
+    n_rows_after_hard: int | None
 
 
 # ----------------------------------------------------------------------------
@@ -169,6 +169,105 @@ def _log_total_missing(
         _fmt_int(missing),
         pct,
     )
+
+
+def _apply_bounds_null(
+    lf: pl.LazyFrame,
+    *,
+    bounds: dict[str, tuple[float, float]] | None,
+) -> pl.LazyFrame:
+    """Set out-of-bounds numeric values to null (row survives).
+
+    Notes
+    -----
+    - Missing columns are ignored.
+    - Nulls remain null.
+    """
+    if not bounds:
+        return lf
+
+    schema = lf.collect_schema()
+    cols = set(schema.names())
+
+    exprs: list[pl.Expr] = []
+    for c, (lo, hi) in bounds.items():
+        if c not in cols:
+            continue
+        exprs.append(
+            pl.when(pl.col(c).is_null())
+            .then(pl.col(c))
+            .when(pl.col(c).is_between(lo, hi))
+            .then(pl.col(c))
+            .otherwise(None)
+            .alias(c)
+        )
+
+    return lf.with_columns(exprs) if exprs else lf
+
+
+def _apply_bounds_drop(
+    lf: pl.LazyFrame,
+    *,
+    bounds: dict[str, tuple[float, float]] | None,
+) -> pl.LazyFrame:
+    """Drop rows that violate structural bounds (row is removed).
+
+    Notes
+    -----
+    - Missing columns are ignored.
+    - For DROP bounds, nulls are treated as invalid (row is dropped).
+    """
+    if not bounds:
+        return lf
+
+    schema = lf.collect_schema()
+    cols = set(schema.names())
+
+    filters: list[pl.Expr] = []
+    for c, (lo, hi) in bounds.items():
+        if c not in cols:
+            continue
+        filters.append(pl.col(c).is_not_null() & pl.col(c).is_between(lo, hi))
+
+    return lf.filter(pl.all_horizontal(filters)) if filters else lf
+
+
+def _count_rows_any_oob(
+    lf: pl.LazyFrame,
+    *,
+    bounds: dict[str, tuple[float, float]] | None,
+) -> tuple[int | None, int | None]:
+    """Best-effort stats for bounds-null: (rows_total, rows_with_any_oob)."""
+    if not bounds:
+        return None, None
+
+    schema = lf.collect_schema()
+    cols = set(schema.names())
+
+    oob_exprs: list[pl.Expr] = []
+    for c, (lo, hi) in bounds.items():
+        if c not in cols:
+            continue
+        oob_exprs.append(
+            pl.col(c).is_not_null() & ~pl.col(c).is_between(lo, hi)
+        )
+
+    if not oob_exprs:
+        return None, None
+
+    try:
+        out = (
+            lf.select(
+                pl.len().alias("_n"),
+                pl.any_horizontal(oob_exprs).sum().alias("_rows_oob"),
+            )
+            .collect()
+            .row(0)
+        )
+        return int(out[0]), int(out[1])
+    except Exception:
+        logger.debug("Bounds-null stats failed", exc_info=True)
+        return None, None
 
 
 def _scan_strikes_intermediate(
@@ -352,7 +451,7 @@ def build_options_chain(
     moneyness_max: float = 1.5,
     monies_implied_inter_root: Path | str | None = INTER_ORATS_API,
     merge_dividend_yield: bool = True,
-    collect_stats: bool = True,
+    collect_stats: bool = False,
     columns: Sequence[str] | None = OPTIONS_CHAIN_CORE_COLUMNS,
 ) -> BuildOptionsChainResult:
     """
@@ -428,8 +527,8 @@ def build_options_chain(
     n_rows_yield_after_dedupe: int | None = None
     n_rows_join_missing_yield: int | None = None
 
-    n_rows_after_trading_filter: int | None = None
-    n_rows_after_hard_filters: int | None = None
+    n_rows_after_trading: int | None = None
+    n_rows_after_hard: int | None = None
 
     # --- 1) Scan intermediate per-year parquet files lazily ---
     lf = _scan_strikes_intermediate(
@@ -594,64 +693,102 @@ def build_options_chain(
         .otherwise(pl.col("underlying_price"))
     )
 
-    # --- 6) Derived features: DTE, moneyness, mids, spreads, rel spreads ---
+    # ---------------------------------------------------------------------
+    # 6) Bounds 
+    # ---------------------------------------------------------------------
+    # Apply two tiers:
+    #   A) Bounds NA replacement  (set values to null, keep the row)
+    #   B) Bounds filters         (drop rows that violate structural bounds)
+
+    # 6A) Bounds NA replacement (NULL)
+    bounds_null = getattr(spec, "bounds_null_canonical", None)
+    if collect_stats:
+        n_total, n_rows_oob = _count_rows_any_oob(lf, bounds=bounds_null)
+        if n_total is not None and n_rows_oob is not None:
+            _log_total_missing(
+                label="Bounds null",
+                ticker=ticker,
+                total=n_total,
+                missing=n_rows_oob,
+                total_word="rows",
+                missing_word="rows_oob",
+            )
+
+    lf = _apply_bounds_null(lf, bounds=bounds_null)
+
+    # 6B) Bounds filters (DROP)
+    bounds_drop = getattr(spec, "bounds_drop_canonical", None)
+    n_before_bounds_drop: int | None = _count_rows(lf) if collect_stats else None
+
+    lf = _apply_bounds_drop(lf, bounds=bounds_drop)
+
+    if collect_stats:
+        n_after_bounds_drop = _count_rows(lf)
+        _log_before_after(
+            label="Bounds drop",
+            ticker=ticker,
+            before=n_before_bounds_drop,
+            after=n_after_bounds_drop,
+            removed_word="dropped",
+        )
+
+    # --- 7) Derived features: DTE, moneyness, mids, spreads, rel spreads ---
     lf = lf.with_columns(
-        dte = (pl.col("expiry_date") - pl.col("trade_date")).dt.total_days(),
-        moneyness_ks = pl.col("strike") / pl.col("spot_price"),
-        call_mid_price = (
+        dte=(pl.col("expiry_date") - pl.col("trade_date")).dt.total_days(),
+        moneyness_ks=pl.col("strike") / pl.col("spot_price"),
+        call_mid_price=(
             (pl.col("call_bid_price") + pl.col("call_ask_price")) / 2.0
         ),
-        put_mid_price = (
+        put_mid_price=(
             (pl.col("put_bid_price") + pl.col("put_ask_price")) / 2.0
         ),
-        call_spread = pl.col("call_ask_price") - pl.col("call_bid_price"),
-        put_spread  = pl.col("put_ask_price") - pl.col("put_bid_price"),
+        call_spread=pl.col("call_ask_price") - pl.col("call_bid_price"),
+        put_spread=pl.col("put_ask_price") - pl.col("put_bid_price"),
     )
 
     lf = lf.with_columns(
-        call_rel_spread = (
+        call_rel_spread=(
             pl.when((pl.col("call_mid_price") > 0) & (pl.col("call_spread") >= 0))
             .then(pl.col("call_spread") / pl.col("call_mid_price"))
             .otherwise(None)
         ),
-        put_rel_spread = (
+        put_rel_spread=(
             pl.when((pl.col("put_mid_price") > 0) & (pl.col("put_spread") >= 0))
             .then(pl.col("put_spread") / pl.col("put_mid_price"))
             .otherwise(None)
         ),
     )
-    
-    # --- 7) Filters (two-stage) ---
-    if collect_stats:
-        n_before_filters = _count_rows(lf)
-    else:
-        n_before_filters = None
 
-    # 7A) Trading band filters
+    # ---------------------------------------------------------------------
+    # 8) Filters
+    # ---------------------------------------------------------------------
+    # Apply two categories, in order:
+    #   A) Trading filters        (your trading universe / band-pass)
+    #   B) Hard sanity filters    (structural consistency: bid/ask, dead rows, etc.)
+
+    # 8A) Trading band filters
+    n_before_trading: int | None = _count_rows(lf) if collect_stats else None
+
     lf = lf.filter(
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("moneyness_ks").is_between(moneyness_min, moneyness_max),
     )
 
     if collect_stats:
-        n_rows_after_trading_filter = _count_rows(lf)
+        n_rows_after_trading = _count_rows(lf)
         _log_before_after(
             label="Trading filters",
             ticker=ticker,
-            before=n_before_filters,
-            after=n_rows_after_trading_filter,
+            before=n_before_trading,
+            after=n_rows_after_trading,
             removed_word="dropped",
         )
 
-    # 7B) Hard sanity filters
-    if collect_stats:
-        n_before_hard = _count_rows(lf)
-    else:
-        n_before_hard = None
+    # 8B) Hard sanity filters
+    n_before_hard: int | None = _count_rows(lf) if collect_stats else None
 
     lf = lf.filter(
-        pl.col("spot_price") > 0,
-        pl.col("strike") > 0,
+        pl.col("trade_date") <= pl.col("expiry_date"),
         pl.col("call_ask_price") >= pl.col("call_bid_price"),
         pl.col("put_ask_price") >= pl.col("put_bid_price"),
         ~(
@@ -665,12 +802,12 @@ def build_options_chain(
     )
 
     if collect_stats:
-        n_rows_after_hard_filters = _count_rows(lf)
+        n_rows_after_hard = _count_rows(lf)
         _log_before_after(
-            label="Hard filters",
+            label="Hard sanity",
             ticker=ticker,
             before=n_before_hard,
-            after=n_rows_after_hard_filters,
+            after=n_rows_after_hard,
             removed_word="dropped",
         )
 
@@ -724,8 +861,8 @@ def build_options_chain(
         n_rows_yield_input=n_rows_yield_input,
         n_rows_yield_after_dedupe=n_rows_yield_after_dedupe,
         n_rows_join_missing_yield=n_rows_join_missing_yield,
-        n_rows_after_trading_filter=n_rows_after_trading_filter,
-        n_rows_after_hard_filters=n_rows_after_hard_filters,
+        n_rows_after_trading=n_rows_after_trading,
+        n_rows_after_hard=n_rows_after_hard,
     )
 
     logger.info(

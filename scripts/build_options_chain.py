@@ -34,7 +34,7 @@ MONIES_IMPLIED_ENDPOINT = "monies_implied"
 COLLECT_STATS = True
 
 # Underlyings to build panels for
-TICKERS = ["SPY"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
+TICKERS = ["SPX"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
 
 # Restrict to a subset of years, or None for all available
 YEARS = None # e.g. range(2007, 2026)
@@ -91,7 +91,6 @@ def main() -> None:
             columns=COLUMNS,
             collect_stats=COLLECT_STATS,
         )
-        logger.info("Build result ticker=%s: %s", ticker, result)
 
 
 if __name__ == "__main__":
