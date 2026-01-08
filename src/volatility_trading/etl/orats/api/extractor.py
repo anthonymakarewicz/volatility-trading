@@ -31,7 +31,7 @@ from .io import (
     raw_full_history_dir,
     validate_years,
 )
-from volatility_trading.config.orats_api_schemas import get_schema_spec
+from volatility_trading.config.orats.api_schemas import get_schema_spec
 
 logger = logging.getLogger(__name__)
 

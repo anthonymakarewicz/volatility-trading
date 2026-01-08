@@ -11,7 +11,10 @@ import polars as pl
 
 from volatility_trading.config.constants import CALENDAR_DAYS_PER_YEAR
 from volatility_trading.config.instruments import PREFERRED_OPRA_ROOT
-from volatility_trading.config.orats_ftp_schemas import STRIKES_KEEP_CANONICAL
+from volatility_trading.config.orats.ftp_schemas import (
+    STRIKES_SCHEMA_SPEC as spec
+)
+
 from volatility_trading.config.paths import INTER_ORATS_API
 
 logger = logging.getLogger(__name__)
@@ -640,7 +643,7 @@ def build_options_chain(
 
     # --- 9) Final column selection & materialisation ---
     if columns is None:
-        cols = STRIKES_KEEP_CANONICAL
+        cols = spec.keep_canonical
     else:
         cols = columns
 

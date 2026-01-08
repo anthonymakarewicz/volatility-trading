@@ -10,11 +10,8 @@ from dataclasses import dataclass
 import polars as pl
 from polars.exceptions import NoDataError
 
-from volatility_trading.config.orats_ftp_schemas import (
-    STRIKES_VENDOR_DTYPES,
-    STRIKES_VENDOR_DATE_COLS,
-    STRIKES_VENDOR_DATETIME_COLS,
-    STRIKES_RENAMES_VENDOR_TO_CANONICAL,
+from volatility_trading.config.orats.ftp_schemas import (
+    STRIKES_SCHEMA_SPEC as spec
 )
 
 logger = logging.getLogger(__name__)
@@ -50,7 +47,7 @@ def _normalize_strikes_vendor_df(df: pl.DataFrame) -> pl.DataFrame:
     exprs: list[pl.Expr] = []
 
     # Dates (vendor format is typically MM/DD/YYYY)
-    for c in STRIKES_VENDOR_DATE_COLS:
+    for c in spec.vendor_date_cols:
         if c in df.columns:
             exprs.append(
                 pl.col(c)
@@ -59,7 +56,7 @@ def _normalize_strikes_vendor_df(df: pl.DataFrame) -> pl.DataFrame:
             )
 
     # Datetimes (if ever provided by the vendor). We keep this generic.
-    for c in STRIKES_VENDOR_DATETIME_COLS:
+    for c in spec.vendor_datetime_cols:
         if c in df.columns:
             exprs.append(
                 pl.col(c)
@@ -73,7 +70,7 @@ def _normalize_strikes_vendor_df(df: pl.DataFrame) -> pl.DataFrame:
     # 2) Rename vendor -> canonical (only if present)
     mapping = {
         src: dst
-        for src, dst in STRIKES_RENAMES_VENDOR_TO_CANONICAL.items()
+        for src, dst in spec.renames_vendor_to_canonical.items()
         if src in df.columns and dst and src != dst
     }
     if mapping:
@@ -104,7 +101,7 @@ def _read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
         with zf.open(csv_name) as f:
             df = pl.read_csv(
                 f, 
-                schema_overrides=STRIKES_VENDOR_DTYPES, 
+                schema_overrides=spec.vendor_dtypes,
                 null_values=["NULL"]
             )
             df = _normalize_strikes_vendor_df(df)

@@ -1,72 +1,32 @@
-"""ORATS API schema normalization specs.
-
-This module defines *mechanical* normalization rules for ORATS API payloads.
-
-Scope
------
-These specs are meant for the **raw -> intermediate** step:
-- rename ORATS field names into your canonical snake_case names
-- select a curated set of columns to keep in intermediate
-- cast columns to stable Polars dtypes
-- parse date/datetime columns
-- (optional) apply numeric bounds in two tiers:
-  - drop rows when structural columns are out-of-bounds (bounds_drop_canonical)
-  - set values to null when non-structural columns are out-of-bounds (bounds_null_canonical)
 """
+ORATS API schema specs (raw JSON -> intermediate parquet).
+
+These specs are meant to support mechanical normalization:
+- cast vendor fields to stable dtypes (pre-rename)
+- parse vendor date/datetime fields (pre-rename)
+- rename vendor -> canonical
+- select canonical columns to keep in intermediate
+- bounds:
+    * bounds_drop_canonical: out-of-bounds => drop row (structural validity)
+    * bounds_null_canonical: out-of-bounds => set to null
+
+The API schemas are stored by logical endpoint name.
+"""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Final
 
 import polars as pl
 
-
-# -----------------------------------------------------------------------------
-# Schema spec
-# -----------------------------------------------------------------------------
-
-@dataclass(frozen=True)
-class EndpointSchemaSpec:
-    """Normalization spec for one ORATS API endpoint.
-
-    Attributes
-    ----------
-    vendor_dtypes:
-        Mapping ORATS API field name -> Polars dtype to cast to.
-    vendor_date_cols:
-        ORATS API field names to parse/cast as `pl.Date`.
-    vendor_datetime_cols:
-        ORATS API field names to parse/cast as `pl.Datetime`.
-    renames_vendor_to_canonical:
-        Mapping from ORATS API field name -> canonical column name.
-    keep_canonical:
-        Canonical column names to keep in intermediate (after rename).
-    bounds_drop_canonical:
-        Optional mapping canonical numeric column -> (lo, hi) bounds.
-        Rows with values outside bounds should be dropped.
-
-        Use this sparingly, mainly to prevent absurd values from breaking
-        ingestion (e.g., 1e147). This is not meant to be strategy QC.
-    bounds_null_canonical:
-        Optional mapping canonical numeric column -> (lo, hi) bounds.
-        Values outside bounds should be set to null.
-
-        Use this sparingly, mainly to prevent absurd values from breaking
-        ingestion (e.g., 1e147). This is not meant to be strategy QC.
-    """
-    vendor_dtypes: dict[str, pl.DataType]
-    renames_vendor_to_canonical: dict[str, str]
-    keep_canonical: tuple[str, ...]
-    vendor_date_cols: tuple[str, ...] = ()
-    vendor_datetime_cols: tuple[str, ...] = ()
-    bounds_drop_canonical: dict[str, tuple[float, float]] | None = None
-    bounds_null_canonical: dict[str, tuple[float, float]] | None = None
+from .schema_spec import OratsSchemaSpec
 
 
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Endpoint: monies_implied
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
+# ----- Dtypes (vendor) ------
 _MONIES_IMPLIED_VENDOR_DTYPES: dict[str, pl.DataType] = {
     # Keys
     "ticker": pl.Utf8,
@@ -91,7 +51,7 @@ _MONIES_IMPLIED_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "unadjVol": pl.Float64,
     "earnEffect": pl.Float64,
 
-    # Metadata timestamps (parse later)
+    # Timestamps (parse later)
     "quoteDate": pl.Utf8,
     "updatedAt": pl.Utf8,
 
@@ -102,7 +62,7 @@ _MONIES_IMPLIED_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "deriv": pl.Float64,
     "fit": pl.Float64,
 
-    # Delta-slice vols (ORATS uses vol95..vol5 etc.)
+    # Delta-slice vols
     "vol100": pl.Float64,
     "vol95": pl.Float64,
     "vol90": pl.Float64,
@@ -126,10 +86,11 @@ _MONIES_IMPLIED_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "vol0": pl.Float64,
 }
 
+# ----- Dates / datetimes (vendor) ------
 _MONIES_IMPLIED_VENDOR_DATE_COLS: tuple[str, ...] = ("tradeDate", "expirDate")
 _MONIES_IMPLIED_VENDOR_DATETIME_COLS: tuple[str, ...] = ("quoteDate", "updatedAt")
 
-
+# ------ Renames vendor -> canonical  ------
 _MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     # Keys
     "ticker": "ticker",
@@ -138,10 +99,10 @@ _MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
 
     # Underlying + rates
     "stockPrice": "underlying_price",
-    "spotPrice": "spot_price",  # sometimes both exist; both map to spot
+    "spotPrice": "spot_price",
     "riskFreeRate": "risk_free_rate",
 
-    # Dividend/yield model fields
+    # Yield decomposition
     "yieldRate": "yield_rate",
     "residualYieldRate": "residual_yield_rate",
     "residualRateSlp": "residual_rate_slp",
@@ -154,18 +115,18 @@ _MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "unadjVol": "unadj_vol",
     "earnEffect": "earn_effect",
 
-    # Metadata timestamps
+    # Timestamps
     "quoteDate": "quote_ts",
     "updatedAt": "updated_ts",
 
-    # Optional model diagnostics / additional fields
+    # Optional diagnostics
     "mwVol": "mw_vol",
     "typeFlag": "type_flag",
     "slope": "slope",
     "deriv": "deriv",
     "fit": "fit",
 
-    # Delta-slice vols (ORATS uses vol95..vol5 etc.)
+    # Delta-slice vols
     "vol100": "vol_100",
     "vol95": "vol_95",
     "vol90": "vol_90",
@@ -189,64 +150,60 @@ _MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "vol0": "vol_0",
 }
 
-
+# ------ Keep (canonical) ------
 _MONIES_IMPLIED_KEEP_CANONICAL: tuple[str, ...] = (
-    # Keys
     "ticker",
     "trade_date",
     "expiry_date",
 
-    # Underlying + rates
     "underlying_price",
     "spot_price",
     "risk_free_rate",
 
-    # Yield decomposition (main reason you are calling this endpoint)
     "yield_rate",
     "residual_yield_rate",
     "residual_rate_slp",
     "residual_r2",
     "confidence",
 
-    # Vol surface summary at expiry_date
     "atm_iv",
     "cal_vol",
     "unadj_vol",
     "earn_effect",
 
-    # Optional useful fields (cheap to keep)
     "type_flag",
     "quote_ts",
     "updated_ts",
 )
 
+# ------ Bounds (canonical) ------
 
+# Tier 1: structural validity => drop row
 _MONIES_IMPLIED_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
-    # Structural fields: if these are absurd, the row is unusable.
     "underlying_price": (0.0, 1e7),
     "spot_price": (0.0, 1e7),
+    # expiry/trade are dates; dedupe/join logic relies on them, but that’s not a numeric bound
 }
 
-
+# Tier 2: value plausibility => set to null (keep row)
 _MONIES_IMPLIED_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
-    # Vols / effects should never be astronomically large
-    "atm_iv": (0.0, 10.0),
-    "cal_vol": (0.0, 10.0),
-    "unadj_vol": (0.0, 10.0),
-    "earn_effect": (-10.0, 10.0),
-
-    # Rates/yields should be within sane annualized ranges
     "risk_free_rate": (-1.0, 1.0),
     "yield_rate": (-1.0, 1.0),
     "residual_yield_rate": (-1.0, 1.0),
     "residual_rate_slp": (-10.0, 10.0),
+
+    "atm_iv": (0.0, 10.0),
+    "cal_vol": (0.0, 10.0),
+    "unadj_vol": (0.0, 10.0),
+    "earn_effect": (-10.0, 10.0),
 }
 
 
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Endpoint: summaries
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
+# ----- Dtypes (vendor) -----
 _SUMMARIES_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "ticker": pl.Utf8,
     "tradeDate": pl.Utf8,
@@ -272,7 +229,7 @@ _SUMMARIES_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "iv6m": pl.Float64,
     "iv1y": pl.Float64,
 
-    # Delta-slice IV (common deltas)
+    # Delta-slice IVs (still useful; keep in intermediate if you want later)
     "dlt5Iv10d": pl.Float64,
     "dlt5Iv20d": pl.Float64,
     "dlt5Iv30d": pl.Float64,
@@ -305,23 +262,22 @@ _SUMMARIES_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "dlt95Iv6m": pl.Float64,
     "dlt95Iv1y": pl.Float64,
 
-    # Timestamps (parse after load, before rename)
+    # Timestamps (parse later)
     "quoteDate": pl.Utf8,
     "updatedAt": pl.Utf8,
 }
 
+# ----- Dates / datetimes (vendor) ------
 _SUMMARIES_VENDOR_DATE_COLS: tuple[str, ...] = ("tradeDate",)
 _SUMMARIES_VENDOR_DATETIME_COLS: tuple[str, ...] = ("quoteDate", "updatedAt")
 
-
+# ------ Renames vendor -> canonical ------
 _SUMMARIES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "ticker": "ticker",
     "tradeDate": "trade_date",
 
-    # Underlying price
     "stockPrice": "underlying_price",
 
-    # Dividends / borrow / rates
     "annActDiv": "ann_actual_div",
     "annIdiv": "ann_implied_div",
     "nextDiv": "next_div",
@@ -331,11 +287,9 @@ _SUMMARIES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "riskFree30": "risk_free_rate_30d",
     "riskFree2y": "risk_free_rate_2y",
 
-    # Confidence / diagnostics
     "confidence": "confidence",
     "totalErrorConf": "total_error_conf",
 
-    # Term-structure IV (with and without earnings removal)
     "iv10d": "iv_10d",
     "iv20d": "iv_20d",
     "iv30d": "iv_30d",
@@ -344,7 +298,7 @@ _SUMMARIES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "iv6m": "iv_6m",
     "iv1y": "iv_1y",
 
-    # Delta-slice IV (common deltas)
+    # Delta-slice IVs
     "dlt5Iv10d": "iv_dlt05_10d",
     "dlt5Iv20d": "iv_dlt05_20d",
     "dlt5Iv30d": "iv_dlt05_30d",
@@ -377,18 +331,17 @@ _SUMMARIES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "dlt95Iv6m": "iv_dlt95_6m",
     "dlt95Iv1y": "iv_dlt95_1y",
 
-    # Timestamps
     "quoteDate": "quote_ts",
     "updatedAt": "updated_ts",
 }
 
 
+# ------ Keep (canonical) ------
 _SUMMARIES_KEEP_CANONICAL: tuple[str, ...] = (
     "ticker",
     "trade_date",
     "underlying_price",
 
-    # Dividends / borrow / rates
     "ann_actual_div",
     "ann_implied_div",
     "next_div",
@@ -398,11 +351,9 @@ _SUMMARIES_KEEP_CANONICAL: tuple[str, ...] = (
     "risk_free_rate_30d",
     "risk_free_rate_2y",
 
-    # Confidence / diagnostics
     "confidence",
     "total_error_conf",
 
-    # Term-structure IV
     "iv_10d",
     "iv_20d",
     "iv_30d",
@@ -411,20 +362,17 @@ _SUMMARIES_KEEP_CANONICAL: tuple[str, ...] = (
     "iv_6m",
     "iv_1y",
 
-    # Metadata
     "quote_ts",
     "updated_ts",
 )
 
-
+# ------ Bounds (canonical) ------
 _SUMMARIES_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
-    # Structural fields: if these are absurd, the row is unusable.
     "underlying_price": (0.0, 1e7),
 }
 
-
 _SUMMARIES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
-    # IVs and related quantities should never be astronomically large
+    # Term structure IV
     "iv_10d": (0.0, 10.0),
     "iv_20d": (0.0, 10.0),
     "iv_30d": (0.0, 10.0),
@@ -433,13 +381,13 @@ _SUMMARIES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "iv_6m": (0.0, 10.0),
     "iv_1y": (0.0, 10.0),
 
-    # Rates and borrow
+    # Rates/borrow
     "risk_free_rate_30d": (-1.0, 1.0),
     "risk_free_rate_2y": (-1.0, 1.0),
     "borrow_rate_30d": (-1.0, 1.0),
     "borrow_rate_2y": (-1.0, 1.0),
 
-    # Dividends: allow wide bounds, but still prevent absurdities
+    # Divs (wide but finite)
     "ann_actual_div": (-1e6, 1e6),
     "ann_implied_div": (-1e6, 1e6),
     "next_div": (-1e6, 1e6),
@@ -447,12 +395,12 @@ _SUMMARIES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
 }
 
 
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Public mapping
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
-API_SCHEMAS: Final[dict[str, EndpointSchemaSpec]] = {
-    "monies_implied": EndpointSchemaSpec(
+API_SCHEMAS: Final[dict[str, OratsSchemaSpec]] = {
+    "monies_implied": OratsSchemaSpec(
         vendor_dtypes=_MONIES_IMPLIED_VENDOR_DTYPES,
         vendor_date_cols=_MONIES_IMPLIED_VENDOR_DATE_COLS,
         vendor_datetime_cols=_MONIES_IMPLIED_VENDOR_DATETIME_COLS,
@@ -461,7 +409,7 @@ API_SCHEMAS: Final[dict[str, EndpointSchemaSpec]] = {
         bounds_drop_canonical=_MONIES_IMPLIED_BOUNDS_DROP_CANONICAL,
         bounds_null_canonical=_MONIES_IMPLIED_BOUNDS_NULL_CANONICAL,
     ),
-    "summaries": EndpointSchemaSpec(
+    "summaries": OratsSchemaSpec(
         vendor_dtypes=_SUMMARIES_VENDOR_DTYPES,
         vendor_date_cols=_SUMMARIES_VENDOR_DATE_COLS,
         vendor_datetime_cols=_SUMMARIES_VENDOR_DATETIME_COLS,
@@ -473,13 +421,8 @@ API_SCHEMAS: Final[dict[str, EndpointSchemaSpec]] = {
 }
 
 
-def get_schema_spec(endpoint: str) -> EndpointSchemaSpec:
-    """Return the schema spec for a supported endpoint.
-
-    Parameters
-    ----------
-    endpoint:
-        Logical endpoint name (e.g. "monies_implied", "summaries").
+def get_schema_spec(endpoint: str) -> OratsSchemaSpec:
+    """Return the schema spec for a supported ORATS API endpoint.
 
     Raises
     ------
