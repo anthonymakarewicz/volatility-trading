@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Sequence, Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -10,14 +10,17 @@ import polars as pl
 
 from volatility_trading.config.constants import CALENDAR_DAYS_PER_YEAR
 from volatility_trading.config.instruments import PREFERRED_OPRA_ROOT
+from volatility_trading.config.paths import INTER_ORATS_API
 from volatility_trading.config.orats.ftp_schemas import (
     STRIKES_SCHEMA_SPEC as spec
 )
 
-from volatility_trading.config.paths import INTER_ORATS_API
-
 logger = logging.getLogger(__name__)
 
+
+# ----------------------------------------------------------------------------
+# Config
+# ----------------------------------------------------------------------------
 
 OPTIONS_CHAIN_CORE_COLUMNS: tuple[str, ...] = (
     # identifiers / dates
@@ -74,7 +77,7 @@ OPTIONS_CHAIN_CORE_COLUMNS: tuple[str, ...] = (
 
 
 # ----------------------------------------------------------------------------
-# Result object
+# Public types
 # ----------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -108,6 +111,23 @@ class BuildOptionsChainResult:
 # ----------------------------------------------------------------------------
 # Private helpers
 # ----------------------------------------------------------------------------
+
+@dataclass
+class _BuildStats:
+    """Internal mutable counters used during build (populated only if enabled)."""
+
+    n_rows_input: int | None = None
+    n_rows_after_dedupe: int | None = None
+
+    n_rows_yield_input: int | None = None
+    n_rows_yield_after_dedupe: int | None = None
+    n_rows_join_missing_yield: int | None = None
+
+    n_rows_after_trading: int | None = None
+    n_rows_after_hard: int | None = None
+
+
+# -- logging / stats helpers --------------------------------------------------
 
 def _count_rows(lf: pl.LazyFrame) -> int:
     """Count rows in a LazyFrame (forces a small collect)."""
@@ -170,6 +190,8 @@ def _log_total_missing(
         pct,
     )
 
+
+# -- bounds helpers -----------------------------------------------------------
 
 def _apply_bounds_null(
     lf: pl.LazyFrame,
@@ -248,9 +270,7 @@ def _count_rows_any_oob(
     for c, (lo, hi) in bounds.items():
         if c not in cols:
             continue
-        oob_exprs.append(
-            pl.col(c).is_not_null() & ~pl.col(c).is_between(lo, hi)
-        )
+        oob_exprs.append(pl.col(c).is_not_null() & ~pl.col(c).is_between(lo, hi))
 
     if not oob_exprs:
         return None, None
@@ -270,13 +290,14 @@ def _count_rows_any_oob(
         return None, None
 
 
+# -- IO / scanning ------------------------------------------------------------
+
 def _scan_strikes_intermediate(
     inter_root: Path | str,
     ticker: str,
     years: Iterable[int] | Iterable[str] | None = None,
 ) -> pl.LazyFrame:
-    """
-    Build a lazy scan over intermediate Strikes files for a single ticker.
+    """Build a lazy scan over intermediate Strikes files for a single ticker.
 
     Expected intermediate layout
     ----------------------------
@@ -295,10 +316,7 @@ def _scan_strikes_intermediate(
     logger.info("Reading intermediate from: %s", root)
 
     # optional year whitelist (as strings, e.g. {"2009", "2010"})
-    if years is not None:
-        year_whitelist = {str(y) for y in years}
-    else:
-        year_whitelist = None
+    year_whitelist = {str(y) for y in years} if years is not None else None
 
     scans: list[pl.LazyFrame] = []
 
@@ -345,8 +363,8 @@ def _scan_monies_implied_intermediate(
     inter_api_root = Path(inter_api_root)
     path = (
         inter_api_root 
-        / f"endpoint={endpoint}"
-        / f"underlying={ticker}"
+        / f"endpoint={endpoint}" 
+        / f"underlying={ticker}" 
         / "part-0000.parquet"
     )
 
@@ -363,12 +381,14 @@ def _scan_monies_implied_intermediate(
     return pl.scan_parquet(str(path))
 
 
-def _get_options_chain_path(proc_root: Path,ticker: str) -> Path:
+def _get_options_chain_path(proc_root: Path, ticker: str) -> Path:
     t = str(ticker).strip()
     if not t:
         raise ValueError("ticker must be non-empty")
     return proc_root / f"underlying={t}" / "part-0000.parquet"
 
+
+# -- generic transforms -------------------------------------------------------
 
 def _dedupe_on_keys(
     lf: pl.LazyFrame,
@@ -399,7 +419,8 @@ def _dedupe_on_keys(
     key_common_eff = [c for c in key_common if c in cols]
     if not key_common_eff:
         raise ValueError(
-            f"_dedupe_on_keys: none of key_common columns exist: {list(key_common)}"
+            f"_dedupe_on_keys: none of key_common "
+            f"columns exist: {list(key_common)}"
         )
 
     # Drop rows with nulls in the always-required keys.
@@ -435,6 +456,381 @@ def _dedupe_on_keys(
     return pl.concat([lf_with, lf_without], how="vertical")
 
 
+# -- pipeline steps ----------------------------------------------------------
+
+def _step_scan_inputs(
+    *,
+    inter_root: Path,
+    ticker: str,
+    years: Iterable[int] | Iterable[str] | None,
+    collect_stats: bool,
+    stats: _BuildStats,
+) -> pl.LazyFrame:
+    lf = _scan_strikes_intermediate(
+        inter_root=inter_root, 
+        ticker=ticker,
+        years=years
+    )
+
+    if collect_stats:
+        lf = lf.cache()
+        stats.n_rows_input = _count_rows(lf)
+        logger.info(
+            "Input rows (strikes intermediate) ticker=%s rows=%s",
+            ticker,
+            _fmt_int(stats.n_rows_input),
+        )
+
+    return lf
+
+
+def _step_filter_preferred_opra_root(
+    *, 
+    lf: pl.LazyFrame, 
+    ticker: str
+) -> pl.LazyFrame:
+    preferred_root = PREFERRED_OPRA_ROOT.get(ticker)
+    if preferred_root is None:
+        return lf
+
+    return lf.filter(
+        # For older years, call_opra is null / absent; keep those rows.
+        pl.col("call_opra").is_null()
+        | pl.col("call_opra").str.starts_with(preferred_root)
+    )
+
+
+def _step_dedupe_options_chain(
+    *,
+    lf: pl.LazyFrame,
+    ticker: str,
+    collect_stats: bool,
+    stats: _BuildStats,
+) -> pl.LazyFrame:
+    logger.info(
+        "Applying key null-checks and de-duplication for ticker=%s", 
+        ticker
+    )
+
+    n_before: int | None = _count_rows(lf) if collect_stats else None
+
+    lf = _dedupe_on_keys(
+        lf,
+        key_common=["ticker", "trade_date", "expiry_date", "strike"],
+        key_when_opra_present=[
+            "ticker", "trade_date", "strike", "call_opra", "put_opra"
+        ],
+        opra_nonnull_cols=["call_opra", "put_opra"],
+        stable_sort=False,
+    )
+
+    if collect_stats:
+        stats.n_rows_after_dedupe = _count_rows(lf)
+        _log_before_after(
+            label="Dedupe (options chain)",
+            ticker=ticker,
+            before=n_before,
+            after=stats.n_rows_after_dedupe,
+            removed_word="removed",
+        )
+
+    return lf
+
+
+def _step_merge_dividend_yield(
+    *,
+    lf: pl.LazyFrame,
+    ticker: str,
+    monies_implied_inter_root: Path | None,
+    merge_dividend_yield: bool,
+    collect_stats: bool,
+    stats: _BuildStats,
+) -> pl.LazyFrame:
+    if not merge_dividend_yield or monies_implied_inter_root is None:
+        return lf
+
+    logger.info(
+        "Merging dividend yield from monies_implied for ticker=%s", 
+        ticker
+    )
+
+    lf_yield = _scan_monies_implied_intermediate(
+        inter_api_root=monies_implied_inter_root,
+        ticker=ticker,
+        endpoint="monies_implied",
+    )
+
+    if collect_stats:
+        lf_yield = lf_yield.cache()
+        stats.n_rows_yield_input = _count_rows(lf_yield)
+        logger.info(
+            "Input rows (monies_implied intermediate) ticker=%s rows=%s",
+            ticker,
+            _fmt_int(stats.n_rows_yield_input),
+        )
+
+    n_before_yield: int | None = (
+        _count_rows(lf_yield) if collect_stats else None
+    )
+
+    lf_yield = _dedupe_on_keys(
+        lf_yield,
+        key_common=["ticker", "trade_date", "expiry_date"],
+        stable_sort=False,
+    )
+
+    if collect_stats:
+        stats.n_rows_yield_after_dedupe = _count_rows(lf_yield)
+        _log_before_after(
+            label="Dedupe (monies_implied)",
+            ticker=ticker,
+            before=n_before_yield,
+            after=stats.n_rows_yield_after_dedupe,
+            removed_word="removed",
+        )
+
+    # monies_implied is expiry-specific, so join on (ticker, trade_date, expiry_date)
+    lf_yield = (
+        lf_yield
+        .select(["ticker", "trade_date", "expiry_date", "yield_rate"])
+        .rename(
+            {"yield_rate": "_dividend_yield_api"}
+        )
+    )
+
+    lf = lf.join(
+        lf_yield, 
+        on=["ticker", "trade_date", "expiry_date"], 
+        how="left"
+    )
+
+    if collect_stats:
+        try:
+            n_total_join = _count_rows(lf)
+            n_miss = _count_rows(
+                lf.filter(pl.col("_dividend_yield_api").is_null())
+            )
+            stats.n_rows_join_missing_yield = n_miss
+            _log_total_missing(
+                label="Yield join",
+                ticker=ticker,
+                total=n_total_join,
+                missing=n_miss,
+                total_word="rows",
+                missing_word="missing",
+            )
+        except Exception:
+            logger.debug(
+                "Yield-join stats failed for ticker=%s", 
+                ticker, 
+                exc_info=True
+            )
+
+    # Replace existing dividend_yield
+    lf = lf.with_columns(
+        pl.coalesce([pl.col("_dividend_yield_api"), pl.col("dividend_yield")])
+        .alias(
+            "dividend_yield"
+        )
+    ).drop(["_dividend_yield_api"])
+
+    return lf
+
+
+def _step_unify_spot_price(*, lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Unify spot_price across index vs stock/ETF conventions."""
+    return lf.with_columns(
+        spot_price=pl.when(
+            pl.col("spot_price").is_not_null() & (pl.col("spot_price") > 0)
+        )
+        .then(pl.col("spot_price"))
+        .otherwise(pl.col("underlying_price"))
+    )
+
+
+def _step_apply_bounds(
+    *,
+    lf: pl.LazyFrame,
+    ticker: str,
+    collect_stats: bool,
+) -> pl.LazyFrame:
+    # 6A) Bounds NA replacement (NULL)
+    bounds_null = getattr(spec, "bounds_null_canonical", None)
+    if collect_stats:
+        n_total, n_rows_oob = _count_rows_any_oob(lf, bounds=bounds_null)
+        if n_total is not None and n_rows_oob is not None:
+            _log_total_missing(
+                label="Bounds null",
+                ticker=ticker,
+                total=n_total,
+                missing=n_rows_oob,
+                total_word="rows",
+                missing_word="rows_oob",
+            )
+
+    lf = _apply_bounds_null(lf, bounds=bounds_null)
+
+    # 6B) Bounds filters (DROP)
+    bounds_drop = getattr(spec, "bounds_drop_canonical", None)
+    n_before_drop: int | None = _count_rows(lf) if collect_stats else None
+
+    lf = _apply_bounds_drop(lf, bounds=bounds_drop)
+
+    if collect_stats:
+        n_after_drop = _count_rows(lf)
+        _log_before_after(
+            label="Bounds drop",
+            ticker=ticker,
+            before=n_before_drop,
+            after=n_after_drop,
+            removed_word="dropped",
+        )
+
+    return lf
+
+
+def _step_add_derived_features(
+    *,
+    lf: pl.LazyFrame,
+) -> pl.LazyFrame:
+    lf = lf.with_columns(
+        dte=(pl.col("expiry_date") - pl.col("trade_date")).dt.total_days(),
+        moneyness_ks=pl.col("strike") / pl.col("spot_price"),
+        call_mid_price=(
+            (pl.col("call_bid_price") + pl.col("call_ask_price")) / 2.0
+        ),
+        put_mid_price=(pl.col("put_bid_price") + pl.col("put_ask_price")) / 2.0,
+        call_spread=pl.col("call_ask_price") - pl.col("call_bid_price"),
+        put_spread=pl.col("put_ask_price") - pl.col("put_bid_price"),
+    )
+
+    lf = lf.with_columns(
+        call_rel_spread=(
+            pl.when(
+                (pl.col("call_mid_price") > 0) & (pl.col("call_spread") >= 0)
+            )
+            .then(pl.col("call_spread") / pl.col("call_mid_price"))
+            .otherwise(None)
+        ),
+        put_rel_spread=(
+            pl.when(
+                (pl.col("put_mid_price") > 0) & (pl.col("put_spread") >= 0)
+            )
+            .then(pl.col("put_spread") / pl.col("put_mid_price"))
+            .otherwise(None)
+        ),
+    )
+
+    return lf
+
+
+def _step_apply_filters(
+    *,
+    lf: pl.LazyFrame,
+    ticker: str,
+    dte_min: int,
+    dte_max: int,
+    moneyness_min: float,
+    moneyness_max: float,
+    collect_stats: bool,
+    stats: _BuildStats,
+) -> pl.LazyFrame:
+    # 8A) Trading band filters
+    n_before_trading: int | None = _count_rows(lf) if collect_stats else None
+
+    lf = lf.filter(
+        pl.col("dte").is_between(dte_min, dte_max),
+        pl.col("moneyness_ks").is_between(moneyness_min, moneyness_max),
+    )
+
+    if collect_stats:
+        stats.n_rows_after_trading = _count_rows(lf)
+        _log_before_after(
+            label="Trading filters",
+            ticker=ticker,
+            before=n_before_trading,
+            after=stats.n_rows_after_trading,
+            removed_word="dropped",
+        )
+
+    # 8B) Hard sanity filters
+    n_before_hard: int | None = _count_rows(lf) if collect_stats else None
+
+    lf = lf.filter(
+        pl.col("trade_date") <= pl.col("expiry_date"),
+        pl.col("call_ask_price") >= pl.col("call_bid_price"),
+        pl.col("put_ask_price") >= pl.col("put_bid_price"),
+        ~(
+            (pl.col("call_bid_price") == 0)
+            & (pl.col("call_ask_price") == 0)
+            & (pl.col("call_model_price") == 0)
+            & (pl.col("put_bid_price") == 0)
+            & (pl.col("put_ask_price") == 0)
+            & (pl.col("put_model_price") == 0)
+        ),
+    )
+
+    if collect_stats:
+        stats.n_rows_after_hard = _count_rows(lf)
+        _log_before_after(
+            label="Hard sanity",
+            ticker=ticker,
+            before=n_before_hard,
+            after=stats.n_rows_after_hard,
+            removed_word="dropped",
+        )
+
+    return lf
+
+
+def _step_add_put_greeks(*, lf: pl.LazyFrame) -> pl.LazyFrame:
+    disc_q = (-pl.col("dividend_yield") * pl.col("yte")).exp()
+    disc_r = (-pl.col("risk_free_rate") * pl.col("yte")).exp()
+
+    return lf.with_columns(
+        put_delta=pl.col("call_delta") - disc_q,
+        put_gamma=pl.col("call_gamma"),
+        put_vega=pl.col("call_vega"),
+        put_theta=(
+            pl.col("call_theta")
+            + (
+                pl.col("dividend_yield") * pl.col("spot_price") * disc_q
+                - pl.col("risk_free_rate") * pl.col("strike") * disc_r
+            )
+            / CALENDAR_DAYS_PER_YEAR
+        ),
+        put_rho=(
+            pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r / 100
+        ),
+    )
+
+
+def _step_collect_and_write(
+    *,
+    lf: pl.LazyFrame,
+    proc_root: Path,
+    ticker: str,
+    columns: Sequence[str] | None,
+) -> tuple[pl.DataFrame, Path]:
+    cols = OPTIONS_CHAIN_CORE_COLUMNS if columns is None else tuple(columns)
+
+    lf = lf.sort(["trade_date", "expiry_date", "strike"])
+    df = lf.select(cols).collect()
+
+    out_path = _get_options_chain_path(proc_root=proc_root, ticker=ticker)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    logger.info(
+        "Writing processed options chain: %s (rows=%s, cols=%s)",
+        out_path,
+        _fmt_int(df.height),
+        _fmt_int(len(df.columns)),
+    )
+
+    df.write_parquet(out_path)
+    return df, out_path
+
+
 # ----------------------------------------------------------------------------
 # Public API
 # ----------------------------------------------------------------------------
@@ -454,8 +850,7 @@ def build_options_chain(
     collect_stats: bool = False,
     columns: Sequence[str] | None = OPTIONS_CHAIN_CORE_COLUMNS,
 ) -> BuildOptionsChainResult:
-    """
-    Build a cleaned, WIDE ORATS panel for a single ticker.
+    """Build a cleaned, WIDE ORATS panel for a single ticker.
 
     Raw (intermediate) layout
     -------------------------
@@ -471,8 +866,8 @@ def build_options_chain(
     - parses dates (trade_date, expiry_date)
     - computes DTE and K/S moneyness
     - normalises vendor names (stkPx -> spot_price, cBidPx -> call_bid_price, ...)
-    - optionally merges dividend yield from ORATS API monies_implied 
-    (replacing empty/invalid dividend_yield in the FTP strikes)
+    - optionally merges dividend yield from ORATS API monies_implied
+      (replacing empty/invalid dividend_yield in the FTP strikes)
     - computes call/put mid prices, spreads, relative spreads
     - applies basic sanity filters
     - trims extreme DTE and moneyness
@@ -514,355 +909,90 @@ def build_options_chain(
     BuildOptionsChainResult
         Summary including optional row-drop stats when `collect_stats=True`.
     """
-    inter_root = Path(inter_root)
-    proc_root = Path(proc_root)
+    inter_root_p = Path(inter_root)
+    proc_root_p = Path(proc_root)
+    monies_root_p = (
+        Path(monies_implied_inter_root) 
+        if monies_implied_inter_root is not None 
+        else None
+    )
 
     t0 = time.perf_counter()
-
-    # Stats (only filled when collect_stats=True)
-    n_rows_input: int | None = None
-    n_rows_after_dedupe: int | None = None
-
-    n_rows_yield_input: int | None = None
-    n_rows_yield_after_dedupe: int | None = None
-    n_rows_join_missing_yield: int | None = None
-
-    n_rows_after_trading: int | None = None
-    n_rows_after_hard: int | None = None
+    stats = _BuildStats()
 
     # --- 1) Scan intermediate per-year parquet files lazily ---
-    lf = _scan_strikes_intermediate(
-        inter_root=inter_root,
+    lf = _step_scan_inputs(
+        inter_root=inter_root_p,
         ticker=ticker,
         years=years,
+        collect_stats=collect_stats,
+        stats=stats,
     )
-
-    if collect_stats:
-        lf = lf.cache()
-        n_rows_input = _count_rows(lf)
-        logger.info(
-            "Input rows (strikes intermediate) ticker=%s rows=%s",
-            ticker,
-            _fmt_int(n_rows_input),
-        )
 
     # --- 2) Optional OPRA-root filtering (e.g. SPX vs SPXW) ---
-    preferred_root = PREFERRED_OPRA_ROOT.get(ticker)
-    if preferred_root is not None:
-        lf = lf.filter(
-            # For older years, call_opra is null / absent; keep those rows.
-            pl.col("call_opra").is_null()
-            | pl.col("call_opra").str.starts_with(preferred_root)
-        )
+    lf = _step_filter_preferred_opra_root(lf=lf, ticker=ticker)
 
-    # --- 3) Remove duplicates rows & remove Nan in core cols ---
-    logger.info(
-        "Applying key null-checks and de-duplication for ticker=%s",
-        ticker,
+    # --- 3) Remove duplicates rows & remove nulls in core keys ---
+    lf = _step_dedupe_options_chain(
+        lf=lf, 
+        ticker=ticker, 
+        collect_stats=collect_stats, stats=stats
     )
-
-    n_before_dedupe: int | None = None
-    if collect_stats:
-        n_before_dedupe = _count_rows(lf)
-
-    lf = _dedupe_on_keys(
-        lf,
-        key_common=["ticker", "trade_date", "expiry_date", "strike"],
-        key_when_opra_present=[
-            "ticker",
-            "trade_date",
-            "strike",
-            "call_opra",
-            "put_opra",
-        ],
-        opra_nonnull_cols=["call_opra", "put_opra"],
-        stable_sort=False,
-    )
-
-    if collect_stats:
-        n_rows_after_dedupe = _count_rows(lf)
-        _log_before_after(
-            label="Dedupe (options chain)",
-            ticker=ticker,
-            before=n_before_dedupe,
-            after=n_rows_after_dedupe,
-            removed_word="removed",
-        )
 
     # --- 4) Optionally replace dividend_yield using ORATS API monies_implied ---
-    if merge_dividend_yield and monies_implied_inter_root is not None:
-        logger.info(
-            "Merging dividend yield from monies_implied for ticker=%s",
-            ticker,
-        )
-
-        lf_yield = _scan_monies_implied_intermediate(
-            inter_api_root=monies_implied_inter_root,
-            ticker=ticker,
-            endpoint="monies_implied",
-        )
-
-        if collect_stats:
-            lf_yield = lf_yield.cache()
-            n_rows_yield_input = _count_rows(lf_yield)
-            logger.info(
-                "Input rows (monies_implied intermediate) ticker=%s rows=%s",
-                ticker,
-                _fmt_int(n_rows_yield_input),
-            )
-
-        n_before_yield_dedupe: int | None = None
-        if collect_stats:
-            n_before_yield_dedupe = _count_rows(lf_yield)
-
-        lf_yield = _dedupe_on_keys(
-            lf_yield,
-            key_common=["ticker", "trade_date", "expiry_date"],
-            stable_sort=False,
-        )
-
-        if collect_stats:
-            n_rows_yield_after_dedupe = _count_rows(lf_yield)
-            _log_before_after(
-                label="Dedupe (monies_implied)",
-                ticker=ticker,
-                before=n_before_yield_dedupe,
-                after=n_rows_yield_after_dedupe,
-                removed_word="removed",
-            )
-
-        # monies_implied is expiry-specific, so join on 
-        # (ticker, trade_date, expiry_date)
-        lf_yield = (
-            lf_yield
-            .select(["ticker", "trade_date", "expiry_date", "yield_rate"])
-            .rename({"yield_rate": "_dividend_yield_api"})
-        )
-
-        lf = lf.join(
-            lf_yield,
-            on=["ticker", "trade_date", "expiry_date"],
-            how="left",
-        )
-
-        if collect_stats:
-            try:
-                n_total_join = _count_rows(lf)
-                n_miss = _count_rows(
-                    lf.filter(pl.col("_dividend_yield_api").is_null())
-                )
-                n_rows_join_missing_yield = n_miss
-                _log_total_missing(
-                    label="Yield join",
-                    ticker=ticker,
-                    total=n_total_join,
-                    missing=n_miss,
-                    total_word="rows",
-                    missing_word="missing",
-                )
-            except Exception:
-                # Best-effort stats only
-                logger.debug(
-                    "Yield-join stats failed for ticker=%s",
-                    ticker,
-                    exc_info=True
-                )
-
-        # Replace existing dividend_yield
-        lf = lf.with_columns(
-            pl.coalesce([
-                pl.col("_dividend_yield_api"),
-                pl.col("dividend_yield"),
-            ]).alias("dividend_yield")
-        )
-        lf = lf.drop(["_dividend_yield_api"])
+    lf = _step_merge_dividend_yield(
+        lf=lf,
+        ticker=ticker,
+        monies_implied_inter_root=monies_root_p,
+        merge_dividend_yield=merge_dividend_yield,
+        collect_stats=collect_stats,
+        stats=stats,
+    )
 
     # --- 5) Unify spot for index vs stock/ETF ---
-    """
-    For index options:
-        spot_price = cash index
-        underlying_price = per-expiry parity implied forward
-     For stock/ETF options:
-       spot_price is null or 0.0, and underlying_price is the tradable spot.
-    """
-    lf = lf.with_columns(
-        spot_price = pl.when(
-            pl.col("spot_price").is_not_null() & (pl.col("spot_price") > 0)
-        )
-        .then(pl.col("spot_price"))
-        .otherwise(pl.col("underlying_price"))
-    )
+    lf = _step_unify_spot_price(lf=lf)
 
-    # ---------------------------------------------------------------------
-    # 6) Bounds 
-    # ---------------------------------------------------------------------
-    # Apply two tiers:
-    #   A) Bounds NA replacement  (set values to null, keep the row)
-    #   B) Bounds filters         (drop rows that violate structural bounds)
-
-    # 6A) Bounds NA replacement (NULL)
-    bounds_null = getattr(spec, "bounds_null_canonical", None)
-    if collect_stats:
-        n_total, n_rows_oob = _count_rows_any_oob(lf, bounds=bounds_null)
-        if n_total is not None and n_rows_oob is not None:
-            _log_total_missing(
-                label="Bounds null",
-                ticker=ticker,
-                total=n_total,
-                missing=n_rows_oob,
-                total_word="rows",
-                missing_word="rows_oob",
-            )
-
-    lf = _apply_bounds_null(lf, bounds=bounds_null)
-
-    # 6B) Bounds filters (DROP)
-    bounds_drop = getattr(spec, "bounds_drop_canonical", None)
-    n_before_bounds_drop: int | None = _count_rows(lf) if collect_stats else None
-
-    lf = _apply_bounds_drop(lf, bounds=bounds_drop)
-
-    if collect_stats:
-        n_after_bounds_drop = _count_rows(lf)
-        _log_before_after(
-            label="Bounds drop",
-            ticker=ticker,
-            before=n_before_bounds_drop,
-            after=n_after_bounds_drop,
-            removed_word="dropped",
-        )
+    # --- 6) Bounds (NULL then DROP) ---
+    lf = _step_apply_bounds(lf=lf, ticker=ticker, collect_stats=collect_stats)
 
     # --- 7) Derived features: DTE, moneyness, mids, spreads, rel spreads ---
-    lf = lf.with_columns(
-        dte=(pl.col("expiry_date") - pl.col("trade_date")).dt.total_days(),
-        moneyness_ks=pl.col("strike") / pl.col("spot_price"),
-        call_mid_price=(
-            (pl.col("call_bid_price") + pl.col("call_ask_price")) / 2.0
-        ),
-        put_mid_price=(
-            (pl.col("put_bid_price") + pl.col("put_ask_price")) / 2.0
-        ),
-        call_spread=pl.col("call_ask_price") - pl.col("call_bid_price"),
-        put_spread=pl.col("put_ask_price") - pl.col("put_bid_price"),
+    lf = _step_add_derived_features(lf=lf)
+
+    # --- 8) Trading filters then hard sanity filters ---
+    lf = _step_apply_filters(
+        lf=lf,
+        ticker=ticker,
+        dte_min=dte_min,
+        dte_max=dte_max,
+        moneyness_min=moneyness_min,
+        moneyness_max=moneyness_max,
+        collect_stats=collect_stats,
+        stats=stats,
     )
 
-    lf = lf.with_columns(
-        call_rel_spread=(
-            pl.when((pl.col("call_mid_price") > 0) & (pl.col("call_spread") >= 0))
-            .then(pl.col("call_spread") / pl.col("call_mid_price"))
-            .otherwise(None)
-        ),
-        put_rel_spread=(
-            pl.when((pl.col("put_mid_price") > 0) & (pl.col("put_spread") >= 0))
-            .then(pl.col("put_spread") / pl.col("put_mid_price"))
-            .otherwise(None)
-        ),
+    # --- 9) Put greeks via European put–call parity ---
+    lf = _step_add_put_greeks(lf=lf)
+
+    # --- 10) Final column selection & materialisation ---
+    df, out_path = _step_collect_and_write(
+        lf=lf,
+        proc_root=proc_root_p,
+        ticker=ticker,
+        columns=columns,
     )
-
-    # ---------------------------------------------------------------------
-    # 8) Filters
-    # ---------------------------------------------------------------------
-    # Apply two categories, in order:
-    #   A) Trading filters        (your trading universe / band-pass)
-    #   B) Hard sanity filters    (structural consistency: bid/ask, dead rows, etc.)
-
-    # 8A) Trading band filters
-    n_before_trading: int | None = _count_rows(lf) if collect_stats else None
-
-    lf = lf.filter(
-        pl.col("dte").is_between(dte_min, dte_max),
-        pl.col("moneyness_ks").is_between(moneyness_min, moneyness_max),
-    )
-
-    if collect_stats:
-        n_rows_after_trading = _count_rows(lf)
-        _log_before_after(
-            label="Trading filters",
-            ticker=ticker,
-            before=n_before_trading,
-            after=n_rows_after_trading,
-            removed_word="dropped",
-        )
-
-    # 8B) Hard sanity filters
-    n_before_hard: int | None = _count_rows(lf) if collect_stats else None
-
-    lf = lf.filter(
-        pl.col("trade_date") <= pl.col("expiry_date"),
-        pl.col("call_ask_price") >= pl.col("call_bid_price"),
-        pl.col("put_ask_price") >= pl.col("put_bid_price"),
-        ~(
-            (pl.col("call_bid_price") == 0)
-            & (pl.col("call_ask_price") == 0)
-            & (pl.col("call_model_price") == 0)
-            & (pl.col("put_bid_price") == 0)
-            & (pl.col("put_ask_price") == 0)
-            & (pl.col("put_model_price") == 0)
-        ),
-    )
-
-    if collect_stats:
-        n_rows_after_hard = _count_rows(lf)
-        _log_before_after(
-            label="Hard sanity",
-            ticker=ticker,
-            before=n_before_hard,
-            after=n_rows_after_hard,
-            removed_word="dropped",
-        )
-
-    # --- 8) Put greeks via European put–call parity ---
-    disc_q = (-pl.col("dividend_yield") * pl.col("yte")).exp()
-    disc_r = (-pl.col("risk_free_rate") * pl.col("yte")).exp()
-
-    lf = lf.with_columns(
-        put_delta = pl.col("call_delta") - disc_q,
-        put_gamma = pl.col("call_gamma"),
-        put_vega = pl.col("call_vega"),
-        put_theta = (
-            pl.col("call_theta") + (
-                pl.col("dividend_yield") * pl.col("spot_price") * disc_q - 
-                pl.col("risk_free_rate") * pl.col("strike") * disc_r
-            ) / CALENDAR_DAYS_PER_YEAR
-        ),
-        put_rho = (
-            pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r / 100
-        )
-    )
-
-    # --- 9) Final column selection & materialisation ---
-    if columns is None:
-        cols = OPTIONS_CHAIN_CORE_COLUMNS
-    else:
-        cols = columns
-
-    lf = lf.sort(["trade_date", "expiry_date", "strike"])
-    df = lf.select(cols).collect()
-
-    out_path = _get_options_chain_path(proc_root=proc_root, ticker=ticker)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-
-    logger.info(
-        "Writing processed options chain: %s (rows=%s, cols=%s)",
-        out_path,
-        _fmt_int(df.height),
-        _fmt_int(len(df.columns)),
-    )
-
-    df.write_parquet(out_path)
 
     result = BuildOptionsChainResult(
         ticker=str(ticker),
         out_path=out_path,
         duration_s=time.perf_counter() - t0,
         n_rows_written=int(df.height),
-        n_rows_input=n_rows_input,
-        n_rows_after_dedupe=n_rows_after_dedupe,
-        n_rows_yield_input=n_rows_yield_input,
-        n_rows_yield_after_dedupe=n_rows_yield_after_dedupe,
-        n_rows_join_missing_yield=n_rows_join_missing_yield,
-        n_rows_after_trading=n_rows_after_trading,
-        n_rows_after_hard=n_rows_after_hard,
+        n_rows_input=stats.n_rows_input,
+        n_rows_after_dedupe=stats.n_rows_after_dedupe,
+        n_rows_yield_input=stats.n_rows_yield_input,
+        n_rows_yield_after_dedupe=stats.n_rows_yield_after_dedupe,
+        n_rows_join_missing_yield=stats.n_rows_join_missing_yield,
+        n_rows_after_trading=stats.n_rows_after_trading,
+        n_rows_after_hard=stats.n_rows_after_hard,
     )
 
     logger.info(
