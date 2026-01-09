@@ -569,10 +569,6 @@ def _step_merge_dividend_yield(
             _fmt_int(stats.n_rows_yield_input),
         )
 
-    n_before_yield: int | None = (
-        _count_rows(lf_yield) if collect_stats else None
-    )
-
     lf_yield = _dedupe_on_keys(
         lf_yield,
         key_common=["ticker", "trade_date", "expiry_date"],
@@ -584,7 +580,7 @@ def _step_merge_dividend_yield(
         _log_before_after(
             label="Dedupe (monies_implied)",
             ticker=ticker,
-            before=n_before_yield,
+            before=stats.n_rows_yield_input,
             after=stats.n_rows_yield_after_dedupe,
             removed_word="removed",
         )
@@ -606,10 +602,16 @@ def _step_merge_dividend_yield(
 
     if collect_stats:
         try:
-            n_total_join = _count_rows(lf)
-            n_miss = _count_rows(
-                lf.filter(pl.col("_dividend_yield_api").is_null())
+            out = (
+                lf.select(
+                    pl.len().alias("_n"),
+                    pl.col("_dividend_yield_api").is_null().sum().alias("_miss"),
+                )
+                .collect()
+                .row(0)
             )
+            n_total_join = int(out[0])
+            n_miss = int(out[1])
             stats.n_rows_join_missing_yield = n_miss
             _log_total_missing(
                 label="Yield join",
@@ -621,9 +623,9 @@ def _step_merge_dividend_yield(
             )
         except Exception:
             logger.debug(
-                "Yield-join stats failed for ticker=%s", 
-                ticker, 
-                exc_info=True
+                "Yield-join stats failed for ticker=%s",
+                ticker,
+                exc_info=True,
             )
 
     # Replace existing dividend_yield
@@ -656,6 +658,8 @@ def _step_apply_bounds(
 ) -> pl.LazyFrame:
     # 6A) Bounds NA replacement (NULL)
     bounds_null = getattr(spec, "bounds_null_canonical", None)
+
+    n_total: int | None = None
     if collect_stats:
         n_total, n_rows_oob = _count_rows_any_oob(lf, bounds=bounds_null)
         if n_total is not None and n_rows_oob is not None:
@@ -672,7 +676,12 @@ def _step_apply_bounds(
 
     # 6B) Bounds filters (DROP)
     bounds_drop = getattr(spec, "bounds_drop_canonical", None)
-    n_before_drop: int | None = _count_rows(lf) if collect_stats else None
+    # Reuse the total row count from bounds-null stats when available.
+    n_before_drop: int | None
+    if collect_stats:
+        n_before_drop = n_total if n_total is not None else _count_rows(lf)
+    else:
+        n_before_drop = None
 
     lf = _apply_bounds_drop(lf, bounds=bounds_drop)
 
@@ -865,7 +874,7 @@ def build_options_chain(
     The processed panel:
     - parses dates (trade_date, expiry_date)
     - computes DTE and K/S moneyness
-    - normalises vendor names (stkPx -> spot_price, cBidPx -> call_bid_price, ...)
+    - normalises vendor names (stkPx -> spot_price, cBidPx -> call_bid_price)
     - optionally merges dividend yield from ORATS API monies_implied
       (replacing empty/invalid dividend_yield in the FTP strikes)
     - computes call/put mid prices, spreads, relative spreads
@@ -873,7 +882,7 @@ def build_options_chain(
     - trims extreme DTE and moneyness
     - drops completely dead contracts (no quotes, no theo value)
     - exposes call Greeks as call_delta, call_gamma, ...
-    - adds put Greeks via European put–call parity (put_delta, put_gamma, ...)
+    - adds put Greeks via European put–call parity (put_delta, put_gamma)
 
     Parameters
     ----------
@@ -894,9 +903,9 @@ def build_options_chain(
         `endpoint=monies_implied/underlying=<TICKER>/part-0000.parquet`).
         If None, the merge step is skipped.
     merge_dividend_yield:
-        If True (default), replace/overwrite `dividend_yield` in the options chain
-        using `yield_rate` from the monies_implied endpoint joined on
-        (ticker, trade_date, expiry_date).
+        If True (default), replace/overwrite `dividend_yield` in the 
+        options chain using `yield_rate` from the monies_implied endpoint 
+        joined on (ticker, trade_date, expiry_date).
     collect_stats:
         If True, collect all the rows counts from filtering operations e.g.
         removed duplicates, remove negative prices ...
