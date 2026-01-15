@@ -1,3 +1,8 @@
+"""Build processed ORATS options-chain panels.
+
+This module turns **intermediate** ORATS *strikes* data (FTP) into a cleaned,
+analysis-ready **processed** options-chain dataset for a single underlying.
+"""
 from __future__ import annotations
 
 import logging

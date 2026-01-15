@@ -257,6 +257,14 @@ def plot_avg_volume_by_delta(
     plt.show()
 
 
+from __future__ import annotations
+
+from typing import Sequence
+import numpy as np
+import polars as pl
+import matplotlib.pyplot as plt
+
+
 def plot_liquidity_by_dte(
     df_long: pl.DataFrame,
     *,
@@ -264,71 +272,69 @@ def plot_liquidity_by_dte(
     dte_labels: Sequence[str] | None = None,
     delta_min: float = 0.1,
     delta_max: float = 0.9,
+    delta_col: str = "delta",  # <-- change if your column is call_delta etc.
 ) -> None:
-    """
-    Plot average volume and open interest by DTE bucket (bar chart, dual axis).
-
-    Parameters
-    ----------
-    df_long :
-        LONG ORATS panel with at least:
-        ["dte", "delta", "volume", "open_interest"].
-    dte_bins :
-        Bin edges for DTE bucketing. If None, use [0, 10, 15, 20, 30, 45, 60, 90].
-    dte_labels :
-        Labels for the buckets; if None, they are generated from dte_bins
-        as "[low, high)" strings.
-    delta_min, delta_max :
-        Restrict to options with |delta| in [delta_min, delta_max].
-    """
     if dte_bins is None:
-        dte_bins = [0, 10, 15, 20, 30, 45, 60, 90]
-
+        dte_bins = [0, 10, 15, 20, 30, 45, 60, 90, 180]
     dte_bins = list(dte_bins)
 
     if dte_labels is None:
-        dte_labels = [
-            f"({dte_bins[i]}–{dte_bins[i + 1]}]"
-            for i in range(len(dte_bins) - 1)
-        ]
+        dte_labels = [f"({dte_bins[i]}–{dte_bins[i + 1]}]" for i in range(len(dte_bins) - 1)]
     else:
         dte_labels = list(dte_labels)
 
     if len(dte_labels) != len(dte_bins) - 1:
-        raise ValueError(
-            f"dte_labels must have length len(dte_bins)-1 = {len(dte_bins) - 1}, "
-            f"got {len(dte_labels)}"
-        )
+        raise ValueError("dte_labels must have length len(dte_bins)-1")
+
+    # --- 1) Build bucket index (0..n-1) without relying on cut() string labels ---
+    # bucket = sum(dte > edge) - 1 (clipped)
+    # Example: dte=12 with edges [0,10,15,...] => (dte>0)+(dte>10)=2 => bucket=1 => (10,15]
+    bucket_expr = (
+        pl.sum_horizontal([(pl.col("dte") > e).cast(pl.Int32) for e in dte_bins]) - 1
+    ).clip(0, len(dte_bins) - 2)
 
     liq_by_dte = (
         df_long
-        .filter(pl.col("delta").abs().is_between(delta_min, delta_max))
-        .with_columns(
-            dte_bucket = pl.col("dte").cut(dte_bins).alias("dte_bucket"),
+        .filter(
+            pl.col(delta_col).abs().is_between(delta_min, delta_max),
+            pl.col("dte").is_not_null(),
         )
+        .with_columns(dte_bucket=bucket_expr)
         .group_by("dte_bucket")
         .agg(
             pl.col("volume").mean().alias("avg_volume"),
             pl.col("open_interest").mean().alias("avg_open_interest"),
         )
+    )
+
+    # Ensure we always plot all buckets in order
+    all_buckets = pl.DataFrame({"dte_bucket": list(range(len(dte_labels)))})
+    liq_by_dte = (
+        all_buckets
+        .join(liq_by_dte, on="dte_bucket", how="left")
+        .with_columns(
+            pl.col("avg_volume").fill_null(0.0),
+            pl.col("avg_open_interest").fill_null(0.0),
+        )
         .sort("dte_bucket")
     )
 
-    if not liq_by_dte.height:
-        return
+    x = np.arange(len(dte_labels))
 
-    x = np.arange(liq_by_dte.height)
-
-    fig, ax1 = plt.subplots(figsize=(8, 4))
+    fig, ax1 = plt.subplots(figsize=(9, 4))
     ax2 = ax1.twinx()
 
-    ax1.bar(x - 0.15, liq_by_dte["avg_volume"],
-            width=0.3, label="Avg volume")
-    ax2.bar(x + 0.15, liq_by_dte["avg_open_interest"],
-            width=0.3, alpha=0.7, label="Avg open interest")
+    ax1.bar(x - 0.15, liq_by_dte["avg_volume"].to_numpy(), width=0.3, label="Avg volume")
+    ax2.bar(
+        x + 0.15,
+        liq_by_dte["avg_open_interest"].to_numpy(),
+        width=0.3,
+        alpha=0.7,
+        label="Avg open interest",
+    )
 
     ax1.set_xticks(x)
-    ax1.set_xticklabels(dte_labels, rotation=0)
+    ax1.set_xticklabels(dte_labels)
     ax1.set_xlabel("DTE bucket")
     ax1.set_ylabel("Avg volume")
     ax2.set_ylabel("Avg open interest")
