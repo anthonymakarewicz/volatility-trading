@@ -22,6 +22,13 @@ import polars as pl
 from .schema_spec import OratsSchemaSpec
 
 
+# TODO: Implement schema specs for these endpoints (downloaded in RAW)
+# - hvs
+# - splits
+# - ivrank
+UNSUPPORTED_ENDPOINTS: tuple[str, ...] = ("hvs", "splits", "ivrank")
+
+
 # ----------------------------------------------------------------------------
 # Endpoint: monies_implied
 # ----------------------------------------------------------------------------

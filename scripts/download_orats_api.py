@@ -32,7 +32,7 @@ ORATS_API_KEY_ENV = "ORATS_API_KEY"
 RAW_ORATS_ROOT = RAW_ORATS_API
 
 # Supported endpoint name (must exist in ENDPOINTS mapping e.g. "cores", "summaries")
-ENDPOINT = "monies_implied"
+ENDPOINT = "ivrank"
 
 # Data information
 TICKERS = [
@@ -47,7 +47,7 @@ TICKERS = [
     "NVDA",
     "MSFT",
 ]
-YEAR_WHITELIST = [2020] # Only used for BY_TRADE_DATE endpoints
+YEAR_WHITELIST = None # Only used for BY_TRADE_DATE endpoints
 FIELDS = None
 
 # Logging
