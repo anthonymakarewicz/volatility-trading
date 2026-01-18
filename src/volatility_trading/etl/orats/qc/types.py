@@ -2,12 +2,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
-# TODO: Add a QCConfig dataclass
-"""
+
+class Severity(str, Enum):
+    HARD = "HARD"  # structural constraints (should be ~0 violations)
+    SOFT = "SOFT"  # arbitrage-ish / surface consistency checks
+    INFO = "INFO"  # descriptive metrics, not pass/fail
+
+
+class Grade(str, Enum):
+    OK = "OK"
+    MILD = "MILD"
+    WARN = "WARN"
+    FAIL = "FAIL"
+
+
 @dataclass(frozen=True)
-class OptionsChainQCConfig:
+class QCConfig:
     ticker: str
     run_global: bool = True
     run_roi: bool = True
@@ -29,26 +42,6 @@ class OptionsChainQCConfig:
 
     top_k_buckets: int = 10
 
-@dataclass(frozen=True)
-class QCRunResult:
-    config: OptionsChainQCConfig
-    checks: list[QCCheckResult]
-    passed: bool
-    out_json: Path | None = None
-"""
-
-class Severity(str, Enum):
-    HARD = "HARD"  # structural constraints (should be ~0 violations)
-    SOFT = "SOFT"  # arbitrage-ish / surface consistency checks
-    INFO = "INFO"  # descriptive metrics, not pass/fail
-
-
-class Grade(str, Enum):
-    OK = "OK"
-    MILD = "MILD"
-    WARN = "WARN"
-    FAIL = "FAIL"
-
 
 @dataclass(frozen=True)
 class QCCheckResult:
@@ -63,3 +56,33 @@ class QCCheckResult:
     viol_rate: float | None = None  # n_viol / n_rows
 
     details: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class QCRunResult:
+    """Result of one QC run (one dataset, one ticker, one config)."""
+
+    # What did we run?
+    config: QCConfig
+    ticker: str
+    proc_root: Path
+    checks: list[QCCheckResult]
+    passed: bool
+    parquet_path: Path | None = None
+
+    # Results
+    n_checks: int | None = None
+
+    # Basic run stats
+    duration_s: float | None = None
+    n_rows: int | None = None
+    n_rows_roi: int | None = None
+
+    # Quick summary
+    n_hard_fail: int | None = None
+    n_soft_fail: int | None = None
+    n_soft_warn: int | None = None
+
+    # Artifacts
+    out_summary_json: Path | None = None
+    out_config_json: Path | None = None

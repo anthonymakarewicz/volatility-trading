@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from volatility_trading.utils import setup_logging
+from volatility_trading.utils.logging_config import setup_logging
 from volatility_trading.config.paths import PROC_ORATS_OPTIONS_CHAIN
 from volatility_trading.etl.orats.qc.options_chain import run_qc
 
@@ -31,7 +31,7 @@ def main() -> None:
     )
     logger = logging.getLogger(__name__)
 
-    run_qc(
+    result = run_qc(
         ticker=TICKER,
         proc_root=PROC_ROOT,
     )

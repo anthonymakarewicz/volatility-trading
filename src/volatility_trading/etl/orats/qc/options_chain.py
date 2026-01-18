@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Sequence
 from pathlib import Path
 
 import polars as pl
 
-from .types import Severity
+from .report import write_summary_json, write_config_json, log_check
 from .runners import run_hard_check, run_soft_check
-from .report import write_summary_json, log_check
 from .checks_hard import (
     expr_bad_null_keys,
     expr_bad_bid_ask,
@@ -19,8 +19,15 @@ from .checks_soft import (
     flag_maturity_monotonicity,
     summarize_by_bucket,
 )
+from .types import (
+    Severity, 
+    Grade, 
+    QCConfig, 
+    QCRunResult, 
+    QCCheckResult
+)
 from volatility_trading.datasets import (
-    options_chain_wide_to_long, 
+    options_chain_wide_to_long,
     scan_options_chain,
     options_chain_path,
 )
@@ -36,6 +43,7 @@ def _apply_roi_filter(
     delta_min: float = 0.1,
     delta_max: float = 0.9,
 ) -> pl.DataFrame:
+    """Return the region-of-interest subset used for soft-check reporting."""
     return df.filter(
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("delta").abs().is_between(delta_min, delta_max),
@@ -44,8 +52,8 @@ def _apply_roi_filter(
 
 def run_qc(
     *,
-    proc_root: Path | str,
     ticker: str,
+    proc_root: Path | str,
     out_json: Path | str | None = None,
     write_json: bool = True,
     dte_bins: Sequence[int | float] = (0, 10, 30, 60, 180),
@@ -55,27 +63,57 @@ def run_qc(
     roi_delta_min: float = 0.1,
     roi_delta_max: float = 0.9,
     top_k_buckets: int = 10,
-) -> list:
-    """
-    Run QC checks on a processed options chain for one ticker.
+) -> QCRunResult:
+    """Run QC checks on the processed options chain for a single ticker.
 
-    This function takes only the processed *root* and constructs the data path:
-        proc_root / underlying={ticker} / part-0000.parquet
-    (or detects a partitioned parquet layout under the same directory).
+    Notes
+    -----
+    - Loads processed WIDE options chain via `datasets.scan_options_chain()`.
+    - Converts to LONG with `datasets.options_chain_wide_to_long()`.
+    - Runs HARD checks globally and SOFT checks on both GLOBAL + ROI regions.
+    - Optionally writes two sidecars next to the parquet:
+        * qc_summary.json (results)
+        * qc_config.json  (run configuration)
 
     Returns
     -------
-    list[QCCheckResult]
-        List of QC results (hard + soft checks).
+    QCRunResult
+        Container with the list of check results and output paths.
     """
-    logger.info("QC loading ticker=%s", ticker)
+    t0 = time.perf_counter()
 
-    proc_root = Path(proc_root)
-    lf = scan_options_chain(ticker, proc_root=proc_root)
+    proc_root_p = Path(proc_root)
+    ticker_s = str(ticker).strip().upper()
+
+    parquet_path: Path | None = None
+    try:
+        parquet_path = options_chain_path(proc_root_p, ticker_s)
+    except Exception:
+        parquet_path = None
+
+    config = QCConfig(
+        ticker=ticker_s,
+        roi_dte_min=roi_dte_min,
+        roi_dte_max=roi_dte_max,
+        roi_delta_min=roi_delta_min,
+        roi_delta_max=roi_delta_max,
+        dte_bins=tuple(dte_bins),
+        delta_bins=tuple(delta_bins),
+        top_k_buckets=top_k_buckets,
+    )
+
+    logger.info("QC loading ticker=%s", ticker_s)
+
+    lf = scan_options_chain(ticker_s, proc_root=proc_root_p)
     df = options_chain_wide_to_long(lf).collect()
 
-    results = []
-    # ---- HARD checks (global) ----
+    n_rows: int | None = int(df.height)
+
+    results: list[QCCheckResult] = []
+
+    # ---------------------------------------------------------------------
+    # HARD checks (global)
+    # ---------------------------------------------------------------------
     results.append(
         run_hard_check(
             name="keys_not_null",
@@ -111,16 +149,20 @@ def run_qc(
         )
     )
 
-    # ---- SOFT checks — report both Global and ROI ----
+    # ---------------------------------------------------------------------
+    # SOFT checks — report both Global and ROI
+    # ---------------------------------------------------------------------
     df_roi = _apply_roi_filter(
         df,
-        dte_min=roi_dte_min,
-        dte_max=roi_dte_max,
-        delta_min=roi_delta_min,
-        delta_max=roi_delta_max,
+        dte_min=config.roi_dte_min,
+        dte_max=config.roi_dte_max,
+        delta_min=config.roi_delta_min,
+        delta_max=config.roi_delta_max,
     )
 
-    soft_thresholds = {"mild": 0.01, "warn": 0.03, "fail": 0.10}
+    n_rows_roi: int | None = int(df_roi.height)
+
+    soft_thresholds = dict(config.soft_thresholds)
 
     for label, dfx in [("GLOBAL", df), ("ROI", df_roi)]:
         # Strike monotonicity
@@ -132,15 +174,17 @@ def run_qc(
                     flagger=flag_strike_monotonicity,
                     violation_col="strike_monot_violation",
                     flagger_kwargs={
-                        "option_type": opt, "price_col": "mid_price"
+                        "option_type": opt,
+                        "price_col": "mid_price",
                     },
                     summarizer=summarize_by_bucket,
                     summarizer_kwargs={
-                        "dte_bins": dte_bins, "delta_bins": delta_bins
+                        "dte_bins": config.dte_bins,
+                        "delta_bins": config.delta_bins,
                     },
                     thresholds=soft_thresholds,
                     severity=Severity.SOFT,
-                    top_k_buckets=top_k_buckets,
+                    top_k_buckets=config.top_k_buckets,
                 )
             )
 
@@ -153,34 +197,80 @@ def run_qc(
                     flagger=flag_maturity_monotonicity,
                     violation_col="maturity_monot_violation",
                     flagger_kwargs={
-                        "option_type": opt, "price_col": "mid_price"
+                        "option_type": opt,
+                        "price_col": "mid_price",
                     },
                     summarizer=summarize_by_bucket,
                     summarizer_kwargs={
-                        "dte_bins": dte_bins, "delta_bins": delta_bins
+                        "dte_bins": config.dte_bins,
+                        "delta_bins": config.delta_bins,
                     },
                     thresholds=soft_thresholds,
                     severity=Severity.SOFT,
-                    top_k_buckets=top_k_buckets,
+                    top_k_buckets=config.top_k_buckets,
                 )
             )
 
-    # ---- Report + persist ----
+    # ---------------------------------------------------------------------
+    # Report
+    # ---------------------------------------------------------------------
     for r in results:
         log_check(logger, r)
 
+    out_summary_json: Path | None = None
+    out_config_json: Path | None = None
+
     if write_json:
         if out_json is None:
-            path = options_chain_path(proc_root, ticker)
-            if not path.exists():
+            if parquet_path is None:
+                parquet_path = options_chain_path(proc_root_p, ticker_s)
+            if not parquet_path.exists():
                 raise FileNotFoundError(
-                    f"Processed options chain not found: {path}"
+                    f"Processed options chain not found: {parquet_path}"
                 )
-            out_json_p = path.parent / "qc_summary.json"
+            out_summary_json = parquet_path.parent / "qc_summary.json"
         else:
-            out_json_p = Path(out_json)
+            out_summary_json = Path(out_json)
 
-        write_summary_json(out_json_p, results)
-        logger.info("QC summary written: %s", out_json_p)
+        out_config_json = out_summary_json.with_name("qc_config.json")
 
-    return results
+        write_summary_json(out_summary_json, results)
+        write_config_json(out_config_json, config)
+
+        logger.info("QC summary written: %s", out_summary_json)
+        logger.info("QC config written:  %s", out_config_json)
+
+    passed = all(r.passed for r in results)
+
+    n_hard_fail = sum(
+        1 for r in results
+        if (r.severity == Severity.HARD and not r.passed)
+    )
+    n_soft_fail = sum(
+        1 for r in results
+        if (r.severity == Severity.SOFT and r.grade == Grade.FAIL)
+    )
+    n_soft_warn = sum(
+        1 for r in results
+        if (r.severity == Severity.SOFT and r.grade == Grade.WARN)
+    )
+
+    duration_s = time.perf_counter() - t0
+
+    return QCRunResult(
+        config=config,
+        ticker=ticker_s,
+        proc_root=proc_root_p,
+        parquet_path=parquet_path,
+        checks=results,
+        passed=passed,
+        n_checks=len(results),
+        duration_s=duration_s,
+        n_rows=n_rows,
+        n_rows_roi=n_rows_roi,
+        n_hard_fail=n_hard_fail,
+        n_soft_fail=n_soft_fail,
+        n_soft_warn=n_soft_warn,
+        out_summary_json=out_summary_json,
+        out_config_json=out_config_json,
+    )

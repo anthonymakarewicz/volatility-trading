@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import asdict
 from pathlib import Path
 
-from .types import QCCheckResult
+from .types import QCCheckResult, QCConfig
 
 NA_STR = 'n/a'
 
@@ -31,5 +32,13 @@ def log_check(logger: logging.Logger, res: QCCheckResult) -> None:
 def write_summary_json(path: Path, results: list[QCCheckResult]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = [res.__dict__ for res in results]
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, default=str)
+
+
+def write_config_json(path: Path, config: QCConfig) -> None:
+    """Write the QCConfig to a JSON sidecar file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = asdict(config)
     with path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, default=str)
