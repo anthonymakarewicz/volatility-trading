@@ -24,3 +24,21 @@ def expr_bad_trade_after_expiry(
 def expr_bad_negative(col: str) -> pl.Expr:
     """Flag rows where col < 0."""
     return pl.col(col) < 0
+
+
+def expr_bad_negative_quotes(
+    bid_col: str = "bid_price",
+    ask_col: str = "ask_price",
+) -> pl.Expr:
+    """Rows with negative bid or ask quotes."""
+    return (pl.col(bid_col) < 0) | (pl.col(ask_col) < 0)
+
+
+def expr_bad_crossed_market(
+    bid_col: str = "bid_price",
+    ask_col: str = "ask_price",
+    *,
+    tol: float = 0.0,
+) -> pl.Expr:
+    """Crossed market: bid > ask (+ optional tolerance)."""
+    return pl.col(bid_col) > (pl.col(ask_col) + tol)

@@ -1,3 +1,18 @@
+"""
+volatility_trading.etl.orats.qc.options_chain
+
+QC runner for the processed ORATS *options chain* dataset.
+
+This module is **read-only**: it does not drop or modify rows. It reports:
+- **HARD checks**: must-pass invariants (null keys, trade_date <= expiry_date,
+  bid/ask sanity: non-negative, not crossed).
+- **SOFT checks**: diagnostics (strike/maturity monotonicity, locked/one-sided
+  quotes, wide spreads).
+
+Soft checks are reported on both:
+- **GLOBAL** (full dataset)
+- **ROI** (DTE + |delta| restricted subset)
+"""
 from __future__ import annotations
 
 import logging
@@ -7,29 +22,28 @@ from pathlib import Path
 
 import polars as pl
 
-from .report import write_summary_json, write_config_json, log_check
-from .runners import run_hard_check, run_soft_check
 from .checks_hard import (
-    expr_bad_null_keys,
     expr_bad_bid_ask,
+    expr_bad_crossed_market,
+    expr_bad_negative_quotes,
+    expr_bad_null_keys,
     expr_bad_trade_after_expiry,
 )
 from .checks_soft import (
-    flag_strike_monotonicity,
+    flag_locked_market,
     flag_maturity_monotonicity,
+    flag_one_sided_quotes,
+    flag_strike_monotonicity,
+    flag_wide_spread,
     summarize_by_bucket,
 )
-from .types import (
-    Severity, 
-    Grade, 
-    QCConfig, 
-    QCRunResult, 
-    QCCheckResult
-)
+from .report import log_check, write_config_json, write_summary_json
+from .runners import run_hard_check, run_soft_check
+from .types import Grade, QCCheckResult, QCConfig, QCRunResult, Severity
 from volatility_trading.datasets import (
+    options_chain_path,
     options_chain_wide_to_long,
     scan_options_chain,
-    options_chain_path,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,10 +64,10 @@ def _apply_roi_filter(
     )
 
 
-# ------------------- Private QC Check Helpers -------------------
 def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
     """Run hard (must-pass) checks on the full dataset."""
     results: list[QCCheckResult] = []
+
     hard_specs = [
         {
             "name": "keys_not_null",
@@ -77,7 +91,28 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
             "df": df.filter(pl.col("option_type") == "P"),
             "predicate_expr": expr_bad_bid_ask("bid_price", "ask_price"),
         },
+        {
+            "name": "call_negative_quotes",
+            "df": df.filter(pl.col("option_type") == "C"),
+            "predicate_expr": expr_bad_negative_quotes("bid_price", "ask_price"),
+        },
+        {
+            "name": "put_negative_quotes",
+            "df": df.filter(pl.col("option_type") == "P"),
+            "predicate_expr": expr_bad_negative_quotes("bid_price", "ask_price"),
+        },
+        {
+            "name": "call_crossed_market",
+            "df": df.filter(pl.col("option_type") == "C"),
+            "predicate_expr": expr_bad_crossed_market("bid_price", "ask_price"),
+        },
+        {
+            "name": "put_crossed_market",
+            "df": df.filter(pl.col("option_type") == "P"),
+            "predicate_expr": expr_bad_crossed_market("bid_price", "ask_price"),
+        },
     ]
+
     for spec in hard_specs:
         results.append(
             run_hard_check(
@@ -87,28 +122,58 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
                 severity=Severity.HARD,
             )
         )
+
     return results
 
 
 def _run_soft_checks(
-        *,
-        df: pl.DataFrame, 
-        df_roi: pl.DataFrame, 
-        config: QCConfig
+    *,
+    df: pl.DataFrame,
+    df_roi: pl.DataFrame,
+    config: QCConfig
 ) -> list[QCCheckResult]:
-    """Run soft checks (arbitrage-style diagnostics) on GLOBAL and ROI subsets."""
+    """Run soft checks (diagnostic / arbitrage-style) on GLOBAL and ROI subsets."""
     results: list[QCCheckResult] = []
     soft_thresholds = dict(config.soft_thresholds)
+
     soft_specs = [
+        # ---- Arbitrage diagnostics ----
         {
             "base_name": "strike_monotonicity",
             "flagger": flag_strike_monotonicity,
             "violation_col": "strike_monot_violation",
+            "flagger_kwargs": {"price_col": "mid_price"},
         },
         {
             "base_name": "maturity_monotonicity",
             "flagger": flag_maturity_monotonicity,
             "violation_col": "maturity_monot_violation",
+            "flagger_kwargs": {"price_col": "mid_price"},
+        },
+        # ---- Quote diagnostics ----
+        {
+            "base_name": "locked_market",
+            "flagger": flag_locked_market,
+            "violation_col": "locked_market_violation",
+            "flagger_kwargs": {},
+        },
+        {
+            "base_name": "one_sided_quotes",
+            "flagger": flag_one_sided_quotes,
+            "violation_col": "one_sided_quote_violation",
+            "flagger_kwargs": {},
+        },
+        {
+            "base_name": "wide_spread",
+            "flagger": flag_wide_spread,
+            "violation_col": "wide_spread_violation",
+            "flagger_kwargs": {"threshold": 1.0, "min_mid": 0.01},
+        },
+        {
+            "base_name": "very_wide_spread",
+            "flagger": flag_wide_spread,
+            "violation_col": "wide_spread_violation",
+            "flagger_kwargs": {"threshold": 2.0, "min_mid": 0.01},
         },
     ]
 
@@ -123,7 +188,7 @@ def _run_soft_checks(
                         violation_col=spec["violation_col"],
                         flagger_kwargs={
                             "option_type": opt,
-                            "price_col": "mid_price",
+                            **spec["flagger_kwargs"],
                         },
                         summarizer=summarize_by_bucket,
                         summarizer_kwargs={
@@ -135,6 +200,7 @@ def _run_soft_checks(
                         top_k_buckets=config.top_k_buckets,
                     )
                 )
+
     return results
 
 
@@ -154,68 +220,48 @@ def run_qc(
 ) -> QCRunResult:
     """Run QC on the processed options chain for one underlying.
 
-    This is the main public entry point for validating a *processed* 
-    options chain. It loads the WIDE chain from `proc_root`, converts it to 
-    LONG format, runs a set of HARD (must-pass) checks globally, and SOFT 
-    (diagnostic) checks on both:
+    This function loads the processed options chain for `ticker`, converts the
+    stored WIDE schema to LONG (calls/puts split by `option_type`), and runs:
 
-    - GLOBAL: the entire chain
-    - ROI: a restricted, more tradable region (DTE + |delta| band)
-
-    HARD checks are intended to catch structural data issues 
-    (e.g. missing keys, inverted bid/ask, trade_date after expiry). 
-    SOFT checks are intended to measure the rate of common no-arbitrage 
-    style issues (e.g. monotonicity violations).
+    - HARD checks on the full dataset (must-pass invariants)
+    - SOFT checks on both GLOBAL and ROI subsets (diagnostic / arbitrage-style)
 
     Parameters
     ----------
     ticker:
-        Underlying symbol (e.g. ``"SPX"``). The loader will normalise it to
-        uppercase and strip whitespace.
+        Underlying symbol (e.g. "SPX", "SPY").
     proc_root:
-        Root directory containing the processed options chain parquet(s).
-        Expected layout is the one used by ``datasets.options_chain_path``.
+        Root directory of the processed dataset (e.g.
+        `data/processed/orats/options_chain`).
     out_json:
-        Optional explicit path for the QC summary JSON. If omitted and
-        ``write_json=True``, the summary is written next to the parquet as
-        ``qc_summary.json``.
+        Optional path for the summary JSON output. If None and `write_json=True`,
+        a default `qc_summary.json` is written next to the parquet.
     write_json:
-        If True, write two sidecar files:
-
-        - ``qc_summary.json``: list of check results
-        - ``qc_config.json``: QC configuration used for the run
-
+        If True, write `qc_summary.json` and `qc_config.json` next to the parquet
+        (or at `out_json` if provided).
     dte_bins:
-        Bin edges used by soft-check bucket summaries.
+        DTE bin edges used in bucket summaries for soft checks.
     delta_bins:
-        Bin edges for ``|delta|`` used by soft-check bucket summaries.
+        |delta| bin edges used in bucket summaries for soft checks.
     roi_dte_min, roi_dte_max:
-        DTE bounds used to define the ROI subset.
+        ROI time-to-expiry (DTE) bounds used for the ROI subset.
     roi_delta_min, roi_delta_max:
-        ``|delta|`` bounds used to define the ROI subset.
+        ROI absolute-delta bounds used for the ROI subset.
     top_k_buckets:
-        Maximum number of worst buckets to include in soft-check details.
+        Number of most-violating buckets to store in the soft-check details.
 
     Returns
     -------
     QCRunResult
-        A structured report including:
-        - the config used for this run
-        - the list of check results
-        - pass/fail summary counts
-        - optional output JSON paths
-
-    Notes
-    -----
-    - The QC module is *informational*: it does not drop rows or mutate the
-      processed dataset.
+        A run-level summary containing per-check results, overall pass status,
+        row counts (GLOBAL and ROI), and optional output file locations.
     """
     t0 = time.perf_counter()
 
     proc_root_p = Path(proc_root)
     ticker_s = str(ticker).strip().upper()
 
-    parquet_path: Path | None = None
+    parquet_path: Path | None
     try:
         parquet_path = options_chain_path(proc_root_p, ticker_s)
     except Exception:
@@ -250,10 +296,8 @@ def run_qc(
 
     results: list[QCCheckResult] = []
 
-    # ---- HARD checks (global) ----
     results.extend(_run_hard_checks(df))
 
-    # ---- SOFT checks — report both Global and ROI ----
     df_roi = _apply_roi_filter(
         df,
         dte_min=config.roi_dte_min,
@@ -262,9 +306,9 @@ def run_qc(
         delta_max=config.roi_delta_max,
     )
     n_rows_roi: int | None = int(df_roi.height)
+
     results.extend(_run_soft_checks(df=df, df_roi=df_roi, config=config))
 
-    # ---- Report ----
     for r in results:
         log_check(logger, r)
 
@@ -291,7 +335,6 @@ def run_qc(
         logger.info("QC summary written: %s", out_summary_json)
         logger.info("QC config written:  %s", out_config_json)
 
-    # Overall pass is strict: any failed check marks the run as failed.
     passed = all(r.passed for r in results)
 
     n_hard_fail = sum(
