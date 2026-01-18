@@ -28,6 +28,11 @@ from .checks_hard import (
     expr_bad_negative_quotes,
     expr_bad_null_keys,
     expr_bad_trade_after_expiry,
+    expr_bad_negative_vol_oi,
+)
+from .checks_info import (
+    summarize_risk_free_rate_metrics,
+    summarize_volume_oi_metrics,
 )
 from .checks_soft import (
     flag_locked_market,
@@ -35,10 +40,12 @@ from .checks_soft import (
     flag_one_sided_quotes,
     flag_strike_monotonicity,
     flag_wide_spread,
-    summarize_by_bucket,
+    flag_pos_vol_zero_oi,
+    flag_zero_vol_pos_oi,
 )
 from .report import log_check, write_config_json, write_summary_json
-from .runners import run_hard_check, run_soft_check
+from .runners import run_hard_check, run_info_check, run_soft_check
+from .summarizers import summarize_by_bucket
 from .types import Grade, QCCheckResult, QCConfig, QCRunResult, Severity
 from volatility_trading.datasets import (
     options_chain_path,
@@ -81,6 +88,7 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
             "df": df,
             "predicate_expr": expr_bad_trade_after_expiry(),
         },
+        # ---- Quote diagnostics ----
         {
             "name": "call_bid_ask_sane",
             "df": df.filter(pl.col("option_type") == "C"),
@@ -110,6 +118,17 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
             "name": "put_crossed_market",
             "df": df.filter(pl.col("option_type") == "P"),
             "predicate_expr": expr_bad_crossed_market("bid_price", "ask_price"),
+        },
+        # ---- Volume / OI diagnostics ----
+        {
+            "name": "call_negative_vol_oi",
+            "df": df.filter(pl.col("option_type") == "C"),
+            "predicate_expr": expr_bad_negative_vol_oi("volume", "open_interest"),
+        },
+        {
+            "name": "put_negative_vol_oi",
+            "df": df.filter(pl.col("option_type") == "P"),
+            "predicate_expr": expr_bad_negative_vol_oi("volume", "open_interest"),
         },
     ]
 
@@ -175,6 +194,21 @@ def _run_soft_checks(
             "violation_col": "wide_spread_violation",
             "flagger_kwargs": {"threshold": 2.0, "min_mid": 0.01},
         },
+        # ---- Volume / OI diagnostics ----
+        {
+            "base_name": "zero_vol_pos_oi",
+            "flagger": flag_zero_vol_pos_oi,
+            "thresholds": {"mild": 0.05, "warn": 0.15, "fail": 0.30},
+            "violation_col": "zero_vol_pos_oi_violation",
+            "flagger_kwargs": {},
+        },
+        {
+            "base_name": "pos_vol_zero_oi",
+            "flagger": flag_pos_vol_zero_oi,
+            "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.05},
+            "violation_col": "pos_vol_zero_oi_violation",
+            "flagger_kwargs": {},
+        },
     ]
 
     for label, dfx in [("GLOBAL", df), ("ROI", df_roi)]:
@@ -195,11 +229,38 @@ def _run_soft_checks(
                             "dte_bins": config.dte_bins,
                             "delta_bins": config.delta_bins,
                         },
-                        thresholds=soft_thresholds,
+                        thresholds=spec.get("thresholds", soft_thresholds),
                         severity=Severity.SOFT,
                         top_k_buckets=config.top_k_buckets,
                     )
                 )
+
+    return results
+
+
+def _run_info_checks(
+    *,
+    df: pl.DataFrame,
+    df_roi: pl.DataFrame,
+) -> list[QCCheckResult]:
+    """Run informational checks (always pass) and store metrics in details."""
+    results: list[QCCheckResult] = []
+
+    for label, dfx in [("GLOBAL", df), ("ROI", df_roi)]:
+        results.append(
+            run_info_check(
+                name=f"{label}_volume_oi_metrics",
+                df=dfx,
+                summarizer=summarize_volume_oi_metrics,
+            )
+        )
+        results.append(
+            run_info_check(
+                name=f"{label}_risk_free_rate_metrics",
+                df=dfx,
+                summarizer=summarize_risk_free_rate_metrics,
+            )
+        )
 
     return results
 
@@ -294,10 +355,6 @@ def run_qc(
         parquet_path,
     )
 
-    results: list[QCCheckResult] = []
-
-    results.extend(_run_hard_checks(df))
-
     df_roi = _apply_roi_filter(
         df,
         dte_min=config.roi_dte_min,
@@ -307,7 +364,10 @@ def run_qc(
     )
     n_rows_roi: int | None = int(df_roi.height)
 
+    results: list[QCCheckResult] = []
+    results.extend(_run_hard_checks(df))
     results.extend(_run_soft_checks(df=df, df_roi=df_roi, config=config))
+    results.extend(_run_info_checks(df=df, df_roi=df_roi))
 
     for r in results:
         log_check(logger, r)
@@ -335,7 +395,13 @@ def run_qc(
         logger.info("QC summary written: %s", out_summary_json)
         logger.info("QC config written:  %s", out_config_json)
 
-    passed = all(r.passed for r in results)
+    # PASS/FAIL:
+    # - HARD must all pass
+    # - SOFT fails are FAIL grade only
+    passed = all(
+        r.passed for r in results
+        if r.severity in {Severity.HARD, Severity.SOFT}
+    )
 
     n_hard_fail = sum(
         1 for r in results

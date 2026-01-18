@@ -159,3 +159,31 @@ def run_soft_check(
         viol_rate=rate,
         details=out_details,
     )
+
+
+def run_info_check(
+    *,
+    name: str,
+    df: pl.DataFrame,
+    summarizer: Callable[..., dict[str, Any]],
+    summarizer_kwargs: dict[str, Any] | None = None,
+    severity: Severity = Severity.INFO,
+) -> QCCheckResult:
+    """
+    Run an informational check (always-pass). Stores metrics in details.
+    """
+    summarizer_kwargs = summarizer_kwargs or {}
+
+    n_rows = int(df.height)
+    details = summarizer(df=df, **summarizer_kwargs)
+
+    return QCCheckResult(
+        name=name,
+        severity=severity,
+        grade=Grade.OK,
+        passed=True,
+        n_rows=n_rows,
+        n_viol=None,
+        viol_rate=None,
+        details=details,
+    )

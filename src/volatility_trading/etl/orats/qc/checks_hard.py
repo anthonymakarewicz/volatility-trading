@@ -42,3 +42,11 @@ def expr_bad_crossed_market(
 ) -> pl.Expr:
     """Crossed market: bid > ask (+ optional tolerance)."""
     return pl.col(bid_col) > (pl.col(ask_col) + tol)
+
+
+def expr_bad_negative_vol_oi(
+    volume_col: str = "volume",
+    oi_col: str = "open_interest",
+) -> pl.Expr:
+    """Rows where volume or open interest are negative (structurally invalid)."""
+    return (pl.col(volume_col) < 0) | (pl.col(oi_col) < 0)
