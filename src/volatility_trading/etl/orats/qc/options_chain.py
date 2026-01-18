@@ -42,7 +42,7 @@ def _apply_roi_filter(
     )
 
 
-def run_qc_options_chain(
+def run_qc(
     *,
     proc_root: Path | str,
     ticker: str,
