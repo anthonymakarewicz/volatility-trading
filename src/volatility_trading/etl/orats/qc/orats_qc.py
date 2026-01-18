@@ -5,7 +5,7 @@ from collections.abc import Sequence
 import polars as pl
 
 
-def flag_strike_monotonicity_long(
+def flag_strike_monotonicity(
     df_long: pl.DataFrame,
     option_type: str,
     *,
@@ -61,7 +61,7 @@ def flag_strike_monotonicity_long(
     return df_sub
 
 
-def flag_maturity_monotonicity_long(
+def flag_maturity_monotonicity(
     df_long: pl.DataFrame,
     option_type: str,
     *,
@@ -125,7 +125,7 @@ def flag_maturity_monotonicity_long(
     return df_sub
 
 
-def summarize_monotonicity_by_region(
+def summarize_by_bucket(
     df: pl.DataFrame,
     *,
     violation_col: str = "monot_violation",

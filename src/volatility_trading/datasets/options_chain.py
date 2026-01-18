@@ -16,11 +16,15 @@ import polars as pl
 from volatility_trading.config.paths import PROC_ORATS_OPTIONS_CHAIN
 
 
-def _options_chain_path(proc_root: Path, ticker: str) -> Path:
-    t = str(ticker).strip()
+def options_chain_path(proc_root: Path | str, ticker: str) -> Path:
+    """
+    Return the processed options chain parquet path for a ticker.
+    """
+    root = Path(proc_root)
+    t = str(ticker).strip().upper()
     if not t:
         raise ValueError("ticker must be non-empty")
-    return proc_root / f"underlying={t}" / "part-0000.parquet"
+    return root / f"underlying={t}" / "part-0000.parquet"
 
 
 def scan_options_chain(
@@ -31,7 +35,7 @@ def scan_options_chain(
 ) -> pl.LazyFrame:
     """Lazy scan of the processed WIDE options chain for one ticker."""
     root = Path(proc_root)
-    path = _options_chain_path(root, ticker)
+    path = options_chain_path(root, ticker)
 
     if not path.exists():
         raise FileNotFoundError(f"Processed options chain not found: {path}")
