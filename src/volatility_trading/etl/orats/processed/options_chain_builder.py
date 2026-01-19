@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import logging
 import time
+import json
+from datetime import datetime, timezone
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -296,6 +298,22 @@ def _count_rows_any_oob(
 
 
 # -- IO / scanning ------------------------------------------------------------
+
+def _write_manifest_json(*, out_dir: Path, payload: dict) -> Path:
+    """Write a manifest.json sidecar next to the processed parquet.
+
+    The manifest captures *how* the dataset was built (key parameters and
+    switches) so downstream consumers (QC, backtests) can reliably
+    reproduce/interpret the output.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "manifest.json"
+
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, sort_keys=True, default=str)
+
+    return path
+
 
 def _scan_strikes_intermediate(
     inter_root: Path | str,
@@ -798,6 +816,7 @@ def _step_apply_filters(
 
 
 def _step_add_put_greeks(*, lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Derive put Greeks via European put–call parity."""
     disc_q = (-pl.col("dividend_yield") * pl.col("yte")).exp()
     disc_r = (-pl.col("risk_free_rate") * pl.col("yte")).exp()
 
@@ -816,6 +835,22 @@ def _step_add_put_greeks(*, lf: pl.LazyFrame) -> pl.LazyFrame:
         put_rho=(
             pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r / 100
         ),
+    )
+
+
+def _step_add_put_greeks_simple(*, lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Add put Greeks using a minimal convention.
+
+    This is useful when vendor Greeks are defined per-strike with a single
+    greek set (ORATS philosophy). We keep gamma/vega/theta/rho identical
+    between calls and puts and adjust delta by a constant shift.
+    """
+    return lf.with_columns(
+        put_delta=pl.col("call_delta") - 1.0,
+        put_gamma=pl.col("call_gamma"),
+        put_vega=pl.col("call_vega"),
+        put_theta=pl.col("call_theta"),
+        put_rho=pl.col("call_rho"),
     )
 
 
@@ -861,6 +896,7 @@ def build_options_chain(
     moneyness_max: float = 1.5,
     monies_implied_inter_root: Path | str | None = INTER_ORATS_API,
     merge_dividend_yield: bool = True,
+    derive_put_greeks: bool = True,
     collect_stats: bool = False,
     columns: Sequence[str] | None = OPTIONS_CHAIN_CORE_COLUMNS,
 ) -> BuildOptionsChainResult:
@@ -911,6 +947,10 @@ def build_options_chain(
         If True (default), replace/overwrite `dividend_yield` in the 
         options chain using `yield_rate` from the monies_implied endpoint 
         joined on (ticker, trade_date, expiry_date).
+    derive_put_greeks:
+        If True (default), derive put Greeks via European put–call parity using
+        dividend_yield and risk_free_rate. If False, use a minimal convention:
+        put_delta = call_delta - 1 and copy theta/rho/gamma/vega from the call.
     collect_stats:
         If True, collect all the rows counts from filtering operations e.g.
         removed duplicates, remove negative prices ...
@@ -984,8 +1024,11 @@ def build_options_chain(
         stats=stats,
     )
 
-    # --- 9) Put greeks via European put–call parity ---
-    lf = _step_add_put_greeks(lf=lf)
+    # --- 9) Put greeks (parity-derived or minimal convention) ---
+    if derive_put_greeks:
+        lf = _step_add_put_greeks(lf=lf)
+    else:
+        lf = _step_add_put_greeks_simple(lf=lf)
 
     # --- 10) Final column selection & materialisation ---
     df, out_path = _step_collect_and_write(
@@ -993,6 +1036,47 @@ def build_options_chain(
         proc_root=proc_root_p,
         ticker=ticker,
         columns=columns,
+    )
+
+    # --- 10B) Sidecar manifest (build metadata) ---
+    put_greeks_mode = "parity" if derive_put_greeks else "unified"
+
+    manifest_payload = {
+        "schema_version": 1,
+        "dataset": "orats_options_chain",
+        "ticker": str(ticker),
+        "built_at_utc": datetime.now(timezone.utc).isoformat(),
+        "put_greeks_mode": put_greeks_mode,
+        "merge_dividend_yield": bool(merge_dividend_yield),
+        "monies_implied_inter_root": str(monies_root_p) if monies_root_p else None,
+        "inter_root": str(inter_root_p),
+        "proc_root": str(proc_root_p),
+        "years": [str(y) for y in years] if years is not None else None,
+        "dte_min": int(dte_min),
+        "dte_max": int(dte_max),
+        "moneyness_min": float(moneyness_min),
+        "moneyness_max": float(moneyness_max),
+        "columns": list(df.columns),
+        "n_rows_written": int(df.height),
+        "stats": {
+            "n_rows_input": stats.n_rows_input,
+            "n_rows_after_dedupe": stats.n_rows_after_dedupe,
+            "n_rows_yield_input": stats.n_rows_yield_input,
+            "n_rows_yield_after_dedupe": stats.n_rows_yield_after_dedupe,
+            "n_rows_join_missing_yield": stats.n_rows_join_missing_yield,
+            "n_rows_after_trading": stats.n_rows_after_trading,
+            "n_rows_after_hard": stats.n_rows_after_hard,
+        },
+    }
+
+    manifest_path = _write_manifest_json(
+        out_dir=out_path.parent,
+        payload=manifest_payload,
+    )
+
+    logger.info(
+        "Wrote options chain manifest: %s",
+        manifest_path,
     )
 
     result = BuildOptionsChainResult(

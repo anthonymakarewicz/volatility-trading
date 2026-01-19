@@ -34,7 +34,7 @@ MONIES_IMPLIED_ENDPOINT = "monies_implied"
 COLLECT_STATS = True
 
 # Underlyings to build panels for
-TICKERS = ["SPX"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
+TICKERS = ["SPY"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
 
 # Restrict to a subset of years, or None for all available
 YEARS = None # e.g. range(2007, 2026)
@@ -47,6 +47,8 @@ MONEYNESS_MAX = 1.3
 
 # Optional column override; if None, uses CORE_ORATS_WIDE_COLUMNS
 COLUMNS = None
+
+DERIVE_PUT_GREEKS = False
 
 # Logging
 LOG_LEVEL = "INFO"
@@ -89,6 +91,7 @@ def main() -> None:
             moneyness_min=MONEYNESS_MIN,
             moneyness_max=MONEYNESS_MAX,
             columns=COLUMNS,
+            derive_put_greeks=DERIVE_PUT_GREEKS,
             collect_stats=COLLECT_STATS,
         )
 
