@@ -214,13 +214,6 @@ def _run_soft_checks(
             "violation_col": "theta_positive_violation",
             "flagger_kwargs": {"eps": 1e-8},
         },
-        {
-            "base_name": "rho_wrong_sign",
-            "flagger": flag_rho_wrong_sign,
-            "thresholds": {"mild": 0.0001, "warn": 0.0010, "fail": 0.01},
-            "violation_col": "rho_wrong_sign_violation",
-            "flagger_kwargs": {"eps": 1e-8},
-        },
     ]
 
     for label, dfx in [("GLOBAL", df), ("ROI", df_roi)]:

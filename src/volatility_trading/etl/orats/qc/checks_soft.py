@@ -262,30 +262,3 @@ def flag_theta_positive(
     return df.filter(pl.col("option_type") == option_type).with_columns(
         (pl.col(theta_col) > eps).fill_null(False).alias(out_col)
     )
-
-
-def flag_rho_wrong_sign(
-    df: pl.DataFrame,
-    option_type: str,
-    *,
-    rho_col: str = "rho",
-    eps: float = 1e-8,
-    out_col: str = "rho_wrong_sign_violation",
-) -> pl.DataFrame:
-    """Flag rho with an unexpected sign (diagnostic).
-
-    Typical expectation (European intuition):
-    - call_rho >= 0
-    - put_rho  <= 0
-
-    Treat as SOFT since vendors/models can differ slightly.
-    """
-    if option_type not in {"C", "P"}:
-        raise ValueError("option_type must be 'C' or 'P'.")
-    
-    rho = pl.col(rho_col)
-    bad = rho < -eps if option_type == "C" else rho > eps
-
-    return df.filter(pl.col("option_type") == option_type).with_columns(
-        bad.fill_null(False).alias(out_col)
-    )

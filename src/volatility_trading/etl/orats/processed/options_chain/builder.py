@@ -13,7 +13,6 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from volatility_trading.config.paths import INTER_ORATS_API
-
 from .config import OPTIONS_CHAIN_CORE_COLUMNS
 from .io import _write_manifest_json
 from .types import (
