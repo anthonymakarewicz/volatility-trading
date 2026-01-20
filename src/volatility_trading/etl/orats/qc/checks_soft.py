@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 import polars as pl
 
 
@@ -261,4 +259,26 @@ def flag_theta_positive(
 
     return df.filter(pl.col("option_type") == option_type).with_columns(
         (pl.col(theta_col) > eps).fill_null(False).alias(out_col)
+    )
+
+
+def flag_iv_high(
+    df: pl.DataFrame,
+    option_type: str,
+    *,
+    iv_col: str = "smoothed_iv",
+    threshold: float = 1.0,
+    out_col: str = "iv_too_high_violation",
+) -> pl.DataFrame:
+    """Flag rows where IV is above a threshold."""
+    if option_type not in {"C", "P"}:
+        raise ValueError("option_type must be 'C' or 'P'.")
+
+    return (
+        df.filter(pl.col("option_type") == option_type)
+        .with_columns(
+            (pl.col(iv_col).is_not_null() & (pl.col(iv_col) > threshold))
+            .fill_null(False)
+            .alias(out_col)
+        )
     )

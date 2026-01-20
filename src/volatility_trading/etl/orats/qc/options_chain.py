@@ -8,11 +8,7 @@ This module is **read-only**: it does not drop or modify rows. It reports:
   bid/ask sanity: non-negative, not crossed).
 - **SOFT checks**: diagnostics (strike/maturity monotonicity, locked/one-sided
   quotes, wide spreads).
-- **INFO checks**: informal diagnostics.
-
-Soft checks are reported on both:
-- **GLOBAL** (full dataset)
-- **ROI** (DTE + |delta| restricted subset)
+- **INFO checks**: informal diagnostics (dondo nto fail).
 """
 from __future__ import annotations
 
@@ -31,8 +27,7 @@ from .checks_hard import (
     expr_bad_trade_after_expiry,
     expr_bad_negative_vol_oi,
     expr_bad_delta_bounds,
-    expr_bad_gamma_sign,
-    expr_bad_vega_sign,
+    expr_bad_negative
 )
 from .checks_info import (
     summarize_risk_free_rate_metrics,
@@ -47,7 +42,7 @@ from .checks_soft import (
     flag_pos_vol_zero_oi,
     flag_zero_vol_pos_oi,
     flag_theta_positive,
-    flag_rho_wrong_sign,
+    flag_iv_high
 )
 from .report import log_check, write_config_json, write_summary_json
 from .runners import run_hard_check, run_info_check, run_soft_check
@@ -117,16 +112,23 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
         # ---- Greeks sign diagnostics ----
         {
             "name": "delta_bounds_sane",
-            "predicate_expr": expr_bad_delta_bounds("delta"),
+            "predicate_expr": expr_bad_delta_bounds("delta", eps=1e-5),
         },
         {
             "name": "gamma_non_negative",
-            "predicate_expr": expr_bad_gamma_sign("gamma"),
+            "predicate_expr": expr_bad_negative("gamma", eps=1e-8),
         },
         {
             "name": "vega_non_negative",
-            "predicate_expr": expr_bad_vega_sign("vega"),
+            "predicate_expr": expr_bad_negative("vega", eps=1e-8),
+        },
+
+        # ---- IV sign diagnostics ----
+        {
+            "name": "iv_non_negative",
+            "predicate_expr": expr_bad_negative("smoothed_iv", eps=1e-5),
         }
+
     ]
 
     for spec in hard_specs:
@@ -166,6 +168,7 @@ def _run_soft_checks(
             "violation_col": "maturity_monot_violation",
             "flagger_kwargs": {"price_col": "mid_price"},
         },
+
         # ---- Quote diagnostics ----
         {
             "base_name": "locked_market",
@@ -191,6 +194,7 @@ def _run_soft_checks(
             "violation_col": "wide_spread_violation",
             "flagger_kwargs": {"threshold": 2.0, "min_mid": 0.01},
         },
+
         # ---- Volume / OI diagnostics ----
         {
             "base_name": "zero_vol_pos_oi",
@@ -206,6 +210,7 @@ def _run_soft_checks(
             "violation_col": "pos_vol_zero_oi_violation",
             "flagger_kwargs": {},
         },
+
         # ---- Greeks sign diagnostics ----
         {
             "base_name": "theta_positive",
@@ -213,6 +218,21 @@ def _run_soft_checks(
             "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
             "violation_col": "theta_positive_violation",
             "flagger_kwargs": {"eps": 1e-8},
+        },
+        # ---- IV diagnostics ----
+        {
+            "base_name": "high_iv",
+            "flagger": flag_iv_high,
+            "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+            "violation_col": "iv_too_high_violation",
+            "flagger_kwargs": {"threshold": 1.0},
+        },
+        {
+            "base_name": "very_high_iv",
+            "flagger": flag_iv_high,
+            "thresholds": {"mild": 0.001, "warn": 0.005, "fail": 0.01},
+            "violation_col": "iv_too_high_violation",
+            "flagger_kwargs": {"threshold": 2.0},
         },
     ]
 

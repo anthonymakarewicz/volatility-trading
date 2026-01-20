@@ -8,6 +8,15 @@ def expr_bad_null_keys(*keys: str) -> pl.Expr:
     return pl.any_horizontal([pl.col(k).is_null() for k in keys])
 
 
+def expr_bad_negative(
+    col: str,
+    *,
+    eps: float = 0.0,
+) -> pl.Expr:
+    """Flag rows where col < -eps (null-safe)."""
+    return pl.col(col).is_not_null() & (pl.col(col) < (0.0 - eps))
+
+
 def expr_bad_bid_ask(bid_col: str, ask_col: str) -> pl.Expr:
     """Flag rows where bid > ask."""
     return pl.col(bid_col) > pl.col(ask_col)
@@ -19,11 +28,6 @@ def expr_bad_trade_after_expiry(
 ) -> pl.Expr:
     """Flag rows where trade_date > expiry_date."""
     return pl.col(trade_col) > pl.col(expiry_col)
-
-
-def expr_bad_negative(col: str) -> pl.Expr:
-    """Flag rows where col < 0."""
-    return pl.col(col) < 0
 
 
 def expr_bad_negative_quotes(
@@ -57,7 +61,7 @@ def expr_bad_negative_vol_oi(
 def expr_bad_delta_bounds(
     delta_col: str = "delta",
     opt_col: str = "option_type",
-    eps: float = 1e-2,
+    eps: float = 1e-5,
 ) -> pl.Expr:
     d = pl.col(delta_col)
     opt = pl.col(opt_col)
