@@ -264,21 +264,14 @@ def flag_theta_positive(
 
 def flag_iv_high(
     df: pl.DataFrame,
-    option_type: str,
     *,
     iv_col: str = "smoothed_iv",
     threshold: float = 1.0,
     out_col: str = "iv_too_high_violation",
 ) -> pl.DataFrame:
-    """Flag rows where IV is above a threshold."""
-    if option_type not in {"C", "P"}:
-        raise ValueError("option_type must be 'C' or 'P'.")
-
-    return (
-        df.filter(pl.col("option_type") == option_type)
-        .with_columns(
-            (pl.col(iv_col).is_not_null() & (pl.col(iv_col) > threshold))
-            .fill_null(False)
-            .alias(out_col)
-        )
+    """Flag rows where IV is above a threshold (null-safe)."""
+    return df.with_columns(
+        (pl.col(iv_col).is_not_null() & (pl.col(iv_col) > threshold))
+        .fill_null(False)
+        .alias(out_col)
     )

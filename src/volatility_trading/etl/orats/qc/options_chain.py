@@ -150,7 +150,7 @@ def _run_soft_checks(
     df_roi: pl.DataFrame,
     config: QCConfig
 ) -> list[QCCheckResult]:
-    """Run soft checks (diagnostic / arbitrage-style) on GLOBAL and ROI subsets."""
+    """Run soft checks (diagnostic / arbitrage-style) on GLOBAL and optional ROI."""
     results: list[QCCheckResult] = []
     soft_thresholds = dict(config.soft_thresholds)
 
@@ -161,12 +161,16 @@ def _run_soft_checks(
             "flagger": flag_strike_monotonicity,
             "violation_col": "strike_monot_violation",
             "flagger_kwargs": {"price_col": "mid_price"},
+            "use_roi": True,
+            "by_option_type": True,
         },
         {
             "base_name": "maturity_monotonicity",
             "flagger": flag_maturity_monotonicity,
             "violation_col": "maturity_monot_violation",
             "flagger_kwargs": {"price_col": "mid_price"},
+            "use_roi": True,
+            "by_option_type": True,
         },
 
         # ---- Quote diagnostics ----
@@ -175,24 +179,32 @@ def _run_soft_checks(
             "flagger": flag_locked_market,
             "violation_col": "locked_market_violation",
             "flagger_kwargs": {},
+            "use_roi": True,
+            "by_option_type": True,
         },
         {
             "base_name": "one_sided_quotes",
             "flagger": flag_one_sided_quotes,
             "violation_col": "one_sided_quote_violation",
             "flagger_kwargs": {},
+            "use_roi": True,
+            "by_option_type": True,
         },
         {
             "base_name": "wide_spread",
             "flagger": flag_wide_spread,
             "violation_col": "wide_spread_violation",
             "flagger_kwargs": {"threshold": 1.0, "min_mid": 0.01},
+            "use_roi": True,
+            "by_option_type": True,
         },
         {
             "base_name": "very_wide_spread",
             "flagger": flag_wide_spread,
             "violation_col": "wide_spread_violation",
             "flagger_kwargs": {"threshold": 2.0, "min_mid": 0.01},
+            "use_roi": True,
+            "by_option_type": True,
         },
 
         # ---- Volume / OI diagnostics ----
@@ -202,6 +214,8 @@ def _run_soft_checks(
             "thresholds": {"mild": 0.05, "warn": 0.15, "fail": 0.30},
             "violation_col": "zero_vol_pos_oi_violation",
             "flagger_kwargs": {},
+            "use_roi": True,
+            "by_option_type": True,
         },
         {
             "base_name": "pos_vol_zero_oi",
@@ -209,6 +223,8 @@ def _run_soft_checks(
             "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.05},
             "violation_col": "pos_vol_zero_oi_violation",
             "flagger_kwargs": {},
+            "use_roi": True,
+            "by_option_type": True,
         },
 
         # ---- Greeks sign diagnostics ----
@@ -218,14 +234,21 @@ def _run_soft_checks(
             "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
             "violation_col": "theta_positive_violation",
             "flagger_kwargs": {"eps": 1e-8},
+            "use_roi": True,
+            "by_option_type": True,
         },
+
         # ---- IV diagnostics ----
+        # NOTE: smoothed_iv is the same for calls/puts in your long format,
+        # so run once (no _C/_P split).
         {
             "base_name": "high_iv",
             "flagger": flag_iv_high,
             "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
             "violation_col": "iv_too_high_violation",
             "flagger_kwargs": {"threshold": 1.0},
+            "use_roi": False,
+            "by_option_type": False,
         },
         {
             "base_name": "very_high_iv",
@@ -233,22 +256,52 @@ def _run_soft_checks(
             "thresholds": {"mild": 0.001, "warn": 0.005, "fail": 0.01},
             "violation_col": "iv_too_high_violation",
             "flagger_kwargs": {"threshold": 2.0},
+            "use_roi": False,
+            "by_option_type": False,
         },
     ]
 
-    for label, dfx in [("GLOBAL", df), ("ROI", df_roi)]:
-        for spec in soft_specs:
-            for opt in ["C", "P"]:
+    for spec in soft_specs:
+        use_roi = bool(spec.get("use_roi", True))
+        by_option_type = bool(spec.get("by_option_type", True))
+
+        subsets: list[tuple[str, pl.DataFrame]] = [("GLOBAL", df)]
+        if use_roi:
+            subsets.append(("ROI", df_roi))
+
+        for label, dfx in subsets:
+            if by_option_type:
+                # Run separately for calls and puts (suffix + pass option_type)
+                for opt in ["C", "P"]:
+                    results.append(
+                        run_soft_check(
+                            name=f"{label}_{spec['base_name']}_{opt}",
+                            df=dfx,
+                            flagger=spec["flagger"],
+                            violation_col=spec["violation_col"],
+                            flagger_kwargs={
+                                "option_type": opt,
+                                **spec["flagger_kwargs"],
+                            },
+                            summarizer=summarize_by_bucket,
+                            summarizer_kwargs={
+                                "dte_bins": config.dte_bins,
+                                "delta_bins": config.delta_bins,
+                            },
+                            thresholds=spec.get("thresholds", soft_thresholds),
+                            severity=Severity.SOFT,
+                            top_k_buckets=config.top_k_buckets,
+                        )
+                    )
+            else:
+                # Run once on the full subset (no suffix, no option_type arg)
                 results.append(
                     run_soft_check(
-                        name=f"{label}_{spec['base_name']}_{opt}",
+                        name=f"{label}_{spec['base_name']}",
                         df=dfx,
                         flagger=spec["flagger"],
                         violation_col=spec["violation_col"],
-                        flagger_kwargs={
-                            "option_type": opt,
-                            **spec["flagger_kwargs"],
-                        },
+                        flagger_kwargs=dict(spec["flagger_kwargs"]),
                         summarizer=summarize_by_bucket,
                         summarizer_kwargs={
                             "dte_bins": config.dte_bins,
