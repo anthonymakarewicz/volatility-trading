@@ -8,6 +8,7 @@ This module is **read-only**: it does not drop or modify rows. It reports:
   bid/ask sanity: non-negative, not crossed).
 - **SOFT checks**: diagnostics (strike/maturity monotonicity, locked/one-sided
   quotes, wide spreads).
+- **INFO checks**: informal diagnostics.
 
 Soft checks are reported on both:
 - **GLOBAL** (full dataset)
@@ -29,6 +30,9 @@ from .checks_hard import (
     expr_bad_null_keys,
     expr_bad_trade_after_expiry,
     expr_bad_negative_vol_oi,
+    expr_bad_delta_bounds,
+    expr_bad_gamma_sign,
+    expr_bad_vega_sign,
 )
 from .checks_info import (
     summarize_risk_free_rate_metrics,
@@ -42,6 +46,8 @@ from .checks_soft import (
     flag_wide_spread,
     flag_pos_vol_zero_oi,
     flag_zero_vol_pos_oi,
+    flag_theta_positive,
+    flag_rho_wrong_sign,
 )
 from .report import log_check, write_config_json, write_summary_json
 from .runners import run_hard_check, run_info_check, run_soft_check
@@ -72,71 +78,62 @@ def _apply_roi_filter(
 
 
 def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
-    """Run hard (must-pass) checks on the full dataset."""
+    """Run hard (must-pass) checks on the full dataset (GLOBAL)."""
     results: list[QCCheckResult] = []
 
     hard_specs = [
+        # ---- Keys / dates ----
         {
             "name": "keys_not_null",
-            "df": df,
             "predicate_expr": expr_bad_null_keys(
                 "trade_date", "expiry_date", "strike"
             ),
         },
         {
             "name": "trade_date_leq_expiry_date",
-            "df": df,
             "predicate_expr": expr_bad_trade_after_expiry(),
         },
-        # ---- Quote diagnostics ----
+
+        # ---- Quote diagnostics (long format => global) ----
         {
-            "name": "call_bid_ask_sane",
-            "df": df.filter(pl.col("option_type") == "C"),
+            "name": "bid_ask_sane",
             "predicate_expr": expr_bad_bid_ask("bid_price", "ask_price"),
         },
         {
-            "name": "put_bid_ask_sane",
-            "df": df.filter(pl.col("option_type") == "P"),
-            "predicate_expr": expr_bad_bid_ask("bid_price", "ask_price"),
-        },
-        {
-            "name": "call_negative_quotes",
-            "df": df.filter(pl.col("option_type") == "C"),
+            "name": "negative_quotes",
             "predicate_expr": expr_bad_negative_quotes("bid_price", "ask_price"),
         },
         {
-            "name": "put_negative_quotes",
-            "df": df.filter(pl.col("option_type") == "P"),
-            "predicate_expr": expr_bad_negative_quotes("bid_price", "ask_price"),
-        },
-        {
-            "name": "call_crossed_market",
-            "df": df.filter(pl.col("option_type") == "C"),
+            "name": "crossed_market",
             "predicate_expr": expr_bad_crossed_market("bid_price", "ask_price"),
         },
-        {
-            "name": "put_crossed_market",
-            "df": df.filter(pl.col("option_type") == "P"),
-            "predicate_expr": expr_bad_crossed_market("bid_price", "ask_price"),
-        },
+
         # ---- Volume / OI diagnostics ----
         {
-            "name": "call_negative_vol_oi",
-            "df": df.filter(pl.col("option_type") == "C"),
+            "name": "negative_vol_oi",
             "predicate_expr": expr_bad_negative_vol_oi("volume", "open_interest"),
+        },
+
+        # ---- Greeks sign diagnostics ----
+        {
+            "name": "delta_bounds_sane",
+            "predicate_expr": expr_bad_delta_bounds("delta"),
         },
         {
-            "name": "put_negative_vol_oi",
-            "df": df.filter(pl.col("option_type") == "P"),
-            "predicate_expr": expr_bad_negative_vol_oi("volume", "open_interest"),
+            "name": "gamma_non_negative",
+            "predicate_expr": expr_bad_gamma_sign("gamma"),
         },
+        {
+            "name": "vega_non_negative",
+            "predicate_expr": expr_bad_vega_sign("vega"),
+        }
     ]
 
     for spec in hard_specs:
         results.append(
             run_hard_check(
                 name=spec["name"],
-                df=spec["df"],
+                df=df,
                 predicate_expr=spec["predicate_expr"],
                 severity=Severity.HARD,
             )
@@ -208,6 +205,21 @@ def _run_soft_checks(
             "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.05},
             "violation_col": "pos_vol_zero_oi_violation",
             "flagger_kwargs": {},
+        },
+        # ---- Greeks sign diagnostics ----
+        {
+            "base_name": "theta_positive",
+            "flagger": flag_theta_positive,
+            "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+            "violation_col": "theta_positive_violation",
+            "flagger_kwargs": {"eps": 1e-8},
+        },
+        {
+            "base_name": "rho_wrong_sign",
+            "flagger": flag_rho_wrong_sign,
+            "thresholds": {"mild": 0.0001, "warn": 0.0010, "fail": 0.01},
+            "violation_col": "rho_wrong_sign_violation",
+            "flagger_kwargs": {"eps": 1e-8},
         },
     ]
 

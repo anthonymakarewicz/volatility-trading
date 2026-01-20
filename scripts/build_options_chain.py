@@ -13,7 +13,7 @@ merges dividend/yield information from the ORATS API `monies_implied` endpoint
 import logging
 
 from volatility_trading.utils import setup_logging
-from volatility_trading.etl.orats.processed import build_options_chain
+from volatility_trading.etl.orats.processed.options_chain import build
 from volatility_trading.config.paths import (
     INTER_ORATS_API,
     INTER_ORATS_FTP,
@@ -81,7 +81,7 @@ def main() -> None:
 
     for ticker in TICKERS:
         logger.info("Building options chain ticker=%s", ticker)
-        result = build_options_chain(
+        result = build(
             inter_root=INTER_STRIKES_ROOT,
             proc_root=PROC_ROOT,
             ticker=ticker,

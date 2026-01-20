@@ -170,51 +170,12 @@ def flag_wide_spread(
     )
 
 
-def summarize_by_bucket(
-    df: pl.DataFrame,
-    *,
-    violation_col: str,
-    dte_col: str = "dte",
-    delta_col: str = "delta",
-    dte_bins: Sequence[int | float] = (0, 10, 30, 60),
-    delta_bins: Sequence[float] = (0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0),
-) -> pl.DataFrame:
-    """Summarise violations by (DTE bucket, |delta| bucket)."""
-    totals = df.select(
-        pl.col(violation_col).sum().alias("total_viol"),
-        pl.len().alias("total_rows"),
-    ).row(0)
-    total_viol, total_rows = totals
-
-    if total_rows == 0:
-        return pl.DataFrame()
-
-    summary = (
-        df
-        .group_by(
-            pl.col(dte_col).cut(dte_bins).alias("dte_bucket"),
-            pl.col(delta_col).abs().cut(delta_bins).alias("delta_bucket"),
-        )
-        .agg(
-            pl.col(violation_col).sum().alias("n_viol"),
-            pl.len().alias("n_rows"),
-        )
-        .with_columns(
-            (pl.col("n_viol") / pl.col("n_rows")).alias("viol_rate_bucket"),
-            (pl.col("n_viol") / total_viol).alias("viol_share"),
-            (pl.col("n_rows") / total_rows).alias("row_share"),
-        )
-        .sort("viol_rate_bucket", descending=True)
-    )
-    return summary
-
-
 # ----- Volume / Open Interest checks -----
 
 def flag_zero_volume(
     df: pl.DataFrame,
-    *,
     option_type: str,
+    *,
     volume_col: str = "volume",
 ) -> pl.DataFrame:
     """Flag rows where volume == 0."""
@@ -229,8 +190,8 @@ def flag_zero_volume(
 
 def flag_zero_open_interest(
     df: pl.DataFrame,
-    *,
     option_type: str,
+    *,
     oi_col: str = "open_interest",
 ) -> pl.DataFrame:
     """Flag rows where open interest == 0."""
@@ -245,8 +206,8 @@ def flag_zero_open_interest(
 
 def flag_zero_vol_pos_oi(
     df: pl.DataFrame,
-    *,
     option_type: str,
+    *,
     volume_col: str = "volume",
     oi_col: str = "open_interest",
 ) -> pl.DataFrame:
@@ -264,8 +225,8 @@ def flag_zero_vol_pos_oi(
 
 def flag_pos_vol_zero_oi(
     df: pl.DataFrame,
-    *,
     option_type: str,
+    *,
     volume_col: str = "volume",
     oi_col: str = "open_interest",
 ) -> pl.DataFrame:
@@ -279,3 +240,52 @@ def flag_pos_vol_zero_oi(
         )
     )
     return df_sub
+
+
+# ----- Greeks -----
+
+def flag_theta_positive(
+    df: pl.DataFrame,
+    option_type: str,
+    *,
+    theta_col: str = "theta",
+    eps: float = 1e-8,
+    out_col: str = "theta_positive_violation",
+) -> pl.DataFrame:
+    """Flag positive theta beyond tolerance (diagnostic).
+
+    Positive theta can happen legitimately (dividends/carry), so this is SOFT.
+    """
+    if option_type not in {"C", "P"}:
+        raise ValueError("option_type must be 'C' or 'P'.")
+
+    return df.filter(pl.col("option_type") == option_type).with_columns(
+        (pl.col(theta_col) > eps).fill_null(False).alias(out_col)
+    )
+
+
+def flag_rho_wrong_sign(
+    df: pl.DataFrame,
+    option_type: str,
+    *,
+    rho_col: str = "rho",
+    eps: float = 1e-8,
+    out_col: str = "rho_wrong_sign_violation",
+) -> pl.DataFrame:
+    """Flag rho with an unexpected sign (diagnostic).
+
+    Typical expectation (European intuition):
+    - call_rho >= 0
+    - put_rho  <= 0
+
+    Treat as SOFT since vendors/models can differ slightly.
+    """
+    if option_type not in {"C", "P"}:
+        raise ValueError("option_type must be 'C' or 'P'.")
+    
+    rho = pl.col(rho_col)
+    bad = rho < -eps if option_type == "C" else rho > eps
+
+    return df.filter(pl.col("option_type") == option_type).with_columns(
+        bad.fill_null(False).alias(out_col)
+    )
