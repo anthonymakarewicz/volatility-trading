@@ -1,7 +1,22 @@
-# Which OPRA root we consider the "canonical" product for a given ticker.
+"""
+volatility_trading.config.instruments
 
-# For SPX, we want the PM-settled weeklies / modern chain: SPXW.
+Configuration constants for instruments used in volatility trading.
+"""
+from __future__ import annotations
+
+
 PREFERRED_OPRA_ROOT: dict[str, str] = {
-    "SPX": "SPXW",
-    # in the future we could add e.g. "NDX": "NDXP", etc.
+    "SPX": "SPXW", # For SPX, we want the PM-settled weeklies
+}
+
+
+OPTION_EXERCISE_STYLE = {
+    "SPX": "EU",
+    "SPXW": "EU",
+    "SPY": "AM",
+    "NDX": "EU",
+    "RUT": "EU",
+    "SPY": "AM",
+    "AAPL": "AM",
 }

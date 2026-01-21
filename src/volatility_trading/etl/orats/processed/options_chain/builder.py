@@ -1,4 +1,4 @@
-"""Build processed ORATS options-chain panels.
+""""Build processed ORATS options-chain panels.
 
 This module turns **intermediate** ORATS *strikes* data (FTP) into a cleaned,
 analysis-ready **processed** options-chain dataset for a single underlying.
@@ -13,6 +13,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from volatility_trading.config.paths import INTER_ORATS_API
+from volatility_trading.config.instruments import OPTION_EXERCISE_STYLE
 from .config import OPTIONS_CHAIN_CORE_COLUMNS
 from .io import _write_manifest_json
 from .types import (
@@ -200,6 +201,7 @@ def build(
 
     # --- 10B) Sidecar manifest (build metadata) ---
     put_greeks_mode = "parity" if derive_put_greeks else "unified"
+    exercise_style = OPTION_EXERCISE_STYLE.get(str(ticker).upper(), "AM")
 
     manifest_payload = {
         "schema_version": 1,
@@ -207,6 +209,7 @@ def build(
         "ticker": str(ticker),
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
         "put_greeks_mode": put_greeks_mode,
+        "exercise_style": exercise_style,
         "merge_dividend_yield": bool(merge_dividend_yield),
         "monies_implied_inter_root": str(monies_root_p) if monies_root_p else None,
         "inter_root": str(inter_root_p),

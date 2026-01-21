@@ -239,8 +239,6 @@ def _run_soft_checks(
         },
 
         # ---- IV diagnostics ----
-        # NOTE: smoothed_iv is the same for calls/puts in your long format,
-        # so run once (no _C/_P split).
         {
             "base_name": "high_iv",
             "flagger": flag_iv_high,
