@@ -12,6 +12,7 @@ This module is **read-only**: it does not drop or modify rows. It reports:
 """
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections.abc import Sequence
@@ -22,27 +23,31 @@ import polars as pl
 from .checks_hard import (
     expr_bad_bid_ask,
     expr_bad_crossed_market,
+    expr_bad_negative,
     expr_bad_negative_quotes,
+    expr_bad_negative_vol_oi,
     expr_bad_null_keys,
     expr_bad_trade_after_expiry,
-    expr_bad_negative_vol_oi,
     expr_bad_delta_bounds,
-    expr_bad_negative
 )
 from .checks_info import (
     summarize_risk_free_rate_metrics,
     summarize_volume_oi_metrics,
 )
 from .checks_soft import (
+    flag_iv_high,
     flag_locked_market,
     flag_maturity_monotonicity,
     flag_one_sided_quotes,
-    flag_strike_monotonicity,
-    flag_wide_spread,
     flag_pos_vol_zero_oi,
-    flag_zero_vol_pos_oi,
+    flag_strike_monotonicity,
     flag_theta_positive,
-    flag_iv_high
+    flag_wide_spread,
+    flag_zero_vol_pos_oi,
+    flag_put_call_parity_mid_eu,
+    flag_put_call_parity_tradable_eu,
+    flag_put_call_parity_bounds_mid_am,
+    flag_put_call_parity_bounds_tradable_am,
 )
 from .report import log_check, write_config_json, write_summary_json
 from .runners import run_hard_check, run_info_check, run_soft_check
@@ -56,6 +61,40 @@ from volatility_trading.datasets import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------
+# Manifest helpers
+# ---------------------------------------------------------------------
+
+def _read_exercise_style_from_manifest(
+    *,
+    parquet_path: Path | None,
+) -> str | None:
+    """Read exercise_style from manifest.json next to the parquet file.
+
+    Returns
+    -------
+    str | None
+        "EU" or "AM" if valid, else None (missing/invalid/unreadable).
+    """
+    if parquet_path is None:
+        return None
+
+    try:
+        manifest_path = parquet_path.parent / "manifest.json"
+        if not manifest_path.exists():
+            return None
+
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        style = payload.get("exercise_style", None)
+        if style not in {"EU", "AM"}:
+            return None
+        return style
+
+    except Exception:
+        # Don't fail QC because of manifest parsing issues
+        return None
 
 
 def _apply_roi_filter(
@@ -81,16 +120,14 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
         # ---- Keys / dates ----
         {
             "name": "keys_not_null",
-            "predicate_expr": expr_bad_null_keys(
-                "trade_date", "expiry_date", "strike"
-            ),
+            "predicate_expr": expr_bad_null_keys("trade_date", "expiry_date", "strike"),
         },
         {
             "name": "trade_date_leq_expiry_date",
             "predicate_expr": expr_bad_trade_after_expiry(),
         },
 
-        # ---- Quote diagnostics (long format => global) ----
+        # ---- Quote diagnostics ----
         {
             "name": "bid_ask_sane",
             "predicate_expr": expr_bad_bid_ask("bid_price", "ask_price"),
@@ -128,8 +165,7 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
         {
             "name": "iv_non_negative",
             "predicate_expr": expr_bad_negative("smoothed_iv", eps=1e-5),
-        }
-
+        },
     ]
 
     for spec in hard_specs:
@@ -150,18 +186,22 @@ def _run_soft_checks(
     df: pl.DataFrame,
     df_roi: pl.DataFrame,
     config: QCConfig,
+    exercise_style: str | None,
 ) -> list[QCCheckResult]:
     """Run soft checks (diagnostic / arbitrage-style).
 
-    Supports:
-    - use_roi: whether to run GLOBAL + ROI (True) or GLOBAL only (False)
-    - by_option_type: whether to split into calls/puts
-    - requires_wide: whether the check needs a paired wide view (e.g. PCP)
+    Supports per-spec toggles:
+    - use_roi: run GLOBAL + ROI (True) or GLOBAL only (False)
+    - by_option_type: split into calls/puts or run once on the subset
+    - requires_wide: build paired WIDE view (for PCP checks)
     """
     results: list[QCCheckResult] = []
     soft_thresholds = dict(config.soft_thresholds)
 
-    soft_specs = [
+    # ---------------------------------------------------------------------
+    # Base soft specs (always)
+    # ---------------------------------------------------------------------
+    soft_specs: list[dict] = [
         # ---- Arbitrage diagnostics ----
         {
             "base_name": "strike_monotonicity",
@@ -267,7 +307,74 @@ def _run_soft_checks(
     ]
 
     # ---------------------------------------------------------------------
-    # Build WIDE views only if needed (PCP checks)
+    # Conditionally inject PCP specs
+    # ---------------------------------------------------------------------
+    if exercise_style == "EU":
+        soft_specs.extend(
+            [
+                # ---- Put-call parity (EU) ----
+                {
+                    "base_name": "pcp_mid_eu",
+                    "flagger": flag_put_call_parity_mid_eu,
+                    "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                    "violation_col": "pcp_mid_eu_violation",
+                    "flagger_kwargs": {
+                        "tol_floor": 0.01,
+                    },
+                    "use_roi": True,
+                    "by_option_type": False,
+                    "requires_wide": True,
+                },
+                {
+                    "base_name": "pcp_tradable_eu",
+                    "flagger": flag_put_call_parity_tradable_eu,
+                    "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
+                    "violation_col": "pcp_tradable_eu_violation",
+                    "flagger_kwargs": {
+                        "abs_tol": 0.01,
+                    },
+                    "use_roi": True,
+                    "by_option_type": False,
+                    "requires_wide": True,
+                },
+            ]
+        )
+
+    elif exercise_style == "AM":
+        soft_specs.extend(
+            [
+                # ---- Put-call parity bounds (AM) ----
+                {
+                    "base_name": "pcp_bounds_mid_am",
+                    "flagger": flag_put_call_parity_bounds_mid_am,
+                    "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                    "violation_col": "pcp_bounds_mid_am_violation",
+                    "flagger_kwargs": {
+                        "tol_floor": 0.01,
+                    },
+                    "use_roi": True,
+                    "by_option_type": False,
+                    "requires_wide": True,
+                },
+                {
+                    "base_name": "pcp_bounds_tradable_am",
+                    "flagger": flag_put_call_parity_bounds_tradable_am,
+                    "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
+                    "violation_col": "pcp_bounds_tradable_am_violation",
+                    "flagger_kwargs": {
+                        "abs_tol": 0.01,
+                    },
+                    "use_roi": True,
+                    "by_option_type": False,
+                    "requires_wide": True,
+                },
+            ]
+        )
+
+    # else: skip PCP checks entirely
+
+    # ---------------------------------------------------------------------
+    # Build WIDE views only if needed
     # ---------------------------------------------------------------------
     def _build_wide(df_long: pl.DataFrame) -> pl.DataFrame:
         """Build strict paired WIDE view from long (calls+puts on same row)."""
@@ -279,8 +386,7 @@ def _run_soft_checks(
             .collect()
         )
 
-        # Needed so summarize_by_bucket still works (expects "delta" column)
-        # For paired checks, we bucket by call delta (convention).
+        # summarize_by_bucket expects a "delta" column
         if "call_delta" in wide.columns:
             wide = wide.with_columns(pl.col("call_delta").alias("delta"))
 
@@ -297,36 +403,30 @@ def _run_soft_checks(
         df_wide_global = _build_wide(df)
         df_wide_roi = _build_wide(df_roi)
 
-
     # ---------------------------------------------------------------------
-    # Run all specs
+    # Subset selection helper
     # ---------------------------------------------------------------------
     def _iter_subsets_for_spec(
         *,
         requires_wide: bool,
         use_roi: bool,
-        df_long_global: pl.DataFrame,
-        df_long_roi: pl.DataFrame,
-        df_wide_global: pl.DataFrame | None,
-        df_wide_roi: pl.DataFrame | None,
     ) -> list[tuple[str, pl.DataFrame]]:
-        """Return [(label, df)] subsets to evaluate for a 
-        spec (GLOBAL and optional ROI).
-        """
         if requires_wide:
             if df_wide_global is None:
-                return []  # defensive: should not happen if needs_wide was True
+                return []
             out: list[tuple[str, pl.DataFrame]] = [("GLOBAL", df_wide_global)]
             if use_roi and df_wide_roi is not None:
                 out.append(("ROI", df_wide_roi))
             return out
 
-        out = [("GLOBAL", df_long_global)]
+        out = [("GLOBAL", df)]
         if use_roi:
-            out.append(("ROI", df_long_roi))
+            out.append(("ROI", df_roi))
         return out
 
-
+    # ---------------------------------------------------------------------
+    # Run specs
+    # ---------------------------------------------------------------------
     for spec in soft_specs:
         use_roi = bool(spec.get("use_roi", True))
         by_option_type = bool(spec.get("by_option_type", True))
@@ -335,15 +435,10 @@ def _run_soft_checks(
         subsets = _iter_subsets_for_spec(
             requires_wide=requires_wide,
             use_roi=use_roi,
-            df_long_global=df,
-            df_long_roi=df_roi,
-            df_wide_global=df_wide_global,
-            df_wide_roi=df_wide_roi,
         )
 
         for label, dfx in subsets:
             if by_option_type:
-                # Run separately for calls and puts
                 for opt in ["C", "P"]:
                     results.append(
                         run_soft_check(
@@ -366,7 +461,6 @@ def _run_soft_checks(
                         )
                     )
             else:
-                # Run once on the full subset (no option_type)
                 results.append(
                     run_soft_check(
                         name=f"{label}_{spec['base_name']}",
@@ -429,44 +523,7 @@ def run_qc(
     roi_delta_max: float = 0.9,
     top_k_buckets: int = 10,
 ) -> QCRunResult:
-    """Run QC on the processed options chain for one underlying.
-
-    This function loads the processed options chain for `ticker`, converts the
-    stored WIDE schema to LONG (calls/puts split by `option_type`), and runs:
-
-    - HARD checks on the full dataset (must-pass invariants)
-    - SOFT checks on both GLOBAL and ROI subsets (diagnostic / arbitrage-style)
-
-    Parameters
-    ----------
-    ticker:
-        Underlying symbol (e.g. "SPX", "SPY").
-    proc_root:
-        Root directory of the processed dataset (e.g.
-        `data/processed/orats/options_chain`).
-    out_json:
-        Optional path for the summary JSON output. If None and `write_json=True`,
-        a default `qc_summary.json` is written next to the parquet.
-    write_json:
-        If True, write `qc_summary.json` and `qc_config.json` next to the parquet
-        (or at `out_json` if provided).
-    dte_bins:
-        DTE bin edges used in bucket summaries for soft checks.
-    delta_bins:
-        |delta| bin edges used in bucket summaries for soft checks.
-    roi_dte_min, roi_dte_max:
-        ROI time-to-expiry (DTE) bounds used for the ROI subset.
-    roi_delta_min, roi_delta_max:
-        ROI absolute-delta bounds used for the ROI subset.
-    top_k_buckets:
-        Number of most-violating buckets to store in the soft-check details.
-
-    Returns
-    -------
-    QCRunResult
-        A run-level summary containing per-check results, overall pass status,
-        row counts (GLOBAL and ROI), and optional output file locations.
-    """
+    """Run QC on the processed options chain for one underlying."""
     t0 = time.perf_counter()
 
     proc_root_p = Path(proc_root)
@@ -477,6 +534,18 @@ def run_qc(
         parquet_path = options_chain_path(proc_root_p, ticker_s)
     except Exception:
         parquet_path = None
+
+    # Determine exercise style (EU/AM) from manifest.json next to parquet.
+    exercise_style = _read_exercise_style_from_manifest(
+        parquet_path=parquet_path
+    )
+
+    if exercise_style is None:
+        logger.warning(
+            "exercise_style missing/invalid in manifest.json -> "
+            "skip EU/AM specific soft checks (ticker=%s).",
+            ticker_s,
+        )
 
     config = QCConfig(
         ticker=ticker_s,
@@ -516,7 +585,14 @@ def run_qc(
 
     results: list[QCCheckResult] = []
     results.extend(_run_hard_checks(df))
-    results.extend(_run_soft_checks(df=df, df_roi=df_roi, config=config))
+    results.extend(
+        _run_soft_checks(
+            df=df,
+            df_roi=df_roi,
+            config=config,
+            exercise_style=exercise_style,
+        )
+    )
     results.extend(_run_info_checks(df=df, df_roi=df_roi))
 
     for r in results:
