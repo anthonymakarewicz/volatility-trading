@@ -1,4 +1,6 @@
 """
+volatility_trading.datasets.options_chain
+------------------------------------
 Small, opinionated I/O layer for the processed options chain dataset.
 
 Conventions
@@ -16,25 +18,19 @@ import polars as pl
 from volatility_trading.config.paths import PROC_ORATS_OPTIONS_CHAIN
 
 
-_DEFAULT_VALUE_COLS: tuple[str, ...] = (
-    # quote fields
-    "bid_price",
-    "ask_price",
-    "mid_price",
-    "model_price",
-    "rel_spread",
-    # liquidity
-    "volume",
-    "open_interest",
-    # greeks
-    "delta",
-    "gamma",
-    "theta",
-    "vega",
-    "rho",
-    # misc vendor fields (keep if present)
-    "mid_iv",
-)
+DEFAULT_BASE_COLS = [
+    "ticker",
+    "trade_date",
+    "expiry_date",
+    "strike",
+    "dte",
+    "yte",
+    "spot_price",
+    "underlying_price",
+    "risk_free_rate",
+    "dividend_yield",
+    "smoothed_iv",
+]
 
 
 def options_chain_path(proc_root: Path | str, ticker: str) -> Path:
@@ -173,11 +169,10 @@ def options_chain_long_to_wide(
     call_label: str = "C",
     put_label: str = "P",
     base_cols: Sequence[str] | None = None,
-    value_cols: Sequence[str] | None = None,
     how: str = "inner",
 ) -> pl.LazyFrame:
     """Convert a LONG options chain into a WIDE chain with call_/put_ prefixes.
-    
+
     This is the inverse helper of `options_chain_wide_to_long()`.
 
     Parameters
@@ -189,11 +184,8 @@ def options_chain_long_to_wide(
     call_label, put_label:
         Labels used inside `opt_col` to identify calls/puts.
     base_cols:
-        Columns to join on (shared identifiers). If None, inferred as
-        "all columns except opt_col and value_cols".
-    value_cols:
-        Per-option columns to widen. If None, uses a reasonable default set
-        intersected with available columns.
+        Join keys / shared identifiers. If None, defaults to DEFAULT_BASE_COLS
+        intersected with columns available in `long`.
     how:
         Join type between calls and puts ("inner" default is strict pairing).
 
@@ -201,44 +193,52 @@ def options_chain_long_to_wide(
     -------
     pl.LazyFrame
         Wide-format chain with call_* and put_* columns.
-
-    Notes
-    -----
-    - `how="inner"` keeps only rows where both call and put exist (best for parity).
-    - `how="outer"` keeps rows even if one side is missing.
     """
     lf = long.lazy() if isinstance(long, pl.DataFrame) else long
     schema = lf.collect_schema()
-    cols = schema.names()
+    cols = list(schema.names())
 
     if opt_col not in cols:
-        raise ValueError(f"options_chain_long_to_wide expected '{opt_col}' in columns.")
+        raise ValueError(
+            f"options_chain_long_to_wide expected '{opt_col}' in columns, "
+            f"but found: {cols}"
+        )
 
-    # Infer value columns
-    if value_cols is None:
-        value_cols_eff = [c for c in _DEFAULT_VALUE_COLS if c in cols]
-    else:
-        value_cols_eff = [c for c in value_cols if c in cols]
-
-    # Infer base cols
+    # 1) Base cols: fixed default (ignore missing)
     if base_cols is None:
-        base_cols_eff = [c for c in cols if c not in {opt_col, *value_cols_eff}]
+        base_cols_eff = [c for c in DEFAULT_BASE_COLS if c in cols]
     else:
         base_cols_eff = [c for c in base_cols if c in cols]
 
     if not base_cols_eff:
-        raise ValueError("options_chain_long_to_wide could not infer base_cols (join keys).")
+        raise ValueError(
+            "options_chain_long_to_wide could not build base_cols (join keys). "
+            "None of the provided/default base columns exist in the input."
+        )
+
+    # 2) Value cols = everything else except option_type and base cols
+    excluded = {opt_col, *base_cols_eff}
+    value_cols_eff = [c for c in cols if c not in excluded]
+
+    if not value_cols_eff:
+        # Still valid: you'll just join base keys (but no per-leg values).
+        value_cols_eff = []
 
     def _widen_side(label: str, prefix: str) -> pl.LazyFrame:
-        # keep base + values only
-        sub = lf.filter(pl.col(opt_col) == label).select(base_cols_eff + value_cols_eff)
-        # prefix value cols
-        rename_map = {c: f"{prefix}{c}" for c in value_cols_eff}
-        return sub.rename(rename_map)
+        sub = (
+            lf.filter(pl.col(opt_col) == label)
+            .select(base_cols_eff + value_cols_eff)
+        )
+
+        if value_cols_eff:
+            rename_map = {c: f"{prefix}{c}" for c in value_cols_eff}
+            sub = sub.rename(rename_map)
+
+        return sub
 
     calls = _widen_side(call_label, "call_")
     puts = _widen_side(put_label, "put_")
 
-    # Join on base cols so calls+puts end on the same row
+    # 3) Join calls+puts on base keys
     wide = calls.join(puts, on=base_cols_eff, how=how)
     return wide

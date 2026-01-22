@@ -49,8 +49,9 @@ from .runners import run_hard_check, run_info_check, run_soft_check
 from .summarizers import summarize_by_bucket
 from .types import Grade, QCCheckResult, QCConfig, QCRunResult, Severity
 from volatility_trading.datasets import (
-    options_chain_path,
+    options_chain_long_to_wide,
     options_chain_wide_to_long,
+    options_chain_path,
     scan_options_chain,
 )
 
@@ -148,9 +149,15 @@ def _run_soft_checks(
     *,
     df: pl.DataFrame,
     df_roi: pl.DataFrame,
-    config: QCConfig
+    config: QCConfig,
 ) -> list[QCCheckResult]:
-    """Run soft checks (diagnostic / arbitrage-style) on GLOBAL and optional ROI."""
+    """Run soft checks (diagnostic / arbitrage-style).
+
+    Supports:
+    - use_roi: whether to run GLOBAL + ROI (True) or GLOBAL only (False)
+    - by_option_type: whether to split into calls/puts
+    - requires_wide: whether the check needs a paired wide view (e.g. PCP)
+    """
     results: list[QCCheckResult] = []
     soft_thresholds = dict(config.soft_thresholds)
 
@@ -259,17 +266,84 @@ def _run_soft_checks(
         },
     ]
 
+    # ---------------------------------------------------------------------
+    # Build WIDE views only if needed (PCP checks)
+    # ---------------------------------------------------------------------
+    def _build_wide(df_long: pl.DataFrame) -> pl.DataFrame:
+        """Build strict paired WIDE view from long (calls+puts on same row)."""
+        wide = (
+            options_chain_long_to_wide(
+                long=df_long,
+                how="inner",  # strict call+put pairing
+            )
+            .collect()
+        )
+
+        # Needed so summarize_by_bucket still works (expects "delta" column)
+        # For paired checks, we bucket by call delta (convention).
+        if "call_delta" in wide.columns:
+            wide = wide.with_columns(pl.col("call_delta").alias("delta"))
+
+        return wide
+
+    needs_wide = any(
+        bool(spec.get("requires_wide", False)) for spec in soft_specs
+    )
+
+    df_wide_global: pl.DataFrame | None = None
+    df_wide_roi: pl.DataFrame | None = None
+
+    if needs_wide:
+        df_wide_global = _build_wide(df)
+        df_wide_roi = _build_wide(df_roi)
+
+
+    # ---------------------------------------------------------------------
+    # Run all specs
+    # ---------------------------------------------------------------------
+    def _iter_subsets_for_spec(
+        *,
+        requires_wide: bool,
+        use_roi: bool,
+        df_long_global: pl.DataFrame,
+        df_long_roi: pl.DataFrame,
+        df_wide_global: pl.DataFrame | None,
+        df_wide_roi: pl.DataFrame | None,
+    ) -> list[tuple[str, pl.DataFrame]]:
+        """Return [(label, df)] subsets to evaluate for a 
+        spec (GLOBAL and optional ROI).
+        """
+        if requires_wide:
+            if df_wide_global is None:
+                return []  # defensive: should not happen if needs_wide was True
+            out: list[tuple[str, pl.DataFrame]] = [("GLOBAL", df_wide_global)]
+            if use_roi and df_wide_roi is not None:
+                out.append(("ROI", df_wide_roi))
+            return out
+
+        out = [("GLOBAL", df_long_global)]
+        if use_roi:
+            out.append(("ROI", df_long_roi))
+        return out
+
+
     for spec in soft_specs:
         use_roi = bool(spec.get("use_roi", True))
         by_option_type = bool(spec.get("by_option_type", True))
+        requires_wide = bool(spec.get("requires_wide", False))
 
-        subsets: list[tuple[str, pl.DataFrame]] = [("GLOBAL", df)]
-        if use_roi:
-            subsets.append(("ROI", df_roi))
+        subsets = _iter_subsets_for_spec(
+            requires_wide=requires_wide,
+            use_roi=use_roi,
+            df_long_global=df,
+            df_long_roi=df_roi,
+            df_wide_global=df_wide_global,
+            df_wide_roi=df_wide_roi,
+        )
 
         for label, dfx in subsets:
             if by_option_type:
-                # Run separately for calls and puts (suffix + pass option_type)
+                # Run separately for calls and puts
                 for opt in ["C", "P"]:
                     results.append(
                         run_soft_check(
@@ -292,7 +366,7 @@ def _run_soft_checks(
                         )
                     )
             else:
-                # Run once on the full subset (no suffix, no option_type arg)
+                # Run once on the full subset (no option_type)
                 results.append(
                     run_soft_check(
                         name=f"{label}_{spec['base_name']}",
