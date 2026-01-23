@@ -306,7 +306,7 @@ def _pcp_dyn_abs_tol_from_spread(
     call_spread = (pl.col(call_ask_col) - pl.col(call_bid_col))
     put_spread = (pl.col(put_ask_col) - pl.col(put_bid_col))
 
-    return (0.5 * (call_spread + put_spread) + floor)
+    return (1 * (call_spread + put_spread) + floor)
 
 
 def _pcp_discounts(
@@ -453,7 +453,7 @@ def flag_put_call_parity_tradable_eu(
 
 
 # -----------------------------------------------------------------------------
-# ✅ American parity (bounds)
+#  American parity (bounds)
 # -----------------------------------------------------------------------------
 
 def flag_put_call_parity_bounds_mid_am(
@@ -468,22 +468,26 @@ def flag_put_call_parity_bounds_mid_am(
     spot_col: str = "underlying_price",
     strike_col: str = "strike",
     r_col: str = "risk_free_rate",
+    q_col: str = "dividend_yield",
     yte_col: str = "yte",
     out_col: str = "pcp_bounds_mid_am_violation",
     tol_floor: float = 0.0,
 ) -> pl.DataFrame:
     """
-    American put-call parity bounds using MID prices:
+    American put-call parity bounds using MID prices (Hull, with dividend yield q):
 
-        S - K <= C - P <= S - K e^{-rT}
+        S0*e^{-qT} - K  <=  C_A - P_A  <=  S0 - K*e^{-rT}
 
-    Here we test MID against bounds with a dynamic abs tolerance from spreads:
+    We flag a violation when the MID difference is outside the bounds by more
+    than a dynamic absolute tolerance derived from bid/ask spreads:
+
         lhs < lower - dyn_tol  OR  lhs > upper + dyn_tol
     """
-    _, disc_r = _pcp_discounts(yte_col=yte_col, r_col=r_col, q_col=r_col)  # q unused
+    disc_q, disc_r = _pcp_discounts(yte_col=yte_col, r_col=r_col, q_col=q_col)
 
     lhs = pl.col(call_mid_col) - pl.col(put_mid_col)
-    lower = pl.col(spot_col) - pl.col(strike_col)
+
+    lower = pl.col(spot_col) * disc_q - pl.col(strike_col)
     upper = pl.col(spot_col) - pl.col(strike_col) * disc_r
 
     dyn_tol = _pcp_dyn_abs_tol_from_spread(
@@ -496,23 +500,24 @@ def flag_put_call_parity_bounds_mid_am(
 
     violation = (lhs < (lower - dyn_tol)) | (lhs > (upper + dyn_tol))
 
+    required = pl.all_horizontal(
+        [
+            pl.col(call_mid_col).is_not_null(),
+            pl.col(put_mid_col).is_not_null(),
+            pl.col(spot_col).is_not_null(),
+            pl.col(strike_col).is_not_null(),
+            pl.col(yte_col).is_not_null(),
+            pl.col(r_col).is_not_null(),
+            pl.col(q_col).is_not_null(),
+            pl.col(call_bid_col).is_not_null(),
+            pl.col(call_ask_col).is_not_null(),
+            pl.col(put_bid_col).is_not_null(),
+            pl.col(put_ask_col).is_not_null(),
+        ]
+    )
+
     return df.with_columns(
-        pl.when(
-            pl.all_horizontal(
-                [
-                    pl.col(call_mid_col).is_not_null(),
-                    pl.col(put_mid_col).is_not_null(),
-                    pl.col(spot_col).is_not_null(),
-                    pl.col(strike_col).is_not_null(),
-                    pl.col(yte_col).is_not_null(),
-                    pl.col(r_col).is_not_null(),
-                    pl.col(call_bid_col).is_not_null(),
-                    pl.col(call_ask_col).is_not_null(),
-                    pl.col(put_bid_col).is_not_null(),
-                    pl.col(put_ask_col).is_not_null(),
-                ]
-            )
-        )
+        pl.when(required)
         .then(violation)
         .otherwise(False)
         .fill_null(False)
@@ -530,22 +535,24 @@ def flag_put_call_parity_bounds_tradable_am(
     spot_col: str = "underlying_price",
     strike_col: str = "strike",
     r_col: str = "risk_free_rate",
+    q_col: str = "dividend_yield",
     yte_col: str = "yte",
     abs_tol: float = 0.01,
     out_col: str = "pcp_bounds_tradable_am_violation",
 ) -> pl.DataFrame:
     """
-    American parity bounds tradable check using bid/ask worst-case:
+    American put-call parity *bounds* (with dividends) using tradable bid/ask
+    worst-case checks (Hull):
 
-        S - K <= C - P <= S - K e^{-rT}
+        S0*e^{-qT} - K <= C_A - P_A <= S0 - K*e^{-rT}
 
-    Worst-case constraints:
-        (C_bid - P_ask) >= (S - K) - abs_tol
-        (C_ask - P_bid) <= (S - K e^{-rT}) + abs_tol
+    Tradable worst-case constraints:
+        lower_worst = C_bid - P_ask  >= (S0*e^{-qT} - K) - abs_tol
+        upper_worst = C_ask - P_bid  <= (S0 - K*e^{-rT}) + abs_tol
     """
-    _, disc_r = _pcp_discounts(yte_col=yte_col, r_col=r_col, q_col=r_col)  # q unused
+    disc_q, disc_r = _pcp_discounts(yte_col=yte_col, r_col=r_col, q_col=q_col)
 
-    lower_bound = pl.col(spot_col) - pl.col(strike_col)
+    lower_bound = pl.col(spot_col) * disc_q - pl.col(strike_col)
     upper_bound = pl.col(spot_col) - pl.col(strike_col) * disc_r
 
     lower_worst = pl.col(call_bid_col) - pl.col(put_ask_col)
@@ -555,21 +562,22 @@ def flag_put_call_parity_bounds_tradable_am(
         upper_worst > (upper_bound + abs_tol)
     )
 
+    required = pl.all_horizontal(
+        [
+            pl.col(call_bid_col).is_not_null(),
+            pl.col(call_ask_col).is_not_null(),
+            pl.col(put_bid_col).is_not_null(),
+            pl.col(put_ask_col).is_not_null(),
+            pl.col(spot_col).is_not_null(),
+            pl.col(strike_col).is_not_null(),
+            pl.col(yte_col).is_not_null(),
+            pl.col(r_col).is_not_null(),
+            pl.col(q_col).is_not_null(),
+        ]
+    )
+
     return df.with_columns(
-        pl.when(
-            pl.all_horizontal(
-                [
-                    pl.col(call_bid_col).is_not_null(),
-                    pl.col(call_ask_col).is_not_null(),
-                    pl.col(put_bid_col).is_not_null(),
-                    pl.col(put_ask_col).is_not_null(),
-                    pl.col(spot_col).is_not_null(),
-                    pl.col(strike_col).is_not_null(),
-                    pl.col(yte_col).is_not_null(),
-                    pl.col(r_col).is_not_null(),
-                ]
-            )
-        )
+        pl.when(required)
         .then(violation)
         .otherwise(False)
         .fill_null(False)
