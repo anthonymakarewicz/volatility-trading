@@ -13,7 +13,7 @@ from volatility_trading.etl.orats.qc.options_chain import run_qc
 # ----------------------------------------------------------------------------
 
 PROC_ROOT = PROC_ORATS_OPTIONS_CHAIN
-TICKER = "NDX"
+TICKER = "SPY"
 
 ROI_DELTA_MIN = 0.1
 ROI_DELTA_MAX = 0.9

@@ -139,11 +139,19 @@ def run_soft_check(
     summarizer_kwargs: dict[str, Any] | None = None,
     flagger_kwargs: dict[str, Any] | None = None,
     top_k_buckets: int = 10,
+    sample_n: int = 0,
+    sample_cols: Sequence[str] | None = None,
+    sample_when_grade_at_least: Grade = Grade.WARN,
 ) -> QCCheckResult:
     """
     Soft check runner:
       - flagger(df, **kwargs) returns df with boolean `violation_col`
       - summarizer(df_flagged, **kwargs) optionally returns bucket table
+
+    Optional:
+    - sample_n: attach sample violating rows into details
+    - sample_cols: restrict sample schema
+    - sample_when_grade_at_least: only attach sample when grade >= WARN (recommended)
     """
     thresholds = thresholds or {"mild": 0.01, "warn": 0.03, "fail": 0.10}
     summarizer_kwargs = summarizer_kwargs or {}
@@ -173,7 +181,7 @@ def run_soft_check(
     rate = n_viol / n_rows
 
     grade = _grade_from_thresholds(rate, thresholds)
-    passed = grade in {Grade.OK, Grade.MILD}  # typical policy
+    passed = grade in {Grade.OK, Grade.MILD}
 
     out_details = dict(details or {})
     out_details["thresholds"] = thresholds
@@ -181,12 +189,29 @@ def run_soft_check(
     # Optional bucket summary (top-K)
     if summarizer is not None:
         summary = summarizer(
-            flagged, 
-            violation_col=violation_col, 
+            flagged,
+            violation_col=violation_col,
             **summarizer_kwargs
         )
         if summary.height > 0:
             out_details["top_buckets"] = summary.head(top_k_buckets).to_dicts()
+
+    # Optional: attach violating row samples (only if needed)
+    if sample_n > 0 and n_viol > 0:
+        # only sample when grade is "bad enough"
+        grade_rank = {Grade.OK: 0, Grade.MILD: 1, Grade.WARN: 2, Grade.FAIL: 3}
+        if grade_rank[grade] >= grade_rank[sample_when_grade_at_least]:
+            viol_df = flagged.filter(
+                pl.col(violation_col).fill_null(False)
+            ).head(sample_n)
+
+            if sample_cols is not None:
+                cols = [c for c in sample_cols if c in viol_df.columns]
+                if cols:
+                    viol_df = viol_df.select(cols)
+
+            out_details["sample_n"] = int(min(sample_n, n_viol))
+            out_details["sample_rows"] = _make_jsonable_sample(viol_df)
 
     return QCCheckResult(
         name=name,

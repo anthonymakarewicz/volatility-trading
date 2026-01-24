@@ -120,7 +120,7 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
     results: list[QCCheckResult] = []
 
     # Minimal columns always useful for debugging
-    base_keys = ["trade_date", "expiry_date", "strike", "option_type"]
+    base_keys = ["trade_date", "expiry_date", "option_type"]
 
     hard_specs = [
         # ---- Keys / dates ----
@@ -215,6 +215,24 @@ def _run_soft_checks(
     soft_thresholds = dict(config.soft_thresholds)
 
     # ---------------------------------------------------------------------
+    # Base sample columns (for optional reporting / debugging)
+    # NOTE: This is metadata only (does NOT change QC behavior).
+    # ---------------------------------------------------------------------
+    base_keys = [
+        "trade_date",
+        "expiry_date",
+        "strike",
+        "option_type",
+        "dte",
+        "delta",
+        "yte",
+        "underlying_price",
+        "spot_price",
+        "risk_free_rate",
+        "dividend_yield",
+    ]
+
+    # ---------------------------------------------------------------------
     # Base soft specs (always)
     # ---------------------------------------------------------------------
     soft_specs: list[dict] = [
@@ -226,6 +244,7 @@ def _run_soft_checks(
             "flagger_kwargs": {"price_col": "mid_price"},
             "use_roi": True,
             "by_option_type": True,
+            "sample_cols": base_keys + ["mid_price"],
         },
         {
             "base_name": "maturity_monotonicity",
@@ -234,6 +253,7 @@ def _run_soft_checks(
             "flagger_kwargs": {"price_col": "mid_price"},
             "use_roi": True,
             "by_option_type": True,
+            "sample_cols": base_keys + ["mid_price"],
         },
 
         # ---- Quote diagnostics ----
@@ -244,6 +264,7 @@ def _run_soft_checks(
             "flagger_kwargs": {},
             "use_roi": True,
             "by_option_type": True,
+            "sample_cols": base_keys + ["bid_price", "ask_price"],
         },
         {
             "base_name": "one_sided_quotes",
@@ -252,6 +273,7 @@ def _run_soft_checks(
             "flagger_kwargs": {},
             "use_roi": True,
             "by_option_type": True,
+            "sample_cols": base_keys + ["bid_price", "ask_price"],
         },
         {
             "base_name": "wide_spread",
@@ -260,6 +282,7 @@ def _run_soft_checks(
             "flagger_kwargs": {"threshold": 1.0, "min_mid": 0.01},
             "use_roi": True,
             "by_option_type": True,
+            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
         },
         {
             "base_name": "very_wide_spread",
@@ -268,6 +291,7 @@ def _run_soft_checks(
             "flagger_kwargs": {"threshold": 2.0, "min_mid": 0.01},
             "use_roi": True,
             "by_option_type": True,
+            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
         },
 
         # ---- Volume / OI diagnostics ----
@@ -279,6 +303,7 @@ def _run_soft_checks(
             "flagger_kwargs": {},
             "use_roi": True,
             "by_option_type": True,
+            "sample_cols": base_keys + ["volume", "open_interest"],
         },
         {
             "base_name": "pos_vol_zero_oi",
@@ -288,6 +313,7 @@ def _run_soft_checks(
             "flagger_kwargs": {},
             "use_roi": True,
             "by_option_type": True,
+            "sample_cols": base_keys + ["volume", "open_interest"],
         },
 
         # ---- Greeks sign diagnostics ----
@@ -299,6 +325,7 @@ def _run_soft_checks(
             "flagger_kwargs": {"eps": 1e-8},
             "use_roi": True,
             "by_option_type": True,
+            "sample_cols": base_keys + ["theta"],
         },
 
         # ---- IV diagnostics ----
@@ -310,6 +337,7 @@ def _run_soft_checks(
             "flagger_kwargs": {"threshold": 1.0},
             "use_roi": False,
             "by_option_type": False,
+            "sample_cols": base_keys + ["smoothed_iv"],
         },
         {
             "base_name": "very_high_iv",
@@ -319,6 +347,7 @@ def _run_soft_checks(
             "flagger_kwargs": {"threshold": 2.0},
             "use_roi": False,
             "by_option_type": False,
+            "sample_cols": base_keys + ["smoothed_iv"],
         },
     ]
 
@@ -329,93 +358,149 @@ def _run_soft_checks(
         # -------------------------------
         # Bounds checks (EU, forward-style)
         # -------------------------------
-        soft_specs.extend([
-            {
-                "base_name": "price_bounds_mid_eu_forward",
-                "flagger": flag_option_bounds_mid_eu_forward,
-                "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
-                "violation_col": "price_bounds_mid_eu_violation",
-                "flagger_kwargs": {
-                    "multiplier": 0.5,
-                    "tol_floor": 0.01,
+        soft_specs.extend(
+            [
+                {
+                    "base_name": "price_bounds_mid_eu_forward",
+                    "flagger": flag_option_bounds_mid_eu_forward,
+                    "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                    "violation_col": "price_bounds_mid_eu_violation",
+                    "flagger_kwargs": {
+                        "multiplier": 0.5,
+                        "tol_floor": 0.01,
+                    },
+                    "use_roi": True,
+                    "by_option_type": True,
+                    "requires_wide": False,
+                    "sample_cols": base_keys
+                    + [
+                        "mid_price",
+                        "bid_price",
+                        "ask_price",
+                    ],
                 },
-                "use_roi": True,
-                "by_option_type": True,
-                "requires_wide": False, 
-            },
-        ])
+            ]
+        )
 
         # -------------------------------
         # PCP checks (EU)
         # -------------------------------
-        soft_specs.extend([
-            {
-                "base_name": "pcp_mid_eu_forward",
-                "flagger": flag_put_call_parity_mid_eu_forward,
-                "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
-                "violation_col": "pcp_mid_eu_violation",
-                "flagger_kwargs": {"multiplier": 0.5, "tol_floor": 0.01},
-                "use_roi": True,
-                "by_option_type": False,
-                "requires_wide": True,
-            },
-            {
-                "base_name": "pcp_tradable_eu",
-                "flagger": flag_put_call_parity_tradable_eu,
-                "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
-                "violation_col": "pcp_tradable_eu_violation",
-                "flagger_kwargs": {"abs_tol": 0.01},
-                "use_roi": True,
-                "by_option_type": False,
-                "requires_wide": True,
-            },
-        ])
+        soft_specs.extend(
+            [
+                {
+                    "base_name": "pcp_mid_eu_forward",
+                    "flagger": flag_put_call_parity_mid_eu_forward,
+                    "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                    "violation_col": "pcp_mid_eu_violation",
+                    "flagger_kwargs": {"multiplier": 0.5, "tol_floor": 0.01},
+                    "use_roi": True,
+                    "by_option_type": False,
+                    "requires_wide": True,
+                    "sample_cols": base_keys
+                    + [
+                        "call_bid_price",
+                        "call_mid_price",
+                        "call_ask_price",
+                        "put_bid_price",
+                        "put_mid_price",
+                        "put_ask_price",
+                    ],
+                },
+                {
+                    "base_name": "pcp_tradable_eu",
+                    "flagger": flag_put_call_parity_tradable_eu,
+                    "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
+                    "violation_col": "pcp_tradable_eu_violation",
+                    "flagger_kwargs": {"abs_tol": 0.01},
+                    "use_roi": True,
+                    "by_option_type": False,
+                    "requires_wide": True,
+                    "sample_cols": base_keys
+                    + [
+                        "call_bid_price",
+                        "call_mid_price",
+                        "call_ask_price",
+                        "put_bid_price",
+                        "put_mid_price",
+                        "put_ask_price",
+                    ],
+                },
+            ]
+        )
 
     elif exercise_style == "AM":
         # -------------------------------
         # Bounds checks (AM, spot-style)
         # -------------------------------
-        soft_specs.extend([
-            {
-                "base_name": "price_bounds_mid_am",
-                "flagger": flag_option_bounds_mid_am_spot,
-                "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
-                "violation_col": "price_bounds_mid_am_spot_violation",
-                "flagger_kwargs": {
-                    "multiplier": 0.5,
-                    "tol_floor": 0.01,
+        soft_specs.extend(
+            [
+                {
+                    "base_name": "price_bounds_mid_am",
+                    "flagger": flag_option_bounds_mid_am_spot,
+                    "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                    "violation_col": "price_bounds_mid_am_spot_violation",
+                    "flagger_kwargs": {
+                        "multiplier": 0.5,
+                        "tol_floor": 0.01,
+                    },
+                    "use_roi": True,
+                    "by_option_type": True,
+                    "requires_wide": False,
+                    "sample_cols": base_keys
+                    + [
+                        "mid_price",
+                        "bid_price",
+                        "ask_price",
+                    ],
                 },
-                "use_roi": True,
-                "by_option_type": True,     # ✅ C and P separately
-                "requires_wide": False,     # ✅ LONG only
-            },
-        ])
+            ]
+        )
 
         # -------------------------------
         # PCP checks (AM)
         # -------------------------------
-        soft_specs.extend([
-            {
-                "base_name": "pcp_bounds_mid_am",
-                "flagger": flag_put_call_parity_bounds_mid_am,
-                "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
-                "violation_col": "pcp_bounds_mid_am_violation",
-                "flagger_kwargs": {"multiplier": 0.5, "tol_floor": 0.01},
-                "use_roi": True,
-                "by_option_type": False,
-                "requires_wide": True,
-            },
-            {
-                "base_name": "pcp_bounds_tradable_am",
-                "flagger": flag_put_call_parity_bounds_tradable_am,
-                "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
-                "violation_col": "pcp_bounds_tradable_am_violation",
-                "flagger_kwargs": {"abs_tol": 0.01},
-                "use_roi": True,
-                "by_option_type": False,
-                "requires_wide": True,
-            },
-        ])
+        soft_specs.extend(
+            [
+                {
+                    "base_name": "pcp_bounds_mid_am",
+                    "flagger": flag_put_call_parity_bounds_mid_am,
+                    "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                    "violation_col": "pcp_bounds_mid_am_violation",
+                    "flagger_kwargs": {"multiplier": 0.5, "tol_floor": 0.01},
+                    "use_roi": True,
+                    "by_option_type": False,
+                    "requires_wide": True,
+                    "sample_cols": base_keys
+                    + [
+                        "call_bid_price",
+                        "call_mid_price",
+                        "call_ask_price",
+                        "put_bid_price",
+                        "put_mid_price",
+                        "put_ask_price",
+                    ],
+                },
+                {
+                    "base_name": "pcp_bounds_tradable_am",
+                    "flagger": flag_put_call_parity_bounds_tradable_am,
+                    "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
+                    "violation_col": "pcp_bounds_tradable_am_violation",
+                    "flagger_kwargs": {"abs_tol": 0.01},
+                    "use_roi": True,
+                    "by_option_type": False,
+                    "requires_wide": True,
+                    "sample_cols": base_keys
+                    + [
+                        "call_bid_price",
+                        "call_mid_price",
+                        "call_ask_price",
+                        "put_bid_price",
+                        "put_mid_price",
+                        "put_ask_price",
+                    ],
+                },
+            ]
+        )
 
     # ---------------------------------------------------------------------
     # Build WIDE views only if needed
@@ -502,6 +587,8 @@ def _run_soft_checks(
                             thresholds=spec.get("thresholds", soft_thresholds),
                             severity=Severity.SOFT,
                             top_k_buckets=config.top_k_buckets,
+                            sample_cols=spec.get("sample_cols", None),
+                            sample_n=5,
                         )
                     )
             else:
@@ -520,6 +607,8 @@ def _run_soft_checks(
                         thresholds=spec.get("thresholds", soft_thresholds),
                         severity=Severity.SOFT,
                         top_k_buckets=config.top_k_buckets,
+                        sample_cols=spec.get("sample_cols", None),
+                        sample_n=5,
                     )
                 )
 
@@ -560,7 +649,7 @@ def run_qc(
     out_json: Path | str | None = None,
     write_json: bool = True,
     dte_bins: Sequence[int | float] = (0, 10, 30, 60, 180),
-    delta_bins: Sequence[float] = (0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0),
+    delta_bins: Sequence[float] = (0.0, 0.05, 0.1, 0.3, 0.7, 0.9, 0.95, 1.0),
     roi_dte_min: int = 10,
     roi_dte_max: int = 60,
     roi_delta_min: float = 0.1,

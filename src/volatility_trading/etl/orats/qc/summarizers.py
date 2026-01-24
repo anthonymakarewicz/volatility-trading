@@ -12,9 +12,9 @@ def summarize_by_bucket(
     dte_col: str = "dte",
     delta_col: str = "delta",
     dte_bins: Sequence[int | float] = (0, 10, 30, 60),
-    delta_bins: Sequence[float] = (0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0),
+    delta_bins: Sequence[float] = (0.0, 0.1, 0.3, 0.7, 0.9, 1.0),
     min_rows: int = 50,
-    top_k: int | None = 10,
+    top_k: int | None = 5,
 ) -> pl.DataFrame:
     """Summarise violations by (DTE bucket, |delta| bucket)."""
     if df.height == 0 or violation_col not in df.columns:
