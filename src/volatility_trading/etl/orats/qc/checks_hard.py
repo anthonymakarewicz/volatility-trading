@@ -17,17 +17,21 @@ def expr_bad_negative(
     return pl.col(col).is_not_null() & (pl.col(col) < (0.0 - eps))
 
 
-def expr_bad_bid_ask(bid_col: str, ask_col: str) -> pl.Expr:
-    """Flag rows where bid > ask."""
-    return pl.col(bid_col) > pl.col(ask_col)
-
-
 def expr_bad_trade_after_expiry(
     trade_col: str = "trade_date",
     expiry_col: str = "expiry_date",
 ) -> pl.Expr:
     """Flag rows where trade_date > expiry_date."""
     return pl.col(trade_col) > pl.col(expiry_col)
+
+
+# -----------------------------------------------------------------------------
+# Quote checks
+# -----------------------------------------------------------------------------
+
+def expr_bad_bid_ask(bid_col: str, ask_col: str) -> pl.Expr:
+    """Flag rows where bid > ask."""
+    return pl.col(bid_col) > pl.col(ask_col)
 
 
 def expr_bad_negative_quotes(
@@ -48,6 +52,11 @@ def expr_bad_crossed_market(
     return pl.col(bid_col) > (pl.col(ask_col) + tol)
 
 
+
+# -----------------------------------------------------------------------------
+# Volume / Open Interest checks
+# -----------------------------------------------------------------------------
+
 def expr_bad_negative_vol_oi(
     volume_col: str = "volume",
     oi_col: str = "open_interest",
@@ -56,25 +65,9 @@ def expr_bad_negative_vol_oi(
     return (pl.col(volume_col) < 0) | (pl.col(oi_col) < 0)
 
 
-# ---- Greeks ----
-
-def expr_bad_delta_bounds(
-    delta_col: str = "delta",
-    opt_col: str = "option_type",
-    eps: float = 1e-5,
-) -> pl.Expr:
-    d = pl.col(delta_col)
-    opt = pl.col(opt_col)
-
-    bad_call = (d < (0.0 - eps)) | (d > (1.0 + eps))
-    bad_put  = (d < (-1.0 - eps)) | (d > (0.0 + eps))
-
-    return (
-        pl.when(opt == "C").then(bad_call)
-        .when(opt == "P").then(bad_put)
-        .otherwise(True)  # unknown option type => fail hard
-    )
-
+# -----------------------------------------------------------------------------
+# Greeks checks
+# -----------------------------------------------------------------------------
 
 def expr_bad_gamma_sign(
     gamma_col: str = "gamma",

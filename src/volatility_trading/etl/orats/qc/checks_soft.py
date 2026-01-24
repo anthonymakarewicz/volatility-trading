@@ -3,99 +3,9 @@ from __future__ import annotations
 import polars as pl
 
 
-def flag_strike_monotonicity(
-    df_long: pl.DataFrame,
-    option_type: str,
-    *,
-    price_col: str = "mid_price",
-    tol: float = 1e-6,
-    trade_col: str = "trade_date",
-    expiry_col: str = "expiry_date",
-    strike_col: str = "strike",
-    option_type_col: str = "option_type",
-) -> pl.DataFrame:
-    """Flag strike monotonicity violations for one option type.
-
-    Within each (trade_date, expiry_date), sorted by strike:
-      - Calls: price must be non-increasing in strike.
-      - Puts : price must be non-decreasing in strike.
-
-    We flag a violation when the forward difference breaks monotonicity:
-      - Calls: price(K_next) - price(K) >  tol
-      - Puts : price(K_next) - price(K) < -tol
-
-    Returns a subset for the requested option_type with boolean column
-    `strike_monot_violation`.
-    """
-    if option_type not in {"C", "P"}:
-        raise ValueError("option_type must be 'C' or 'P'.")
-
-    g = [trade_col, expiry_col]
-
-    df_sub = (
-        df_long
-        .filter(pl.col(option_type_col) == option_type)
-        .sort(g + [strike_col])
-        .with_columns(
-            forward_diff=(
-                pl.col(price_col).shift(-1).over(g) - pl.col(price_col)
-            )
-        )
-        .with_columns(
-            strike_monot_violation=(
-                pl.when(pl.lit(option_type) == "C")
-                .then(pl.col("forward_diff") > tol)
-                .otherwise(pl.col("forward_diff") < -tol)
-                .fill_null(False)
-            )
-        )
-        .drop("forward_diff")
-    )
-    return df_sub
-
-
-def flag_maturity_monotonicity(
-    df_long: pl.DataFrame,
-    option_type: str,
-    *,
-    price_col: str = "mid_price",
-    tol: float = 1e-6,
-    trade_col: str = "trade_date",
-    strike_col: str = "strike",
-    expiry_col: str = "expiry_date",
-    option_type_col: str = "option_type",
-) -> pl.DataFrame:
-    """Flag maturity monotonicity violations (calendar arbitrage) for one option type.
-
-    For fixed (trade_date, strike), option value should be non-decreasing
-    with expiry (T increases).
-
-    Violation if: price(T_next) - price(T) < -tol
-    Returns subset for option_type with boolean `maturity_monot_violation`.
-    """
-    if option_type not in {"C", "P"}:
-        raise ValueError("option_type must be 'C' or 'P'.")
-
-    g = [trade_col, strike_col]
-
-    df_sub = (
-        df_long
-        .filter(pl.col(option_type_col) == option_type)
-        .sort(g + [expiry_col])
-        .with_columns(
-            forward_diff=(
-                pl.col(price_col).shift(-1).over(g) - pl.col(price_col)
-            )
-        )
-        .with_columns(
-            maturity_monot_violation=(
-                (pl.col("forward_diff") < -tol).fill_null(False)
-            )
-        )
-        .drop("forward_diff")
-    )
-    return df_sub
-
+# -----------------------------------------------------------------------------
+# Quote checks
+# -----------------------------------------------------------------------------
 
 def flag_locked_market(
     df_long: pl.DataFrame,
@@ -168,7 +78,9 @@ def flag_wide_spread(
     )
 
 
-# ----- Volume / Open Interest checks -----
+# -----------------------------------------------------------------------------
+# Volume / Open Interest checks
+# -----------------------------------------------------------------------------
 
 def flag_zero_volume(
     df: pl.DataFrame,
@@ -240,7 +152,9 @@ def flag_pos_vol_zero_oi(
     return df_sub
 
 
-# ----- Greeks -----
+# -----------------------------------------------------------------------------
+# Greeks checks
+# -----------------------------------------------------------------------------
 
 def flag_theta_positive(
     df: pl.DataFrame,
@@ -262,6 +176,39 @@ def flag_theta_positive(
     )
 
 
+def flag_delta_bounds(
+    df: pl.DataFrame,
+    option_type: str,
+    *,
+    delta_col: str = "delta",
+    eps: float = 1e-5,
+    out_col: str = "delta_bounds_violation",
+) -> pl.DataFrame:
+    """Flag delta outside theoretical bounds (diagnostic).
+
+    Calls: delta in [0, 1]
+    Puts:  delta in [-1, 0]
+    """
+    if option_type not in {"C", "P"}:
+        raise ValueError("option_type must be 'C' or 'P'.")
+
+    d = pl.col(delta_col)
+
+    if option_type == "C":
+        violation = (d < (0.0 - eps)) | (d > (1.0 + eps))
+    else:  # "P"
+        violation = (d < (-1.0 - eps)) | (d > (0.0 + eps))
+
+    return (
+        df.filter(pl.col("option_type") == option_type)
+        .with_columns(violation.fill_null(False).alias(out_col))
+    )
+
+
+# -----------------------------------------------------------------------------
+# Implied volatility checks
+# -----------------------------------------------------------------------------
+
 def flag_iv_high(
     df: pl.DataFrame,
     *,
@@ -277,9 +224,6 @@ def flag_iv_high(
     )
 
 
-import polars as pl
-
-
 # -----------------------------------------------------------------------------
 # Put-Call Parity helpers
 # -----------------------------------------------------------------------------
@@ -293,17 +237,7 @@ def _pcp_dyn_abs_tol(
     multiplier: float = 0.5,
     floor: float = 0.0,
 ) -> pl.Expr:
-    """
-    Dynamic absolute tolerance for MID-price parity checks derived from spreads.
-
-    We use:
-        tol = 0.5 * (call_spread + put_spread) + floor
-    where:
-        call_spread = call_ask - call_bid
-        put_spread  = put_ask  - put_bid
-
-    This is a pragmatic proxy for "mid uncertainty" due to quoting width.
-    """
+    """Dynamic absolute tolerance for MID-price parity checks derived from spreads."""
     call_spread = (pl.col(call_ask_col) - pl.col(call_bid_col))
     put_spread = (pl.col(put_ask_col) - pl.col(put_bid_col))
 
@@ -511,6 +445,8 @@ def flag_put_call_parity_bounds_mid_am(
         [
             pl.col(call_mid_col).is_not_null(),
             pl.col(put_mid_col).is_not_null(),
+            pl.col(call_mid_col) > 0,
+            pl.col(put_mid_col) > 0,
             pl.col(spot_col).is_not_null(),
             pl.col(strike_col).is_not_null(),
             pl.col(yte_col).is_not_null(),
@@ -520,6 +456,10 @@ def flag_put_call_parity_bounds_mid_am(
             pl.col(call_ask_col).is_not_null(),
             pl.col(put_bid_col).is_not_null(),
             pl.col(put_ask_col).is_not_null(),
+            pl.col(call_bid_col) > 0,
+            pl.col(call_ask_col) > 0,
+            pl.col(put_bid_col) > 0,
+            pl.col(put_ask_col) > 0,
         ]
     )
 
@@ -593,7 +533,105 @@ def flag_put_call_parity_bounds_tradable_am(
 
 
 # -----------------------------------------------------------------------------
-# Theoretical Bounds checks
+# Strike/Maturity Arbitrage checks
+# -----------------------------------------------------------------------------
+
+def flag_strike_monotonicity(
+    df_long: pl.DataFrame,
+    option_type: str,
+    *,
+    price_col: str = "mid_price",
+    tol: float = 1e-6,
+    trade_col: str = "trade_date",
+    expiry_col: str = "expiry_date",
+    strike_col: str = "strike",
+    option_type_col: str = "option_type",
+) -> pl.DataFrame:
+    """Flag strike monotonicity violations for one option type.
+
+    Within each (trade_date, expiry_date), sorted by strike:
+      - Calls: price must be non-increasing in strike.
+      - Puts : price must be non-decreasing in strike.
+
+    We flag a violation when the forward difference breaks monotonicity:
+      - Calls: price(K_next) - price(K) >  tol
+      - Puts : price(K_next) - price(K) < -tol
+
+    Returns a subset for the requested option_type with boolean column
+    `strike_monot_violation`.
+    """
+    if option_type not in {"C", "P"}:
+        raise ValueError("option_type must be 'C' or 'P'.")
+
+    g = [trade_col, expiry_col]
+
+    df_sub = (
+        df_long
+        .filter(pl.col(option_type_col) == option_type)
+        .sort(g + [strike_col])
+        .with_columns(
+            forward_diff=(
+                pl.col(price_col).shift(-1).over(g) - pl.col(price_col)
+            )
+        )
+        .with_columns(
+            strike_monot_violation=(
+                pl.when(pl.lit(option_type) == "C")
+                .then(pl.col("forward_diff") > tol)
+                .otherwise(pl.col("forward_diff") < -tol)
+                .fill_null(False)
+            )
+        )
+        .drop("forward_diff")
+    )
+    return df_sub
+
+
+def flag_maturity_monotonicity(
+    df_long: pl.DataFrame,
+    option_type: str,
+    *,
+    price_col: str = "mid_price",
+    tol: float = 1e-6,
+    trade_col: str = "trade_date",
+    strike_col: str = "strike",
+    expiry_col: str = "expiry_date",
+    option_type_col: str = "option_type",
+) -> pl.DataFrame:
+    """Flag maturity monotonicity violations (calendar arbitrage) for one option type.
+
+    For fixed (trade_date, strike), option value should be non-decreasing
+    with expiry (T increases).
+
+    Violation if: price(T_next) - price(T) < -tol
+    Returns subset for option_type with boolean `maturity_monot_violation`.
+    """
+    if option_type not in {"C", "P"}:
+        raise ValueError("option_type must be 'C' or 'P'.")
+
+    g = [trade_col, strike_col]
+
+    df_sub = (
+        df_long
+        .filter(pl.col(option_type_col) == option_type)
+        .sort(g + [expiry_col])
+        .with_columns(
+            forward_diff=(
+                pl.col(price_col).shift(-1).over(g) - pl.col(price_col)
+            )
+        )
+        .with_columns(
+            maturity_monot_violation=(
+                (pl.col("forward_diff") < -tol).fill_null(False)
+            )
+        )
+        .drop("forward_diff")
+    )
+    return df_sub
+
+
+# -----------------------------------------------------------------------------
+# Theoretical Upper/Lower bounds checks
 # -----------------------------------------------------------------------------
 
 def _bounds_dyn_abs_tol(
@@ -683,6 +721,7 @@ def flag_option_bounds_mid_eu_forward(
         .fill_null(False)
         .alias(out_col)
     )
+
 
 def flag_option_bounds_mid_am_spot(
     df: pl.DataFrame,

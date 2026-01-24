@@ -28,13 +28,13 @@ from .checks_hard import (
     expr_bad_negative_vol_oi,
     expr_bad_null_keys,
     expr_bad_trade_after_expiry,
-    expr_bad_delta_bounds,
 )
 from .checks_info import (
     summarize_risk_free_rate_metrics,
     summarize_volume_oi_metrics,
 )
 from .checks_soft import (
+    flag_delta_bounds,
     flag_iv_high,
     flag_locked_market,
     flag_maturity_monotonicity,
@@ -120,7 +120,13 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
     results: list[QCCheckResult] = []
 
     # Minimal columns always useful for debugging
-    base_keys = ["trade_date", "expiry_date", "option_type"]
+    base_keys = [
+        "trade_date", 
+        "expiry_date", 
+        "option_type", 
+        "underlying_price", 
+        "strike",
+        ]
 
     hard_specs = [
         # ---- Keys / dates ----
@@ -159,11 +165,6 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
             "sample_cols": base_keys + ["volume", "open_interest"],
         },
         # ---- Greeks sign diagnostics ----
-        {
-            "name": "delta_bounds_sane",
-            "predicate_expr": expr_bad_delta_bounds("delta", eps=1e-5),
-            "sample_cols": base_keys + ["delta"],
-        },
         {
             "name": "gamma_non_negative",
             "predicate_expr": expr_bad_negative("gamma", eps=1e-8),
@@ -317,6 +318,15 @@ def _run_soft_checks(
         },
 
         # ---- Greeks sign diagnostics ----
+        {
+            "base_name": "delta_bounds_sane",
+            "flagger": flag_delta_bounds,
+            "thresholds": {"mild": 1e-6, "warn": 1e-5, "fail": 1e-4},
+            "violation_col": "delta_bounds_violation",
+            "flagger_kwargs": {"eps": 1e-5},
+            "use_roi": True,
+            "by_option_type": True,
+        },
         {
             "base_name": "theta_positive",
             "flagger": flag_theta_positive,
