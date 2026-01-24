@@ -13,7 +13,7 @@ from volatility_trading.etl.orats.qc.options_chain import run_qc
 # ----------------------------------------------------------------------------
 
 PROC_ROOT = PROC_ORATS_OPTIONS_CHAIN
-TICKER = "SPX"
+TICKER = "AAPL"
 
 # Logging
 LOG_LEVEL = "INFO"  # "DEBUG" for more verbosity

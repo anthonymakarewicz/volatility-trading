@@ -44,7 +44,7 @@ from .checks_soft import (
     flag_theta_positive,
     flag_wide_spread,
     flag_zero_vol_pos_oi,
-    flag_put_call_parity_mid_eu,
+    flag_put_call_parity_mid_eu_forward,
     flag_put_call_parity_tradable_eu,
     flag_put_call_parity_bounds_mid_am,
     flag_put_call_parity_bounds_tradable_am,
@@ -314,11 +314,12 @@ def _run_soft_checks(
             [
                 # ---- Put-call parity (EU) ----
                 {
-                    "base_name": "pcp_mid_eu",
-                    "flagger": flag_put_call_parity_mid_eu,
+                    "base_name": "pcp_mid_eu_forward",
+                    "flagger": flag_put_call_parity_mid_eu_forward,
                     "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
                     "violation_col": "pcp_mid_eu_violation",
                     "flagger_kwargs": {
+                        "multiplier": 0.5,
                         "tol_floor": 0.01,
                     },
                     "use_roi": True,
@@ -350,6 +351,7 @@ def _run_soft_checks(
                     "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
                     "violation_col": "pcp_bounds_mid_am_violation",
                     "flagger_kwargs": {
+                        "multiplier": 0.5,
                         "tol_floor": 0.01,
                     },
                     "use_roi": True,

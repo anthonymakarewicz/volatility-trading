@@ -257,14 +257,6 @@ def plot_avg_volume_by_delta(
     plt.show()
 
 
-from __future__ import annotations
-
-from typing import Sequence
-import numpy as np
-import polars as pl
-import matplotlib.pyplot as plt
-
-
 def plot_liquidity_by_dte(
     df_long: pl.DataFrame,
     *,

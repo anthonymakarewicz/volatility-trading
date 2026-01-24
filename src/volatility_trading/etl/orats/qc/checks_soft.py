@@ -290,6 +290,7 @@ def _pcp_dyn_abs_tol_from_spread(
     call_ask_col: str,
     put_bid_col: str,
     put_ask_col: str,
+    multiplier: float = 0.5,
     floor: float = 0.0,
 ) -> pl.Expr:
     """
@@ -306,7 +307,7 @@ def _pcp_dyn_abs_tol_from_spread(
     call_spread = (pl.col(call_ask_col) - pl.col(call_bid_col))
     put_spread = (pl.col(put_ask_col) - pl.col(put_bid_col))
 
-    return (1 * (call_spread + put_spread) + floor)
+    return (multiplier * (call_spread + put_spread) + floor)
 
 
 def _pcp_discounts(
@@ -325,7 +326,7 @@ def _pcp_discounts(
 # European parity (equality)
 # -----------------------------------------------------------------------------
 
-def flag_put_call_parity_mid_eu(
+def flag_put_call_parity_mid_eu_forward(
     df: pl.DataFrame,
     *,
     call_mid_col: str = "call_mid_price",
@@ -334,26 +335,30 @@ def flag_put_call_parity_mid_eu(
     call_ask_col: str = "call_ask_price",
     put_bid_col: str = "put_bid_price",
     put_ask_col: str = "put_ask_price",
-    spot_col: str = "underlying_price",
+    fwd_col: str = "underlying_price",   # ORATS implied forward
     strike_col: str = "strike",
     r_col: str = "risk_free_rate",
-    q_col: str = "dividend_yield",
     yte_col: str = "yte",
     out_col: str = "pcp_mid_eu_violation",
-    tol_floor: float = 0.0,
+    multiplier: float = 0.5,
+    tol_floor: float = 0.01,
 ) -> pl.DataFrame:
     """
-    European put-call parity using MID prices:
+    European put-call parity using MID prices (forward form):
 
-        C_mid - P_mid == S*e^{-qT} - K*e^{-rT}
+        C_mid - P_mid == exp(-rT) * (F - K)
 
-    We flag a violation when:
+    where F is the implied forward price (here: `fwd_col`).
+
+    Violation rule:
         |lhs - rhs| > dyn_tol
-    where dyn_tol is derived from bid/ask spreads.
-    """
-    disc_q, disc_r = _pcp_discounts(yte_col=yte_col, r_col=r_col, q_col=q_col)
 
-    rhs = pl.col(spot_col) * disc_q - pl.col(strike_col) * disc_r
+    dyn_tol is derived from bid/ask spreads with an optional floor.
+    """
+    # Discount factor exp(-rT)
+    disc_r = (-pl.col(r_col) * pl.col(yte_col)).exp()
+
+    rhs = disc_r * (pl.col(fwd_col) - pl.col(strike_col))
     lhs = pl.col(call_mid_col) - pl.col(put_mid_col)
 
     dyn_tol = _pcp_dyn_abs_tol_from_spread(
@@ -361,6 +366,7 @@ def flag_put_call_parity_mid_eu(
         call_ask_col=call_ask_col,
         put_bid_col=put_bid_col,
         put_ask_col=put_ask_col,
+        multiplier=multiplier,
         floor=tol_floor,
     )
 
@@ -372,11 +378,10 @@ def flag_put_call_parity_mid_eu(
                 [
                     pl.col(call_mid_col).is_not_null(),
                     pl.col(put_mid_col).is_not_null(),
-                    pl.col(spot_col).is_not_null(),
+                    pl.col(fwd_col).is_not_null(),
                     pl.col(strike_col).is_not_null(),
                     pl.col(yte_col).is_not_null(),
                     pl.col(r_col).is_not_null(),
-                    pl.col(q_col).is_not_null(),
                     pl.col(call_bid_col).is_not_null(),
                     pl.col(call_ask_col).is_not_null(),
                     pl.col(put_bid_col).is_not_null(),
@@ -465,13 +470,14 @@ def flag_put_call_parity_bounds_mid_am(
     call_ask_col: str = "call_ask_price",
     put_bid_col: str = "put_bid_price",
     put_ask_col: str = "put_ask_price",
-    spot_col: str = "underlying_price",
+    spot_col: str = "spot_price",
     strike_col: str = "strike",
     r_col: str = "risk_free_rate",
     q_col: str = "dividend_yield",
     yte_col: str = "yte",
     out_col: str = "pcp_bounds_mid_am_violation",
-    tol_floor: float = 0.0,
+    multiplier: float = 0.5,
+    tol_floor: float = 0.01,
 ) -> pl.DataFrame:
     """
     American put-call parity bounds using MID prices (Hull, with dividend yield q):
@@ -495,6 +501,7 @@ def flag_put_call_parity_bounds_mid_am(
         call_ask_col=call_ask_col,
         put_bid_col=put_bid_col,
         put_ask_col=put_ask_col,
+        multiplier=multiplier,
         floor=tol_floor,
     )
 
