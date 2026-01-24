@@ -284,7 +284,7 @@ import polars as pl
 # Put-Call Parity helpers
 # -----------------------------------------------------------------------------
 
-def _pcp_dyn_abs_tol_from_spread(
+def _pcp_dyn_abs_tol(
     *,
     call_bid_col: str,
     call_ask_col: str,
@@ -361,7 +361,7 @@ def flag_put_call_parity_mid_eu_forward(
     rhs = disc_r * (pl.col(fwd_col) - pl.col(strike_col))
     lhs = pl.col(call_mid_col) - pl.col(put_mid_col)
 
-    dyn_tol = _pcp_dyn_abs_tol_from_spread(
+    dyn_tol = _pcp_dyn_abs_tol(
         call_bid_col=call_bid_col,
         call_ask_col=call_ask_col,
         put_bid_col=put_bid_col,
@@ -496,7 +496,7 @@ def flag_put_call_parity_bounds_mid_am(
     lower = pl.col(spot_col) * disc_q - pl.col(strike_col)
     upper = pl.col(spot_col) - pl.col(strike_col) * disc_r
 
-    dyn_tol = _pcp_dyn_abs_tol_from_spread(
+    dyn_tol = _pcp_dyn_abs_tol(
         call_bid_col=call_bid_col,
         call_ask_col=call_ask_col,
         put_bid_col=put_bid_col,
@@ -580,6 +580,163 @@ def flag_put_call_parity_bounds_tradable_am(
             pl.col(yte_col).is_not_null(),
             pl.col(r_col).is_not_null(),
             pl.col(q_col).is_not_null(),
+        ]
+    )
+
+    return df.with_columns(
+        pl.when(required)
+        .then(violation)
+        .otherwise(False)
+        .fill_null(False)
+        .alias(out_col)
+    )
+
+
+# -----------------------------------------------------------------------------
+# Theoretical Bounds checks
+# -----------------------------------------------------------------------------
+
+def _bounds_dyn_abs_tol(
+    *,
+    bid_col: str,
+    ask_col: str,
+    multiplier: float = 0.5,
+    floor: float = 0.01,
+) -> pl.Expr:
+    """
+    Dynamic absolute tolerance based on bid/ask spread.
+
+    tol = max(floor, multiplier * (ask - bid))
+    """
+    spread = (pl.col(ask_col) - pl.col(bid_col)).abs()
+    return pl.max_horizontal([pl.lit(floor), pl.lit(multiplier) * spread])
+
+
+def flag_option_bounds_mid_eu_forward(
+    df: pl.DataFrame,
+    *,
+    option_type: str,
+    mid_col: str = "mid_price",
+    bid_col: str = "bid_price",
+    ask_col: str = "ask_price",
+    forward_col: str = "underlying_price",  # F0
+    strike_col: str = "strike",
+    r_col: str = "risk_free_rate",
+    yte_col: str = "yte",
+    out_col: str = "price_bounds_mid_eu_violation",
+    multiplier: float = 0.5,
+    tol_floor: float = 0.01,
+) -> pl.DataFrame:
+    """
+    European option theoretical bounds using the forward price F0.
+
+    For calls:
+        max(0, exp(-rT)*(F0 - K)) <= C_mid <= exp(-rT)*F0
+
+    For puts:
+        max(0, exp(-rT)*(K - F0)) <= P_mid <= exp(-rT)*K
+
+    Flags violations using a dynamic absolute tolerance derived from bid/ask spread.
+    """
+    disc_r = (-pl.col(r_col) * pl.col(yte_col)).exp()
+
+    is_call = pl.lit(str(option_type).upper() == "C")
+
+    lower = pl.when(is_call).then(
+        (disc_r * (pl.col(forward_col) - pl.col(strike_col))).clip(lower_bound=0.0)
+    ).otherwise(
+        (disc_r * (pl.col(strike_col) - pl.col(forward_col))).clip(lower_bound=0.0)
+    )
+
+    upper = pl.when(is_call).then(
+        disc_r * pl.col(forward_col)
+    ).otherwise(
+        disc_r * pl.col(strike_col)
+    )
+
+    tol = _bounds_dyn_abs_tol(
+        bid_col=bid_col,
+        ask_col=ask_col,
+        multiplier=multiplier,
+        floor=tol_floor,
+    )
+
+    mid = pl.col(mid_col)
+    violation = (mid < (lower - tol)) | (mid > (upper + tol))
+
+    required = pl.all_horizontal(
+        [
+            pl.col(mid_col).is_not_null(),
+            pl.col(bid_col).is_not_null(),
+            pl.col(ask_col).is_not_null(),
+            pl.col(forward_col).is_not_null(),
+            pl.col(strike_col).is_not_null(),
+            pl.col(r_col).is_not_null(),
+            pl.col(yte_col).is_not_null(),
+        ]
+    )
+
+    return df.with_columns(
+        pl.when(required)
+        .then(violation)
+        .otherwise(False)
+        .fill_null(False)
+        .alias(out_col)
+    )
+
+def flag_option_bounds_mid_am_spot(
+    df: pl.DataFrame,
+    *,
+    option_type: str,
+    mid_col: str = "mid_price",
+    bid_col: str = "bid_price",
+    ask_col: str = "ask_price",
+    spot_col: str = "spot_price",  # S0
+    strike_col: str = "strike",
+    out_col: str = "price_bounds_mid_am_spot_violation",
+    multiplier: float = 0.5,
+    tol_floor: float = 0.01,
+) -> pl.DataFrame:
+    """
+    American option theoretical bounds (spot-based).
+
+    Call bounds:
+        max(0, S0 - K) <= C_mid <= S0
+
+    Put bounds:
+        max(0, K - S0) <= P_mid <= K
+
+    Flags violations using a dynamic absolute tolerance derived from bid/ask spread.
+    """
+    is_call = pl.lit(str(option_type).upper() == "C")
+
+    call_intrinsic = (
+        (pl.col(spot_col) - pl.col(strike_col)).clip(lower_bound=0.0)
+    )
+    put_intrinsic = (
+        (pl.col(strike_col) - pl.col(spot_col)).clip(lower_bound=0.0)
+    )
+
+    lower = pl.when(is_call).then(call_intrinsic).otherwise(put_intrinsic)
+    upper = pl.when(is_call).then(pl.col(spot_col)).otherwise(pl.col(strike_col))
+
+    tol = _bounds_dyn_abs_tol(
+        bid_col=bid_col,
+        ask_col=ask_col,
+        multiplier=multiplier,
+        floor=tol_floor,
+    )
+
+    mid = pl.col(mid_col)
+    violation = (mid < (lower - tol)) | (mid > (upper + tol))
+
+    required = pl.all_horizontal(
+        [
+            pl.col(mid_col).is_not_null(),
+            pl.col(bid_col).is_not_null(),
+            pl.col(ask_col).is_not_null(),
+            pl.col(spot_col).is_not_null(),
+            pl.col(strike_col).is_not_null(),
         ]
     )
 

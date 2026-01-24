@@ -34,7 +34,7 @@ MONIES_IMPLIED_ENDPOINT = "monies_implied"
 COLLECT_STATS = True
 
 # Underlyings to build panels for
-TICKERS = ["QQQ"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
+TICKERS = ["NDX"]  # e.g. ["SPX", "SPY", "QQQ", "IWM", ...]
 
 # Restrict to a subset of years, or None for all available
 YEARS = None # e.g. range(2007, 2026)

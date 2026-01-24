@@ -13,7 +13,10 @@ from volatility_trading.etl.orats.qc.options_chain import run_qc
 # ----------------------------------------------------------------------------
 
 PROC_ROOT = PROC_ORATS_OPTIONS_CHAIN
-TICKER = "AAPL"
+TICKER = "NDX"
+
+ROI_DELTA_MIN = 0.1
+ROI_DELTA_MAX = 0.9
 
 # Logging
 LOG_LEVEL = "INFO"  # "DEBUG" for more verbosity
@@ -34,6 +37,8 @@ def main() -> None:
     result = run_qc(
         ticker=TICKER,
         proc_root=PROC_ROOT,
+        roi_delta_min=ROI_DELTA_MIN,
+        roi_delta_max=ROI_DELTA_MAX,
     )
 
 

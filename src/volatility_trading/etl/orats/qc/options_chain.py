@@ -48,6 +48,9 @@ from .checks_soft import (
     flag_put_call_parity_tradable_eu,
     flag_put_call_parity_bounds_mid_am,
     flag_put_call_parity_bounds_tradable_am,
+    flag_option_bounds_mid_eu_forward,
+    flag_option_bounds_mid_am_spot,
+
 )
 from .report import log_check, write_config_json, write_summary_json
 from .runners import run_hard_check, run_info_check, run_soft_check
@@ -307,73 +310,99 @@ def _run_soft_checks(
     ]
 
     # ---------------------------------------------------------------------
-    # Conditionally inject PCP specs
+    # Conditionally inject EU/AM specs
     # ---------------------------------------------------------------------
     if exercise_style == "EU":
-        soft_specs.extend(
-            [
-                # ---- Put-call parity (EU) ----
-                {
-                    "base_name": "pcp_mid_eu_forward",
-                    "flagger": flag_put_call_parity_mid_eu_forward,
-                    "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
-                    "violation_col": "pcp_mid_eu_violation",
-                    "flagger_kwargs": {
-                        "multiplier": 0.5,
-                        "tol_floor": 0.01,
-                    },
-                    "use_roi": True,
-                    "by_option_type": False,
-                    "requires_wide": True,
+        # -------------------------------
+        # Bounds checks (EU, forward-style)
+        # -------------------------------
+        soft_specs.extend([
+            {
+                "base_name": "price_bounds_mid_eu_forward",
+                "flagger": flag_option_bounds_mid_eu_forward,
+                "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                "violation_col": "price_bounds_mid_eu_violation",
+                "flagger_kwargs": {
+                    "multiplier": 0.5,
+                    "tol_floor": 0.01,
                 },
-                {
-                    "base_name": "pcp_tradable_eu",
-                    "flagger": flag_put_call_parity_tradable_eu,
-                    "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
-                    "violation_col": "pcp_tradable_eu_violation",
-                    "flagger_kwargs": {
-                        "abs_tol": 0.01,
-                    },
-                    "use_roi": True,
-                    "by_option_type": False,
-                    "requires_wide": True,
-                },
-            ]
-        )
+                "use_roi": True,
+                "by_option_type": True,
+                "requires_wide": False, 
+            },
+        ])
+
+        # -------------------------------
+        # PCP checks (EU)
+        # -------------------------------
+        soft_specs.extend([
+            {
+                "base_name": "pcp_mid_eu_forward",
+                "flagger": flag_put_call_parity_mid_eu_forward,
+                "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                "violation_col": "pcp_mid_eu_violation",
+                "flagger_kwargs": {"multiplier": 0.5, "tol_floor": 0.01},
+                "use_roi": True,
+                "by_option_type": False,
+                "requires_wide": True,
+            },
+            {
+                "base_name": "pcp_tradable_eu",
+                "flagger": flag_put_call_parity_tradable_eu,
+                "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
+                "violation_col": "pcp_tradable_eu_violation",
+                "flagger_kwargs": {"abs_tol": 0.01},
+                "use_roi": True,
+                "by_option_type": False,
+                "requires_wide": True,
+            },
+        ])
 
     elif exercise_style == "AM":
-        soft_specs.extend(
-            [
-                # ---- Put-call parity bounds (AM) ----
-                {
-                    "base_name": "pcp_bounds_mid_am",
-                    "flagger": flag_put_call_parity_bounds_mid_am,
-                    "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
-                    "violation_col": "pcp_bounds_mid_am_violation",
-                    "flagger_kwargs": {
-                        "multiplier": 0.5,
-                        "tol_floor": 0.01,
-                    },
-                    "use_roi": True,
-                    "by_option_type": False,
-                    "requires_wide": True,
+        # -------------------------------
+        # Bounds checks (AM, spot-style)
+        # -------------------------------
+        soft_specs.extend([
+            {
+                "base_name": "price_bounds_mid_am",
+                "flagger": flag_option_bounds_mid_am_spot,
+                "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                "violation_col": "price_bounds_mid_am_spot_violation",
+                "flagger_kwargs": {
+                    "multiplier": 0.5,
+                    "tol_floor": 0.01,
                 },
-                {
-                    "base_name": "pcp_bounds_tradable_am",
-                    "flagger": flag_put_call_parity_bounds_tradable_am,
-                    "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
-                    "violation_col": "pcp_bounds_tradable_am_violation",
-                    "flagger_kwargs": {
-                        "abs_tol": 0.01,
-                    },
-                    "use_roi": True,
-                    "by_option_type": False,
-                    "requires_wide": True,
-                },
-            ]
-        )
+                "use_roi": True,
+                "by_option_type": True,     # ✅ C and P separately
+                "requires_wide": False,     # ✅ LONG only
+            },
+        ])
 
-    # else: skip PCP checks entirely
+        # -------------------------------
+        # PCP checks (AM)
+        # -------------------------------
+        soft_specs.extend([
+            {
+                "base_name": "pcp_bounds_mid_am",
+                "flagger": flag_put_call_parity_bounds_mid_am,
+                "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
+                "violation_col": "pcp_bounds_mid_am_violation",
+                "flagger_kwargs": {"multiplier": 0.5, "tol_floor": 0.01},
+                "use_roi": True,
+                "by_option_type": False,
+                "requires_wide": True,
+            },
+            {
+                "base_name": "pcp_bounds_tradable_am",
+                "flagger": flag_put_call_parity_bounds_tradable_am,
+                "thresholds": {"mild": 0.005, "warn": 0.02, "fail": 0.04},
+                "violation_col": "pcp_bounds_tradable_am_violation",
+                "flagger_kwargs": {"abs_tol": 0.01},
+                "use_roi": True,
+                "by_option_type": False,
+                "requires_wide": True,
+            },
+        ])
 
     # ---------------------------------------------------------------------
     # Build WIDE views only if needed
