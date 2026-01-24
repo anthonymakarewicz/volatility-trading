@@ -119,55 +119,66 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
     """Run hard (must-pass) checks on the full dataset (GLOBAL)."""
     results: list[QCCheckResult] = []
 
+    # Minimal columns always useful for debugging
+    base_keys = ["trade_date", "expiry_date", "strike", "option_type"]
+
     hard_specs = [
         # ---- Keys / dates ----
         {
             "name": "keys_not_null",
-            "predicate_expr": expr_bad_null_keys("trade_date", "expiry_date", "strike"),
+            "predicate_expr": expr_bad_null_keys(
+                "trade_date", "expiry_date", "strike"
+            ),
+            "sample_cols": base_keys,
         },
         {
             "name": "trade_date_leq_expiry_date",
             "predicate_expr": expr_bad_trade_after_expiry(),
+            "sample_cols": ["trade_date", "expiry_date", "strike", "option_type"],
         },
-
         # ---- Quote diagnostics ----
         {
             "name": "bid_ask_sane",
             "predicate_expr": expr_bad_bid_ask("bid_price", "ask_price"),
+            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
         },
         {
             "name": "negative_quotes",
             "predicate_expr": expr_bad_negative_quotes("bid_price", "ask_price"),
+            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
         },
         {
             "name": "crossed_market",
             "predicate_expr": expr_bad_crossed_market("bid_price", "ask_price"),
+            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
         },
-
         # ---- Volume / OI diagnostics ----
         {
             "name": "negative_vol_oi",
             "predicate_expr": expr_bad_negative_vol_oi("volume", "open_interest"),
+            "sample_cols": base_keys + ["volume", "open_interest"],
         },
-
         # ---- Greeks sign diagnostics ----
         {
             "name": "delta_bounds_sane",
             "predicate_expr": expr_bad_delta_bounds("delta", eps=1e-5),
+            "sample_cols": base_keys + ["delta"],
         },
         {
             "name": "gamma_non_negative",
             "predicate_expr": expr_bad_negative("gamma", eps=1e-8),
+            "sample_cols": base_keys + ["gamma"],
         },
         {
             "name": "vega_non_negative",
             "predicate_expr": expr_bad_negative("vega", eps=1e-8),
+            "sample_cols": base_keys + ["vega"],
         },
-
         # ---- IV sign diagnostics ----
         {
             "name": "iv_non_negative",
             "predicate_expr": expr_bad_negative("smoothed_iv", eps=1e-5),
+            "sample_cols": base_keys + ["smoothed_iv"],
         },
     ]
 
@@ -178,6 +189,8 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
                 df=df,
                 predicate_expr=spec["predicate_expr"],
                 severity=Severity.HARD,
+                sample_n=10,
+                sample_cols=spec.get("sample_cols"),
             )
         )
 

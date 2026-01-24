@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import polars as pl
@@ -35,6 +35,24 @@ def _count_bool_true(s: pl.Series) -> int:
     return int(s.fill_null(False).sum())
 
 
+def _make_jsonable_sample(df: pl.DataFrame) -> list[dict[str, Any]]:
+    """
+    Convert a small Polars df into JSON-safe list[dict].
+
+    Polars may return python date/datetime objects which vanilla json can't
+    serialize. We cast temporal columns to Utf8 for safety.
+    """
+    if df.height == 0:
+        return []
+
+    out = df
+    for col, dtype in out.schema.items():
+        if dtype in (pl.Date, pl.Datetime, pl.Time):
+            out = out.with_columns(pl.col(col).cast(pl.Utf8))
+
+    return out.to_dicts()
+
+
 # -----------------------------------------------------------------------------
 # Public runners
 # -----------------------------------------------------------------------------
@@ -47,12 +65,18 @@ def run_hard_check(
     severity: Severity = Severity.HARD,
     allow_rate: float = 0.0,
     details: dict[str, Any] | None = None,
+    sample_n: int = 0,
+    sample_cols: Sequence[str] | None = None,
 ) -> QCCheckResult:
     """
     Hard check runner: predicate_expr flags "bad rows".
     We compute n_bad and viol_rate and grade as OK/FAIL.
 
     If allow_rate > 0, you allow tiny percentages to pass (rare).
+
+    Optional:
+    - sample_n: if > 0 and violations exist, attach sample rows to details
+    - sample_cols: restrict sample schema (recommended)
     """
     n_rows = int(df.height)
     if n_rows == 0:
@@ -67,7 +91,8 @@ def run_hard_check(
             details={"reason": "empty dataframe", **(details or {})},
         )
 
-    bad_mask = df.select(predicate_expr.fill_null(False).alias("_bad"))["_bad"]
+    bad_expr = predicate_expr.fill_null(False)
+    bad_mask = df.select(bad_expr.alias("_bad"))["_bad"]
     n_bad = _count_bool_true(bad_mask)
     rate = n_bad / n_rows
 
@@ -75,6 +100,20 @@ def run_hard_check(
     grade = Grade.OK if passed else Grade.FAIL
 
     out_details = dict(details or {})
+
+    # Attach a small sample of violating rows only if failures exist
+    if sample_n > 0 and n_bad > 0:
+        # Filter the violating rows
+        bad_df = df.filter(bad_expr).head(sample_n)
+
+        if sample_cols is not None:
+            cols = [c for c in sample_cols if c in bad_df.columns]
+            if cols:
+                bad_df = bad_df.select(cols)
+
+        out_details["sample_n"] = int(min(sample_n, n_bad))
+        out_details["sample_rows"] = _make_jsonable_sample(bad_df)
+
     return QCCheckResult(
         name=name,
         severity=severity,
