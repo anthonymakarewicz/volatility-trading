@@ -34,13 +34,10 @@ from .checks_info import (
     summarize_volume_oi_metrics,
 )
 from .report import log_check, write_config_json, write_summary_json
-from .runners import run_hard_check, run_info_check, run_soft_check
-from .specs_soft import get_soft_specs
+from .runners import run_hard_check, run_info_check
 from .soft.suite import run_soft_suite
-from .summarizers import summarize_by_bucket
 from .types import Grade, QCCheckResult, QCConfig, QCRunResult, Severity
 from volatility_trading.datasets import (
-    options_chain_long_to_wide,
     options_chain_wide_to_long,
     options_chain_path,
     scan_options_chain,
@@ -88,7 +85,7 @@ def _apply_roi_filter(
         pl.col("delta").abs().is_between(delta_min, delta_max),
     )
 
-def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
+def _run_hard_checks(df_global: pl.DataFrame) -> list[QCCheckResult]:
     """Run hard (must-pass) checks on the full dataset (GLOBAL)."""
     results: list[QCCheckResult] = []
 
@@ -160,7 +157,7 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
         results.append(
             run_hard_check(
                 name=spec["name"],
-                df=df,
+                df=df_global,
                 predicate_expr=spec["predicate_expr"],
                 sample_n=10,
                 sample_cols=spec.get("sample_cols"),
@@ -170,170 +167,15 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
     return results
 
 
-def _iter_subsets_for_spec(
-    *,
-    spec: dict,
-    df_global: pl.DataFrame,
-    df_roi: pl.DataFrame,
-    df_wide_global: pl.DataFrame | None,
-    df_wide_roi: pl.DataFrame | None,
-) -> list[tuple[str, pl.DataFrame]]:
-    requires_wide = bool(spec.get("requires_wide", False))
-    use_roi = bool(spec.get("use_roi", True))
-
-    if requires_wide:
-        if df_wide_global is None:
-            return []
-        out: list[tuple[str, pl.DataFrame]] = [("GLOBAL", df_wide_global)]
-        if use_roi and df_wide_roi is not None:
-            out.append(("ROI", df_wide_roi))
-        return out
-
-    out = [("GLOBAL", df_global)]
-    if use_roi:
-        out.append(("ROI", df_roi))
-    return out
-
-
-def _build_wide_views_if_needed(
-    *,
-    df_global: pl.DataFrame,
-    df_roi: pl.DataFrame,
-    soft_specs: list[dict],
-) -> tuple[pl.DataFrame | None, pl.DataFrame | None]:
-    def _build_wide(df_long: pl.DataFrame) -> pl.DataFrame:
-        wide = (
-            options_chain_long_to_wide(long=df_long, how="inner")
-            .collect()
-        )
-        if "call_delta" in wide.columns:
-            wide = wide.with_columns(pl.col("call_delta").alias("delta"))
-        return wide
-
-    needs_wide = any(
-        bool(spec.get("requires_wide", False)) for spec in soft_specs
-    )
-    if not needs_wide:
-        return None, None
-
-    return _build_wide(df_global), _build_wide(df_roi)
-
-
-def _run_soft_spec(
-    *,
-    spec: dict,
-    df_global: pl.DataFrame,
-    df_roi: pl.DataFrame,
-    df_wide_global: pl.DataFrame | None,
-    df_wide_roi: pl.DataFrame | None,
-    config: QCConfig,
-    soft_thresholds: dict[str, float],
-) -> list[QCCheckResult]:
-    results: list[QCCheckResult] = []
-
-    subsets = _iter_subsets_for_spec(
-        spec=spec,
-        df_global=df_global,
-        df_roi=df_roi,
-        df_wide_global=df_wide_global,
-        df_wide_roi=df_wide_roi,
-    )
-
-    by_option_type = bool(spec.get("by_option_type", True))
-
-    for label, dfx in subsets:
-        if by_option_type:
-            for opt in ["C", "P"]:
-                results.append(
-                    run_soft_check(
-                        name=f"{label}_{spec['base_name']}_{opt}",
-                        df=dfx,
-                        flagger=spec["flagger"],
-                        violation_col=spec["violation_col"],
-                        flagger_kwargs={
-                            "option_type": opt,
-                            **spec.get("flagger_kwargs", {})
-                        },
-                        summarizer=summarize_by_bucket,
-                        summarizer_kwargs={
-                            "dte_bins": config.dte_bins,
-                            "delta_bins": config.delta_bins,
-                        },
-                        thresholds=spec.get("thresholds", soft_thresholds),
-                        top_k_buckets=config.top_k_buckets,
-                        sample_cols=spec.get("sample_cols", None),
-                        sample_n=5,
-                    )
-                )
-        else:
-            results.append(
-                run_soft_check(
-                    name=f"{label}_{spec['base_name']}",
-                    df=dfx,
-                    flagger=spec["flagger"],
-                    violation_col=spec["violation_col"],
-                    flagger_kwargs=dict(spec.get("flagger_kwargs", {})),
-                    summarizer=summarize_by_bucket,
-                    summarizer_kwargs={
-                        "dte_bins": config.dte_bins,
-                        "delta_bins": config.delta_bins,
-                    },
-                    thresholds=spec.get("thresholds", soft_thresholds),
-                    top_k_buckets=config.top_k_buckets,
-                    sample_cols=spec.get("sample_cols", None),
-                    sample_n=5,
-                )
-            )
-
-    return results
-
-
-def _run_soft_checks(
-    *,
-    df: pl.DataFrame,
-    df_roi: pl.DataFrame,
-    config: QCConfig,
-    exercise_style: str | None,
-) -> list[QCCheckResult]:
-    results: list[QCCheckResult] = []
-    soft_thresholds = dict(config.soft_thresholds)
-
-    soft_specs = get_soft_specs(
-        exercise_style=exercise_style,
-        config=config,
-    )
-
-    df_wide_global, df_wide_roi = _build_wide_views_if_needed(
-        df_global=df,
-        df_roi=df_roi,
-        soft_specs=soft_specs,
-    )
-
-    for spec in soft_specs:
-        results.extend(
-            _run_soft_spec(
-                spec=spec,
-                df_global=df,
-                df_roi=df_roi,
-                df_wide_global=df_wide_global,
-                df_wide_roi=df_wide_roi,
-                config=config,
-                soft_thresholds=soft_thresholds,
-            )
-        )
-
-    return results
-
-
 def _run_info_checks(
     *,
-    df: pl.DataFrame,
+    df_global: pl.DataFrame,
     df_roi: pl.DataFrame,
 ) -> list[QCCheckResult]:
     """Run informational checks (always pass) and store metrics in details."""
     results: list[QCCheckResult] = []
 
-    for label, dfx in [("GLOBAL", df), ("ROI", df_roi)]:
+    for label, dfx in [("GLOBAL", df_global), ("ROI", df_roi)]:
         results.append(
             run_info_check(
                 name=f"{label}_volume_oi_metrics",
@@ -429,16 +271,16 @@ def run_qc(
 
     # Run checks
     results: list[QCCheckResult] = []
-    results.extend(_run_hard_checks(df))
+    results.extend(_run_hard_checks(df_global=df))
     results.extend(
         run_soft_suite(
-            df=df,
+            df_global=df,
             df_roi=df_roi,
             config=config,
             exercise_style=exercise_style,
         )
     )
-    results.extend(_run_info_checks(df=df, df_roi=df_roi))
+    results.extend(_run_info_checks(df_global=df, df_roi=df_roi))
 
     for r in results:
         log_check(logger, r)
