@@ -20,7 +20,8 @@ def _iter_subsets_for_spec(
     Return the list of (label, df) subsets to run for this spec,
     depending on requires_wide and use_roi.
     """
-    if spec.requires_wide:
+    # Only row specs can require WIDE
+    if spec.kind == "row" and spec.requires_wide:
         if df_wide_global is None:
             return []
         out: list[tuple[str, pl.DataFrame]] = [("GLOBAL", df_wide_global)]
@@ -28,7 +29,7 @@ def _iter_subsets_for_spec(
             out.append(("ROI", df_wide_roi))
         return out
 
-    out = [("GLOBAL", df_global)]
+    out: list[tuple[str, pl.DataFrame]] = [("GLOBAL", df_global)]
     if spec.use_roi:
         out.append(("ROI", df_roi))
     return out
@@ -41,11 +42,7 @@ def _build_wide_views_if_needed(
     soft_specs: list[SoftSpec],
 ) -> tuple[pl.DataFrame | None, pl.DataFrame | None]:
     """
-    Build strict paired WIDE views only if at least one spec requires_wide=True.
-
-    Keeps behavior identical to your previous inlined build_wide logic:
-    - how="inner" for strict call+put pairing
-    - aliases `delta` from `call_delta` if present (for summarize_by_bucket)
+    Build strict paired WIDE views only if at least one row-spec requires_wide=True.
     """
 
     def _build_wide(df_long: pl.DataFrame) -> pl.DataFrame:
@@ -57,7 +54,11 @@ def _build_wide_views_if_needed(
             wide = wide.with_columns(pl.col("call_delta").alias("delta"))
         return wide
 
-    needs_wide = any(spec.requires_wide for spec in soft_specs)
+    # Only row specs can set requires_wide
+    needs_wide = any(
+        (spec.kind == "row" and spec.requires_wide)
+        for spec in soft_specs
+    )
     if not needs_wide:
         return None, None
 

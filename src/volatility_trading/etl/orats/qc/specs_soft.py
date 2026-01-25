@@ -1,3 +1,4 @@
+# qc/specs_soft.py
 from __future__ import annotations
 
 from .soft.dataset_checks import (
@@ -20,7 +21,7 @@ from .checks_soft import (
     flag_option_bounds_mid_am_spot,
     flag_put_call_parity_bounds_mid_am,
 )
-from .spec_types import SoftSpec
+from .spec_types import SoftDatasetSpec, SoftRowSpec, SoftSpec
 
 
 BASE_KEYS = [
@@ -41,7 +42,7 @@ BASE_KEYS = [
 def _get_base_soft_specs() -> list[SoftSpec]:
     return [
         # ---- Quote diagnostics ----
-        SoftSpec(
+        SoftRowSpec(
             base_name="locked_market",
             flagger=flag_locked_market,
             violation_col="locked_market_violation",
@@ -50,7 +51,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             by_option_type=True,
             sample_cols=BASE_KEYS + ["bid_price", "ask_price"],
         ),
-        SoftSpec(
+        SoftRowSpec(
             base_name="one_sided_quotes",
             flagger=flag_one_sided_quotes,
             violation_col="one_sided_quote_violation",
@@ -59,7 +60,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             by_option_type=True,
             sample_cols=BASE_KEYS + ["bid_price", "ask_price"],
         ),
-        SoftSpec(
+        SoftRowSpec(
             base_name="wide_spread",
             flagger=flag_wide_spread,
             violation_col="wide_spread_violation",
@@ -68,7 +69,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             by_option_type=True,
             sample_cols=BASE_KEYS + ["bid_price", "ask_price", "mid_price"],
         ),
-        SoftSpec(
+        SoftRowSpec(
             base_name="very_wide_spread",
             flagger=flag_wide_spread,
             violation_col="wide_spread_violation",
@@ -79,7 +80,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
         ),
 
         # ---- Volume / OI diagnostics ----
-        SoftSpec(
+        SoftRowSpec(
             base_name="zero_vol_pos_oi",
             flagger=flag_zero_vol_pos_oi,
             thresholds={"mild": 0.05, "warn": 0.15, "fail": 0.30},
@@ -89,7 +90,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             by_option_type=True,
             sample_cols=BASE_KEYS + ["volume", "open_interest"],
         ),
-        SoftSpec(
+        SoftRowSpec(
             base_name="pos_vol_zero_oi",
             flagger=flag_pos_vol_zero_oi,
             thresholds={"mild": 0.01, "warn": 0.03, "fail": 0.05},
@@ -101,7 +102,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
         ),
 
         # ---- Greeks sign diagnostics ----
-        SoftSpec(
+        SoftRowSpec(
             base_name="delta_bounds_sane",
             flagger=flag_delta_bounds,
             thresholds={"mild": 1e-6, "warn": 1e-5, "fail": 1e-4},
@@ -110,7 +111,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             use_roi=True,
             by_option_type=True,
         ),
-        SoftSpec(
+        SoftRowSpec(
             base_name="theta_positive",
             flagger=flag_theta_positive,
             thresholds={"mild": 1e-3, "warn": 0.005, "fail": 0.01},
@@ -122,7 +123,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
         ),
 
         # ---- IV diagnostics ----
-        SoftSpec(
+        SoftRowSpec(
             base_name="high_iv",
             flagger=flag_iv_high,
             thresholds={"mild": 1e-3, "warn": 0.005, "fail": 0.01},
@@ -132,7 +133,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             by_option_type=False,
             sample_cols=BASE_KEYS + ["smoothed_iv"],
         ),
-        SoftSpec(
+        SoftRowSpec(
             base_name="very_high_iv",
             flagger=flag_iv_high,
             thresholds={"mild": 1e-6, "warn": 1e-5, "fail": 1e-4},
@@ -144,7 +145,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
         ),
 
         # ---- Arbitrage diagnostics ----
-        SoftSpec(
+        SoftRowSpec(
             base_name="strike_monotonicity",
             flagger=flag_strike_monotonicity,
             thresholds={"mild": 0.01, "warn": 0.05, "fail": 0.10},
@@ -154,7 +155,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             by_option_type=True,
             sample_cols=BASE_KEYS + ["mid_price"],
         ),
-        SoftSpec(
+        SoftRowSpec(
             base_name="maturity_monotonicity",
             flagger=flag_maturity_monotonicity,
             thresholds={"mild": 0.01, "warn": 0.05, "fail": 0.10},
@@ -165,23 +166,18 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             sample_cols=BASE_KEYS + ["mid_price"],
         ),
 
-        # ---- Dataset-level checks ----
-        SoftSpec(
+        # ---- Dataset-level checks (GLOBAL only) ----
+        SoftDatasetSpec(
             base_name="missing_sessions_xnys",
-            kind="dataset",
             checker=check_missing_sessions_xnys,
             thresholds={"mild": 0.002, "warn": 0.01, "fail": 0.03},
-            use_roi=False,          # GLOBAL only
-            by_option_type=False,   # not C/P split
+            use_roi=False,
         ),
-
-        SoftSpec(
+        SoftDatasetSpec(
             base_name="non_trading_dates_present_xnys",
-            kind="dataset",
             checker=check_non_trading_dates_present_xnys,
             thresholds={"mild": 1e-5, "warn": 1e-3, "fail": 1e-2},
-            use_roi=False,          # GLOBAL only
-            by_option_type=False,   # not C/P split
+            use_roi=False,
         ),
     ]
 
@@ -189,7 +185,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
 def _get_exercise_soft_specs(exercise_style: str | None) -> list[SoftSpec]:
     if exercise_style == "EU":
         return [
-            SoftSpec(
+            SoftRowSpec(
                 base_name="price_bounds_mid_eu_forward",
                 flagger=flag_option_bounds_mid_eu_forward,
                 thresholds={"mild": 0.05, "warn": 0.10, "fail": 0.20},
@@ -200,7 +196,7 @@ def _get_exercise_soft_specs(exercise_style: str | None) -> list[SoftSpec]:
                 requires_wide=False,
                 sample_cols=BASE_KEYS + ["mid_price", "bid_price", "ask_price"],
             ),
-            SoftSpec(
+            SoftRowSpec(
                 base_name="pcp_mid_eu_forward",
                 flagger=flag_put_call_parity_mid_eu_forward,
                 thresholds={"mild": 0.05, "warn": 0.10, "fail": 0.20},
@@ -223,7 +219,7 @@ def _get_exercise_soft_specs(exercise_style: str | None) -> list[SoftSpec]:
 
     if exercise_style == "AM":
         return [
-            SoftSpec(
+            SoftRowSpec(
                 base_name="price_bounds_mid_am",
                 flagger=flag_option_bounds_mid_am_spot,
                 thresholds={"mild": 0.05, "warn": 0.10, "fail": 0.20},
@@ -234,7 +230,7 @@ def _get_exercise_soft_specs(exercise_style: str | None) -> list[SoftSpec]:
                 requires_wide=False,
                 sample_cols=BASE_KEYS + ["mid_price", "bid_price", "ask_price"],
             ),
-            SoftSpec(
+            SoftRowSpec(
                 base_name="pcp_bounds_mid_am",
                 flagger=flag_put_call_parity_bounds_mid_am,
                 thresholds={"mild": 0.05, "warn": 0.10, "fail": 0.20},

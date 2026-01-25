@@ -7,20 +7,29 @@ from typing import Any, Callable, Literal
 import polars as pl
 
 
-SoftKind = Literal["row", "dataset"]
+@dataclass(frozen=True)
+class SoftSpecBase:
+    base_name: str
+    thresholds: dict[str, float] | None = None
+    use_roi: bool = True
+    sample_cols: list[str] | None = None
 
 
 @dataclass(frozen=True)
-class SoftSpec:
-    base_name: str
-    kind: SoftKind = "row"
-    flagger: Callable[..., pl.DataFrame] | None = None
-    violation_col: str | None = None
-    checker: Callable[..., dict[str, Any]] | None = None
-    thresholds: dict[str, float] | None = None
-    use_roi: bool = True
+class SoftRowSpec(SoftSpecBase):
+    kind: Literal["row"] = "row"
+    flagger: Callable[..., pl.DataFrame] = None  # required in practice
+    violation_col: str = ""                      # required in practice
+    flagger_kwargs: dict[str, Any] = field(default_factory=dict)
     by_option_type: bool = True
     requires_wide: bool = False
-    flagger_kwargs: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SoftDatasetSpec(SoftSpecBase):
+    kind: Literal["dataset"] = "dataset"
+    checker: Callable[..., dict[str, Any]] = None  # required in practice
     checker_kwargs: dict[str, Any] = field(default_factory=dict)
-    sample_cols: list[str] | None = None
+
+
+SoftSpec = SoftRowSpec | SoftDatasetSpec
