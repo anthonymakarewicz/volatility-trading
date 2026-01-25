@@ -9,6 +9,7 @@ import polars as pl
 
 SoftKind = Literal["row", "dataset"]
 
+
 @dataclass(frozen=True)
 class SoftSpec:
     base_name: str

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from .soft.dataset_checks import (
+    check_missing_sessions_xnys,
+    check_non_trading_dates_present_xnys,
+)
 from .checks_soft import (
     flag_locked_market,
     flag_one_sided_quotes,
@@ -159,6 +163,25 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             use_roi=True,
             by_option_type=True,
             sample_cols=BASE_KEYS + ["mid_price"],
+        ),
+
+        # ---- Dataset-level checks ----
+        SoftSpec(
+            base_name="missing_sessions_xnys",
+            kind="dataset",
+            checker=check_missing_sessions_xnys,
+            thresholds={"mild": 0.002, "warn": 0.01, "fail": 0.03},
+            use_roi=False,          # GLOBAL only
+            by_option_type=False,   # not C/P split
+        ),
+
+        SoftSpec(
+            base_name="non_trading_dates_present_xnys",
+            kind="dataset",
+            checker=check_non_trading_dates_present_xnys,
+            thresholds={"mild": 1e-5, "warn": 1e-3, "fail": 1e-2},
+            use_roi=False,          # GLOBAL only
+            by_option_type=False,   # not C/P split
         ),
     ]
 

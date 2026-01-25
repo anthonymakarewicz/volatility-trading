@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from ..runners import run_soft_check
+from ..runners import run_soft_check, run_soft_check_dataset
 from ..specs_soft import get_soft_specs
 from ..summarizers import summarize_by_bucket
 from ..types import QCCheckResult, QCConfig
@@ -20,10 +20,14 @@ def run_soft_suite(
     """
     Run SOFT checks for the options chain QC.
 
-    Pure orchestration:
-    - builds WIDE only if needed
-    - routes GLOBAL/ROI subsets per spec
-    - optionally splits by option_type (C/P)
+    Supports:
+      - Row-level specs (flagger -> boolean violation_col)
+      - Dataset-level specs (checker -> metrics dict)
+
+    Orchestration:
+      - builds WIDE only if needed
+      - routes GLOBAL/ROI subsets per spec
+      - optionally splits row checks by option_type (C/P)
     """
     results: list[QCCheckResult] = []
     soft_thresholds = dict(config.soft_thresholds)
@@ -49,6 +53,24 @@ def run_soft_suite(
         )
 
         for label, dfx in subsets:
+            # -----------------------------------------------------------------
+            # Dataset-level checks
+            # -----------------------------------------------------------------
+            if spec.kind == "dataset":
+                results.append(
+                    run_soft_check_dataset(
+                        name=f"{label}_{spec.base_name}",
+                        df=dfx,
+                        checker=spec.checker,
+                        checker_kwargs=dict(spec.checker_kwargs),
+                        thresholds=spec.thresholds or soft_thresholds,
+                    )
+                )
+                continue
+
+            # -----------------------------------------------------------------
+            # Row-level checks
+            # -----------------------------------------------------------------
             if spec.by_option_type:
                 for opt in ["C", "P"]:
                     results.append(

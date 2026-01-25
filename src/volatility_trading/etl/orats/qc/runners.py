@@ -223,6 +223,79 @@ def run_soft_check(
     )
 
 
+def run_soft_check_dataset(
+    *,
+    name: str,
+    df: pl.DataFrame,
+    checker: Callable[..., dict[str, Any]],
+    thresholds: dict[str, float] | None = None,
+    checker_kwargs: dict[str, Any] | None = None,
+    metric_key: str = "viol_rate",
+    details: dict[str, Any] | None = None,
+) -> QCCheckResult:
+    """
+    Dataset-level soft check runner.
+
+    `checker(df, **kwargs) -> dict` must return at least:
+      - metric_key (default "viol_rate") : float
+    Optional keys:
+      - n_viol: int
+      - n_units: int  (e.g., number of sessions/days examined)
+
+    We store everything returned by checker into QCCheckResult.details.
+    """
+
+    thresholds = thresholds or {"mild": 0.01, "warn": 0.03, "fail": 0.10}
+    checker_kwargs = checker_kwargs or {}
+
+    n_rows = int(df.height)
+    if n_rows == 0:
+        return QCCheckResult(
+            name=name,
+            severity=Severity.SOFT,
+            grade=Grade.FAIL,
+            passed=False,
+            n_rows=0,
+            n_viol=0,
+            viol_rate=None,
+            details={"reason": "empty dataframe", **(details or {})},
+        )
+
+    out = checker(df=df, **checker_kwargs)
+    if metric_key not in out:
+        raise ValueError(
+            f"dataset checker must return metric_key={metric_key!r}; got keys={list(out.keys())}"
+        )
+
+    metric = out[metric_key]
+    if metric is None:
+        raise ValueError(f"dataset checker returned None metric for {metric_key!r}")
+
+    # grade using the same logic as row soft checks
+    from .runners import _grade_from_thresholds  # if in same file, call directly
+    grade = _grade_from_thresholds(float(metric), thresholds)
+    passed = grade in {Grade.OK, Grade.MILD}
+
+    # Prefer checker-provided n_viol/n_units, else leave null-ish
+    n_viol = int(out.get("n_viol")) if out.get("n_viol") is not None else None
+    n_units = int(out.get("n_units")) if out.get("n_units") is not None else None
+
+    out_details = dict(details or {})
+    out_details["thresholds"] = thresholds
+    out_details.update(out)
+
+    return QCCheckResult(
+        name=name,
+        severity=Severity.SOFT,
+        grade=grade,
+        passed=passed,
+        n_rows=n_units,           # “units examined” (days/sessions)
+        n_viol=n_viol,           # “units violated” (days/sessions)
+        viol_rate=float(metric), # dataset metric
+        details=out_details,
+    )
+
+
 def run_info_check(
     *,
     name: str,
