@@ -62,7 +62,6 @@ def run_hard_check(
     name: str,
     df: pl.DataFrame,
     predicate_expr: pl.Expr,
-    severity: Severity = Severity.HARD,
     allow_rate: float = 0.0,
     details: dict[str, Any] | None = None,
     sample_n: int = 0,
@@ -82,7 +81,7 @@ def run_hard_check(
     if n_rows == 0:
         return QCCheckResult(
             name=name,
-            severity=severity,
+            severity=Severity.HARD,
             grade=Grade.FAIL,
             passed=False,
             n_rows=0,
@@ -116,7 +115,7 @@ def run_hard_check(
 
     return QCCheckResult(
         name=name,
-        severity=severity,
+        severity=Severity.HARD,
         grade=grade,
         passed=passed,
         n_rows=n_rows,
@@ -134,7 +133,6 @@ def run_soft_check(
     violation_col: str,
     summarizer: Callable[..., pl.DataFrame] | None = None,
     thresholds: dict[str, float] | None = None,
-    severity: Severity = Severity.SOFT,
     details: dict[str, Any] | None = None,
     summarizer_kwargs: dict[str, Any] | None = None,
     flagger_kwargs: dict[str, Any] | None = None,
@@ -161,7 +159,7 @@ def run_soft_check(
     if n_rows == 0:
         return QCCheckResult(
             name=name,
-            severity=severity,
+            severity=Severity.SOFT,
             grade=Grade.FAIL,
             passed=False,
             n_rows=0,
@@ -215,7 +213,7 @@ def run_soft_check(
 
     return QCCheckResult(
         name=name,
-        severity=severity,
+        severity=Severity.SOFT,
         grade=grade,
         passed=passed,
         n_rows=n_rows,

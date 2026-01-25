@@ -225,7 +225,7 @@ def flag_iv_high(
 
 
 # -----------------------------------------------------------------------------
-# Put-Call Parity helpers
+# Put-Call Parity checks
 # -----------------------------------------------------------------------------
 
 def _pcp_dyn_abs_tol(
@@ -256,9 +256,7 @@ def _pcp_discounts(
     return disc_q, disc_r
 
 
-# -----------------------------------------------------------------------------
-# European parity (equality)
-# -----------------------------------------------------------------------------
+# ---- European parity forward (equality) -----
 
 def flag_put_call_parity_mid_eu_forward(
     df: pl.DataFrame,
@@ -274,7 +272,7 @@ def flag_put_call_parity_mid_eu_forward(
     r_col: str = "risk_free_rate",
     yte_col: str = "yte",
     out_col: str = "pcp_mid_eu_violation",
-    multiplier: float = 0.5,
+    multiplier: float = 1.0,
     tol_floor: float = 0.01,
 ) -> pl.DataFrame:
     """
@@ -289,7 +287,6 @@ def flag_put_call_parity_mid_eu_forward(
 
     dyn_tol is derived from bid/ask spreads with an optional floor.
     """
-    # Discount factor exp(-rT)
     disc_r = (-pl.col(r_col) * pl.col(yte_col)).exp()
 
     rhs = disc_r * (pl.col(fwd_col) - pl.col(strike_col))
@@ -330,70 +327,7 @@ def flag_put_call_parity_mid_eu_forward(
     )
 
 
-def flag_put_call_parity_tradable_eu(
-    df: pl.DataFrame,
-    *,
-    call_bid_col: str = "call_bid_price",
-    call_ask_col: str = "call_ask_price",
-    put_bid_col: str = "put_bid_price",
-    put_ask_col: str = "put_ask_price",
-    spot_col: str = "underlying_price",
-    strike_col: str = "strike",
-    r_col: str = "risk_free_rate",
-    q_col: str = "dividend_yield",
-    yte_col: str = "yte",
-    abs_tol: float = 0.01,
-    out_col: str = "pcp_tradable_eu_violation",
-) -> pl.DataFrame:
-    """
-    European parity tradable containment check.
-
-    We verify that the theoretical forward PV(F-K) lies INSIDE the tradable
-    interval implied by bid/ask:
-
-        rhs = S*e^{-qT} - K*e^{-rT}
-
-        lower = C_bid - P_ask
-        upper = C_ask - P_bid
-
-    Condition (with a tiny cushion abs_tol):
-        rhs >= lower - abs_tol
-        rhs <= upper + abs_tol
-    """
-    disc_q, disc_r = _pcp_discounts(yte_col=yte_col, r_col=r_col, q_col=q_col)
-
-    rhs = pl.col(spot_col) * disc_q - pl.col(strike_col) * disc_r
-    lower = pl.col(call_bid_col) - pl.col(put_ask_col)
-    upper = pl.col(call_ask_col) - pl.col(put_bid_col)
-
-    violation = (rhs < (lower - abs_tol)) | (rhs > (upper + abs_tol))
-
-    return df.with_columns(
-        pl.when(
-            pl.all_horizontal(
-                [
-                    pl.col(call_bid_col).is_not_null(),
-                    pl.col(call_ask_col).is_not_null(),
-                    pl.col(put_bid_col).is_not_null(),
-                    pl.col(put_ask_col).is_not_null(),
-                    pl.col(spot_col).is_not_null(),
-                    pl.col(strike_col).is_not_null(),
-                    pl.col(yte_col).is_not_null(),
-                    pl.col(r_col).is_not_null(),
-                    pl.col(q_col).is_not_null(),
-                ]
-            )
-        )
-        .then(violation)
-        .otherwise(False)
-        .fill_null(False)
-        .alias(out_col)
-    )
-
-
-# -----------------------------------------------------------------------------
-#  American parity (bounds)
-# -----------------------------------------------------------------------------
+# ---- American parity (bounds) -----
 
 def flag_put_call_parity_bounds_mid_am(
     df: pl.DataFrame,
@@ -443,83 +377,23 @@ def flag_put_call_parity_bounds_mid_am(
 
     required = pl.all_horizontal(
         [
-            pl.col(call_mid_col).is_not_null(),
-            pl.col(put_mid_col).is_not_null(),
-            pl.col(call_mid_col) > 0,
-            pl.col(put_mid_col) > 0,
             pl.col(spot_col).is_not_null(),
             pl.col(strike_col).is_not_null(),
             pl.col(yte_col).is_not_null(),
             pl.col(r_col).is_not_null(),
             pl.col(q_col).is_not_null(),
             pl.col(call_bid_col).is_not_null(),
+            pl.col(call_mid_col).is_not_null(),
             pl.col(call_ask_col).is_not_null(),
             pl.col(put_bid_col).is_not_null(),
+            pl.col(put_mid_col).is_not_null(),
             pl.col(put_ask_col).is_not_null(),
             pl.col(call_bid_col) > 0,
             pl.col(call_ask_col) > 0,
+            pl.col(call_mid_col) > 0,
             pl.col(put_bid_col) > 0,
+            pl.col(put_mid_col) > 0,
             pl.col(put_ask_col) > 0,
-        ]
-    )
-
-    return df.with_columns(
-        pl.when(required)
-        .then(violation)
-        .otherwise(False)
-        .fill_null(False)
-        .alias(out_col)
-    )
-
-
-def flag_put_call_parity_bounds_tradable_am(
-    df: pl.DataFrame,
-    *,
-    call_bid_col: str = "call_bid_price",
-    call_ask_col: str = "call_ask_price",
-    put_bid_col: str = "put_bid_price",
-    put_ask_col: str = "put_ask_price",
-    spot_col: str = "underlying_price",
-    strike_col: str = "strike",
-    r_col: str = "risk_free_rate",
-    q_col: str = "dividend_yield",
-    yte_col: str = "yte",
-    abs_tol: float = 0.01,
-    out_col: str = "pcp_bounds_tradable_am_violation",
-) -> pl.DataFrame:
-    """
-    American put-call parity *bounds* (with dividends) using tradable bid/ask
-    worst-case checks (Hull):
-
-        S0*e^{-qT} - K <= C_A - P_A <= S0 - K*e^{-rT}
-
-    Tradable worst-case constraints:
-        lower_worst = C_bid - P_ask  >= (S0*e^{-qT} - K) - abs_tol
-        upper_worst = C_ask - P_bid  <= (S0 - K*e^{-rT}) + abs_tol
-    """
-    disc_q, disc_r = _pcp_discounts(yte_col=yte_col, r_col=r_col, q_col=q_col)
-
-    lower_bound = pl.col(spot_col) * disc_q - pl.col(strike_col)
-    upper_bound = pl.col(spot_col) - pl.col(strike_col) * disc_r
-
-    lower_worst = pl.col(call_bid_col) - pl.col(put_ask_col)
-    upper_worst = pl.col(call_ask_col) - pl.col(put_bid_col)
-
-    violation = (lower_worst < (lower_bound - abs_tol)) | (
-        upper_worst > (upper_bound + abs_tol)
-    )
-
-    required = pl.all_horizontal(
-        [
-            pl.col(call_bid_col).is_not_null(),
-            pl.col(call_ask_col).is_not_null(),
-            pl.col(put_bid_col).is_not_null(),
-            pl.col(put_ask_col).is_not_null(),
-            pl.col(spot_col).is_not_null(),
-            pl.col(strike_col).is_not_null(),
-            pl.col(yte_col).is_not_null(),
-            pl.col(r_col).is_not_null(),
-            pl.col(q_col).is_not_null(),
         ]
     )
 
