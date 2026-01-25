@@ -36,6 +36,7 @@ from .checks_info import (
 from .report import log_check, write_config_json, write_summary_json
 from .runners import run_hard_check, run_info_check, run_soft_check
 from .specs_soft import get_soft_specs
+from .soft.suite import run_soft_suite
 from .summarizers import summarize_by_bucket
 from .types import Grade, QCCheckResult, QCConfig, QCRunResult, Severity
 from volatility_trading.datasets import (
@@ -400,6 +401,7 @@ def run_qc(
         top_k_buckets=top_k_buckets,
     )
 
+    # Load processed options chain as wide format
     lf = scan_options_chain(ticker_s, proc_root=proc_root_p)
     df = options_chain_wide_to_long(lf).collect()
 
@@ -425,10 +427,11 @@ def run_qc(
     )
     n_rows_roi: int | None = int(df_roi.height)
 
+    # Run checks
     results: list[QCCheckResult] = []
     results.extend(_run_hard_checks(df))
     results.extend(
-        _run_soft_checks(
+        run_soft_suite(
             df=df,
             df_roi=df_roi,
             config=config,
@@ -440,6 +443,7 @@ def run_qc(
     for r in results:
         log_check(logger, r)
 
+    # Write JSON reports
     out_summary_json: Path | None = None
     out_config_json: Path | None = None
 
