@@ -33,25 +33,9 @@ from .checks_info import (
     summarize_risk_free_rate_metrics,
     summarize_volume_oi_metrics,
 )
-from .checks_soft import (
-    flag_delta_bounds,
-    flag_iv_high,
-    flag_locked_market,
-    flag_maturity_monotonicity,
-    flag_one_sided_quotes,
-    flag_pos_vol_zero_oi,
-    flag_strike_monotonicity,
-    flag_theta_positive,
-    flag_wide_spread,
-    flag_zero_vol_pos_oi,
-    flag_put_call_parity_mid_eu_forward,
-    flag_put_call_parity_bounds_mid_am,
-    flag_option_bounds_mid_eu_forward,
-    flag_option_bounds_mid_am_spot,
-
-)
 from .report import log_check, write_config_json, write_summary_json
 from .runners import run_hard_check, run_info_check, run_soft_check
+from .specs_soft import get_soft_specs
 from .summarizers import summarize_by_bucket
 from .types import Grade, QCCheckResult, QCConfig, QCRunResult, Severity
 from volatility_trading.datasets import (
@@ -60,6 +44,7 @@ from volatility_trading.datasets import (
     options_chain_path,
     scan_options_chain,
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +86,6 @@ def _apply_roi_filter(
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("delta").abs().is_between(delta_min, delta_max),
     )
-
 
 def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
     """Run hard (must-pass) checks on the full dataset (GLOBAL)."""
@@ -185,351 +169,90 @@ def _run_hard_checks(df: pl.DataFrame) -> list[QCCheckResult]:
     return results
 
 
-def _run_soft_checks(
+def _iter_subsets_for_spec(
     *,
-    df: pl.DataFrame,
+    spec: dict,
+    df_global: pl.DataFrame,
     df_roi: pl.DataFrame,
-    config: QCConfig,
-    exercise_style: str | None,
-) -> list[QCCheckResult]:
-    """Run soft checks (diagnostic / arbitrage-style).
+    df_wide_global: pl.DataFrame | None,
+    df_wide_roi: pl.DataFrame | None,
+) -> list[tuple[str, pl.DataFrame]]:
+    requires_wide = bool(spec.get("requires_wide", False))
+    use_roi = bool(spec.get("use_roi", True))
 
-    Supports per-spec toggles:
-    - use_roi: run GLOBAL + ROI (True) or GLOBAL only (False)
-    - by_option_type: split into calls/puts or run once on the subset
-    - requires_wide: build paired WIDE view (for PCP checks)
-    """
-    results: list[QCCheckResult] = []
-    soft_thresholds = dict(config.soft_thresholds)
+    if requires_wide:
+        if df_wide_global is None:
+            return []
+        out: list[tuple[str, pl.DataFrame]] = [("GLOBAL", df_wide_global)]
+        if use_roi and df_wide_roi is not None:
+            out.append(("ROI", df_wide_roi))
+        return out
 
-    # ---------------------------------------------------------------------
-    # Base sample columns (for optional reporting / debugging)
-    # ---------------------------------------------------------------------
-    base_keys = [
-        "trade_date",
-        "expiry_date",
-        "strike",
-        "option_type",
-        "dte",
-        "delta",
-        "yte",
-        "underlying_price",
-        "spot_price",
-        "risk_free_rate",
-        "dividend_yield",
-    ]
+    out = [("GLOBAL", df_global)]
+    if use_roi:
+        out.append(("ROI", df_roi))
+    return out
 
-    # ---------------------------------------------------------------------
-    # Base soft specs (always)
-    # ---------------------------------------------------------------------
-    soft_specs: list[dict] = [
-        # ---- Quote diagnostics ----
-        {
-            "base_name": "locked_market",
-            "flagger": flag_locked_market,
-            "violation_col": "locked_market_violation",
-            "flagger_kwargs": {},
-            "use_roi": True,
-            "by_option_type": True,
-            "sample_cols": base_keys + ["bid_price", "ask_price"],
-        },
-        {
-            "base_name": "one_sided_quotes",
-            "flagger": flag_one_sided_quotes,
-            "violation_col": "one_sided_quote_violation",
-            "flagger_kwargs": {},
-            "use_roi": True,
-            "by_option_type": True,
-            "sample_cols": base_keys + ["bid_price", "ask_price"],
-        },
-        {
-            "base_name": "wide_spread",
-            "flagger": flag_wide_spread,
-            "violation_col": "wide_spread_violation",
-            "flagger_kwargs": {"threshold": 1.0, "min_mid": 0.01},
-            "use_roi": True,
-            "by_option_type": True,
-            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
-        },
-        {
-            "base_name": "very_wide_spread",
-            "flagger": flag_wide_spread,
-            "violation_col": "wide_spread_violation",
-            "flagger_kwargs": {"threshold": 2.0, "min_mid": 0.01},
-            "use_roi": True,
-            "by_option_type": True,
-            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
-        },
 
-        # ---- Volume / OI diagnostics ----
-        {
-            "base_name": "zero_vol_pos_oi",
-            "flagger": flag_zero_vol_pos_oi,
-            "thresholds": {"mild": 0.05, "warn": 0.15, "fail": 0.30},
-            "violation_col": "zero_vol_pos_oi_violation",
-            "flagger_kwargs": {},
-            "use_roi": True,
-            "by_option_type": True,
-            "sample_cols": base_keys + ["volume", "open_interest"],
-        },
-        {
-            "base_name": "pos_vol_zero_oi",
-            "flagger": flag_pos_vol_zero_oi,
-            "thresholds": {"mild": 0.01, "warn": 0.03, "fail": 0.05},
-            "violation_col": "pos_vol_zero_oi_violation",
-            "flagger_kwargs": {},
-            "use_roi": True,
-            "by_option_type": True,
-            "sample_cols": base_keys + ["volume", "open_interest"],
-        },
-
-        # ---- Greeks sign diagnostics ----
-        {
-            "base_name": "delta_bounds_sane",
-            "flagger": flag_delta_bounds,
-            "thresholds": {"mild": 1e-6, "warn": 1e-5, "fail": 1e-4},
-            "violation_col": "delta_bounds_violation",
-            "flagger_kwargs": {"eps": 1e-5},
-            "use_roi": True,
-            "by_option_type": True,
-        },
-        {
-            "base_name": "theta_positive",
-            "flagger": flag_theta_positive,
-            "thresholds": {"mild": 1e-3, "warn": 0.005, "fail": 0.01},
-            "violation_col": "theta_positive_violation",
-            "flagger_kwargs": {"eps": 1e-8},
-            "use_roi": True,
-            "by_option_type": True,
-            "sample_cols": base_keys + ["theta"],
-        },
-
-        # ---- IV diagnostics ----
-        {
-            "base_name": "high_iv",
-            "flagger": flag_iv_high,
-            "thresholds": {"mild": 1e-3, "warn": 0.005, "fail": 0.01},
-            "violation_col": "iv_too_high_violation",
-            "flagger_kwargs": {"threshold": 1.0},
-            "use_roi": False,
-            "by_option_type": False,
-            "sample_cols": base_keys + ["smoothed_iv"],
-        },
-        {
-            "base_name": "very_high_iv",
-            "flagger": flag_iv_high,
-            "thresholds": {"mild": 1e-6, "warn": 1e-5, "fail": 1e-4},
-            "violation_col": "iv_too_high_violation",
-            "flagger_kwargs": {"threshold": 2.0},
-            "use_roi": False,
-            "by_option_type": False,
-            "sample_cols": base_keys + ["smoothed_iv"],
-        },
-
-        # ---- Arbitrage diagnostics ----
-        {
-            "base_name": "strike_monotonicity",
-            "flagger": flag_strike_monotonicity,
-            "thresholds": {"mild": 0.01, "warn": 0.05, "fail": 0.10},
-            "violation_col": "strike_monot_violation",
-            "flagger_kwargs": {"price_col": "mid_price"},
-            "use_roi": True,
-            "by_option_type": True,
-            "sample_cols": base_keys + ["mid_price"],
-        },
-        {
-            "base_name": "maturity_monotonicity",
-            "flagger": flag_maturity_monotonicity,
-            "thresholds": {"mild": 0.01, "warn": 0.05, "fail": 0.10},
-            "violation_col": "maturity_monot_violation",
-            "flagger_kwargs": {"price_col": "mid_price"},
-            "use_roi": True,
-            "by_option_type": True,
-            "sample_cols": base_keys + ["mid_price"],
-        },
-    ]
-
-    # ---------------------------------------------------------------------
-    # Conditionally inject EU/AM specs
-    # ---------------------------------------------------------------------
-    if exercise_style == "EU":
-        soft_specs.extend([
-            # ---- # Bounds checks ----
-            {
-                "base_name": "price_bounds_mid_eu_forward",
-                "flagger": flag_option_bounds_mid_eu_forward,
-                "thresholds": {"mild": 0.05, "warn": 0.10, "fail": 0.20},
-                "violation_col": "price_bounds_mid_eu_violation",
-                "flagger_kwargs": {"multiplier": 1.0, "tol_floor": 0.01},
-                "use_roi": True,
-                "by_option_type": True,
-                "requires_wide": False,
-                "sample_cols": base_keys
-                + [
-                    "mid_price",
-                    "bid_price",
-                    "ask_price",
-                ],
-            },
-            # ---- PCP checks ----
-            {
-                "base_name": "pcp_mid_eu_forward",
-                "flagger": flag_put_call_parity_mid_eu_forward,
-                "thresholds": {"mild": 0.05, "warn": 0.10, "fail": 0.20},
-                "violation_col": "pcp_mid_eu_violation",
-                "flagger_kwargs": {"multiplier": 1.0, "tol_floor": 0.01},
-                "use_roi": True,
-                "by_option_type": False,
-                "requires_wide": True,
-                "sample_cols": base_keys
-                + [
-                    "call_bid_price",
-                    "call_mid_price",
-                    "call_ask_price",
-                    "put_bid_price",
-                    "put_mid_price",
-                    "put_ask_price",
-                ],
-            },
-        ])
-
-    elif exercise_style == "AM":
-        soft_specs.extend([
-            # ---- # Bounds checks ----
-            {
-                "base_name": "price_bounds_mid_am",
-                "flagger": flag_option_bounds_mid_am_spot,
-                "thresholds": {"mild": 0.05, "warn": 0.10, "fail": 0.20},
-                "violation_col": "price_bounds_mid_am_spot_violation",
-                "flagger_kwargs": {"multiplier": 1.0, "tol_floor": 0.01},
-                "use_roi": True,
-                "by_option_type": True,
-                "requires_wide": False,
-                "sample_cols": base_keys
-                + [
-                    "mid_price",
-                    "bid_price",
-                    "ask_price",
-                ],
-            },
-            # ---- PCP checks ----
-            {
-                "base_name": "pcp_bounds_mid_am",
-                "flagger": flag_put_call_parity_bounds_mid_am,
-                "thresholds": {"mild": 0.05, "warn": 0.10, "fail": 0.20},
-                "violation_col": "pcp_bounds_mid_am_violation",
-                "flagger_kwargs": {"multiplier": 1.0, "tol_floor": 0.01},
-                "use_roi": True,
-                "by_option_type": False,
-                "requires_wide": True,
-                "sample_cols": base_keys
-                + [
-                    "call_bid_price",
-                    "call_mid_price",
-                    "call_ask_price",
-                    "put_bid_price",
-                    "put_mid_price",
-                    "put_ask_price",
-                ],
-            },
-        ])
-
-    # ---------------------------------------------------------------------
-    # Build WIDE views only if needed
-    # ---------------------------------------------------------------------
+def _build_wide_views_if_needed(
+    *,
+    df_global: pl.DataFrame,
+    df_roi: pl.DataFrame,
+    soft_specs: list[dict],
+) -> tuple[pl.DataFrame | None, pl.DataFrame | None]:
     def _build_wide(df_long: pl.DataFrame) -> pl.DataFrame:
-        """Build strict paired WIDE view from long (calls+puts on same row)."""
         wide = (
-            options_chain_long_to_wide(
-                long=df_long,
-                how="inner",  # strict call+put pairing
-            )
+            options_chain_long_to_wide(long=df_long, how="inner")
             .collect()
         )
-
-        # summarize_by_bucket expects a "delta" column
         if "call_delta" in wide.columns:
             wide = wide.with_columns(pl.col("call_delta").alias("delta"))
-
         return wide
 
     needs_wide = any(
         bool(spec.get("requires_wide", False)) for spec in soft_specs
     )
+    if not needs_wide:
+        return None, None
 
-    df_wide_global: pl.DataFrame | None = None
-    df_wide_roi: pl.DataFrame | None = None
+    return _build_wide(df_global), _build_wide(df_roi)
 
-    if needs_wide:
-        df_wide_global = _build_wide(df)
-        df_wide_roi = _build_wide(df_roi)
 
-    # ---------------------------------------------------------------------
-    # Subset selection helper
-    # ---------------------------------------------------------------------
-    def _iter_subsets_for_spec(
-        *,
-        requires_wide: bool,
-        use_roi: bool,
-    ) -> list[tuple[str, pl.DataFrame]]:
-        if requires_wide:
-            if df_wide_global is None:
-                return []
-            out: list[tuple[str, pl.DataFrame]] = [("GLOBAL", df_wide_global)]
-            if use_roi and df_wide_roi is not None:
-                out.append(("ROI", df_wide_roi))
-            return out
+def _run_soft_spec(
+    *,
+    spec: dict,
+    df_global: pl.DataFrame,
+    df_roi: pl.DataFrame,
+    df_wide_global: pl.DataFrame | None,
+    df_wide_roi: pl.DataFrame | None,
+    config: QCConfig,
+    soft_thresholds: dict[str, float],
+) -> list[QCCheckResult]:
+    results: list[QCCheckResult] = []
 
-        out = [("GLOBAL", df)]
-        if use_roi:
-            out.append(("ROI", df_roi))
-        return out
+    subsets = _iter_subsets_for_spec(
+        spec=spec,
+        df_global=df_global,
+        df_roi=df_roi,
+        df_wide_global=df_wide_global,
+        df_wide_roi=df_wide_roi,
+    )
 
-    # ---------------------------------------------------------------------
-    # Run specs
-    # ---------------------------------------------------------------------
-    for spec in soft_specs:
-        use_roi = bool(spec.get("use_roi", True))
-        by_option_type = bool(spec.get("by_option_type", True))
-        requires_wide = bool(spec.get("requires_wide", False))
+    by_option_type = bool(spec.get("by_option_type", True))
 
-        subsets = _iter_subsets_for_spec(
-            requires_wide=requires_wide,
-            use_roi=use_roi,
-        )
-
-        for label, dfx in subsets:
-            if by_option_type:
-                for opt in ["C", "P"]:
-                    results.append(
-                        run_soft_check(
-                            name=f"{label}_{spec['base_name']}_{opt}",
-                            df=dfx,
-                            flagger=spec["flagger"],
-                            violation_col=spec["violation_col"],
-                            flagger_kwargs={
-                                "option_type": opt,
-                                **spec["flagger_kwargs"],
-                            },
-                            summarizer=summarize_by_bucket,
-                            summarizer_kwargs={
-                                "dte_bins": config.dte_bins,
-                                "delta_bins": config.delta_bins,
-                            },
-                            thresholds=spec.get("thresholds", soft_thresholds),
-                            top_k_buckets=config.top_k_buckets,
-                            sample_cols=spec.get("sample_cols", None),
-                            sample_n=5,
-                        )
-                    )
-            else:
+    for label, dfx in subsets:
+        if by_option_type:
+            for opt in ["C", "P"]:
                 results.append(
                     run_soft_check(
-                        name=f"{label}_{spec['base_name']}",
+                        name=f"{label}_{spec['base_name']}_{opt}",
                         df=dfx,
                         flagger=spec["flagger"],
                         violation_col=spec["violation_col"],
-                        flagger_kwargs=dict(spec["flagger_kwargs"]),
+                        flagger_kwargs={
+                            "option_type": opt,
+                            **spec.get("flagger_kwargs", {})
+                        },
                         summarizer=summarize_by_bucket,
                         summarizer_kwargs={
                             "dte_bins": config.dte_bins,
@@ -541,6 +264,62 @@ def _run_soft_checks(
                         sample_n=5,
                     )
                 )
+        else:
+            results.append(
+                run_soft_check(
+                    name=f"{label}_{spec['base_name']}",
+                    df=dfx,
+                    flagger=spec["flagger"],
+                    violation_col=spec["violation_col"],
+                    flagger_kwargs=dict(spec.get("flagger_kwargs", {})),
+                    summarizer=summarize_by_bucket,
+                    summarizer_kwargs={
+                        "dte_bins": config.dte_bins,
+                        "delta_bins": config.delta_bins,
+                    },
+                    thresholds=spec.get("thresholds", soft_thresholds),
+                    top_k_buckets=config.top_k_buckets,
+                    sample_cols=spec.get("sample_cols", None),
+                    sample_n=5,
+                )
+            )
+
+    return results
+
+
+def _run_soft_checks(
+    *,
+    df: pl.DataFrame,
+    df_roi: pl.DataFrame,
+    config: QCConfig,
+    exercise_style: str | None,
+) -> list[QCCheckResult]:
+    results: list[QCCheckResult] = []
+    soft_thresholds = dict(config.soft_thresholds)
+
+    soft_specs = get_soft_specs(
+        exercise_style=exercise_style,
+        config=config,
+    )
+
+    df_wide_global, df_wide_roi = _build_wide_views_if_needed(
+        df_global=df,
+        df_roi=df_roi,
+        soft_specs=soft_specs,
+    )
+
+    for spec in soft_specs:
+        results.extend(
+            _run_soft_spec(
+                spec=spec,
+                df_global=df,
+                df_roi=df_roi,
+                df_wide_global=df_wide_global,
+                df_wide_roi=df_wide_roi,
+                config=config,
+                soft_thresholds=soft_thresholds,
+            )
+        )
 
     return results
 

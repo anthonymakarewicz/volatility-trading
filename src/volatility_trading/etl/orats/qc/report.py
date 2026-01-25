@@ -22,12 +22,6 @@ def _fmt_int(x: int | None) -> str:
     return f"{x:,}"
 
 
-def _fmt_pct(p: float | None) -> str:
-    if p is None:
-        return NA_STR
-    return f"{100.0 * p:.2f}%"
-
-
 def log_check(logger: logging.Logger, res: QCCheckResult) -> None:
     #  ---- INFO checks: metrics-only → log details instead of "viol=...". ----
     if res.severity == Severity.INFO:
