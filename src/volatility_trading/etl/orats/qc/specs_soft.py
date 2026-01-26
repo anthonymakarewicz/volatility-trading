@@ -5,7 +5,7 @@ from .soft.dataset_checks import (
     check_missing_sessions_xnys,
     check_non_trading_dates_present_xnys,
 )
-from .checks_soft import (
+from .soft.row_checks import (
     flag_locked_market,
     flag_one_sided_quotes,
     flag_wide_spread,
@@ -17,8 +17,8 @@ from .checks_soft import (
     flag_strike_monotonicity,
     flag_maturity_monotonicity,
     flag_option_bounds_mid_eu_forward,
-    flag_put_call_parity_mid_eu_forward,
     flag_option_bounds_mid_am_spot,
+    flag_put_call_parity_mid_eu_forward,
     flag_put_call_parity_bounds_mid_am,
 )
 from .spec_types import SoftDatasetSpec, SoftRowSpec, SoftSpec
@@ -166,7 +166,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             sample_cols=BASE_KEYS + ["mid_price"],
         ),
 
-        # ---- Dataset-level checks (GLOBAL only) ----
+        # ---- Dataset-level row_checks (GLOBAL only) ----
         SoftDatasetSpec(
             base_name="missing_sessions_xnys",
             checker=check_missing_sessions_xnys,
