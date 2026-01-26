@@ -22,8 +22,19 @@ def _fmt_int(x: int | None) -> str:
     return f"{x:,}"
 
 
+def _details_int(res: QCCheckResult, key: str) -> int | None:
+    """Read an int-like field from details safely."""
+    v = res.details.get(key) if res.details else None
+    if v is None:
+        return None
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def log_check(logger: logging.Logger, res: QCCheckResult) -> None:
-    #  ---- INFO checks: metrics-only → log details instead of "viol=...". ----
+    # ---- INFO checks: metrics-only ----
     if res.severity == Severity.INFO:
         logger.info(
             "[%s|%s] %s rows=%s",
@@ -33,14 +44,11 @@ def log_check(logger: logging.Logger, res: QCCheckResult) -> None:
             _fmt_int(res.n_rows),
         )
 
-        # Optional: print a compact metrics summary if available
         if res.details:
-            # keep it stable and readable
             keys = sorted(res.details.keys())
-            parts = []
+            parts: list[str] = []
             for k in keys:
                 v = res.details[k]
-                # format ints nicely
                 if isinstance(v, int):
                     parts.append(f"{k}={v:,}")
                 else:
@@ -49,15 +57,18 @@ def log_check(logger: logging.Logger, res: QCCheckResult) -> None:
 
         return
 
-    # ---- HARD/SOFT checks: standard violation summary ----
+    # ---- HARD/SOFT checks: violation summary ----
+    # Prefer dataset-level "units" if checker provided them.
+    denom = res.n_units if res.n_units is not None else res.n_rows
+
     logger.info(
         "[%s|%s] %s passed=%s viol=%s/%s (%s)",
         res.severity.value,
         res.grade.value,
         res.name,
         res.passed,
-        _fmt_int(res.n_viol) if res.n_viol is not None else NA_STR,
-        _fmt_int(res.n_rows) if res.n_rows is not None else NA_STR,
+        _fmt_int(res.n_viol),
+        _fmt_int(denom),
         _fmt_pct(res.viol_rate),
     )
 

@@ -244,7 +244,6 @@ def run_soft_check_dataset(
 
     We store everything returned by checker into QCCheckResult.details.
     """
-
     thresholds = thresholds or {"mild": 0.01, "warn": 0.03, "fail": 0.10}
     checker_kwargs = checker_kwargs or {}
 
@@ -256,29 +255,31 @@ def run_soft_check_dataset(
             grade=Grade.FAIL,
             passed=False,
             n_rows=0,
+            n_units=0,
             n_viol=0,
             viol_rate=None,
             details={"reason": "empty dataframe", **(details or {})},
         )
 
     out = checker(df=df, **checker_kwargs)
+
     if metric_key not in out:
         raise ValueError(
-            f"dataset checker must return metric_key={metric_key!r}; got keys={list(out.keys())}"
+            f"dataset checker must return metric_key={metric_key!r}; "
+            f"got keys={list(out.keys())}"
         )
 
     metric = out[metric_key]
     if metric is None:
-        raise ValueError(f"dataset checker returned None metric for {metric_key!r}")
+        raise ValueError(
+            f"dataset checker returned None metric for {metric_key!r}"
+        )
 
-    # grade using the same logic as row soft checks
-    from .runners import _grade_from_thresholds  # if in same file, call directly
     grade = _grade_from_thresholds(float(metric), thresholds)
     passed = grade in {Grade.OK, Grade.MILD}
 
-    # Prefer checker-provided n_viol/n_units, else leave null-ish
-    n_viol = int(out.get("n_viol")) if out.get("n_viol") is not None else None
-    n_units = int(out.get("n_units")) if out.get("n_units") is not None else None
+    n_viol = int(out["n_viol"]) if out.get("n_viol") is not None else None
+    n_units = int(out["n_units"]) if out.get("n_units") is not None else None
 
     out_details = dict(details or {})
     out_details["thresholds"] = thresholds
@@ -289,9 +290,10 @@ def run_soft_check_dataset(
         severity=Severity.SOFT,
         grade=grade,
         passed=passed,
-        n_rows=n_units,           # “units examined” (days/sessions)
-        n_viol=n_viol,           # “units violated” (days/sessions)
-        viol_rate=float(metric), # dataset metric
+        n_rows=n_rows,             # keep actual df rows
+        n_units=n_units,           # units examined (days/sessions)
+        n_viol=n_viol,             # units violated
+        viol_rate=float(metric),
         details=out_details,
     )
 
