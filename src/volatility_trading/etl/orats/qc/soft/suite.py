@@ -4,7 +4,7 @@ from __future__ import annotations
 import polars as pl
 
 from ..runners import run_soft_check, run_soft_check_dataset
-from ..specs_soft import get_soft_specs
+from .specs import get_soft_specs
 from ..summarizers import summarize_by_bucket
 from ..types import QCCheckResult, QCConfig
 from .utils import _build_wide_views_if_needed, _iter_subsets_for_spec

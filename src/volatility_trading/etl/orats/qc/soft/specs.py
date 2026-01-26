@@ -1,11 +1,11 @@
 # qc/specs_soft.py
 from __future__ import annotations
 
-from .soft.dataset_checks import (
+from .dataset_checks import (
     check_missing_sessions_xnys,
     check_non_trading_dates_present_xnys,
 )
-from .soft.row_checks import (
+from .row_checks import (
     flag_locked_market,
     flag_one_sided_quotes,
     flag_wide_spread,

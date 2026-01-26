@@ -5,7 +5,7 @@ import polars as pl
 
 from volatility_trading.datasets import options_chain_long_to_wide
 
-from ..spec_types import SoftSpec
+from .spec_types import SoftSpec
 
 
 def _iter_subsets_for_spec(
