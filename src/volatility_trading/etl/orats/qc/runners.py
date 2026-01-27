@@ -241,8 +241,6 @@ def run_soft_check_dataset(
     Optional keys:
       - n_viol: int
       - n_units: int  (e.g., number of sessions/days examined)
-
-    We store everything returned by checker into QCCheckResult.details.
     """
     thresholds = thresholds or {"mild": 0.01, "warn": 0.03, "fail": 0.10}
     checker_kwargs = checker_kwargs or {}
@@ -278,21 +276,26 @@ def run_soft_check_dataset(
     grade = _grade_from_thresholds(float(metric), thresholds)
     passed = grade in {Grade.OK, Grade.MILD}
 
+    # Standardized metrics (prefer checker-provided values)
     n_viol = int(out["n_viol"]) if out.get("n_viol") is not None else None
     n_units = int(out["n_units"]) if out.get("n_units") is not None else None
 
+    # Keep only checker-specific context (plus thresholds).
+    drop_keys = {metric_key, "viol_rate", "n_units", "n_viol"}
+    checker_details = {k: v for k, v in out.items() if k not in drop_keys}
+
     out_details = dict(details or {})
     out_details["thresholds"] = thresholds
-    out_details.update(out)
+    out_details.update(checker_details)
 
     return QCCheckResult(
         name=name,
         severity=Severity.SOFT,
         grade=grade,
         passed=passed,
-        n_rows=n_rows,             # keep actual df rows
-        n_units=n_units,           # units examined (days/sessions)
-        n_viol=n_viol,             # units violated
+        n_rows=n_rows,       # actual df rows used
+        n_units=n_units,     # units examined (sessions/days/groups)
+        n_viol=n_viol,       # units violated
         viol_rate=float(metric),
         details=out_details,
     )

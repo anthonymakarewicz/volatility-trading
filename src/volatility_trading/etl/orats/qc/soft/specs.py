@@ -21,6 +21,7 @@ from .row_checks import (
     flag_put_call_parity_mid_eu_forward,
     flag_put_call_parity_bounds_mid_am,
 )
+from .dataset_checks import check_unique_rf_rate_per_day_expiry
 from .spec_types import SoftDatasetSpec, SoftRowSpec, SoftSpec
 
 
@@ -177,6 +178,14 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             base_name="non_trading_dates_present_xnys",
             checker=check_non_trading_dates_present_xnys,
             thresholds={"mild": 1e-5, "warn": 1e-3, "fail": 1e-2},
+            use_roi=False,
+        ),
+        SoftDatasetSpec(
+            base_name="unique_risk_free_rate_per_day_expiry",
+            kind="dataset",
+            checker=check_unique_rf_rate_per_day_expiry,
+            checker_kwargs={"tol_abs": 1e-4, "tol_rel": 0.0},
+            thresholds={"mild": 0.001, "warn": 0.01, "fail": 0.05},
             use_roi=False,
         ),
     ]
