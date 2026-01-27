@@ -1,8 +1,11 @@
+# qc/soft/dataset_checks/risk_free_rate.py
 from __future__ import annotations
 
 from typing import Any
 
 import polars as pl
+
+from .utils import _make_examples_json_safe
 
 
 def check_unique_rf_rate_per_day_expiry(
@@ -78,10 +81,6 @@ def check_unique_rf_rate_per_day_expiry(
         .sort("r_spread", descending=True)
         .head(max_examples)
     )
-    # Make dates JSON-safe
-    for col, dtype in examples_df.schema.items():
-        if dtype in (pl.Date, pl.Datetime, pl.Time):
-            examples_df = examples_df.with_columns(pl.col(col).cast(pl.Utf8))
 
     max_spread = float(grp2.select(pl.col("r_spread").max().alias("m"))["m"][0])
 
@@ -89,6 +88,8 @@ def check_unique_rf_rate_per_day_expiry(
         "viol_rate": float(viol_rate),
         "n_viol": n_viol,
         "n_units": n_units,
+        "tol_abs": float(tol_abs),
+        "tol_rel": float(tol_rel),
         "max_spread": max_spread,
-        "examples": examples_df.to_dicts(),
+        "examples": _make_examples_json_safe(examples_df),
     }

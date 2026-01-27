@@ -4,7 +4,10 @@ from __future__ import annotations
 from .dataset_checks import (
     check_missing_sessions_xnys,
     check_non_trading_dates_present_xnys,
-    check_unique_rf_rate_per_day_expiry
+    check_unique_rf_rate_per_day_expiry,
+    check_spot_constant_per_trade_date,
+    check_forward_constant_per_trade_date_expiry,
+    check_spot_equals_underlying_per_trade_date_am,
 )
 from .row_checks import (
     flag_locked_market,
@@ -182,9 +185,15 @@ def _get_base_soft_specs() -> list[SoftSpec]:
         ),
         SoftDatasetSpec(
             base_name="unique_risk_free_rate_per_day_expiry",
-            kind="dataset",
             checker=check_unique_rf_rate_per_day_expiry,
             checker_kwargs={"tol_abs": 1e-4, "tol_rel": 0.0},
+            thresholds={"mild": 0.001, "warn": 0.01, "fail": 0.05},
+            use_roi=False,
+        ),
+        SoftDatasetSpec(
+            base_name="spot_constant_per_trade_date",
+            checker=check_spot_constant_per_trade_date,
+            checker_kwargs={"tol_abs": 0.001, "tol_rel": 5e-4},
             thresholds={"mild": 0.001, "warn": 0.01, "fail": 0.05},
             use_roi=False,
         ),
@@ -194,6 +203,13 @@ def _get_base_soft_specs() -> list[SoftSpec]:
 def _get_exercise_soft_specs(exercise_style: str | None) -> list[SoftSpec]:
     if exercise_style == "EU":
         return [
+            SoftDatasetSpec(
+                base_name="forward_constant_per_trade_date_expiry",
+                checker=check_forward_constant_per_trade_date_expiry,
+                checker_kwargs={"tol_abs": 0.001,"tol_rel": 5e-4},
+                thresholds={"mild": 0.001, "warn": 0.01, "fail": 0.05},
+                use_roi=False,
+            ),
             SoftRowSpec(
                 base_name="price_bounds_mid_eu_forward",
                 flagger=flag_option_bounds_mid_eu_forward,
@@ -228,6 +244,13 @@ def _get_exercise_soft_specs(exercise_style: str | None) -> list[SoftSpec]:
 
     if exercise_style == "AM":
         return [
+            SoftDatasetSpec(
+                base_name="spot_equals_underlying_per_trade_date",
+                checker=check_spot_equals_underlying_per_trade_date_am,
+                checker_kwargs={"tol_abs": 0.001, "tol_rel": 5e-4},
+                thresholds={"mild": 0.001, "warn": 0.01, "fail": 0.05},
+                use_roi=False,
+            ),
             SoftRowSpec(
                 base_name="price_bounds_mid_am",
                 flagger=flag_option_bounds_mid_am_spot,
