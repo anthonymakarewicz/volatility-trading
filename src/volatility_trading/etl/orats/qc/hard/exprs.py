@@ -8,11 +8,7 @@ def expr_bad_null_keys(*keys: str) -> pl.Expr:
     return pl.any_horizontal([pl.col(k).is_null() for k in keys])
 
 
-def expr_bad_negative(
-    col: str,
-    *,
-    eps: float = 0.0,
-) -> pl.Expr:
+def expr_bad_negative(col: str, *, eps: float = 0.0) -> pl.Expr:
     """Flag rows where col < -eps (null-safe)."""
     return pl.col(col).is_not_null() & (pl.col(col) < (0.0 - eps))
 
@@ -52,7 +48,6 @@ def expr_bad_crossed_market(
     return pl.col(bid_col) > (pl.col(ask_col) + tol)
 
 
-
 # -----------------------------------------------------------------------------
 # Volume / Open Interest checks
 # -----------------------------------------------------------------------------
@@ -66,7 +61,7 @@ def expr_bad_negative_vol_oi(
 
 
 # -----------------------------------------------------------------------------
-# Greeks checks
+# Greeks checks (kept as-is; you may or may not use them yet)
 # -----------------------------------------------------------------------------
 
 def expr_bad_gamma_sign(
@@ -77,13 +72,8 @@ def expr_bad_gamma_sign(
     """Return expression flagging rows where gamma is invalid."""
     g = pl.col(gamma_col)
     opt = pl.col(opt_col)
-
     bad = g < (0.0 - eps)
-
-    return (
-        pl.when(opt.is_in(["C", "P"])).then(bad)
-        .otherwise(True)  # unknown option type => fail hard
-    )
+    return pl.when(opt.is_in(["C", "P"])).then(bad).otherwise(True)
 
 
 def expr_bad_vega_sign(
@@ -94,10 +84,5 @@ def expr_bad_vega_sign(
     """Return expression flagging rows where vega is invalid."""
     v = pl.col(vega_col)
     opt = pl.col(opt_col)
-
     bad = v < (0.0 - eps)
-
-    return (
-        pl.when(opt.is_in(["C", "P"])).then(bad)
-        .otherwise(True)
-    )
+    return pl.when(opt.is_in(["C", "P"])).then(bad).otherwise(True)

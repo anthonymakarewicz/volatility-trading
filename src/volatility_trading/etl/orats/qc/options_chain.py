@@ -20,21 +20,13 @@ from pathlib import Path
 
 import polars as pl
 
-from .checks_hard import (
-    expr_bad_bid_ask,
-    expr_bad_crossed_market,
-    expr_bad_negative,
-    expr_bad_negative_quotes,
-    expr_bad_negative_vol_oi,
-    expr_bad_null_keys,
-    expr_bad_trade_after_expiry,
-)
 from .checks_info import (
     summarize_risk_free_rate_metrics,
     summarize_volume_oi_metrics,
 )
 from .report import log_check, write_config_json, write_summary_json
-from .runners import run_hard_check, run_info_check
+from .runners import run_info_check
+from .hard.suite import run_hard_suite
 from .soft.suite import run_soft_suite
 from .types import Grade, QCCheckResult, QCConfig, QCRunResult, Severity
 from volatility_trading.datasets import (
@@ -84,87 +76,6 @@ def _apply_roi_filter(
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("delta").abs().is_between(delta_min, delta_max),
     )
-
-def _run_hard_checks(df_global: pl.DataFrame) -> list[QCCheckResult]:
-    """Run hard (must-pass) checks on the full dataset (GLOBAL)."""
-    results: list[QCCheckResult] = []
-
-    # Minimal columns always useful for debugging
-    base_keys = [
-        "trade_date", 
-        "expiry_date", 
-        "option_type", 
-        "underlying_price", 
-        "strike",
-    ]
-
-    hard_specs = [
-        # ---- Keys / dates ----
-        {
-            "name": "keys_not_null",
-            "predicate_expr": expr_bad_null_keys(
-                "trade_date", "expiry_date", "strike"
-            ),
-            "sample_cols": base_keys,
-        },
-        {
-            "name": "trade_date_leq_expiry_date",
-            "predicate_expr": expr_bad_trade_after_expiry(),
-            "sample_cols": ["trade_date", "expiry_date", "strike", "option_type"],
-        },
-        # ---- Quote diagnostics ----
-        {
-            "name": "bid_ask_sane",
-            "predicate_expr": expr_bad_bid_ask("bid_price", "ask_price"),
-            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
-        },
-        {
-            "name": "negative_quotes",
-            "predicate_expr": expr_bad_negative_quotes("bid_price", "ask_price"),
-            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
-        },
-        {
-            "name": "crossed_market",
-            "predicate_expr": expr_bad_crossed_market("bid_price", "ask_price"),
-            "sample_cols": base_keys + ["bid_price", "ask_price", "mid_price"],
-        },
-        # ---- Volume / OI diagnostics ----
-        {
-            "name": "negative_vol_oi",
-            "predicate_expr": expr_bad_negative_vol_oi("volume", "open_interest"),
-            "sample_cols": base_keys + ["volume", "open_interest"],
-        },
-        # ---- Greeks sign diagnostics ----
-        {
-            "name": "gamma_non_negative",
-            "predicate_expr": expr_bad_negative("gamma", eps=1e-8),
-            "sample_cols": base_keys + ["gamma"],
-        },
-        {
-            "name": "vega_non_negative",
-            "predicate_expr": expr_bad_negative("vega", eps=1e-8),
-            "sample_cols": base_keys + ["vega"],
-        },
-        # ---- IV sign diagnostics ----
-        {
-            "name": "iv_non_negative",
-            "predicate_expr": expr_bad_negative("smoothed_iv", eps=1e-5),
-            "sample_cols": base_keys + ["smoothed_iv"],
-        },
-    ]
-
-    for spec in hard_specs:
-        results.append(
-            run_hard_check(
-                name=spec["name"],
-                df=df_global,
-                predicate_expr=spec["predicate_expr"],
-                sample_n=10,
-                sample_cols=spec.get("sample_cols"),
-            )
-        )
-
-    return results
 
 
 def _run_info_checks(
@@ -271,7 +182,7 @@ def run_qc(
 
     # Run checks
     results: list[QCCheckResult] = []
-    results.extend(_run_hard_checks(df_global=df))
+    results.extend(run_hard_suite(df_global=df))
     results.extend(
         run_soft_suite(
             df_global=df,
