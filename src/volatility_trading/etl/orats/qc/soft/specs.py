@@ -4,6 +4,7 @@ from __future__ import annotations
 from .dataset_checks import (
     check_missing_sessions_xnys,
     check_non_trading_dates_present_xnys,
+    check_unique_rf_rate_per_day_expiry
 )
 from .row_checks import (
     flag_locked_market,
@@ -21,7 +22,6 @@ from .row_checks import (
     flag_put_call_parity_mid_eu_forward,
     flag_put_call_parity_bounds_mid_am,
 )
-from .dataset_checks import check_unique_rf_rate_per_day_expiry
 from .spec_types import SoftDatasetSpec, SoftRowSpec, SoftSpec
 
 
