@@ -5,7 +5,7 @@ from typing import Any
 
 import polars as pl
 
-from .utils import _make_examples_json_safe
+from ...serialization import df_to_jsonable_records
 
 
 def check_unique_rf_rate_per_day_expiry(
@@ -91,5 +91,5 @@ def check_unique_rf_rate_per_day_expiry(
         "tol_abs": float(tol_abs),
         "tol_rel": float(tol_rel),
         "max_spread": max_spread,
-        "examples": _make_examples_json_safe(examples_df),
+        "examples": df_to_jsonable_records(examples_df),
     }

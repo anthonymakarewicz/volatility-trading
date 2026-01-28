@@ -22,17 +22,6 @@ def _fmt_int(x: int | None) -> str:
     return f"{x:,}"
 
 
-def _details_int(res: QCCheckResult, key: str) -> int | None:
-    """Read an int-like field from details safely."""
-    v = res.details.get(key) if res.details else None
-    if v is None:
-        return None
-    try:
-        return int(v)
-    except (TypeError, ValueError):
-        return None
-
-
 def log_check(logger: logging.Logger, res: QCCheckResult) -> None:
     # ---- INFO checks: metrics-only ----
     if res.severity == Severity.INFO:

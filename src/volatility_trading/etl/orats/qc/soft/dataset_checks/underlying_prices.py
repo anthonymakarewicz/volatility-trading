@@ -5,7 +5,7 @@ from typing import Any
 
 import polars as pl
 
-from .utils import _make_examples_json_safe
+from ...serialization import df_to_jsonable_records
 
 
 def check_spot_constant_per_trade_date(
@@ -86,7 +86,7 @@ def check_spot_constant_per_trade_date(
         "tol_abs": float(tol_abs),
         "tol_rel": float(tol_rel),
         "max_spread": max_spread,
-        "examples": _make_examples_json_safe(examples_df),
+        "examples": df_to_jsonable_records(examples_df),
     }
 
 
@@ -170,7 +170,7 @@ def check_forward_constant_per_trade_date_expiry(
         "tol_abs": float(tol_abs),
         "tol_rel": float(tol_rel),
         "max_spread": max_spread,
-        "examples": _make_examples_json_safe(examples_df),
+        "examples": df_to_jsonable_records(examples_df),
     }
 
 
@@ -258,5 +258,5 @@ def check_spot_equals_underlying_per_trade_date_am(
         "tol_abs": float(tol_abs),
         "tol_rel": float(tol_rel),
         "max_abs_diff": max_diff,
-        "examples": _make_examples_json_safe(examples_df),
+        "examples": df_to_jsonable_records(examples_df),
     }

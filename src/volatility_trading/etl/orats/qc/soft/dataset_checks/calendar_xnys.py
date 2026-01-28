@@ -23,7 +23,12 @@ def check_missing_sessions_xnys(
       - missing_dates: list[str] (ISO)
     """
     if df.height == 0:
-        return {"n_units": 0, "n_viol": 0, "viol_rate": 0.0, "missing_dates": []}
+        return {
+            "n_units": 0,
+            "n_viol": 0,
+            "viol_rate": 0.0,
+            "missing_dates": []
+        }
 
     # observed dates in dataset
     obs = (
@@ -32,7 +37,12 @@ def check_missing_sessions_xnys(
         .to_list()
     )
     if not obs:
-        return {"n_units": 0, "n_viol": 0, "viol_rate": 0.0, "missing_dates": []}
+        return {
+            "n_units": 0,
+            "n_viol": 0,
+            "viol_rate": 0.0,
+            "missing_dates": []
+        }
 
     start = min(obs)
     end = max(obs)
