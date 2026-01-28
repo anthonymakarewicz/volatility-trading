@@ -20,13 +20,9 @@ from pathlib import Path
 
 import polars as pl
 
-from .checks_info import (
-    summarize_risk_free_rate_metrics,
-    summarize_volume_oi_metrics,
-)
 from .report import log_check, write_config_json, write_summary_json
-from .runners import run_info_check
 from .hard.suite import run_hard_suite
+from .info.suite import run_info_suite
 from .soft.suite import run_soft_suite
 from .types import Grade, QCCheckResult, QCConfig, QCRunResult, Severity
 from volatility_trading.datasets import (
@@ -76,33 +72,6 @@ def _apply_roi_filter(
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("delta").abs().is_between(delta_min, delta_max),
     )
-
-
-def _run_info_checks(
-    *,
-    df_global: pl.DataFrame,
-    df_roi: pl.DataFrame,
-) -> list[QCCheckResult]:
-    """Run informational checks (always pass) and store metrics in details."""
-    results: list[QCCheckResult] = []
-
-    for label, dfx in [("GLOBAL", df_global), ("ROI", df_roi)]:
-        results.append(
-            run_info_check(
-                name=f"{label}_volume_oi_metrics",
-                df=dfx,
-                summarizer=summarize_volume_oi_metrics,
-            )
-        )
-        results.append(
-            run_info_check(
-                name=f"{label}_risk_free_rate_metrics",
-                df=dfx,
-                summarizer=summarize_risk_free_rate_metrics,
-            )
-        )
-
-    return results
 
 
 def run_qc(
@@ -191,7 +160,7 @@ def run_qc(
             exercise_style=exercise_style,
         )
     )
-    results.extend(_run_info_checks(df_global=df, df_roi=df_roi))
+    results.extend(run_info_suite(df_global=df, df_roi=df_roi))
 
     for r in results:
         log_check(logger, r)
