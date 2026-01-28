@@ -288,7 +288,6 @@ def _get_exercise_soft_specs(exercise_style: str | None) -> list[SoftSpec]:
 
 def get_soft_specs(
     exercise_style: str | None,
-    config: object,  # not used now, but kept for future dynamic behavior
 ) -> list[SoftSpec]:
     specs: list[SoftSpec] = []
     specs.extend(_get_base_soft_specs())

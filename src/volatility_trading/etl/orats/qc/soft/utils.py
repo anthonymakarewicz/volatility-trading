@@ -8,7 +8,7 @@ from volatility_trading.datasets import options_chain_long_to_wide
 from .spec_types import SoftSpec
 
 
-def _iter_subsets_for_spec(
+def iter_subsets_for_spec(
     *,
     spec: SoftSpec,
     df_global: pl.DataFrame,
@@ -35,7 +35,7 @@ def _iter_subsets_for_spec(
     return out
 
 
-def _build_wide_views_if_needed(
+def build_wide_views_if_needed(
     *,
     df_global: pl.DataFrame,
     df_roi: pl.DataFrame,

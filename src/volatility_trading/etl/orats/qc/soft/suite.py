@@ -7,7 +7,7 @@ from ..runners import run_soft_check, run_soft_check_dataset
 from .specs import get_soft_specs
 from .summarizers import summarize_by_bucket
 from ..types import QCCheckResult, QCConfig
-from .utils import _build_wide_views_if_needed, _iter_subsets_for_spec
+from .utils import build_wide_views_if_needed, iter_subsets_for_spec
 
 
 def run_soft_suite(
@@ -37,14 +37,14 @@ def run_soft_suite(
         config=config,
     )
 
-    df_wide_global, df_wide_roi = _build_wide_views_if_needed(
+    df_wide_global, df_wide_roi = build_wide_views_if_needed(
         df_global=df_global,
         df_roi=df_roi,
         soft_specs=soft_specs,
     )
 
     for spec in soft_specs:
-        subsets = _iter_subsets_for_spec(
+        subsets = iter_subsets_for_spec(
             spec=spec,
             df_global=df_global,
             df_roi=df_roi,

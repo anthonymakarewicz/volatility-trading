@@ -5,6 +5,7 @@ from typing import Any
 
 import polars as pl
 
+from .serialization import df_to_jsonable_records
 from .types import Grade, QCCheckResult, Severity
 
 
@@ -33,24 +34,6 @@ def _grade_from_thresholds(rate: float, thresholds: dict[str, float]) -> Grade:
 def _count_bool_true(s: pl.Series) -> int:
     # Polars booleans can include null -> treat null as False
     return int(s.fill_null(False).sum())
-
-
-def _make_jsonable_sample(df: pl.DataFrame) -> list[dict[str, Any]]:
-    """
-    Convert a small Polars df into JSON-safe list[dict].
-
-    Polars may return python date/datetime objects which vanilla json can't
-    serialize. We cast temporal columns to Utf8 for safety.
-    """
-    if df.height == 0:
-        return []
-
-    out = df
-    for col, dtype in out.schema.items():
-        if dtype in (pl.Date, pl.Datetime, pl.Time):
-            out = out.with_columns(pl.col(col).cast(pl.Utf8))
-
-    return out.to_dicts()
 
 
 # -----------------------------------------------------------------------------
@@ -111,7 +94,7 @@ def run_hard_check(
                 bad_df = bad_df.select(cols)
 
         out_details["sample_n"] = int(min(sample_n, n_bad))
-        out_details["sample_rows"] = _make_jsonable_sample(bad_df)
+        out_details["sample_rows"] = df_to_jsonable_records(bad_df)
 
     return QCCheckResult(
         name=name,
@@ -209,7 +192,7 @@ def run_soft_check(
                     viol_df = viol_df.select(cols)
 
             out_details["sample_n"] = int(min(sample_n, n_viol))
-            out_details["sample_rows"] = _make_jsonable_sample(viol_df)
+            out_details["sample_rows"] = df_to_jsonable_records(viol_df)
 
     return QCCheckResult(
         name=name,
