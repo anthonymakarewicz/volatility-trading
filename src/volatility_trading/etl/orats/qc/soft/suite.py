@@ -32,10 +32,7 @@ def run_soft_suite(
     results: list[QCCheckResult] = []
     soft_thresholds = dict(config.soft_thresholds)
 
-    soft_specs = get_soft_specs(
-        exercise_style=exercise_style,
-        config=config,
-    )
+    soft_specs = get_soft_specs(exercise_style=exercise_style)
 
     df_wide_global, df_wide_roi = build_wide_views_if_needed(
         df_global=df_global,

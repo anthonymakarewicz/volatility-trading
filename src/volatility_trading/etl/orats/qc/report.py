@@ -36,12 +36,26 @@ def log_check(logger: logging.Logger, res: QCCheckResult) -> None:
         if res.details:
             keys = sorted(res.details.keys())
             parts: list[str] = []
+
             for k in keys:
                 v = res.details[k]
+
+                # Avoid dumping huge nested payloads to console
+                if k == "stats" and isinstance(v, dict):
+                    parts.append(f"stats_cols={len(v)}")
+                    continue
+
+                if (k in {"sample_rows", "examples", "top_buckets"}
+                    and isinstance(v, list)
+                ):
+                    parts.append(f"{k}_n={len(v)}")
+                    continue
+
                 if isinstance(v, int):
-                    parts.append(f"{k}={v:,}")
-                else:
-                    parts.append(f"{k}={v}")
+                    parts.append(f"{k}={_fmt_int(v)}")
+                elif isinstance(v, float):
+                    parts.append(f"{k}={_fmt_pct(v)}")
+
             logger.info("  metrics: %s", " | ".join(parts))
 
         return
