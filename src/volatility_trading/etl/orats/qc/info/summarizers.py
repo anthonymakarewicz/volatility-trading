@@ -6,6 +6,26 @@ from typing import Any
 import polars as pl
 
 
+CORE_NUMERIC_COLS: tuple[str, ...] = (
+    "underlying_price",
+    "spot_price",
+    "bid_price",
+    "ask_price",
+    "mid_price",
+    "smoothed_iv",
+    "strike",
+    "dte",
+    "delta",
+    "gamma",
+    "vega",
+    "theta",
+    "risk_free_rate",
+    "dividend_yield",
+    "volume",
+    "open_interest",
+)
+
+
 def summarize_volume_oi_metrics(
     *,
     df: pl.DataFrame,
@@ -14,9 +34,6 @@ def summarize_volume_oi_metrics(
 ) -> dict[str, Any]:
     """
     Summarize volume / open interest metrics.
-
-    NOTE: Keep logic identical to your previous `checks_info.py`.
-    If you already had a specific payload/keys, paste that code here as-is.
     """
     if df.height == 0:
         return {"n_rows": 0}
@@ -51,9 +68,6 @@ def summarize_risk_free_rate_metrics(
 ) -> dict[str, Any]:
     """
     Summarize risk-free rate metrics.
-
-    NOTE: Keep logic identical to your previous `checks_info.py`.
-    If you already had specific quantiles/keys, paste that code here as-is.
     """
     if df.height == 0:
         return {"n_rows": 0}
@@ -82,3 +96,81 @@ def summarize_risk_free_rate_metrics(
     )
 
     return out
+
+
+def summarize_core_numeric_stats(
+    *,
+    df: pl.DataFrame,
+    cols: list[str] | None = None,
+    quantiles: tuple[float, ...] = (0.0, 0.01, 0.05, 0.5, 0.95, 0.99, 1.0),
+    strict: bool = False,
+) -> dict[str, Any]:
+    """
+    Summarize basic numeric stats for a core set of columns.
+    """
+    if df.height == 0:
+        return {"n_rows": 0, "cols_used": [], "missing_cols": [], "stats": {}}
+
+    # Default core columns should be defined at module level:
+    use_cols = list(cols) if cols is not None else list(CORE_NUMERIC_COLS)
+
+    missing_cols: list[str] = [c for c in use_cols if c not in df.columns]
+    present_cols: list[str] = [c for c in use_cols if c in df.columns]
+
+    if strict and missing_cols:
+        # In INFO checks we usually don't want to raise, but strict is there
+        raise ValueError(f"missing columns: {missing_cols}")
+
+    stats: dict[str, Any] = {}
+
+    for c in present_cols:
+        s = df.get_column(c)
+
+        # Only numeric dtypes
+        if not (s.dtype.is_numeric() or s.dtype == pl.Decimal):
+            if strict:
+                missing_cols.append(c)
+            continue
+
+        # Decimal -> Float64 for easier summary/JSON
+        if s.dtype == pl.Decimal:
+            s = s.cast(pl.Float64)
+
+        null_rate = float(s.is_null().mean())
+        s_nonnull = s.drop_nulls()
+        n_nonnull = int(len(s_nonnull))
+
+        if n_nonnull == 0:
+            stats[c] = {
+                "null_rate": null_rate,
+                "n_nonnull": 0,
+                "reason": "all null",
+            }
+            continue
+
+        # Base stats
+        col_stats: dict[str, Any] = {
+            "null_rate": null_rate,
+            "n_nonnull": n_nonnull,
+            "min": float(s_nonnull.min()),
+            "max": float(s_nonnull.max()),
+            "mean": float(s_nonnull.mean()),
+            "std": float(s_nonnull.std()),
+            "median": float(s_nonnull.median()),
+        }
+
+        # Quantiles
+        for q in quantiles:
+            # Polars returns scalar; for safety cast to float
+            v = s_nonnull.quantile(q, "nearest")
+            key = f"q_{q:.2f}"
+            col_stats[key] = float(v)
+
+        stats[c] = col_stats
+
+    return {
+        "n_rows": int(df.height),
+        "cols_used": use_cols,
+        "missing_cols": missing_cols,
+        "stats": stats,
+    }

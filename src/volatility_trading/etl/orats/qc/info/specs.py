@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from .spec_types import InfoSpec
-
 from .summarizers import (
+    summarize_core_numeric_stats,
     summarize_risk_free_rate_metrics,
-    summarize_volume_oi_metrics
+    summarize_volume_oi_metrics,
 )
 
 
@@ -16,6 +16,11 @@ def get_info_specs() -> list[InfoSpec]:
     Keep these focused on descriptive metrics, not pass/fail logic.
     """
     return [
+        InfoSpec(
+            base_name="core_numeric_stats",
+            summarizer=summarize_core_numeric_stats,
+            summarizer_kwargs=None,
+        ),
         InfoSpec(
             base_name="volume_oi_metrics",
             summarizer=summarize_volume_oi_metrics,
