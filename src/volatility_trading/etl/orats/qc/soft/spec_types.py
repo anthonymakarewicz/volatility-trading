@@ -19,10 +19,14 @@ class SoftSpecBase:
 class SoftRowSpec(SoftSpecBase):
     kind: Literal["row"] = "row"
     flagger: Callable[..., pl.DataFrame] = None  # required in practice
-    violation_col: str = ""                      # required in practice
+    violation_col: str = ""  # required in practice
     flagger_kwargs: dict[str, Any] = field(default_factory=dict)
+
     by_option_type: bool = True
     requires_wide: bool = False
+
+    # If True, attach summarize_by_bucket(top buckets) to details.
+    summarize_by_bucket: bool = True
 
 
 @dataclass(frozen=True)
