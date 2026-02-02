@@ -5,7 +5,7 @@ import logging
 
 from volatility_trading.utils.logging_config import setup_logging
 from volatility_trading.config.paths import PROC_ORATS_OPTIONS_CHAIN
-from volatility_trading.etl.orats.qc.options_chain import run_qc
+from volatility_trading.etl.orats.qc.runner import run_qc
 
 
 # ----------------------------------------------------------------------------

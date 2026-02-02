@@ -1,7 +1,8 @@
-# qc/__init__.py
+# qc/api.py
 from __future__ import annotations
 
-from .api import run_qc, QCConfig, QCRunResult, QCCheckResult, Severity, Grade
+from .runner import run_qc
+from .types import QCConfig, QCRunResult, QCCheckResult, Severity, Grade
 
 __all__ = [
     "run_qc",
