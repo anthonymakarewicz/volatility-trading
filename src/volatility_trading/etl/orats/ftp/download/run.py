@@ -7,8 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 from ftplib import FTP
 from pathlib import Path
 
-from ._download_helpers import YearDownloadResult, download_one_year
-from .types import DownloadFtpResult
+from ._helpers import YearDownloadResult, download_one_year
+from ..types import DownloadFtpResult
 
 logger = logging.getLogger(__name__)
 
