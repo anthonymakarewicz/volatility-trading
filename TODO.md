@@ -1,7 +1,21 @@
+## ORATS API/FTP Download & Extract
+- Refactor download/extract into sub modules
+
+## ORATS Processed
+- Refactor processed further into modules (steps)
+- Remove _ for imported functions
+
+## Daily Features Processed:
+- Implement processed/daily_features
+
+- Try makign heleprs in processed/otpiosn_chain used in daily_fetaures into a 
+processed/common.py
+
 ## Quality Checks:
 - Make the top n violaitons as part of Spec for Soft
 - Split package strcuture by QC name (options_chain vs daily_features) like this:
 
+```plaintext
 etl/orats/qc/
   __init__.py
   api.py                  # tiny stable public entrypoints
@@ -19,6 +33,7 @@ etl/orats/qc/
     options_chain/
       __init__.py
       run.py              # run_qc for options chain (or runner.py)
+      _run_helpers.py     # helpers for run_qc
       hard/
       soft/
       info/
@@ -28,21 +43,9 @@ etl/orats/qc/
       hard/
       soft/
       info/
+```
 
 - Implement qc/suites/daily_features
-
-## ORATS API/FTP Download & Extract
-- Refactor download/extract into sub modules
-
-## ORATS Processed
-- Refactor processed further into modules (steps)
-- Remove _ for imported functions
-
-## Daily Features Processed:
-- Implement processed/daily_features
-
-- Try makign heleprs in processed/otpiosn_chain used in daily_fetaures into a 
-processed/common.py
 
 ## Unit tests
 - Add unit tests
