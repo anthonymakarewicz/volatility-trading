@@ -1,7 +1,7 @@
 # Volatility Trading Project Structure
 
 ```plaintext
-src/volatility_trading
+src/volatility_trading/
 ├── __init__.py
 ├── backtesting
 │   ├── __init__.py
@@ -32,15 +32,30 @@ src/volatility_trading
 │       ├── __init__.py
 │       ├── api
 │       │   ├── __init__.py
+│       │   ├── _client_helpers.py
+│       │   ├── api.py
 │       │   ├── client.py
-│       │   ├── downloader.py
+│       │   ├── download
+│       │   │   ├── __init__.py
+│       │   │   ├── _handlers.py
+│       │   │   ├── _helpers.py
+│       │   │   └── run.py
 │       │   ├── endpoints.py
-│       │   ├── extractor.py
-│       │   └── io.py
+│       │   ├── extract
+│       │   │   ├── __init__.py
+│       │   │   ├── _handlers.py
+│       │   │   ├── _helpers.py
+│       │   │   └── run.py
+│       │   ├── io.py
+│       │   └── types.py
 │       ├── ftp
 │       │   ├── __init__.py
-│       │   ├── downloader.py
-│       │   └── extractor.py
+│       │   ├── _download_helpers.py
+│       │   ├── _extract_helpers.py
+│       │   ├── api.py
+│       │   ├── download.py
+│       │   ├── extract.py
+│       │   └── types.py
 │       ├── orats_io.py
 │       ├── processed
 │       │   ├── __init__.py

@@ -1,5 +1,20 @@
-## ORATS API/FTP Download & Extract
-- Refactor download/extract into sub modules
+## ORATS API Download & Extract
+- Refactor download/extract into sub modules like this:
+
+```plaintext
+etl/orats/api/
+  __init__.py
+  api.py              # stable public entrypoints
+  client.py           # OratsClient / http details
+  endpoints.py        # endpoint specs / mapping
+  download.py         # orchestration for API downloads
+  extract.py          # orchestration for API extracts (if needed)
+  io.py               # disk layout helpers (paths, read/write)
+  types.py            # small shared dataclasses/enums (optional)
+  helpers.py          # tiny shared helpers (optional, only if truly shared)
+```
+
+- Move constants like MAX_PER_CALL into config or constants at root
 
 ## ORATS Processed
 - Refactor processed further into modules (steps)

@@ -1,125 +1,25 @@
-"""ORATS API client utilities.
-
-This module provides a small, typed HTTP client (`OratsClient`) plus helpers for
-validating and normalizing request parameters. It is designed to be used by
-downloader/orchestrator code that snapshots ORATS API responses to disk.
-"""
-
 from __future__ import annotations
 
 import logging
-import random
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 import requests
 
 from .endpoints import get_endpoint_spec
+from ._client_helpers import (
+    jitter_sleep,
+    normalize_orats_params,
+    params_summary,
+    validate_endpoint_params,
+)
 
 logger = logging.getLogger(__name__)
 
 ORATS_BASE_URL = "https://api.orats.io"
 
-
-# ----------------------------------------------------------------------------
-# Private Helpers
-# ----------------------------------------------------------------------------
-
-def _jitter_sleep(base_s: float) -> float:
-    """Apply random jitter to backoff sleeps to avoid thundering herd."""
-    # Jitter factor in [0.7, 1.3)
-    return base_s * (0.7 + 0.6 * random.random())
-
-
-def _orats_list_param(values: Iterable[str] | None) -> str | None:
-    """Normalize list-like ORATS params into a comma-separated string."""
-    if values is None:
-        return None
-
-    out: list[str] = []
-    seen: set[str] = set()
-    for v in values:
-        if v is None:
-            continue
-        s = str(v).strip()
-        if not s or s in seen:
-            continue
-        out.append(s)
-        seen.add(s)
-
-    return ",".join(out) if out else None
-
-
-def _validate_endpoint_params(endpoint: str, params: Mapping[str, Any]) -> None:
-    """Ensure required params for an endpoint are present and non-empty."""
-    spec = get_endpoint_spec(endpoint)
-    missing: list[str] = []
-    for k in spec.required:
-        if k not in params or _is_missing_param_value(params.get(k)):
-            missing.append(k)
-    if missing:
-        raise ValueError(
-            f"Missing required params for endpoint '{endpoint}': {missing}. "
-            f"Required: {spec.required}"
-        )
-    
-
-def _normalize_orats_params(params: Mapping[str, Any]) -> dict[str, str]:
-    """Convert higher-level params into ORATS wire-format query parameters."""
-    out: dict[str, str] = {}
-
-    for k, v in params.items():
-        if v is None:
-            continue
-
-        # list/tuple of strings -> comma-separated
-        if isinstance(v, Sequence) and not isinstance(v, (str, bytes, bytearray)):
-            joined = _orats_list_param(v)  # type: ignore[arg-type]
-            if joined is not None:
-                out[str(k)] = joined
-            continue
-
-        out[str(k)] = str(v)
-
-    return out
-
-
-def _params_summary(wire_params: Mapping[str, str]) -> str:
-    """Create a safe, compact params summary for logs (never includes the token)."""
-    keys = [k for k in wire_params.keys() if k != "token"]
-    keys.sort()
-    parts: list[str] = []
-
-    for k in keys:
-        if k in {"ticker", "tradeDate", "expirDate"}:
-            parts.append(f"{k}={wire_params.get(k)}")
-        elif k == "fields":
-            v = wire_params.get(k, "")
-            n = 0 if not v else len([x for x in v.split(",") if x.strip()])
-            parts.append(f"fields={n}")
-        else:
-            parts.append(k)
-
-    return ",".join(parts)
-
-
-def _is_missing_param_value(v: Any) -> bool:
-    """Return True if a param value should be considered missing/empty."""
-    if v is None:
-        return True
-    if isinstance(v, str):
-        return len(v.strip()) == 0
-    # lists/tuples of values (e.g., tickers/fields)
-    if isinstance(v, Sequence) and not isinstance(v, (str, bytes, bytearray)):
-        return len([x for x in v if x is not None and str(x).strip()]) == 0
-    return False
-
-
-# ----------------------------------------------------------------------------
-# Public API
-# ----------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class OratsClient:
@@ -136,16 +36,16 @@ class OratsClient:
     - Does *not* retry on other HTTP 4xx responses (bad params, auth, etc.)
 
     Session handling:
-    - You may pass a shared `requests.Session` to reuse connections across many calls.
-    - If you do not pass a session, the client creates one internally and closes it.
+    - You may pass a shared `requests.Session` to reuse connections across calls.
+    - If you do not pass a session, the client creates one and closes it.
 
     Logging:
-    - Request logs use a redacted params summary that never includes the API token.
+    - Request logs use a redacted params summary that never includes the token.
 
     Exceptions:
     - Non-429 HTTP 4xx errors raise `requests.HTTPError` (fail-fast).
-    - If all retries are exhausted for a retryable failure, the client raises
-      `RuntimeError` with the original exception attached as `__cause__`.
+    - If all retries are exhausted for a retryable failure, raises `RuntimeError`
+      with the original exception attached as `__cause__`.
     """
     token: str
     base_url: str = ORATS_BASE_URL
@@ -160,33 +60,33 @@ class OratsClient:
         *,
         session: requests.Session | None = None,
     ) -> requests.Response:
-        """Low-level GET with retries for transient failures (429/5xx/transport)."""
+        """Low-level GET with retries for transient failures."""
         url = self.base_url.rstrip("/") + "/" + path.lstrip("/")
 
         created_session = session is None
         sess = session or requests.Session()
 
-        wire_params = _normalize_orats_params(params)
-        params_log = _params_summary(wire_params)
+        wire_params = normalize_orats_params(params)
+        params_log = params_summary(wire_params)
         wire_params["token"] = self.token
 
         last_err: Exception | None = None
 
         try:
-            for attempt in range(self.max_retries+1):
+            for attempt in range(self.max_retries + 1):
                 try:
                     logger.debug(
                         "ORATS GET attempt=%d/%d path=%s params=[%s]",
                         attempt + 1,
-                        self.max_retries+1,
+                        self.max_retries + 1,
                         path,
                         params_log,
                     )
 
                     resp = sess.get(
-                        url, 
-                        params=wire_params, 
-                        timeout=self.timeout_s
+                        url,
+                        params=wire_params,
+                        timeout=self.timeout_s,
                     )
 
                     # Fail fast on permanent client errors (except 429)
@@ -206,11 +106,11 @@ class OratsClient:
                             try:
                                 sleep_s = float(ra)
                             except ValueError:
-                                sleep_s = _jitter_sleep(
+                                sleep_s = jitter_sleep(
                                     self.backoff_s * (2**attempt)
                                 )
                         else:
-                            sleep_s = _jitter_sleep(
+                            sleep_s = jitter_sleep(
                                 self.backoff_s * (2**attempt)
                             )
 
@@ -243,10 +143,7 @@ class OratsClient:
                 except requests.exceptions.HTTPError as e:
                     last_err = e
                     r = getattr(e, "response", None)
-                    if r is not None:
-                        sc = r.status_code
-                    else:
-                        sc = None
+                    sc = r.status_code if r is not None else None
 
                     # Non-429 4xx: do not retry
                     if sc is not None and 400 <= sc <= 499 and sc != 429:
@@ -263,7 +160,7 @@ class OratsClient:
 
                     sleep_s = min(
                         30.0,
-                        _jitter_sleep(self.backoff_s * (2**attempt)),
+                        jitter_sleep(self.backoff_s * (2**attempt)),
                     )
                     logger.warning(
                         "ORATS HTTPError retrying path=%s params=[%s] "
@@ -284,7 +181,7 @@ class OratsClient:
 
                     sleep_s = min(
                         30.0,
-                        _jitter_sleep(self.backoff_s * (2**attempt)),
+                        jitter_sleep(self.backoff_s * (2**attempt)),
                     )
                     logger.warning(
                         "ORATS transport error retrying path=%s params=[%s] "
@@ -303,7 +200,7 @@ class OratsClient:
 
                     sleep_s = min(
                         30.0,
-                        _jitter_sleep(self.backoff_s * (2**attempt)),
+                        jitter_sleep(self.backoff_s * (2**attempt)),
                     )
                     logger.warning(
                         "ORATS unexpected error retrying path=%s params=[%s] "
@@ -314,6 +211,7 @@ class OratsClient:
                         e,
                     )
                     time.sleep(sleep_s)
+
         finally:
             if created_session:
                 sess.close()
@@ -368,16 +266,15 @@ class OratsClient:
         TypeError
             If the decoded JSON is not a JSON object (dict).
         """
-        _validate_endpoint_params(endpoint, params)
+        validate_endpoint_params(endpoint, params)
         spec = get_endpoint_spec(endpoint)
 
         resp = self._get(spec.path, params, session=session)
 
-        # Let json() raise if the payload is not valid JSON
         payload = resp.json()
         if not isinstance(payload, dict):
             raise TypeError(
-                f"Expected ORATS JSON payload to be an object/dict, "
+                "Expected ORATS JSON payload to be an object/dict, "
                 f"got {type(payload)}"
             )
         return payload

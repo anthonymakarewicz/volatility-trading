@@ -12,7 +12,6 @@ from .types import DownloadFtpResult
 
 logger = logging.getLogger(__name__)
 
-
 DEFAULT_HOST: str = "orats.hostedftp.com"
 DEFAULT_REMOTE_BASE_DIRS: tuple[str, ...] = (
     "smvstrikes_2007_2012",  # 2007–2012
