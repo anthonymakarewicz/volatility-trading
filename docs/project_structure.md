@@ -1,7 +1,7 @@
 # Volatility Trading Project Structure
 
 ```plaintext
-.
+src/volatility_trading
 ├── __init__.py
 ├── backtesting
 │   ├── __init__.py
@@ -20,7 +20,6 @@
 │   │   ├── ftp_docs.py
 │   │   ├── ftp_schemas.py
 │   │   └── schema_spec.py
-│   ├── orats_processed_features.py
 │   └── paths.py
 ├── datasets
 │   ├── __init__.py
@@ -28,10 +27,6 @@
 │   └── options_chain.py
 ├── etl
 │   ├── __init__.py
-│   ├── common
-│   │   ├── io.py
-│   │   ├── logging.py
-│   │   └── manifest.py
 │   ├── optionsdx_loader.py
 │   └── orats
 │       ├── __init__.py
@@ -46,32 +41,59 @@
 │       │   ├── __init__.py
 │       │   ├── downloader.py
 │       │   └── extractor.py
-│       ├── io
-│       │   └── atomic_write.py
 │       ├── orats_io.py
 │       ├── processed
 │       │   ├── __init__.py
-│       │   ├── daily_features_builder.py
-│       │   ├── options_chain
-│       │   │   ├── __init__.py
-│       │   │   ├── builder.py
-│       │   │   ├── config.py
-│       │   │   ├── io.py
-│       │   │   ├── steps.py
-│       │   │   ├── transforms.py
-│       │   │   └── types.py
-│       │   └── options_chain_builder.py
+│       │   └── options_chain
+│       │       ├── __init__.py
+│       │       ├── builder.py
+│       │       ├── config.py
+│       │       ├── io.py
+│       │       ├── steps.py
+│       │       ├── transforms.py
+│       │       └── types.py
 │       └── qc
 │           ├── __init__.py
-│           ├── checks_hard.py
-│           ├── checks_info.py
-│           ├── checks_soft.py
-│           ├── options_chain.py
+│           ├── _runner_helpers.py
+│           ├── api.py
+│           ├── hard
+│           │   ├── __init__.py
+│           │   ├── exprs.py
+│           │   ├── spec_types.py
+│           │   ├── specs.py
+│           │   └── suite.py
+│           ├── info
+│           │   ├── __init__.py
+│           │   ├── spec_types.py
+│           │   ├── specs.py
+│           │   ├── suite.py
+│           │   └── summarizers.py
 │           ├── orats_qc_plotting.py
-│           ├── orats_qc.py
-│           ├── report.py
+│           ├── reporting.py
+│           ├── runner.py
 │           ├── runners.py
-│           ├── summarizers.py
+│           ├── serialization.py
+│           ├── soft
+│           │   ├── __init__.py
+│           │   ├── dataset_checks
+│           │   │   ├── __init__.py
+│           │   │   ├── calendar_xnys.py
+│           │   │   ├── rates.py
+│           │   │   └── underlying_prices.py
+│           │   ├── row_checks
+│           │   │   ├── __init__.py
+│           │   │   ├── arbitrage_bounds.py
+│           │   │   ├── arbitrage_monotonicity.py
+│           │   │   ├── arbitrage_parity.py
+│           │   │   ├── expr_helpers.py
+│           │   │   ├── greeks_iv.py
+│           │   │   ├── quotes.py
+│           │   │   └── volume_oi.py
+│           │   ├── spec_types.py
+│           │   ├── specs.py
+│           │   ├── suite.py
+│           │   ├── summarizers.py
+│           │   └── utils.py
 │           └── types.py
 ├── filters
 │   ├── __init__.py
@@ -90,9 +112,7 @@
 │   └── term_structure.py
 ├── options
 │   ├── __init__.py
-│   ├── contracts.py
-│   ├── greeks.py
-│   └── pricing.py
+│   └── greeks.py
 ├── rv_forecasting
 │   ├── __init__.py
 │   ├── data_loading.py
