@@ -1,4 +1,4 @@
-"""""Build processed ORATS options-chain panels.
+"""Build processed ORATS options-chain panels.
 
 This module turns **intermediate** ORATS *strikes* data (FTP) into a cleaned,
 analysis-ready **processed** options-chain dataset for a single underlying.
@@ -8,28 +8,20 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from volatility_trading.config.paths import INTER_ORATS_API
 from volatility_trading.config.instruments import OPTION_EXERCISE_STYLE
+from volatility_trading.config.paths import INTER_ORATS_API
 
 from .config import OPTIONS_CHAIN_CORE_COLUMNS
-from .io import write_manifest_json
-from .types import (
-    BuildOptionsChainResult,
-    BuildStats,
-)
+from .manifest import build_manifest_payload, write_manifest_json
+from .types import BuildOptionsChainResult, BuildStats
 from . import steps
 from .transforms import fmt_int
 
 logger = logging.getLogger(__name__)
 
-
-# ----------------------------------------------------------------------------
-# Public API
-# ----------------------------------------------------------------------------
 
 def build(
     *,
@@ -192,25 +184,22 @@ def build(
     put_greeks_mode = "parity" if derive_put_greeks else "unified"
     exercise_style = OPTION_EXERCISE_STYLE.get(str(ticker).upper(), "AM")
 
-    manifest_payload = {
-        "schema_version": 1,
-        "dataset": "orats_options_chain",
-        "ticker": str(ticker),
-        "built_at_utc": datetime.now(timezone.utc).isoformat(),
-        "put_greeks_mode": put_greeks_mode,
-        "exercise_style": exercise_style,
-        "merge_dividend_yield": bool(merge_dividend_yield),
-        "monies_implied_inter_root": str(monies_root_p) if monies_root_p else None,
-        "inter_root": str(inter_root_p),
-        "proc_root": str(proc_root_p),
-        "years": [str(y) for y in years] if years is not None else None,
-        "dte_min": int(dte_min),
-        "dte_max": int(dte_max),
-        "moneyness_min": float(moneyness_min),
-        "moneyness_max": float(moneyness_max),
-        "columns": list(df.columns),
-        "n_rows_written": int(df.height),
-        "stats": {
+    manifest_payload = build_manifest_payload(
+        ticker=str(ticker),
+        put_greeks_mode=put_greeks_mode,
+        exercise_style=exercise_style,
+        merge_dividend_yield=merge_dividend_yield,
+        monies_implied_inter_root=monies_root_p,
+        inter_root=inter_root_p,
+        proc_root=proc_root_p,
+        years=years,
+        dte_min=dte_min,
+        dte_max=dte_max,
+        moneyness_min=moneyness_min,
+        moneyness_max=moneyness_max,
+        columns=list(df.columns),
+        n_rows_written=int(df.height),
+        stats={
             "n_rows_input": stats.n_rows_input,
             "n_rows_after_dedupe": stats.n_rows_after_dedupe,
             "n_rows_yield_input": stats.n_rows_yield_input,
@@ -219,7 +208,7 @@ def build(
             "n_rows_after_trading": stats.n_rows_after_trading,
             "n_rows_after_hard": stats.n_rows_after_hard,
         },
-    }
+    )
 
     manifest_path = write_manifest_json(
         out_dir=out_path.parent,

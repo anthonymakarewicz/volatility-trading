@@ -8,6 +8,8 @@
 - Move count_rows and fmt_int to a common helpers in processed 
 and maybe also log_before_after, log_total_missing
 
+- Create a Manifest dataclass that stores all the metadata to be stored,
+and repalc ethe big dict constrcution at the ned of build with a Manifest instance
 
 ## Daily Features Processed:
 - Implement processed/daily_features

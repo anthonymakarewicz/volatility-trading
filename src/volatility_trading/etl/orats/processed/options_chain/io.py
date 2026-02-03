@@ -5,7 +5,6 @@ Private IO helpers for the ORATS options-chain builder.
 This module contains:
 - intermediate scans (FTP strikes, API monies_implied)
 - processed output path resolution
-- writing manifest sidecars
 """
 
 from __future__ import annotations
@@ -18,26 +17,6 @@ import polars as pl
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
-
-# ----------------------------------------------------------------------------
-# Manifest
-# ----------------------------------------------------------------------------
-
-def write_manifest_json(out_dir: Path, payload: dict) -> Path:
-    """Write a manifest.json sidecar next to the processed parquet.
-
-    The manifest captures *how* the dataset was built (key parameters and
-    switches) so downstream consumers (QC, backtests) can reliably
-    reproduce/interpret the output.
-    """
-    out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / "manifest.json"
-
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, sort_keys=True, default=str)
-
-    return path
 
 
 # ----------------------------------------------------------------------------
