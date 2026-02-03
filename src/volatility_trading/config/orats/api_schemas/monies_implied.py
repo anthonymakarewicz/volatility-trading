@@ -133,6 +133,29 @@ _MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "vol0": "vol_0",
 }
 
+
+# ------ Bounds (canonical) ------
+
+# Tier 1: structural validity => drop row
+_MONIES_IMPLIED_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
+    "underlying_price": (0.0, 1e7),
+    "spot_price": (0.0, 1e7),
+}
+
+# Tier 2: value plausibility => set to null (keep row)
+_MONIES_IMPLIED_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
+    "risk_free_rate": (-1.0, 1.0),
+    "yield_rate": (-1.0, 1.0),
+    "residual_yield_rate": (-1.0, 1.0),
+    "residual_rate_slp": (-10.0, 10.0),
+
+    "atm_iv": (0.0, 10.0),
+    "cal_vol": (0.0, 10.0),
+    "unadj_vol": (0.0, 10.0),
+    "earn_effect": (-10.0, 10.0),
+}
+
+
 # ------ Keep (canonical) ------
 _MONIES_IMPLIED_KEEP_CANONICAL: tuple[str, ...] = (
     "ticker",
@@ -159,27 +182,10 @@ _MONIES_IMPLIED_KEEP_CANONICAL: tuple[str, ...] = (
     "updated_ts",
 )
 
-# ------ Bounds (canonical) ------
 
-# Tier 1: structural validity => drop row
-_MONIES_IMPLIED_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
-    "underlying_price": (0.0, 1e7),
-    "spot_price": (0.0, 1e7),
-}
-
-# Tier 2: value plausibility => set to null (keep row)
-_MONIES_IMPLIED_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
-    "risk_free_rate": (-1.0, 1.0),
-    "yield_rate": (-1.0, 1.0),
-    "residual_yield_rate": (-1.0, 1.0),
-    "residual_rate_slp": (-10.0, 10.0),
-
-    "atm_iv": (0.0, 10.0),
-    "cal_vol": (0.0, 10.0),
-    "unadj_vol": (0.0, 10.0),
-    "earn_effect": (-10.0, 10.0),
-}
-
+# ----------------------------------------------------------------------------
+# Public schema spec
+# ----------------------------------------------------------------------------
 
 MONIES_IMPLIED_SCHEMA = OratsSchemaSpec(
     vendor_dtypes=_MONIES_IMPLIED_VENDOR_DTYPES,

@@ -138,6 +138,52 @@ _SUMMARIES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
 }
 
 
+# ------ Bounds (canonical) ------
+_SUMMARIES_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
+    "underlying_price": (0.0, 1e7),
+}
+
+_SUMMARIES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
+    # Term structure IV
+    "iv_10d": (0.0, 10.0),
+    "iv_20d": (0.0, 10.0),
+    "iv_30d": (0.0, 10.0),
+    "iv_60d": (0.0, 10.0),
+    "iv_90d": (0.0, 10.0),
+    "iv_6m": (0.0, 10.0),
+    "iv_1y": (0.0, 10.0),
+
+    # Delta-slice IVs
+    "iv_dlt25_10d": (0.0, 10.0),
+    "iv_dlt25_20d": (0.0, 10.0),
+    "iv_dlt25_30d": (0.0, 10.0),
+    "iv_dlt25_60d": (0.0, 10.0),
+    "iv_dlt25_90d": (0.0, 10.0),
+    "iv_dlt25_6m": (0.0, 10.0),
+    "iv_dlt25_1y": (0.0, 10.0),
+    
+    "iv_dlt75_10d": (0.0, 10.0),
+    "iv_dlt75_20d": (0.0, 10.0),
+    "iv_dlt75_30d": (0.0, 10.0),
+    "iv_dlt75_60d": (0.0, 10.0),
+    "iv_dlt75_90d": (0.0, 10.0),
+    "iv_dlt75_6m": (0.0, 10.0),
+    "iv_dlt75_1y": (0.0, 10.0),
+
+    # Rates/borrow
+    "risk_free_rate_30d": (-1.0, 1.0),
+    "risk_free_rate_2y": (-1.0, 1.0),
+    "borrow_rate_30d": (-1.0, 1.0),
+    "borrow_rate_2y": (-1.0, 1.0),
+
+    # Divs (wide but finite)
+    "ann_actual_div": (-1e6, 1e6),
+    "ann_implied_div": (-1e6, 1e6),
+    "next_div": (-1e6, 1e6),
+    "implied_next_div": (-1e6, 1e6),
+}
+
+
 # ------ Keep (canonical) ------
 _SUMMARIES_KEEP_CANONICAL: tuple[str, ...] = (
     "ticker",
@@ -184,51 +230,10 @@ _SUMMARIES_KEEP_CANONICAL: tuple[str, ...] = (
     "updated_ts",
 )
 
-# ------ Bounds (canonical) ------
-_SUMMARIES_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
-    "underlying_price": (0.0, 1e7),
-}
 
-_SUMMARIES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
-    # Term structure IV
-    "iv_10d": (0.0, 10.0),
-    "iv_20d": (0.0, 10.0),
-    "iv_30d": (0.0, 10.0),
-    "iv_60d": (0.0, 10.0),
-    "iv_90d": (0.0, 10.0),
-    "iv_6m": (0.0, 10.0),
-    "iv_1y": (0.0, 10.0),
-
-    # Delta-slice IVs
-    "iv_dlt25_10d": (0.0, 10.0),
-    "iv_dlt25_20d": (0.0, 10.0),
-    "iv_dlt25_30d": (0.0, 10.0),
-    "iv_dlt25_60d": (0.0, 10.0),
-    "iv_dlt25_90d": (0.0, 10.0),
-    "iv_dlt25_6m": (0.0, 10.0),
-    "iv_dlt25_1y": (0.0, 10.0),
-    
-    "iv_dlt75_10d": (0.0, 10.0),
-    "iv_dlt75_20d": (0.0, 10.0),
-    "iv_dlt75_30d": (0.0, 10.0),
-    "iv_dlt75_60d": (0.0, 10.0),
-    "iv_dlt75_90d": (0.0, 10.0),
-    "iv_dlt75_6m": (0.0, 10.0),
-    "iv_dlt75_1y": (0.0, 10.0),
-
-    # Rates/borrow
-    "risk_free_rate_30d": (-1.0, 1.0),
-    "risk_free_rate_2y": (-1.0, 1.0),
-    "borrow_rate_30d": (-1.0, 1.0),
-    "borrow_rate_2y": (-1.0, 1.0),
-
-    # Divs (wide but finite)
-    "ann_actual_div": (-1e6, 1e6),
-    "ann_implied_div": (-1e6, 1e6),
-    "next_div": (-1e6, 1e6),
-    "implied_next_div": (-1e6, 1e6),
-}
-
+# ----------------------------------------------------------------------------
+# Public schema spec
+# ----------------------------------------------------------------------------
 
 SUMMARIES_SCHEMA = OratsSchemaSpec(
     vendor_dtypes=_SUMMARIES_VENDOR_DTYPES,

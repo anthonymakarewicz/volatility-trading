@@ -18,17 +18,19 @@ from __future__ import annotations
 from typing import Final
 
 from ..schema_spec import OratsSchemaSpec
+from .hvs import HVS_SCHEMA_SPEC
 from .monies_implied import MONIES_IMPLIED_SCHEMA
 from .summaries import SUMMARIES_SCHEMA
 
 
 # TODO: Implement schema specs for these endpoints (downloaded in RAW)
-UNSUPPORTED_ENDPOINTS: tuple[str, ...] = ("hvs", "splits", "ivrank")
+UNSUPPORTED_ENDPOINTS: tuple[str, ...] = ("cores", "splits", "ivrank")
 
 
 API_SCHEMAS: Final[dict[str, OratsSchemaSpec]] = {
     "monies_implied": MONIES_IMPLIED_SCHEMA,
     "summaries": SUMMARIES_SCHEMA,
+    "hvs": HVS_SCHEMA_SPEC,
 }
 
 
