@@ -1,4 +1,4 @@
-"""volatility_trading.etl.orats.processed.options_chain_io
+"""""volatility_trading.etl.orats.processed.options_chain_io
 
 Private IO helpers for the ORATS options-chain builder.
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Manifest
 # ----------------------------------------------------------------------------
 
-def _write_manifest_json(*, out_dir: Path, payload: dict) -> Path:
+def write_manifest_json(*, out_dir: Path, payload: dict) -> Path:
     """Write a manifest.json sidecar next to the processed parquet.
 
     The manifest captures *how* the dataset was built (key parameters and
@@ -44,7 +44,7 @@ def _write_manifest_json(*, out_dir: Path, payload: dict) -> Path:
 # Intermediate scanning
 # ----------------------------------------------------------------------------
 
-def _scan_strikes_intermediate(
+def scan_strikes_intermediate(
     inter_root: Path | str,
     ticker: str,
     years: Iterable[int] | Iterable[str] | None = None,
@@ -99,7 +99,7 @@ def _scan_strikes_intermediate(
     return pl.concat(scans, how="diagonal")
 
 
-def _scan_monies_implied_intermediate(
+def scan_monies_implied_intermediate(
     inter_api_root: Path | str,
     ticker: str,
     *,
@@ -137,7 +137,7 @@ def _scan_monies_implied_intermediate(
 # Processed output path
 # ----------------------------------------------------------------------------
 
-def _get_options_chain_path(proc_root: Path, ticker: str) -> Path:
+def get_options_chain_path(proc_root: Path, ticker: str) -> Path:
     t = str(ticker).strip()
     if not t:
         raise ValueError("ticker must be non-empty")

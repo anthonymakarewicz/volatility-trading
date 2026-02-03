@@ -1,4 +1,4 @@
-"""volatility_trading.etl.orats.processed.options_chain_transforms
+"""""volatility_trading.etl.orats.processed.options_chain_transforms
 
 Private transformation helpers used by the ORATS options-chain builder.
 
@@ -22,19 +22,19 @@ logger = logging.getLogger(__name__)
 # Logging / stats helpers
 # ----------------------------------------------------------------------------
 
-def _count_rows(lf: pl.LazyFrame) -> int:
+def count_rows(lf: pl.LazyFrame) -> int:
     """Count rows in a LazyFrame (forces a small collect)."""
     return int(lf.select(pl.len()).collect().item())
 
 
-def _fmt_int(n: int | None) -> str:
+def fmt_int(n: int | None) -> str:
     """Format integers with thousands separators for logging."""
     if n is None:
         return "NA"
     return f"{int(n):,}"
 
 
-def _log_before_after(
+def log_before_after(
     *,
     label: str,
     ticker: str,
@@ -51,15 +51,15 @@ def _log_before_after(
         "%s ticker=%s before=%s after=%s %s=%s (%.2f%%)",
         label,
         ticker,
-        _fmt_int(before),
-        _fmt_int(after),
+        fmt_int(before),
+        fmt_int(after),
         removed_word,
-        _fmt_int(removed),
+        fmt_int(removed),
         pct,
     )
 
 
-def _log_total_missing(
+def log_total_missing(
     *,
     label: str,
     ticker: str,
@@ -77,9 +77,9 @@ def _log_total_missing(
         label,
         ticker,
         total_word,
-        _fmt_int(total),
+        fmt_int(total),
         missing_word,
-        _fmt_int(missing),
+        fmt_int(missing),
         pct,
     )
 
@@ -88,7 +88,7 @@ def _log_total_missing(
 # Bounds helpers
 # ----------------------------------------------------------------------------
 
-def _apply_bounds_null(
+def apply_bounds_null(
     lf: pl.LazyFrame,
     *,
     bounds: dict[str, tuple[float, float]] | None,
@@ -122,7 +122,7 @@ def _apply_bounds_null(
     return lf.with_columns(exprs) if exprs else lf
 
 
-def _apply_bounds_drop(
+def apply_bounds_drop(
     lf: pl.LazyFrame,
     *,
     bounds: dict[str, tuple[float, float]] | None,
@@ -149,7 +149,7 @@ def _apply_bounds_drop(
     return lf.filter(pl.all_horizontal(filters)) if filters else lf
 
 
-def _count_rows_any_oob(
+def count_rows_any_oob(
     lf: pl.LazyFrame,
     *,
     bounds: dict[str, tuple[float, float]] | None,
@@ -189,7 +189,7 @@ def _count_rows_any_oob(
 # Dedupe helper
 # ----------------------------------------------------------------------------
 
-def _dedupe_on_keys(
+def dedupe_on_keys(
     lf: pl.LazyFrame,
     *,
     key_common: Sequence[str],

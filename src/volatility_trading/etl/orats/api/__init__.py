@@ -1,4 +1,15 @@
-from .extract.run import extract
-from .download.run import download
+from __future__ import annotations
 
-__all__ = ["download", "extract"]
+from .api import (
+    download,
+    extract,
+    DownloadApiResult,
+    ExtractApiResult,
+)
+
+__all__ = [
+    "download",
+    "extract",
+    "DownloadApiResult",
+    "ExtractApiResult",
+]

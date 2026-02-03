@@ -1,5 +1,10 @@
 from __future__ import annotations
 
-from .api import download, extract
+from .api import download, extract, DownloadFtpResult, ExtractFtpResult
 
-__all__ = ["download", "extract"]
+__all__ = [
+    "download",
+    "extract",
+    "DownloadFtpResult",
+    "ExtractFtpResult",
+]

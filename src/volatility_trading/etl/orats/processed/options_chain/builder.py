@@ -1,4 +1,4 @@
-""""Build processed ORATS options-chain panels.
+"""""Build processed ORATS options-chain panels.
 
 This module turns **intermediate** ORATS *strikes* data (FTP) into a cleaned,
 analysis-ready **processed** options-chain dataset for a single underlying.
@@ -20,19 +20,7 @@ from .types import (
     BuildOptionsChainResult,
     _BuildStats,
 )
-from .steps import (
-    _step_add_derived_features,
-    _step_add_put_greeks,
-    _step_add_put_greeks_simple,
-    _step_apply_bounds,
-    _step_apply_filters,
-    _step_collect_and_write,
-    _step_dedupe_options_chain,
-    _step_filter_preferred_opra_root,
-    _step_merge_dividend_yield,
-    _step_scan_inputs,
-    _step_unify_spot_price,
-)
+from . import steps
 from .transforms import _fmt_int
 
 logger = logging.getLogger(__name__)
@@ -133,7 +121,7 @@ def build(
     stats = _BuildStats()
 
     # --- 1) Scan intermediate per-year parquet files lazily ---
-    lf = _step_scan_inputs(
+    lf = steps.scan_inputs(
         inter_root=inter_root_p,
         ticker=ticker,
         years=years,
@@ -142,10 +130,10 @@ def build(
     )
 
     # --- 2) Optional OPRA-root filtering (e.g. SPX vs SPXW) ---
-    lf = _step_filter_preferred_opra_root(lf=lf, ticker=ticker)
+    lf = steps.filter_preferred_opra_root(lf=lf, ticker=ticker)
 
     # --- 3) Remove duplicates rows & remove nulls in core keys ---
-    lf = _step_dedupe_options_chain(
+    lf = steps.dedupe_options_chain(
         lf=lf,
         ticker=ticker,
         collect_stats=collect_stats,
@@ -153,7 +141,7 @@ def build(
     )
 
     # --- 4) Optionally replace dividend_yield using ORATS API monies_implied ---
-    lf = _step_merge_dividend_yield(
+    lf = steps.merge_dividend_yield(
         lf=lf,
         ticker=ticker,
         monies_implied_inter_root=monies_root_p,
@@ -163,16 +151,16 @@ def build(
     )
 
     # --- 5) Unify spot for index vs stock/ETF ---
-    lf = _step_unify_spot_price(lf=lf)
+    lf = steps.unify_spot_price(lf=lf)
 
     # --- 6) Bounds (NULL then DROP) ---
-    lf = _step_apply_bounds(lf=lf, ticker=ticker, collect_stats=collect_stats)
+    lf = steps.apply_bounds(lf=lf, ticker=ticker, collect_stats=collect_stats)
 
     # --- 7) Derived features: DTE, moneyness, mids, spreads, rel spreads ---
-    lf = _step_add_derived_features(lf=lf)
+    lf = steps.add_derived_features(lf=lf)
 
     # --- 8) Trading filters then hard sanity filters ---
-    lf = _step_apply_filters(
+    lf = steps.apply_filters(
         lf=lf,
         ticker=ticker,
         dte_min=dte_min,
@@ -185,14 +173,14 @@ def build(
 
     # --- 9) Put greeks (parity-derived or minimal convention) ---
     if derive_put_greeks:
-        lf = _step_add_put_greeks(lf=lf)
+        lf = steps.add_put_greeks(lf=lf)
     else:
-        lf = _step_add_put_greeks_simple(lf=lf)
+        lf = steps.add_put_greeks_simple(lf=lf)
 
     # --- 10) Final column selection & materialisation ---
     cols = OPTIONS_CHAIN_CORE_COLUMNS if columns is None else tuple(columns)
 
-    df, out_path = _step_collect_and_write(
+    df, out_path = steps.collect_and_write(
         lf=lf,
         proc_root=proc_root_p,
         ticker=ticker,

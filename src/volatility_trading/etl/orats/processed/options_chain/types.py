@@ -9,10 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-# ----------------------------------------------------------------------------
-# Public types
-# ----------------------------------------------------------------------------
-
 @dataclass(frozen=True)
 class BuildOptionsChainResult:
     """Summary of a processed options-chain build for one ticker.
@@ -39,22 +35,3 @@ class BuildOptionsChainResult:
 
     n_rows_after_trading: int | None
     n_rows_after_hard: int | None
-
-
-# ----------------------------------------------------------------------------
-# Internal types
-# ----------------------------------------------------------------------------
-
-@dataclass
-class _BuildStats:
-    """Internal mutable counters used during build (populated only if enabled)."""
-
-    n_rows_input: int | None = None
-    n_rows_after_dedupe: int | None = None
-
-    n_rows_yield_input: int | None = None
-    n_rows_yield_after_dedupe: int | None = None
-    n_rows_join_missing_yield: int | None = None
-
-    n_rows_after_trading: int | None = None
-    n_rows_after_hard: int | None = None
