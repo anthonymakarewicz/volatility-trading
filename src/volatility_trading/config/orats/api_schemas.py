@@ -369,6 +369,22 @@ _SUMMARIES_KEEP_CANONICAL: tuple[str, ...] = (
     "iv_6m",
     "iv_1y",
 
+    "iv_dlt25_10d",
+    "iv_dlt25_20d",
+    "iv_dlt25_30d",
+    "iv_dlt25_60d",
+    "iv_dlt25_90d",
+    "iv_dlt25_6m",
+    "iv_dlt25_1y",
+
+    "iv_dlt75_10d",
+    "iv_dlt75_20d",
+    "iv_dlt75_30d",
+    "iv_dlt75_60d",
+    "iv_dlt75_90d",
+    "iv_dlt75_6m",
+    "iv_dlt75_1y",
+
     "quote_ts",
     "updated_ts",
 )
@@ -387,6 +403,23 @@ _SUMMARIES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "iv_90d": (0.0, 10.0),
     "iv_6m": (0.0, 10.0),
     "iv_1y": (0.0, 10.0),
+
+    # Delta-slice IVs
+    "iv_dlt25_10d": (0.0, 10.0),
+    "iv_dlt25_20d": (0.0, 10.0),
+    "iv_dlt25_30d": (0.0, 10.0),
+    "iv_dlt25_60d": (0.0, 10.0),
+    "iv_dlt25_90d": (0.0, 10.0),
+    "iv_dlt25_6m": (0.0, 10.0),
+    "iv_dlt25_1y": (0.0, 10.0),
+    
+    "iv_dlt75_10d": (0.0, 10.0),
+    "iv_dlt75_20d": (0.0, 10.0),
+    "iv_dlt75_30d": (0.0, 10.0),
+    "iv_dlt75_60d": (0.0, 10.0),
+    "iv_dlt75_90d": (0.0, 10.0),
+    "iv_dlt75_6m": (0.0, 10.0),
+    "iv_dlt75_1y": (0.0, 10.0),
 
     # Rates/borrow
     "risk_free_rate_30d": (-1.0, 1.0),

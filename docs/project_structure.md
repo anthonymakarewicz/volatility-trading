@@ -68,6 +68,7 @@ src/volatility_trading/
 │       │       ├── api.py
 │       │       ├── config.py
 │       │       ├── io.py
+│       │       ├── manifest.py
 │       │       ├── run.py
 │       │       ├── steps
 │       │       │   ├── __init__.py
@@ -178,5 +179,5 @@ src/volatility_trading/
     ├── __init__.py
     └── logging_config.py
 
-32 directories, 144 files
+32 directories, 145 files
 ```
