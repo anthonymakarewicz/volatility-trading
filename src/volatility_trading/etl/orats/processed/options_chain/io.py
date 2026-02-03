@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Manifest
 # ----------------------------------------------------------------------------
 
-def write_manifest_json(*, out_dir: Path, payload: dict) -> Path:
+def write_manifest_json(out_dir: Path, payload: dict) -> Path:
     """Write a manifest.json sidecar next to the processed parquet.
 
     The manifest captures *how* the dataset was built (key parameters and
@@ -102,7 +102,6 @@ def scan_strikes_intermediate(
 def scan_monies_implied_intermediate(
     inter_api_root: Path | str,
     ticker: str,
-    *,
     endpoint: str = "monies_implied",
 ) -> pl.LazyFrame:
     """Lazy scan of ORATS API intermediate for monies_implied for one ticker.

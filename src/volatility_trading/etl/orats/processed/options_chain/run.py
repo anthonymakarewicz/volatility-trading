@@ -14,14 +14,15 @@ from pathlib import Path
 
 from volatility_trading.config.paths import INTER_ORATS_API
 from volatility_trading.config.instruments import OPTION_EXERCISE_STYLE
+
 from .config import OPTIONS_CHAIN_CORE_COLUMNS
-from .io import _write_manifest_json
+from .io import write_manifest_json
 from .types import (
     BuildOptionsChainResult,
-    _BuildStats,
+    BuildStats,
 )
 from . import steps
-from .transforms import _fmt_int
+from .transforms import fmt_int
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,7 @@ def build(
     )
 
     t0 = time.perf_counter()
-    stats = _BuildStats()
+    stats = BuildStats()
 
     # --- 1) Scan intermediate per-year parquet files lazily ---
     lf = steps.scan_inputs(
@@ -220,7 +221,7 @@ def build(
         },
     }
 
-    manifest_path = _write_manifest_json(
+    manifest_path = write_manifest_json(
         out_dir=out_path.parent,
         payload=manifest_payload,
     )
@@ -248,7 +249,7 @@ def build(
         "Finished building options chain ticker=%s "
         "rows_written=%s duration_s=%.2f",
         result.ticker,
-        _fmt_int(result.n_rows_written),
+        fmt_int(result.n_rows_written),
         result.duration_s,
     )
 
