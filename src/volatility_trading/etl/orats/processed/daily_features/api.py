@@ -29,6 +29,7 @@ def build(
     ticker: str,
     endpoints: Sequence[str] = ("summaries", "hvs"),
     prefix_endpoint_cols: bool = True,
+    priority_endpoints: Sequence[str] | None = None,
     collect_stats: bool = False,
     columns: Sequence[str] | None = DAILY_FEATURES_CORE_COLUMNS,
 ) -> BuildDailyFeaturesResult:
@@ -59,6 +60,14 @@ def build(
 
     if not endpoints:
         raise ValueError("endpoints must be non-empty")
+
+    if priority_endpoints is not None:
+        missing = [ep for ep in priority_endpoints if ep not in endpoints]
+        if missing:
+            raise ValueError(
+                "priority_endpoints must be a subset of endpoints; "
+                f"missing={missing}"
+            )
 
     t0 = time.perf_counter()
     stats = BuildStats()
@@ -116,17 +125,19 @@ def build(
         prefix_cols=prefix_endpoint_cols,
         collect_stats=collect_stats,
         # Reuse "after dedupe" dict as join stats dict.
-        stats_n_rows_endpoints=stats.n_rows_after_dedupe_by_endpoint
-        if collect_stats
-        else None,
+        stats_n_rows_endpoints=(
+            stats.n_rows_after_dedupe_by_endpoint
+            if collect_stats
+            else None
+        ),
     )
 
     # --------------------------------------------------------------------- #
     # 5) Canonicalize output columns (unprefixed) and write
     # --------------------------------------------------------------------- #
     output_cols = (
-        DAILY_FEATURES_CORE_COLUMNS 
-        if columns is None 
+        DAILY_FEATURES_CORE_COLUMNS
+        if columns is None
         else tuple(columns)
     )
 
@@ -135,6 +146,7 @@ def build(
         endpoints=endpoints,
         output_columns=output_cols,
         prefix_cols=prefix_endpoint_cols,
+        priority_endpoints=priority_endpoints,
     )
 
     df, out_path = steps.collect_and_write(
@@ -146,7 +158,9 @@ def build(
 
     if collect_stats:
         stats.n_rows_written = int(df.height)
-        stats.n_rows_input_total = int(sum(stats.n_rows_input_by_endpoint.values()))
+        stats.n_rows_input_total = int(
+            sum(stats.n_rows_input_by_endpoint.values())
+        )
 
     manifest_payload = {
         "schema_version": 1,
@@ -184,12 +198,16 @@ def build(
         n_rows_written=int(df.height),
         n_rows_input_total=stats.n_rows_input_total if collect_stats else None,
         n_rows_spine=stats.n_rows_spine if collect_stats else None,
-        n_rows_input_by_endpoint=dict(stats.n_rows_input_by_endpoint)
-        if collect_stats
-        else {},
-        n_rows_after_dedupe_by_endpoint=dict(stats.n_rows_after_dedupe_by_endpoint)
-        if collect_stats
-        else {},
+        n_rows_input_by_endpoint=(
+            dict(stats.n_rows_input_by_endpoint)
+            if collect_stats
+            else {}
+        ),
+        n_rows_after_dedupe_by_endpoint=(
+            dict(stats.n_rows_after_dedupe_by_endpoint)
+            if collect_stats
+            else {}
+        ),
     )
 
     logger.info(
