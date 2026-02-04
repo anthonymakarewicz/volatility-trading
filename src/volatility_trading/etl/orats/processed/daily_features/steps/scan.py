@@ -1,0 +1,51 @@
+from __future__ import annotations
+
+import logging
+from collections.abc import Sequence
+from pathlib import Path
+
+import polars as pl
+
+from ..config import DAILY_FEATURES_ENDPOINT_COLUMNS
+from ..io import scan_endpoint_intermediate
+from ..transforms import count_rows, fmt_int
+
+logger = logging.getLogger(__name__)
+
+
+def scan_inputs(
+    *,
+    inter_api_root: Path,
+    ticker: str,
+    endpoints: Sequence[str],
+    collect_stats: bool,
+    stats_input_by_endpoint: dict[str, int] | None,
+) -> dict[str, pl.LazyFrame]:
+    """Scan and select minimal columns for each endpoint (lazy)."""
+    out: dict[str, pl.LazyFrame] = {}
+
+    for ep in endpoints:
+        lf = scan_endpoint_intermediate(
+            inter_api_root=inter_api_root,
+            endpoint=ep,
+            ticker=ticker
+        )
+
+        keep = DAILY_FEATURES_ENDPOINT_COLUMNS.get(ep)
+        if keep is not None:
+            lf = lf.select(list(keep))
+
+        if collect_stats and stats_input_by_endpoint is not None:
+            lf = lf.cache()
+            n = count_rows(lf)
+            stats_input_by_endpoint[ep] = n
+            logger.info(
+                "Input rows endpoint=%s ticker=%s rows=%s",
+                ep,
+                ticker,
+                fmt_int(n),
+            )
+
+        out[ep] = lf
+
+    return out

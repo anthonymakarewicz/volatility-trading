@@ -1,21 +1,20 @@
 ## ORATS API Download & Extract
-
 - Move constants like MAX_PER_CALL into config or constants at root
 
 ## ORATS Processed
-- Refactor processed further into modules (steps)
-
-- Move count_rows and fmt_int to a common helpers in processed 
-and maybe also log_before_after, log_total_missing
-
-- Create a Manifest dataclass that stores all the metadata to be stored,
-and repalc ethe big dict constrcution at the ned of build with a Manifest instance
+- Make the build accept a Config objec tinstead of passign all args and maybe
+find a way to use pydantic for this Config since we would let the user enter 
+the data he wants
 
 ## Daily Features Processed:
 - Implement processed/daily_features
 
 - Try makign heleprs in processed/otpiosn_chain used in daily_fetaures into a 
-processed/common.py
+processed/common/
+
+- Cretae a wrapper build with an optional flag to run for both the chain and
+the fetaures associated with the ticker specified in the config
+
 
 ## Quality Checks:
 - Make the top n violaitons as part of Spec for Soft
