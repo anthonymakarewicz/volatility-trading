@@ -34,7 +34,7 @@ RAW_ORATS_ROOT = RAW_ORATS_API
 INTER_ORATS_ROOT = INTER_ORATS_API
 
 # Endpoint to extract (must exist in orats_api_endpoints.ENDPOINTS)
-ENDPOINT = "summaries"
+ENDPOINT = "hvs"
 
 # Extraction scope
 TICKERS = [

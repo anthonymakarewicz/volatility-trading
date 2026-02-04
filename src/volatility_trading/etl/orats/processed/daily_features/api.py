@@ -162,6 +162,12 @@ def build(
             sum(stats.n_rows_input_by_endpoint.values())
         )
 
+    # --------------------------------------------------------------------- #
+    # Missing endpoints reporting (manifest)
+    # --------------------------------------------------------------------- #
+    endpoints_used = [ep for ep in endpoints if ep in lfs]
+    missing_endpoints = [ep for ep in endpoints if ep not in lfs]
+
     manifest_payload = {
         "schema_version": 1,
         "dataset": "orats_daily_features",
@@ -170,6 +176,8 @@ def build(
         "inter_api_root": str(inter_api_root_p),
         "proc_root": str(proc_root_p),
         "endpoints": list(endpoints),
+        "endpoints_used": list(endpoints_used),
+        "missing_endpoints": list(missing_endpoints),
         "prefix_endpoint_cols": bool(prefix_endpoint_cols),
         "columns": list(df.columns),
         "n_rows_written": int(df.height),
