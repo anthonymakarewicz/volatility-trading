@@ -10,10 +10,12 @@ Each step is pure (returns a LazyFrame) and is designed to be orchestrated by
 from .scan import scan_inputs
 from .dedupe import filter_preferred_opra_root, dedupe_options_chain
 from .enrich import merge_dividend_yield, unify_spot_price
-from .features import apply_bounds, add_derived_features
+from .features import add_derived_features
 from .filters import apply_filters
 from .greeks import add_put_greeks, add_put_greeks_simple
 from .output import collect_and_write
+from .bounds import apply_bounds
+
 
 __all__ = [
     "scan_inputs",
