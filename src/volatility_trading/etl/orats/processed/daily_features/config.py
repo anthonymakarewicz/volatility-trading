@@ -98,3 +98,28 @@ DAILY_FEATURES_ENDPOINT_COLUMNS: dict[str, tuple[str, ...]] = {
         "hv_intra_252d",
     ),
 }
+
+
+# Exact per-column multipliers (endpoint -> {col_name -> multiplier})
+DAILY_FEATURES_ENDPOINT_UNIT_MULTIPLIERS: dict[str, dict[str, float]] = {
+    # Example (uncomment if needed later):
+    # "summaries": {
+    #     "risk_free_rate_30d": 0.01,  # 5.0 -> 0.05
+    #     "borrow_rate_30d": 0.01,
+    # },
+    "hvs": {
+        # keep empty if you only use glob for hvs
+    },
+}
+
+# Glob/pattern multipliers (endpoint -> [(glob_pattern, multiplier), ...])
+# Uses fnmatch-style globs: hv_intra_* , risk_free_rate_* , etc.
+DAILY_FEATURES_ENDPOINT_UNIT_MULTIPLIERS_GLOB: dict[str, list[tuple[str, float]]] = {
+    "hvs": [
+        ("hv_intra_*", 0.01),  # ORATS HVS is like 12.5 meaning 12.5% -> 0.125
+    ],
+}
+
+# If True: raise if a column matches multiple glob patterns in the same endpoint.
+# (Protects you from accidental double-scaling.)
+DAILY_FEATURES_UNITS_STRICT: bool = True

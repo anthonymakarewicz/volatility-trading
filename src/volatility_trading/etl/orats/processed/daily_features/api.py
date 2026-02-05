@@ -100,7 +100,18 @@ def build(
         )
 
     # --------------------------------------------------------------------- #
-    # 3) Build key spine = union of keys across endpoints
+    # 3) Apply bounds (null/drop) per endpoint
+    # --------------------------------------------------------------------- #
+    for ep in list(lfs.keys()):
+        lfs[ep] = steps.apply_bounds(
+            lf=lfs[ep],
+            ticker=ticker,
+            endpoint=ep,
+            collect_stats=collect_stats,
+        )
+
+    # --------------------------------------------------------------------- #
+    # 4) Build key spine = union of keys across endpoints
     # --------------------------------------------------------------------- #
     stats_n_rows_spine: list[int] | None = [] if collect_stats else None
 
@@ -115,7 +126,7 @@ def build(
         stats.n_rows_spine = int(stats_n_rows_spine[-1])
 
     # --------------------------------------------------------------------- #
-    # 4) Left-join all endpoints onto the spine (treat all equally)
+    # 5) Left-join all endpoints onto the spine (treat all equally)
     # --------------------------------------------------------------------- #
     lf = steps.join_endpoints_on_spine(
         spine=spine,
@@ -133,7 +144,7 @@ def build(
     )
 
     # --------------------------------------------------------------------- #
-    # 5) Canonicalize output columns (unprefixed) and write
+    # 6) Canonicalize output columns (unprefixed) and write
     # --------------------------------------------------------------------- #
     output_cols = (
         DAILY_FEATURES_CORE_COLUMNS
