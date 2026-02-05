@@ -8,7 +8,7 @@ import polars as pl
 
 from ..config import DAILY_FEATURES_ENDPOINT_COLUMNS
 from ..io import scan_endpoint_intermediate
-from ..transforms import count_rows, fmt_int
+from ..transforms import count_rows, fmt_int, apply_unit_multipliers
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +25,22 @@ def scan_inputs(
     out: dict[str, pl.LazyFrame] = {}
 
     for ep in endpoints:
-        lf = scan_endpoint_intermediate(
-            inter_api_root=inter_api_root,
-            endpoint=ep,
-            ticker=ticker
-        )
+        try:
+            lf = scan_endpoint_intermediate(
+                inter_api_root=inter_api_root,
+                endpoint=ep,
+                ticker=ticker,
+            )
+        except FileNotFoundError:
+            logger.info("Scan: missing endpoint=%s ticker=%s", ep, ticker)
+            continue
 
         keep = DAILY_FEATURES_ENDPOINT_COLUMNS.get(ep)
         if keep is not None:
             lf = lf.select(list(keep))
+
+        # --- NEW: normalize units (percent -> decimal etc.) ---
+        lf = apply_unit_multipliers(lf, endpoint=ep)
 
         if collect_stats and stats_input_by_endpoint is not None:
             lf = lf.cache()
