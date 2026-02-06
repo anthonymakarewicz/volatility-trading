@@ -15,9 +15,10 @@ from volatility_trading.config.instruments import OPTION_EXERCISE_STYLE
 from volatility_trading.config.paths import INTER_ORATS_API
 
 from ..shared.log_fmt import fmt_int
+from ..shared.manifest import write_manifest_json
 
 from .config import OPTIONS_CHAIN_CORE_COLUMNS
-from .manifest import build_manifest_payload, write_manifest_json
+from .manifest import build_manifest_payload
 from .types import BuildOptionsChainResult, BuildStats
 from . import steps
 
@@ -187,19 +188,21 @@ def build(
 
     manifest_payload = build_manifest_payload(
         ticker=str(ticker),
+        inter_root=inter_root_p,
+        proc_root=proc_root_p,
+        columns=list(df.columns),
+        n_rows_written=int(df.height),
+
         put_greeks_mode=put_greeks_mode,
         exercise_style=exercise_style,
         merge_dividend_yield=merge_dividend_yield,
         monies_implied_inter_root=monies_root_p,
-        inter_root=inter_root_p,
-        proc_root=proc_root_p,
         years=years,
         dte_min=dte_min,
         dte_max=dte_max,
         moneyness_min=moneyness_min,
         moneyness_max=moneyness_max,
-        columns=list(df.columns),
-        n_rows_written=int(df.height),
+
         stats={
             "n_rows_input": stats.n_rows_input,
             "n_rows_after_dedupe": stats.n_rows_after_dedupe,

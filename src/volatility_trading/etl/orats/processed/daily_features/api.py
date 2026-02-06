@@ -10,14 +10,14 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Sequence
-from datetime import datetime, timezone
 from pathlib import Path
 
 from ..shared.log_fmt import fmt_int
+from ..shared.manifest import write_manifest_json
 
 from .config import DAILY_FEATURES_CORE_COLUMNS
-from .manifest import write_manifest_json
 from .types import BuildDailyFeaturesResult, BuildStats
+from .manifest import build_manifest_payload
 from . import steps
 
 logger = logging.getLogger(__name__)
@@ -180,35 +180,40 @@ def build(
     endpoints_used = [ep for ep in endpoints if ep in lfs]
     missing_endpoints = [ep for ep in endpoints if ep not in lfs]
 
-    manifest_payload = {
-        "schema_version": 1,
-        "dataset": "orats_daily_features",
-        "ticker": str(ticker),
-        "built_at_utc": datetime.now(timezone.utc).isoformat(),
-        "inter_api_root": str(inter_api_root_p),
-        "proc_root": str(proc_root_p),
-        "endpoints": list(endpoints),
-        "endpoints_used": list(endpoints_used),
-        "missing_endpoints": list(missing_endpoints),
-        "prefix_endpoint_cols": bool(prefix_endpoint_cols),
-        "columns": list(df.columns),
-        "n_rows_written": int(df.height),
-        "stats": {
-            "n_rows_input_total": stats.n_rows_input_total,
-            "n_rows_spine": stats.n_rows_spine,
-            "n_rows_input_by_endpoint": dict(stats.n_rows_input_by_endpoint),
-            "n_rows_after_dedupe_by_endpoint": dict(
-                stats.n_rows_after_dedupe_by_endpoint
-            ),
-        }
-        if collect_stats
-        else None,
-    }
+    manifest_payload = build_manifest_payload(
+        ticker=str(ticker),
+        inter_root=inter_api_root_p,
+        proc_root=proc_root_p,
+        columns=list(df.columns),
+        n_rows_written=int(df.height),
+
+        endpoints=endpoints,
+        endpoints_used=endpoints_used,
+        missing_endpoints=missing_endpoints,
+        prefix_endpoint_cols=prefix_endpoint_cols,
+        priority_endpoints=priority_endpoints,
+
+        stats=(
+            {
+                "n_rows_input_total": stats.n_rows_input_total,
+                "n_rows_spine": stats.n_rows_spine,
+                "n_rows_input_by_endpoint": dict(
+                    stats.n_rows_input_by_endpoint
+                ),
+                "n_rows_after_dedupe_by_endpoint": dict(
+                    stats.n_rows_after_dedupe_by_endpoint
+                ),
+            }
+            if collect_stats
+            else None
+        ),
+    )
 
     manifest_path = write_manifest_json(
         out_dir=out_path.parent,
         payload=manifest_payload,
     )
+
     logger.info("Wrote daily features manifest: %s", manifest_path)
 
     result = BuildDailyFeaturesResult(
