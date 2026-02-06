@@ -5,7 +5,8 @@ from collections.abc import Sequence
 
 import polars as pl
 
-from ..transforms import count_rows, fmt_int
+from ...shared.stats import count_rows
+from ...shared.log_fmt import fmt_int
 
 logger = logging.getLogger(__name__)
 

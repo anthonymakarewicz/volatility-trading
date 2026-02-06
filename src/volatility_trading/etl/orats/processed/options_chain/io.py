@@ -1,10 +1,7 @@
 """""volatility_trading.etl.orats.processed.options_chain_io
 
-Private IO helpers for the ORATS options-chain builder.
-
-This module contains:
-- intermediate scans (FTP strikes, API monies_implied)
-- processed output path resolution
+This module contains intermediate scans for FTP strikes whose behaviour requires
+placing it in options_chain/ rather than shared/
 """
 
 from __future__ import annotations
@@ -17,10 +14,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-
-# ----------------------------------------------------------------------------
-# Intermediate scanning
-# ----------------------------------------------------------------------------
 
 def scan_strikes_intermediate(
     inter_root: Path | str,
@@ -75,47 +68,3 @@ def scan_strikes_intermediate(
 
     # allow schema evolution across years (e.g. cOpra/pOpra appear later)
     return pl.concat(scans, how="diagonal")
-
-
-def scan_monies_implied_intermediate(
-    inter_api_root: Path | str,
-    ticker: str,
-    endpoint: str = "monies_implied",
-) -> pl.LazyFrame:
-    """Lazy scan of ORATS API intermediate for monies_implied for one ticker.
-
-    Expected intermediate layout
-    ----------------------------
-    inter_api_root/
-        endpoint=<endpoint>/underlying=<TICKER>/part-0000.parquet
-    """
-    inter_api_root = Path(inter_api_root)
-    path = (
-        inter_api_root
-        / f"endpoint={endpoint}"
-        / f"underlying={ticker}"
-        / "part-0000.parquet"
-    )
-
-    if not path.exists():
-        raise FileNotFoundError(
-            f"monies_implied intermediate not found for {ticker!r}: {path}"
-        )
-
-    logger.info(
-        "Reading monies_implied intermediate for ticker=%s: %s",
-        ticker,
-        path
-    )
-    return pl.scan_parquet(str(path))
-
-
-# ----------------------------------------------------------------------------
-# Processed output path
-# ----------------------------------------------------------------------------
-
-def get_options_chain_path(proc_root: Path, ticker: str) -> Path:
-    t = str(ticker).strip()
-    if not t:
-        raise ValueError("ticker must be non-empty")
-    return proc_root / f"underlying={t}" / "part-0000.parquet"

@@ -13,11 +13,12 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ..shared.log_fmt import fmt_int
+
 from .config import DAILY_FEATURES_CORE_COLUMNS
 from .manifest import write_manifest_json
 from .types import BuildDailyFeaturesResult, BuildStats
 from . import steps
-from .transforms import fmt_int
 
 logger = logging.getLogger(__name__)
 

@@ -6,8 +6,9 @@ from pathlib import Path
 
 import polars as pl
 
-from ..io import get_daily_features_path
-from ..transforms import fmt_int
+from ...shared.io import processed_underlying_part_path
+from ...shared.log_fmt import fmt_int
+
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ def collect_and_write(
     lf = lf.sort(["trade_date"])
     df = lf.select(list(columns)).collect()
 
-    out_path = get_daily_features_path(proc_root=proc_root, ticker=ticker)
+    out_path = processed_underlying_part_path(proc_root=proc_root, ticker=ticker)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     logger.info(

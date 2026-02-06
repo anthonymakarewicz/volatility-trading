@@ -7,15 +7,16 @@ from pathlib import Path
 
 import polars as pl
 
-from ..types import BuildStats
-from ..io import scan_monies_implied_intermediate
-from ..transforms import (
-    count_rows,
-    dedupe_on_keys,
-    fmt_int,
+from ...shared.io import scan_endpoint_intermediate
+from ...shared.log_fmt import (
     log_before_after,
     log_total_missing,
+    fmt_int,
 )
+from ...shared.stats import count_rows
+
+from ..types import BuildStats
+from ..transforms import dedupe_on_keys
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ def merge_dividend_yield(
         ticker
     )
 
-    lf_yield = scan_monies_implied_intermediate(
+    lf_yield = scan_endpoint_intermediate(
         inter_api_root=monies_implied_inter_root,
         ticker=ticker,
         endpoint="monies_implied",

@@ -1,24 +1,28 @@
-"""
-Private IO helpers for the ORATS daily-features builder.
-
-This module contains:
-- intermediate scans (ORATS API endpoints)
-- processed output path resolution
-"""
-
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import polars as pl
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
-# ----------------------------------------------------------------------------
-# Intermediate scanning
-# ----------------------------------------------------------------------------
+def _intermediate_endpoint_part_path(
+    inter_api_root: Path | str,
+    *,
+    endpoint: str,
+    ticker: str,
+) -> Path:
+    root = Path(inter_api_root)
+    t = str(ticker).strip().upper()
+    if not t:
+        raise ValueError("ticker must be non-empty")
+    ep = str(endpoint).strip()
+    if not ep:
+        raise ValueError("endpoint must be non-empty")
+    return root / f"endpoint={ep}" / f"underlying={t}" / "part-0000.parquet"
+
 
 def scan_endpoint_intermediate(
     inter_api_root: Path | str,
@@ -33,14 +37,9 @@ def scan_endpoint_intermediate(
     inter_api_root/
         endpoint=<endpoint>/underlying=<TICKER>/part-0000.parquet
     """
-    inter_api_root = Path(inter_api_root)
-    path = (
-        inter_api_root
-        / f"endpoint={endpoint}"
-        / f"underlying={ticker}"
-        / "part-0000.parquet"
+    path = _intermediate_endpoint_part_path(
+        inter_api_root, endpoint=endpoint, ticker=ticker
     )
-
     if not path.exists():
         raise FileNotFoundError(
             f"API intermediate not found for endpoint={endpoint!r} "
@@ -56,12 +55,10 @@ def scan_endpoint_intermediate(
     return pl.scan_parquet(str(path))
 
 
-# ----------------------------------------------------------------------------
-# Processed output path
-# ----------------------------------------------------------------------------
-
-def get_daily_features_path(proc_root: Path, ticker: str) -> Path:
-    t = str(ticker).strip()
+def processed_underlying_part_path(proc_root: Path | str, ticker: str) -> Path:
+    """Return `proc_root/underlying=<TICKER>/part-0000.parquet`."""
+    root = Path(proc_root)
+    t = str(ticker).strip().upper()
     if not t:
         raise ValueError("ticker must be non-empty")
-    return proc_root / f"underlying={t}" / "part-0000.parquet"
+    return root / f"underlying={t}" / "part-0000.parquet"

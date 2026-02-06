@@ -14,11 +14,12 @@ from pathlib import Path
 from volatility_trading.config.instruments import OPTION_EXERCISE_STYLE
 from volatility_trading.config.paths import INTER_ORATS_API
 
+from ..shared.log_fmt import fmt_int
+
 from .config import OPTIONS_CHAIN_CORE_COLUMNS
 from .manifest import build_manifest_payload, write_manifest_json
 from .types import BuildOptionsChainResult, BuildStats
 from . import steps
-from .transforms import fmt_int
 
 logger = logging.getLogger(__name__)
 
