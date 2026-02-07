@@ -9,6 +9,9 @@
 __pycache__/
 *.pyc
 
+# Pytest
+.pytest_cache/
+
 # Packaging
 *.egg-info/
 dist/
