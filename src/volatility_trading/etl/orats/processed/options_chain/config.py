@@ -11,8 +11,6 @@ under the same name as before (helps continuity in your logs).
 from __future__ import annotations
 
 
-LOGGER_NAME: str = "volatility_trading.etl.orats.processed.options_chain_builder"
-
 # Output schema (processed dataset)
 OPTIONS_CHAIN_CORE_COLUMNS: tuple[str, ...] = (
     # identifiers / dates

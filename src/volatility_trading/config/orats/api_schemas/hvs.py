@@ -163,7 +163,6 @@ _HVS_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {}
 
 _HVS_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     # HV values are vol (not %); keep wide but finite.
-    # If ORATS returns percentages, your normalization layer should convert.
     "hv_intra_1d": (0.0, 10.0),
     "hv_intra_5d": (0.0, 10.0),
     "hv_intra_10d": (0.0, 10.0),
