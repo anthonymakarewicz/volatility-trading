@@ -13,6 +13,7 @@ def run_info_suite(
     df_global: pl.DataFrame,
     df_roi: pl.DataFrame,
     info_specs: list[InfoSpec],
+    run_roi: bool = True,
 ) -> list[QCCheckResult]:
     """
     Run INFO checks (always pass).
@@ -23,7 +24,11 @@ def run_info_suite(
     """
     results: list[QCCheckResult] = []
 
-    for label, dfx in [("GLOBAL", df_global), ("ROI", df_roi)]:
+    subsets = [("GLOBAL", df_global)]
+    if run_roi:
+        subsets.append(("ROI", df_roi))
+
+    for label, dfx in subsets:
         for spec in info_specs:
             results.append(
                 run_info_check(

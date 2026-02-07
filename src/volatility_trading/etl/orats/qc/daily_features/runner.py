@@ -3,7 +3,7 @@ volatility_trading.etl.orats.qc.daily_features.runner
 
 ORATS daily-features QC runner.
 
-Runs HARD and SOFT suites on the processed daily-features panel.
+Runs HARD, SOFT, and INFO suites on the processed daily-features panel.
 
 This module is read-only: it does not drop or modify rows.
 """
@@ -21,12 +21,12 @@ from volatility_trading.datasets import (
 from ..common_helpers import (
     compute_outcome,
     write_json_reports,
-    run_all_checks
+    run_all_checks,
 )
 from ..reporting import log_check
 from ..types import QCConfig, QCRunResult
 
-from .specs import get_hard_specs, get_soft_specs
+from .specs import get_hard_specs, get_info_specs, get_soft_specs
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def run_daily_features_qc(
 
     What it does:
     - Loads the processed daily-features panel from `proc_root` for `ticker`.
-    - Runs HARD and SOFT suites on the GLOBAL dataset.
+    - Runs HARD, SOFT, and INFO suites on the GLOBAL dataset.
     - Logs a compact line per check.
     - Optionally writes qc_summary.json and qc_config.json.
 
@@ -79,7 +79,7 @@ def run_daily_features_qc(
         exercise_style=None,
         hard_specs=get_hard_specs(),
         soft_specs=get_soft_specs(),
-        info_specs=None,
+        info_specs=get_info_specs(),
     )
 
     for r in results:

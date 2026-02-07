@@ -114,6 +114,7 @@ def run_all_checks(
                 df_global=df_global,
                 df_roi=df_roi,
                 info_specs=info_specs,
+                run_roi=config.run_roi,
             )
         )
     return results

@@ -1,29 +1,10 @@
 # qc/info/summarizers.py
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import polars as pl
-
-
-CORE_NUMERIC_COLS: tuple[str, ...] = (
-    "underlying_price",
-    "spot_price",
-    "bid_price",
-    "ask_price",
-    "mid_price",
-    "smoothed_iv",
-    "strike",
-    "dte",
-    "delta",
-    "gamma",
-    "vega",
-    "theta",
-    "risk_free_rate",
-    "dividend_yield",
-    "volume",
-    "open_interest",
-)
 
 
 def summarize_volume_oi_metrics(
@@ -101,18 +82,17 @@ def summarize_risk_free_rate_metrics(
 def summarize_core_numeric_stats(
     *,
     df: pl.DataFrame,
-    cols: list[str] | None = None,
+    cols: Sequence[str],
     quantiles: tuple[float, ...] = (0.0, 0.01, 0.05, 0.5, 0.95, 0.99, 1.0),
     strict: bool = False,
 ) -> dict[str, Any]:
     """
-    Summarize basic numeric stats for a core set of columns.
+    Summarize basic numeric stats for a provided set of columns.
     """
     if df.height == 0:
         return {"n_rows": 0, "cols_used": [], "missing_cols": [], "stats": {}}
 
-    # Default core columns should be defined at module level:
-    use_cols = list(cols) if cols is not None else list(CORE_NUMERIC_COLS)
+    use_cols = list(cols)
 
     missing_cols: list[str] = [c for c in use_cols if c not in df.columns]
     present_cols: list[str] = [c for c in use_cols if c in df.columns]
