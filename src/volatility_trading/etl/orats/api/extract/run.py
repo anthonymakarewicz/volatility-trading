@@ -71,6 +71,9 @@ def extract(
             for t in tickers
             if t is not None and str(t).strip()
         ]
+        # De-duplicate while preserving order
+        seen: set[str] = set()
+        tickers_clean = [t for t in tickers_clean if not (t in seen or seen.add(t))]
         if not tickers_clean:
             raise ValueError("tickers is passed but none of them is valid")
 
