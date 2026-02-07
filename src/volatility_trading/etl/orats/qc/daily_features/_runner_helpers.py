@@ -10,9 +10,9 @@ import polars as pl
 
 from volatility_trading.datasets import daily_features_path
 
+from ..hard.suite import run_hard_suite
 from ..reporting import write_config_json, write_summary_json
-from ..runners import run_hard_check, run_soft_check
-from ..soft.summarizers import summarize_by_bucket
+from ..soft.suite import run_soft_suite
 from ..types import (
     Grade,
     QCCheckResult,
@@ -32,63 +32,21 @@ def run_all_checks(
     """Run HARD and SOFT suites for daily-features QC."""
     results: list[QCCheckResult] = []
 
-    for spec in get_hard_specs():
-        results.append(
-            run_hard_check(
-                name=spec.name,
-                df=df_global,
-                predicate_expr=spec.predicate_expr,
-                sample_n=spec.sample_n,
-                sample_cols=spec.sample_cols,
-            )
+    results.extend(
+        run_hard_suite(
+            df_global=df_global,
+            hard_specs=get_hard_specs(),
         )
-
-    soft_thresholds = dict(config.soft_thresholds)
-
-    for spec in get_soft_specs():
-        summarizer = summarize_by_bucket if spec.summarize_by_bucket else None
-        summarizer_kwargs = (
-            {"dte_bins": config.dte_bins, "delta_bins": config.delta_bins}
-            if summarizer is not None
-            else {}
+    )
+    results.extend(
+        run_soft_suite(
+            df_global=df_global,
+            df_roi=df_global,
+            config=config,
+            exercise_style=None,
+            soft_specs=get_soft_specs(),
         )
-
-        if spec.by_option_type:
-            for opt in ["C", "P"]:
-                results.append(
-                    run_soft_check(
-                        name=f"GLOBAL_{spec.base_name}_{opt}",
-                        df=df_global,
-                        flagger=spec.flagger,
-                        violation_col=spec.violation_col,
-                        flagger_kwargs={
-                            "option_type": opt,
-                            **dict(spec.flagger_kwargs),
-                        },
-                        summarizer=summarizer,
-                        summarizer_kwargs=dict(summarizer_kwargs),
-                        thresholds=spec.thresholds or soft_thresholds,
-                        top_k_buckets=config.top_k_buckets,
-                        sample_cols=spec.sample_cols,
-                        sample_n=5,
-                    )
-                )
-        else:
-            results.append(
-                run_soft_check(
-                    name=f"GLOBAL_{spec.base_name}",
-                    df=df_global,
-                    flagger=spec.flagger,
-                    violation_col=spec.violation_col,
-                    flagger_kwargs=dict(spec.flagger_kwargs),
-                    summarizer=summarizer,
-                    summarizer_kwargs=dict(summarizer_kwargs),
-                    thresholds=spec.thresholds or soft_thresholds,
-                    top_k_buckets=config.top_k_buckets,
-                    sample_cols=spec.sample_cols,
-                    sample_n=5,
-                )
-            )
+    )
 
     return results
 

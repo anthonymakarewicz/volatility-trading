@@ -1,7 +1,7 @@
 # Volatility Trading Project Structure
 
 ```plaintext
-src/volatility_trading/
+src/volatility_trading
 ├── __init__.py
 ├── backtesting
 │   ├── __init__.py
@@ -72,10 +72,10 @@ src/volatility_trading/
 │       │   │   ├── __init__.py
 │       │   │   ├── api.py
 │       │   │   ├── config.py
-│       │   │   ├── io.py
 │       │   │   ├── manifest.py
 │       │   │   ├── steps
 │       │   │   │   ├── __init__.py
+│       │   │   │   ├── bounds.py
 │       │   │   │   ├── canonicalize.py
 │       │   │   │   ├── dedupe.py
 │       │   │   │   ├── join.py
@@ -83,27 +83,40 @@ src/volatility_trading/
 │       │   │   │   └── scan.py
 │       │   │   ├── transforms.py
 │       │   │   └── types.py
-│       │   └── options_chain
+│       │   ├── options_chain
+│       │   │   ├── __init__.py
+│       │   │   ├── api.py
+│       │   │   ├── config.py
+│       │   │   ├── io.py
+│       │   │   ├── manifest.py
+│       │   │   ├── steps
+│       │   │   │   ├── __init__.py
+│       │   │   │   ├── bounds.py
+│       │   │   │   ├── dedupe.py
+│       │   │   │   ├── enrich.py
+│       │   │   │   ├── features.py
+│       │   │   │   ├── filters.py
+│       │   │   │   ├── greeks.py
+│       │   │   │   ├── output.py
+│       │   │   │   └── scan.py
+│       │   │   ├── transforms.py
+│       │   │   └── types.py
+│       │   └── shared
 │       │       ├── __init__.py
-│       │       ├── api.py
-│       │       ├── config.py
+│       │       ├── bounds.py
 │       │       ├── io.py
+│       │       ├── log_fmt.py
 │       │       ├── manifest.py
-│       │       ├── steps
-│       │       │   ├── __init__.py
-│       │       │   ├── dedupe.py
-│       │       │   ├── enrich.py
-│       │       │   ├── features.py
-│       │       │   ├── filters.py
-│       │       │   ├── greeks.py
-│       │       │   ├── output.py
-│       │       │   └── scan.py
-│       │       ├── transforms.py
-│       │       └── types.py
+│       │       └── stats.py
 │       └── qc
 │           ├── __init__.py
 │           ├── _runner_helpers.py
 │           ├── api.py
+│           ├── daily_features
+│           │   ├── __init__.py
+│           │   ├── _runner_helpers.py
+│           │   ├── runner.py
+│           │   └── specs.py
 │           ├── hard
 │           │   ├── __init__.py
 │           │   ├── exprs.py
@@ -116,6 +129,7 @@ src/volatility_trading/
 │           │   ├── specs.py
 │           │   ├── suite.py
 │           │   └── summarizers.py
+│           ├── options_chain
 │           ├── orats_qc_plotting.py
 │           ├── reporting.py
 │           ├── runner.py
@@ -198,5 +212,5 @@ src/volatility_trading/
     ├── __init__.py
     └── logging_config.py
 
-35 directories, 161 files
+38 directories, 172 files
 ```

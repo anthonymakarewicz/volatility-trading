@@ -4,14 +4,18 @@ import polars as pl
 
 from ..runners import run_hard_check
 from ..types import QCCheckResult
-from .specs import get_hard_specs
+from .spec_types import HardSpec
 
 
-def run_hard_suite(*, df_global: pl.DataFrame) -> list[QCCheckResult]:
+def run_hard_suite(
+    *,
+    df_global: pl.DataFrame,
+    hard_specs: list[HardSpec],
+) -> list[QCCheckResult]:
     """Run HARD (must-pass) checks on the full dataset (GLOBAL)."""
     results: list[QCCheckResult] = []
 
-    for spec in get_hard_specs():
+    for spec in hard_specs:
         results.append(
             run_hard_check(
                 name=spec.name,

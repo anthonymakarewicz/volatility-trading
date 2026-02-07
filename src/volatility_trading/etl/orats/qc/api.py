@@ -1,7 +1,8 @@
 # qc/api.py
 from __future__ import annotations
 
-from .runner import run_qc
+from .daily_features.runner import run_daily_features_qc
+from .options_chain.runner import run_options_chain_qc
 from .types import (
     QCConfig,
     QCRunResult,
@@ -11,7 +12,8 @@ from .types import (
 )
 
 __all__ = [
-    "run_qc",
+    "run_options_chain_qc",
+    "run_daily_features_qc",
     "QCConfig",
     "QCRunResult",
     "QCCheckResult",

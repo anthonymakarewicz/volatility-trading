@@ -4,9 +4,9 @@ from __future__ import annotations
 import polars as pl
 
 from ..runners import run_soft_check, run_soft_check_dataset
-from .specs import get_soft_specs
 from .summarizers import summarize_by_bucket
 from ..types import QCCheckResult, QCConfig
+from .spec_types import SoftSpec
 from .utils import build_wide_views_if_needed, iter_subsets_for_spec
 
 
@@ -16,6 +16,7 @@ def run_soft_suite(
     df_roi: pl.DataFrame,
     config: QCConfig,
     exercise_style: str | None,
+    soft_specs: list[SoftSpec],
 ) -> list[QCCheckResult]:
     """
     Run SOFT checks for the options chain QC.
@@ -31,8 +32,6 @@ def run_soft_suite(
     """
     results: list[QCCheckResult] = []
     soft_thresholds = dict(config.soft_thresholds)
-
-    soft_specs = get_soft_specs(exercise_style=exercise_style)
 
     df_wide_global, df_wide_roi = build_wide_views_if_needed(
         df_global=df_global,

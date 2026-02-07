@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from .api import (
-    run_qc, 
+    run_options_chain_qc, 
+    run_daily_features_qc,
     QCConfig, 
     QCRunResult, 
     QCCheckResult, 
@@ -11,7 +12,8 @@ from .api import (
 )
 
 __all__ = [
-    "run_qc",
+    "run_options_chain_qc",
+    "run_daily_features_qc",
     "QCConfig",
     "QCRunResult",
     "QCCheckResult",

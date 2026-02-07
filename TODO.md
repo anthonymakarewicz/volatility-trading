@@ -6,51 +6,20 @@
 find a way to use pydantic for this Config since we would let the user enter 
 the data he wants
 
-## Daily Features Processed:
-- Implement processed/daily_features
-
-- Try makign heleprs in processed/otpiosn_chain used in daily_fetaures into a 
-processed/common/
-
-- Cretae a wrapper build with an optional flag to run for both the chain and
-the fetaures associated with the ticker specified in the config
-
-
 ## Quality Checks:
+- Refactor options QC into qc/options_chain
+
+- Add info checks for daily_features (maybe first need to refatcor the info/suite.py
+to make ROI run as optional; maybe ven remove ROI an dkepe optional)
+
+- Refatcor the runners and suite runners to accept direclty the specs list
+
+- Put shared code for options_chain & daily_features runners/helpers in shared/common
+
+- Rename path funciton in datasets/ prefix by get_* for options_chain & daily_features
+
 - Make the top n violaitons as part of Spec for Soft
-- Split package strcuture by QC name (options_chain vs daily_features) like this:
 
-```plaintext
-etl/orats/qc/
-  __init__.py
-  api.py                  # tiny stable public entrypoints
-  types.py
-  runners.py
-  report.py
-  serialization.py
-  summarizers.py          # truly shared summarizers only (rare)
-  common/                 # optional; only if this grows
-    __init__.py
-    manifest.py           # read_exercise_style etc if reused
-    roi.py                # apply_roi_filter if reused
-  suites/
-    __init__.py
-    options_chain/
-      __init__.py
-      run.py              # run_qc for options chain (or runner.py)
-      _run_helpers.py     # helpers for run_qc
-      hard/
-      soft/
-      info/
-    daily_features/
-      __init__.py
-      run.py
-      hard/
-      soft/
-      info/
-```
-
-- Implement qc/suites/daily_features
 
 ## Unit tests
 - Add unit tests
