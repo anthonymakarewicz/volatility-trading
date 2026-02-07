@@ -44,3 +44,4 @@ year_whitelist:
 raw_compression: gz
 overwrite: true
 parquet_compression: zstd
+fail_on_failed: true

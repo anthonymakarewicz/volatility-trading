@@ -16,6 +16,12 @@ import argparse
 import logging
 from typing import Any
 
+from volatility_trading.apps._cli import (
+    add_print_config_arg,
+    collect_logging_overrides,
+    ensure_list,
+    print_config,
+)
 from volatility_trading.cli import (
     DEFAULT_LOGGING,
     add_config_arg,
@@ -51,15 +57,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "raw_compression": "gz",
     "overwrite": True,
     "parquet_compression": "zstd",
+    # If True, exit non-zero if any raw files fail to read/parse.
+    "fail_on_failed": True,
 }
-
-
-def _ensure_list(value: Any) -> list[Any] | None:
-    if value is None:
-        return None
-    if isinstance(value, (list, tuple, set)):
-        return list(value)
-    return [value]
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -68,6 +68,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     add_config_arg(parser)
     add_logging_args(parser)
+    add_print_config_arg(parser)
 
     parser.add_argument(
         "--raw-root",
@@ -137,6 +138,20 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Parquet compression codec (e.g., zstd, snappy).",
     )
 
+    parser.add_argument(
+        "--fail-on-failed",
+        dest="fail_on_failed",
+        action="store_true",
+        help="Exit non-zero if any raw files fail during extraction.",
+    )
+    parser.add_argument(
+        "--no-fail-on-failed",
+        dest="fail_on_failed",
+        action="store_false",
+        help="Do not fail the exit code if some raw files fail.",
+    )
+    parser.set_defaults(fail_on_failed=None)
+
     return parser.parse_args(argv)
 
 
@@ -171,15 +186,10 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.parquet_compression:
         overrides["parquet_compression"] = args.parquet_compression
 
-    logging_overrides: dict[str, Any] = {}
-    if args.log_level:
-        logging_overrides["level"] = args.log_level
-    if args.log_file:
-        logging_overrides["file"] = args.log_file
-    if args.log_format:
-        logging_overrides["format"] = args.log_format
-    if args.log_color is not None:
-        logging_overrides["color"] = args.log_color
+    if args.fail_on_failed is not None:
+        overrides["fail_on_failed"] = args.fail_on_failed
+
+    logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
 
@@ -191,6 +201,10 @@ def main(argv: list[str] | None = None) -> None:
     overrides = _build_overrides(args)
     config = build_config(DEFAULT_CONFIG, args.config, overrides)
 
+    if args.print_config:
+        print_config(config)
+        return
+
     setup_logging_from_config(config.get("logging"))
     logger = logging.getLogger(__name__)
 
@@ -200,8 +214,8 @@ def main(argv: list[str] | None = None) -> None:
         raise ValueError("Both raw_root and intermediate_root must be set.")
 
     endpoint = config["endpoint"]
-    tickers = _ensure_list(config.get("tickers"))
-    year_whitelist = _ensure_list(config.get("year_whitelist"))
+    tickers = ensure_list(config.get("tickers"))
+    year_whitelist = ensure_list(config.get("year_whitelist"))
     raw_compression = config["raw_compression"]
     overwrite = config["overwrite"]
     parquet_compression = config["parquet_compression"]
@@ -214,11 +228,12 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("Raw compression:      %s", raw_compression)
     logger.info("Overwrite:            %s", overwrite)
     logger.info("Parquet compression:  %s", parquet_compression)
+    logger.info("Fail on failed:       %s", config["fail_on_failed"])
 
     raw_root.mkdir(parents=True, exist_ok=True)
     inter_root.mkdir(parents=True, exist_ok=True)
 
-    extract(
+    result = extract(
         endpoint=endpoint,
         raw_root=raw_root,
         intermediate_root=inter_root,
@@ -228,6 +243,13 @@ def main(argv: list[str] | None = None) -> None:
         overwrite=overwrite,
         parquet_compression=parquet_compression,
     )
+
+    if config["fail_on_failed"] and result.n_failed:
+        logger.error(
+            "Extraction finished with failures: n_failed=%d (see result.failed_paths)",
+            result.n_failed,
+        )
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

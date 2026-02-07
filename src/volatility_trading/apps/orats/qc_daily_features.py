@@ -15,6 +15,12 @@ import argparse
 import logging
 from typing import Any
 
+from volatility_trading.apps._cli import (
+    add_print_config_arg,
+    collect_logging_overrides,
+    ensure_list,
+    print_config,
+)
 from volatility_trading.cli import (
     DEFAULT_LOGGING,
     add_config_arg,
@@ -38,20 +44,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
-def _ensure_list(value: Any) -> list[Any] | None:
-    if value is None:
-        return None
-    if isinstance(value, (list, tuple, set)):
-        return list(value)
-    return [value]
-
-
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run QC on ORATS daily-features panels."
     )
     add_config_arg(parser)
     add_logging_args(parser)
+    add_print_config_arg(parser)
 
     parser.add_argument(
         "--proc-root",
@@ -105,15 +104,7 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.out_json is not None:
         overrides["out_json"] = args.out_json
 
-    logging_overrides: dict[str, Any] = {}
-    if args.log_level:
-        logging_overrides["level"] = args.log_level
-    if args.log_file:
-        logging_overrides["file"] = args.log_file
-    if args.log_format:
-        logging_overrides["format"] = args.log_format
-    if args.log_color is not None:
-        logging_overrides["color"] = args.log_color
+    logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
 
@@ -125,6 +116,10 @@ def main(argv: list[str] | None = None) -> None:
     overrides = _build_overrides(args)
     config = build_config(DEFAULT_CONFIG, args.config, overrides)
 
+    if args.print_config:
+        print_config(config)
+        return
+
     setup_logging_from_config(config.get("logging"))
     logger = logging.getLogger(__name__)
 
@@ -132,7 +127,7 @@ def main(argv: list[str] | None = None) -> None:
     if proc_root is None:
         raise ValueError("proc_root must be set.")
 
-    tickers = _ensure_list(config.get("tickers"))
+    tickers = ensure_list(config.get("tickers"))
     if not tickers:
         raise ValueError("tickers must be set.")
 
@@ -147,14 +142,20 @@ def main(argv: list[str] | None = None) -> None:
     if out_json:
         logger.info("Out JSON:   %s", out_json)
 
+    all_passed = True
     for ticker in tickers:
         logger.info("Running daily-features QC ticker=%s", ticker)
-        run_daily_features_qc(
+        result = run_daily_features_qc(
             ticker=ticker,
             proc_root=proc_root,
             out_json=out_json,
             write_json=write_json,
         )
+        if not result.passed:
+            all_passed = False
+
+    if not all_passed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

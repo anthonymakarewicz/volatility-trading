@@ -28,3 +28,4 @@ fields: null
 compression: gz
 overwrite: false
 sleep_s: 0.10
+fail_on_failed: true

@@ -9,6 +9,7 @@ paths:
 year_whitelist: null  # null = all years
 validate_zip: true
 max_workers: 3
+fail_on_failed: true
 
 ftp:
   user_env: ORATS_FTP_USER

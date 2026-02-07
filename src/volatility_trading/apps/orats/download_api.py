@@ -20,6 +20,12 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from volatility_trading.apps._cli import (
+    add_print_config_arg,
+    collect_logging_overrides,
+    ensure_list,
+    print_config,
+)
 from volatility_trading.cli import (
     DEFAULT_LOGGING,
     add_config_arg,
@@ -59,15 +65,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "compression": "gz",
     "overwrite": False,
     "sleep_s": 0.10,
+    # If True, exit non-zero if any requests failed (useful for cron/CI).
+    "fail_on_failed": True,
 }
-
-
-def _ensure_list(value: Any) -> list[Any] | None:
-    if value is None:
-        return None
-    if isinstance(value, (list, tuple, set)):
-        return list(value)
-    return [value]
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -76,6 +76,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     add_config_arg(parser)
     add_logging_args(parser)
+    add_print_config_arg(parser)
 
     parser.add_argument(
         "--raw-root",
@@ -146,6 +147,20 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--fail-on-failed",
+        dest="fail_on_failed",
+        action="store_true",
+        help="Exit non-zero if any requests fail.",
+    )
+    parser.add_argument(
+        "--no-fail-on-failed",
+        dest="fail_on_failed",
+        action="store_false",
+        help="Do not fail the exit code if some requests fail.",
+    )
+    parser.set_defaults(fail_on_failed=None)
+
+    parser.add_argument(
         "--token",
         type=str,
         default=None,
@@ -192,6 +207,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.sleep_s is not None:
         overrides["sleep_s"] = args.sleep_s
 
+    if args.fail_on_failed is not None:
+        overrides["fail_on_failed"] = args.fail_on_failed
+
     api_overrides: dict[str, Any] = {}
     if args.token is not None:
         api_overrides["token"] = args.token
@@ -200,15 +218,7 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if api_overrides:
         overrides["api"] = api_overrides
 
-    logging_overrides: dict[str, Any] = {}
-    if args.log_level:
-        logging_overrides["level"] = args.log_level
-    if args.log_file:
-        logging_overrides["file"] = args.log_file
-    if args.log_format:
-        logging_overrides["format"] = args.log_format
-    if args.log_color is not None:
-        logging_overrides["color"] = args.log_color
+    logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
 
@@ -219,6 +229,10 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     overrides = _build_overrides(args)
     config = build_config(DEFAULT_CONFIG, args.config, overrides)
+
+    if args.print_config:
+        print_config(config)
+        return
 
     setup_logging_from_config(config.get("logging"))
     logger = logging.getLogger(__name__)
@@ -238,9 +252,9 @@ def main(argv: list[str] | None = None) -> None:
         )
 
     endpoint = config["endpoint"]
-    tickers = _ensure_list(config.get("tickers"))
-    year_whitelist = _ensure_list(config.get("year_whitelist"))
-    fields = _ensure_list(config.get("fields"))
+    tickers = ensure_list(config.get("tickers"))
+    year_whitelist = ensure_list(config.get("year_whitelist"))
+    fields = ensure_list(config.get("fields"))
     compression = config["compression"]
     overwrite = config["overwrite"]
     sleep_s = config["sleep_s"]
@@ -253,10 +267,11 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("Compression:  %s", compression)
     logger.info("Overwrite:    %s", overwrite)
     logger.info("Sleep (s):    %s", sleep_s)
+    logger.info("Fail on failed: %s", config["fail_on_failed"])
 
     raw_root.mkdir(parents=True, exist_ok=True)
 
-    download(
+    result = download(
         token=token,
         endpoint=endpoint,
         raw_root=raw_root,
@@ -267,6 +282,14 @@ def main(argv: list[str] | None = None) -> None:
         overwrite=overwrite,
         compression=compression,
     )
+
+    if config["fail_on_failed"] and result.n_failed:
+        logger.error(
+            "Download finished with failures: n_failed=%d "
+            "(see result.failed_paths)",
+            result.n_failed,
+        )
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

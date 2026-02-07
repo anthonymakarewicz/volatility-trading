@@ -15,6 +15,12 @@ import argparse
 import logging
 from typing import Any
 
+from volatility_trading.apps._cli import (
+    add_print_config_arg,
+    collect_logging_overrides,
+    ensure_list,
+    print_config,
+)
 from volatility_trading.cli import (
     DEFAULT_LOGGING,
     add_config_arg,
@@ -39,20 +45,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
-def _ensure_list(value: Any) -> list[Any] | None:
-    if value is None:
-        return None
-    if isinstance(value, (list, tuple, set)):
-        return list(value)
-    return [value]
-
-
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Extract ORATS FTP ZIPs into intermediate Parquet."
     )
     add_config_arg(parser)
     add_logging_args(parser)
+    add_print_config_arg(parser)
 
     parser.add_argument(
         "--raw-root",
@@ -123,15 +122,7 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.strict is not None:
         overrides["strict"] = args.strict
 
-    logging_overrides: dict[str, Any] = {}
-    if args.log_level:
-        logging_overrides["level"] = args.log_level
-    if args.log_file:
-        logging_overrides["file"] = args.log_file
-    if args.log_format:
-        logging_overrides["format"] = args.log_format
-    if args.log_color is not None:
-        logging_overrides["color"] = args.log_color
+    logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
 
@@ -143,6 +134,10 @@ def main(argv: list[str] | None = None) -> None:
     overrides = _build_overrides(args)
     config = build_config(DEFAULT_CONFIG, args.config, overrides)
 
+    if args.print_config:
+        print_config(config)
+        return
+
     setup_logging_from_config(config.get("logging"))
     logger = logging.getLogger(__name__)
 
@@ -151,11 +146,11 @@ def main(argv: list[str] | None = None) -> None:
     if raw_root is None or out_root is None:
         raise ValueError("Both raw_root and out_root must be set.")
 
-    tickers = _ensure_list(config.get("tickers"))
+    tickers = ensure_list(config.get("tickers"))
     if not tickers:
         raise ValueError("tickers must be set for FTP extraction.")
 
-    year_whitelist = _ensure_list(config.get("year_whitelist"))
+    year_whitelist = ensure_list(config.get("year_whitelist"))
     strict = config["strict"]
 
     logger.info("Raw ORATS root:          %s", raw_root)
