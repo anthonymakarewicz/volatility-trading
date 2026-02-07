@@ -1,0 +1,16 @@
+# ORATS FTP extract config (CLI overrides YAML)
+logging:
+  level: DEBUG
+  color: true
+
+paths:
+  raw_root: data/raw/orats/ftp
+  out_root: data/intermediate/orats/ftp/strikes
+
+tickers:
+  - SPX
+
+year_whitelist:
+  - 2007
+
+strict: true

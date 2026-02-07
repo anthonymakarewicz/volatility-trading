@@ -1,0 +1,24 @@
+# ORATS options-chain build config (CLI overrides YAML)
+logging:
+  level: INFO
+  color: true
+
+paths:
+  inter_strikes_root: data/intermediate/orats/ftp/strikes
+  monies_implied_inter_root: data/intermediate/orats/api
+  proc_root: data/processed/orats/options_chain
+
+tickers:
+  - AAPL
+
+years: null
+
+dte_min: 1
+dte_max: 252
+moneyness_min: 0.7
+moneyness_max: 1.3
+
+columns: null
+collect_stats: true
+derive_put_greeks: false
+merge_dividend_yield: true

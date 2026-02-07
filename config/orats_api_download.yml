@@ -1,0 +1,30 @@
+# ORATS API download config (CLI overrides YAML)
+logging:
+  level: INFO
+  color: true
+
+paths:
+  raw_root: data/raw/orats/api
+
+api:
+  token_env: ORATS_API_KEY
+  token: null
+
+endpoint: ivrank
+tickers:
+  - SPX
+  - NDX
+  - VIX
+  - SPY
+  - QQQ
+  - IWM
+  - AAPL
+  - TSLA
+  - NVDA
+  - MSFT
+
+year_whitelist: null
+fields: null
+compression: gz
+overwrite: false
+sleep_s: 0.10

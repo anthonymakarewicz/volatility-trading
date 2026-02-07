@@ -1,0 +1,20 @@
+# ORATS daily-features build config (CLI overrides YAML)
+logging:
+  level: INFO
+  color: true
+
+paths:
+  inter_api_root: data/intermediate/orats/api
+  proc_root: data/processed/orats/daily_features
+
+tickers:
+  - AAPL
+
+endpoints:
+  - summaries
+  - hvs
+
+prefix_endpoint_cols: true
+priority_endpoints: null
+collect_stats: true
+columns: null

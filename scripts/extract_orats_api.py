@@ -1,103 +1,230 @@
-
-
 """Extract ORATS API raw snapshots into intermediate parquet.
-
-This script converts raw ORATS API payloads stored under your raw data folder
-(JSON or JSON.GZ, as produced by the API downloader) into ticker-centric
-intermediate parquet files.
 
 Typical usage
 -------------
-Run from the repo root:
+    python scripts/extract_orats_api.py --config config/orats_api_extract.yml
+    python scripts/extract_orats_api.py --endpoint hvs --tickers SPX NDX
 
-    python scripts/extract_orats_api.py
-
-Adjust the configuration constants in this file (ENDPOINT, TICKERS, YEARS,
-paths, etc.) to match what you want to extract.
+Config precedence: CLI > YAML > defaults.
 """
 
 from __future__ import annotations
 
+import argparse
 import logging
+from typing import Any
 
-from volatility_trading.utils.logging_config import setup_logging
+from volatility_trading.cli import (
+    DEFAULT_LOGGING,
+    add_config_arg,
+    add_logging_args,
+    build_config,
+    resolve_path,
+    setup_logging_from_config,
+)
+from volatility_trading.config.paths import INTER_ORATS_API, RAW_ORATS_API
 from volatility_trading.etl.orats.api import extract
-from volatility_trading.config.paths import RAW_ORATS_API, INTER_ORATS_API
 
 
-# ----------------------------------------------------------------------------
-# Configuration
-# ----------------------------------------------------------------------------
+DEFAULT_CONFIG: dict[str, Any] = {
+    "logging": DEFAULT_LOGGING,
+    "paths": {
+        "raw_root": RAW_ORATS_API,
+        "intermediate_root": INTER_ORATS_API,
+    },
+    "endpoint": "hvs",
+    "tickers": [
+        "SPX",
+        "NDX",
+        "VIX",
+        "SPY",
+        "QQQ",
+        "IWM",
+        "AAPL",
+        "TSLA",
+        "NVDA",
+        "MSFT",
+    ],
+    "year_whitelist": list(range(2007, 2026)),
+    "raw_compression": "gz",
+    "overwrite": True,
+    "parquet_compression": "zstd",
+}
 
-# Data locations (edit to your paths)
-RAW_ORATS_ROOT = RAW_ORATS_API
-INTER_ORATS_ROOT = INTER_ORATS_API
 
-# Endpoint to extract (must exist in orats_api_endpoints.ENDPOINTS)
-ENDPOINT = "hvs"
+def _ensure_list(value: Any) -> list[Any] | None:
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple, set)):
+        return list(value)
+    return [value]
 
-# Extraction scope
-TICKERS = [
-    "SPX",
-    "NDX",
-    "VIX",
-    "SPY",
-    "QQQ",
-    "IWM",
-    "AAPL",
-    "TSLA",
-    "NVDA",
-    "MSFT",
-]
 
-# Only needed for BY_TRADE_DATE endpoints. Ignored for FULL_HISTORY endpoints.
-YEAR_WHITELIST = list(range(2007, 2026))
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Extract ORATS API snapshots into intermediate parquet."
+    )
+    add_config_arg(parser)
+    add_logging_args(parser)
 
-# Raw snapshot compression mode used in the raw folder.
-# Must match how you downloaded raw ("gz" or "none").
-RAW_COMPRESSION = "gz"
+    parser.add_argument(
+        "--raw-root",
+        type=str,
+        default=None,
+        help="Raw ORATS API root directory.",
+    )
+    parser.add_argument(
+        "--intermediate-root",
+        type=str,
+        default=None,
+        help="Intermediate ORATS API root directory.",
+    )
+    parser.add_argument(
+        "--endpoint",
+        type=str,
+        default=None,
+        help="Endpoint name (must exist in ORATS endpoints mapping).",
+    )
+    parser.add_argument(
+        "--tickers",
+        nargs="+",
+        default=None,
+        help="Ticker allowlist (space-separated).",
+    )
+    parser.add_argument(
+        "--all-tickers",
+        action="store_true",
+        help="Ignore ticker allowlist and use all tickers in data.",
+    )
+    parser.add_argument(
+        "--years",
+        nargs="+",
+        type=int,
+        default=None,
+        help="Year allowlist for BY_TRADE_DATE endpoints.",
+    )
+    parser.add_argument(
+        "--all-years",
+        action="store_true",
+        help="Do not restrict by year (FULL_HISTORY endpoints only).",
+    )
+    parser.add_argument(
+        "--raw-compression",
+        type=str,
+        default=None,
+        choices=["gz", "none"],
+        help="Raw snapshot compression ('gz' or 'none').",
+    )
+    parser.add_argument(
+        "--overwrite",
+        dest="overwrite",
+        action="store_true",
+        help="Overwrite existing intermediate files.",
+    )
+    parser.add_argument(
+        "--no-overwrite",
+        dest="overwrite",
+        action="store_false",
+        help="Skip files that already exist.",
+    )
+    parser.set_defaults(overwrite=None)
+    parser.add_argument(
+        "--parquet-compression",
+        type=str,
+        default=None,
+        help="Parquet compression codec (e.g., zstd, snappy).",
+    )
 
-# Logging
-LOG_LEVEL = "INFO"  # "DEBUG" for more verbosity
-LOG_COLORED = True
-LOG_FILE = None  # e.g. "logs/extract_orats_api.log"
-LOG_FMT_CONSOLE = "%(asctime)s %(levelname)s %(shortname)s - %(message)s"
+    return parser.parse_args()
 
-# Extraction options
-OVERWRITE = True
-PARQUET_COMPRESSION = "zstd"  # "zstd" is a good default for intermediate
+
+def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
+    overrides: dict[str, Any] = {}
+
+    paths: dict[str, Any] = {}
+    if args.raw_root:
+        paths["raw_root"] = args.raw_root
+    if args.intermediate_root:
+        paths["intermediate_root"] = args.intermediate_root
+    if paths:
+        overrides["paths"] = paths
+
+    if args.endpoint:
+        overrides["endpoint"] = args.endpoint
+
+    if args.all_tickers:
+        overrides["tickers"] = None
+    elif args.tickers is not None:
+        overrides["tickers"] = args.tickers
+
+    if args.all_years:
+        overrides["year_whitelist"] = None
+    elif args.years is not None:
+        overrides["year_whitelist"] = args.years
+
+    if args.raw_compression:
+        overrides["raw_compression"] = args.raw_compression
+    if args.overwrite is not None:
+        overrides["overwrite"] = args.overwrite
+    if args.parquet_compression:
+        overrides["parquet_compression"] = args.parquet_compression
+
+    logging_overrides: dict[str, Any] = {}
+    if args.log_level:
+        logging_overrides["level"] = args.log_level
+    if args.log_file:
+        logging_overrides["file"] = args.log_file
+    if args.log_format:
+        logging_overrides["format"] = args.log_format
+    if args.log_color is not None:
+        logging_overrides["color"] = args.log_color
+    if logging_overrides:
+        overrides["logging"] = logging_overrides
+
+    return overrides
 
 
 def main() -> None:
-    setup_logging(
-        LOG_LEVEL,
-        fmt_console=LOG_FMT_CONSOLE,
-        log_file=LOG_FILE,
-        colored=LOG_COLORED,
-    )
+    args = _parse_args()
+    overrides = _build_overrides(args)
+    config = build_config(DEFAULT_CONFIG, args.config, overrides)
+
+    setup_logging_from_config(config.get("logging"))
     logger = logging.getLogger(__name__)
 
-    logger.info("RAW API root:         %s", RAW_ORATS_API)
-    logger.info("Intermediate API root:%s", INTER_ORATS_API)
-    logger.info("Endpoint:             %s", ENDPOINT)
-    logger.info("Tickers:              %s", TICKERS)
-    logger.info("Years:                %s", YEAR_WHITELIST)
-    logger.info("Raw compression:      %s", RAW_COMPRESSION)
-    logger.info("Overwrite:            %s", OVERWRITE)
-    logger.info("Parquet compression:  %s", PARQUET_COMPRESSION)
+    raw_root = resolve_path(config["paths"]["raw_root"])
+    inter_root = resolve_path(config["paths"]["intermediate_root"])
+    if raw_root is None or inter_root is None:
+        raise ValueError("Both raw_root and intermediate_root must be set.")
 
-    RAW_ORATS_API.mkdir(parents=True, exist_ok=True)
-    INTER_ORATS_API.mkdir(parents=True, exist_ok=True)
+    endpoint = config["endpoint"]
+    tickers = _ensure_list(config.get("tickers"))
+    year_whitelist = _ensure_list(config.get("year_whitelist"))
+    raw_compression = config["raw_compression"]
+    overwrite = config["overwrite"]
+    parquet_compression = config["parquet_compression"]
 
-    result = extract(
-        endpoint=ENDPOINT,
-        raw_root=RAW_ORATS_ROOT,
-        intermediate_root=INTER_ORATS_ROOT,
-        tickers=TICKERS,
-        year_whitelist=YEAR_WHITELIST,
-        compression=RAW_COMPRESSION,
-        overwrite=OVERWRITE,
-        parquet_compression=PARQUET_COMPRESSION,
+    logger.info("RAW API root:         %s", raw_root)
+    logger.info("Intermediate API root:%s", inter_root)
+    logger.info("Endpoint:             %s", endpoint)
+    logger.info("Tickers:              %s", tickers)
+    logger.info("Years:                %s", year_whitelist)
+    logger.info("Raw compression:      %s", raw_compression)
+    logger.info("Overwrite:            %s", overwrite)
+    logger.info("Parquet compression:  %s", parquet_compression)
+
+    raw_root.mkdir(parents=True, exist_ok=True)
+    inter_root.mkdir(parents=True, exist_ok=True)
+
+    extract(
+        endpoint=endpoint,
+        raw_root=raw_root,
+        intermediate_root=inter_root,
+        tickers=tickers,
+        year_whitelist=year_whitelist,
+        compression=raw_compression,
+        overwrite=overwrite,
+        parquet_compression=parquet_compression,
     )
 
 

@@ -1,0 +1,13 @@
+# ORATS daily-features QC config (CLI overrides YAML)
+logging:
+  level: INFO
+  color: true
+
+paths:
+  proc_root: data/processed/orats/daily_features
+
+tickers:
+  - AAPL
+
+write_json: true
+out_json: null
