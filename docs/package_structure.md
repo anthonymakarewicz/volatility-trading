@@ -1,4 +1,4 @@
-# Volatility Trading Project Structure
+# Volatility Trading Package Structure
 
 ```plaintext
 src/volatility_trading

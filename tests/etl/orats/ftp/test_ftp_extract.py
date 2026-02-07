@@ -6,21 +6,22 @@ from pathlib import Path
 import pytest
 
 
+def _make_year_dir(raw_root: Path, year: str, base: str = "smvstrikes") -> Path:
+    year_dir = raw_root / base / year
+    year_dir.mkdir(parents=True)
+    return year_dir
+
+
 def test_ftp_extract_respects_year_whitelist_and_writes_partitions(
-    monkeypatch, tmp_path: Path
+    monkeypatch, ftp_roots, write_zip_files, write_parquet_stub
 ) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.extract.run")
 
-    raw_root = tmp_path / "raw"
-    out_root = tmp_path / "out"
-    year_2020 = raw_root / "smvstrikes" / "2020"
-    year_2021 = raw_root / "smvstrikes" / "2021"
-    year_2020.mkdir(parents=True)
-    year_2021.mkdir(parents=True)
-
-    (year_2020 / "a.zip").write_text("", encoding="utf-8")
-    (year_2020 / "b.zip").write_text("", encoding="utf-8")
-    (year_2021 / "c.zip").write_text("", encoding="utf-8")
+    raw_root, out_root = ftp_roots
+    year_2020 = _make_year_dir(raw_root, "2020")
+    year_2021 = _make_year_dir(raw_root, "2021")
+    write_zip_files(year_2020, ["a.zip", "b.zip"])
+    write_zip_files(year_2021, ["c.zip"])
 
     def _read_zip(path: Path):
         # Include both tickers so we get one output parquet per ticker.
@@ -33,12 +34,7 @@ def test_ftp_extract_respects_year_whitelist_and_writes_partitions(
 
     monkeypatch.setattr(mod, "read_orats_zip_to_polars", _read_zip)
 
-    def _fake_write_parquet(self, file, *args, **kwargs) -> None:
-        p = Path(file)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(b"")
-
-    monkeypatch.setattr(mod.pl.DataFrame, "write_parquet", _fake_write_parquet)
+    monkeypatch.setattr(mod.pl.DataFrame, "write_parquet", write_parquet_stub)
 
     result = mod.extract(
         raw_root=raw_root,
@@ -63,24 +59,20 @@ def test_ftp_extract_respects_year_whitelist_and_writes_partitions(
     assert not (out_root / "underlying=AAPL" / "year=2021").exists()
 
 
-def test_ftp_extract_strict_raises_on_failed_zip(monkeypatch, tmp_path: Path) -> None:
+def test_ftp_extract_strict_raises_on_failed_zip(
+    monkeypatch, ftp_roots, write_zip_files, write_parquet_stub
+) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.extract.run")
 
-    raw_root = tmp_path / "raw"
-    out_root = tmp_path / "out"
-    year_2020 = raw_root / "smvstrikes" / "2020"
-    year_2020.mkdir(parents=True)
-    (year_2020 / "bad.zip").write_text("", encoding="utf-8")
+    raw_root, out_root = ftp_roots
+    year_2020 = _make_year_dir(raw_root, "2020")
+    write_zip_files(year_2020, ["bad.zip"])
 
     def _read_zip_fail(path: Path):
         raise mod.NoDataError("no rows")
 
     monkeypatch.setattr(mod, "read_orats_zip_to_polars", _read_zip_fail)
-    monkeypatch.setattr(
-        mod.pl.DataFrame,
-        "write_parquet",
-        lambda self, file, *args, **kwargs: Path(file).write_bytes(b""),
-    )
+    monkeypatch.setattr(mod.pl.DataFrame, "write_parquet", write_parquet_stub)
 
     with pytest.raises(RuntimeError, match="problematic ZIP files"):
         mod.extract(
@@ -92,15 +84,15 @@ def test_ftp_extract_strict_raises_on_failed_zip(monkeypatch, tmp_path: Path) ->
         )
 
 
-def test_ftp_extract_non_strict_records_failures(monkeypatch, tmp_path: Path) -> None:
+def test_ftp_extract_non_strict_records_failures(
+    monkeypatch, ftp_roots, write_zip_files
+) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.extract.run")
 
-    raw_root = tmp_path / "raw"
-    out_root = tmp_path / "out"
-    year_2020 = raw_root / "smvstrikes" / "2020"
-    year_2020.mkdir(parents=True)
+    raw_root, out_root = ftp_roots
+    year_2020 = _make_year_dir(raw_root, "2020")
     bad = year_2020 / "bad.zip"
-    bad.write_text("", encoding="utf-8")
+    write_zip_files(year_2020, [bad.name])
 
     def _read_zip_fail(path: Path):
         raise mod.NoDataError("no rows")
@@ -122,28 +114,21 @@ def test_ftp_extract_non_strict_records_failures(monkeypatch, tmp_path: Path) ->
     assert result.n_out_files == 0
 
 
-def test_ftp_extract_deduplicates_exact_rows(monkeypatch, tmp_path: Path) -> None:
+def test_ftp_extract_deduplicates_exact_rows(
+    monkeypatch, ftp_roots, write_zip_files, write_parquet_stub
+) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.extract.run")
 
-    raw_root = tmp_path / "raw"
-    out_root = tmp_path / "out"
-    year_2020 = raw_root / "smvstrikes" / "2020"
-    year_2020.mkdir(parents=True)
-
-    (year_2020 / "a.zip").write_text("", encoding="utf-8")
-    (year_2020 / "b.zip").write_text("", encoding="utf-8")
+    raw_root, out_root = ftp_roots
+    year_2020 = _make_year_dir(raw_root, "2020")
+    write_zip_files(year_2020, ["a.zip", "b.zip"])
 
     def _read_zip(path: Path):
         return mod.pl.DataFrame({mod.ROOT_COL: ["SPX"], "x": [1]})
 
     monkeypatch.setattr(mod, "read_orats_zip_to_polars", _read_zip)
 
-    def _fake_write_parquet(self, file, *args, **kwargs) -> None:
-        p = Path(file)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(b"")
-
-    monkeypatch.setattr(mod.pl.DataFrame, "write_parquet", _fake_write_parquet)
+    monkeypatch.setattr(mod.pl.DataFrame, "write_parquet", write_parquet_stub)
 
     result = mod.extract(
         raw_root=raw_root,
