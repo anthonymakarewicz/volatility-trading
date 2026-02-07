@@ -100,6 +100,8 @@ python-dateutil==2.9.0.post0
     #   pandas
 python-dotenv==1.2.1
     # via -r requirements.in
+pyyaml==6.0.2
+    # via -r requirements.in
 pytz==2025.2
     # via
     #   pandas

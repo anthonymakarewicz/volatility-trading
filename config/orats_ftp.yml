@@ -1,0 +1,19 @@
+# ORATS FTP download config (CLI overrides YAML)
+logging:
+  level: INFO
+  color: true
+
+paths:
+  raw_root: data/raw/orats/ftp
+
+year_whitelist: null  # null = all years
+validate_zip: true
+max_workers: 3
+
+ftp:
+  user_env: ORATS_FTP_USER
+  pass_env: ORATS_FTP_PASS
+  user: null
+  password: null
+  host: null
+  remote_base_dirs: null

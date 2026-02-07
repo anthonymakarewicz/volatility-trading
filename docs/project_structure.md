@@ -10,6 +10,10 @@ src/volatility_trading
 │   ├── metrics.py
 │   ├── plotting.py
 │   └── types.py
+├── cli
+│   ├── __init__.py
+│   ├── config.py
+│   └── logging.py
 ├── config
 │   ├── __init__.py
 │   ├── constants.py
@@ -110,29 +114,46 @@ src/volatility_trading
 │       │       └── stats.py
 │       └── qc
 │           ├── __init__.py
-│           ├── _runner_helpers.py
 │           ├── api.py
+│           ├── common_helpers.py
 │           ├── daily_features
 │           │   ├── __init__.py
-│           │   ├── _runner_helpers.py
+│           │   ├── hard
+│           │   │   ├── __init__.py
+│           │   │   └── specs.py
+│           │   ├── info
+│           │   │   ├── __init__.py
+│           │   │   └── specs.py
 │           │   ├── runner.py
-│           │   └── specs.py
+│           │   ├── soft
+│           │   │   ├── __init__.py
+│           │   │   └── specs.py
+│           │   └── specs_base.py
 │           ├── hard
 │           │   ├── __init__.py
 │           │   ├── exprs.py
 │           │   ├── spec_types.py
-│           │   ├── specs.py
 │           │   └── suite.py
 │           ├── info
 │           │   ├── __init__.py
 │           │   ├── spec_types.py
-│           │   ├── specs.py
 │           │   ├── suite.py
 │           │   └── summarizers.py
 │           ├── options_chain
-│           ├── orats_qc_plotting.py
+│           │   ├── __init__.py
+│           │   ├── hard
+│           │   │   ├── __init__.py
+│           │   │   └── specs.py
+│           │   ├── helpers.py
+│           │   ├── info
+│           │   │   ├── __init__.py
+│           │   │   └── specs.py
+│           │   ├── runner.py
+│           │   └── soft
+│           │       ├── __init__.py
+│           │       └── specs.py
+│           ├── plotting.py
 │           ├── reporting.py
-│           ├── runner.py
 │           ├── runners.py
 │           ├── serialization.py
 │           ├── soft
@@ -152,7 +173,6 @@ src/volatility_trading
 │           │   │   ├── quotes.py
 │           │   │   └── volume_oi.py
 │           │   ├── spec_types.py
-│           │   ├── specs.py
 │           │   ├── suite.py
 │           │   ├── summarizers.py
 │           │   └── utils.py
@@ -212,5 +232,5 @@ src/volatility_trading
     ├── __init__.py
     └── logging_config.py
 
-38 directories, 172 files
+45 directories, 185 files
 ```

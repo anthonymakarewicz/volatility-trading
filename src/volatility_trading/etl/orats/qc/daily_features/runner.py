@@ -26,7 +26,9 @@ from ..common_helpers import (
 from ..reporting import log_check
 from ..types import QCConfig, QCRunResult
 
-from .specs import get_hard_specs, get_info_specs, get_soft_specs
+from .hard.specs import get_hard_specs
+from .info.specs import get_info_specs
+from .soft.specs import get_soft_specs
 
 logger = logging.getLogger(__name__)
 
