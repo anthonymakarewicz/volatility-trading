@@ -45,7 +45,12 @@ def read_exercise_style(*, parquet_path: Path | None) -> str | None:
             return None
 
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        style = payload.get("exercise_style", None)
+
+        params = payload.get("params")
+        if not isinstance(params, dict):
+            return None
+
+        style = params.get("exercise_style", None)
         return style if style in {"EU", "AM"} else None
     except Exception:
         return None

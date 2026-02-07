@@ -68,6 +68,16 @@ def run_soft_suite(
             # -----------------------------------------------------------------
             # Row-level checks
             # -----------------------------------------------------------------
+            summarizer = summarize_by_bucket if spec.summarize_by_bucket else None
+            summarizer_kwargs = (
+                {
+                    "dte_bins": config.dte_bins,
+                    "delta_bins": config.delta_bins,
+                }
+                if summarizer is not None
+                else {}
+            )
+
             if spec.by_option_type:
                 for opt in ["C", "P"]:
                     results.append(
@@ -80,11 +90,8 @@ def run_soft_suite(
                                 "option_type": opt,
                                 **dict(spec.flagger_kwargs),
                             },
-                            summarizer=summarize_by_bucket,
-                            summarizer_kwargs={
-                                "dte_bins": config.dte_bins,
-                                "delta_bins": config.delta_bins,
-                            },
+                            summarizer=summarizer,
+                            summarizer_kwargs=dict(summarizer_kwargs),
                             thresholds=spec.thresholds or soft_thresholds,
                             top_k_buckets=config.top_k_buckets,
                             sample_cols=spec.sample_cols,
@@ -99,11 +106,8 @@ def run_soft_suite(
                         flagger=spec.flagger,
                         violation_col=spec.violation_col,
                         flagger_kwargs=dict(spec.flagger_kwargs),
-                        summarizer=summarize_by_bucket,
-                        summarizer_kwargs={
-                            "dte_bins": config.dte_bins,
-                            "delta_bins": config.delta_bins,
-                        },
+                        summarizer=summarizer,
+                        summarizer_kwargs=dict(summarizer_kwargs),
                         thresholds=spec.thresholds or soft_thresholds,
                         top_k_buckets=config.top_k_buckets,
                         sample_cols=spec.sample_cols,
