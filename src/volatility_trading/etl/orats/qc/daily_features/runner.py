@@ -18,14 +18,15 @@ from volatility_trading.datasets import (
     daily_features_path,
 )
 
+from ..common_helpers import (
+    compute_outcome,
+    write_json_reports,
+    run_all_checks
+)
 from ..reporting import log_check
 from ..types import QCConfig, QCRunResult
-from ._runner_helpers import (
-    compute_outcome,
-    run_all_checks,
-    write_json_reports,
-)
-                                         
+
+from .specs import get_hard_specs, get_soft_specs
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,12 @@ def run_daily_features_qc(
 
     results = run_all_checks(
         df_global=df,
+        df_roi=df,
         config=config,
+        exercise_style=None,
+        hard_specs=get_hard_specs(),
+        soft_specs=get_soft_specs(),
+        info_specs=None,
     )
 
     for r in results:
@@ -83,11 +89,13 @@ def run_daily_features_qc(
         write_json=write_json,
         out_json=out_json,
         parquet_path=parquet_path,
-        proc_root=proc_root_p,
-        ticker=ticker_s,
         results=results,
         config=config,
+        missing_error_prefix="Processed daily features not found",
     )
+    if out_summary_json is not None:
+        logger.info("QC summary written: %s", out_summary_json)
+        logger.info("QC config written:  %s", out_config_json)
 
     passed, n_hard_fail, n_soft_fail, n_soft_warn = compute_outcome(results)
     duration_s = time.perf_counter() - t0

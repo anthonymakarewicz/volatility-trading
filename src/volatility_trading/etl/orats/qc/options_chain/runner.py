@@ -17,17 +17,23 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
-from ..reporting import log_check
-from ._runner_helpers import (
-    apply_roi_filter,
+from ..common_helpers import (
     compute_outcome,
+    write_json_reports,
+    run_all_checks
+)
+from ..reporting import log_check
+from ..types import QCConfig, QCRunResult
+
+from .helpers import (
+    apply_roi_filter,
     get_parquet_path,
     load_options_chain_df,
     read_exercise_style,
-    run_all_checks,
-    write_json_reports,
 )
-from ..types import QCConfig, QCRunResult
+from .hard.specs import get_hard_specs
+from .info.specs import get_info_specs
+from .soft.specs import get_soft_specs
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +120,9 @@ def run_options_chain_qc(
         df_roi=df_roi,
         config=config,
         exercise_style=exercise_style,
+        hard_specs=get_hard_specs(),
+        soft_specs=get_soft_specs(exercise_style=exercise_style),
+        info_specs=get_info_specs(),
     )
 
     for r in results:
@@ -123,11 +132,13 @@ def run_options_chain_qc(
         write_json=write_json,
         out_json=out_json,
         parquet_path=parquet_path,
-        proc_root=proc_root_p,
-        ticker=ticker_s,
         results=results,
         config=config,
+        missing_error_prefix="Processed options chain not found",
     )
+    if out_summary_json is not None:
+        logger.info("QC summary written: %s", out_summary_json)
+        logger.info("QC config written:  %s", out_config_json)
 
     passed, n_hard_fail, n_soft_fail, n_soft_warn = compute_outcome(results)
     duration_s = time.perf_counter() - t0
