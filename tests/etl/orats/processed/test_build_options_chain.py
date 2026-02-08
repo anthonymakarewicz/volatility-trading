@@ -40,7 +40,9 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
             stats.n_rows_after_dedupe = 90
         return "LF2"
 
-    def _merge_yield(*, lf, collect_stats: bool, stats, merge_dividend_yield: bool, **kwargs):
+    def _merge_yield(
+        *, lf, collect_stats: bool, stats, merge_dividend_yield: bool, **kwargs
+    ):
         calls.append(("merge_dividend_yield", merge_dividend_yield))
         assert lf == "LF2"
         if collect_stats:
@@ -64,7 +66,9 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
         assert lf == "LF5"
         return "LF6"
 
-    def _filters(*, lf, collect_stats: bool, stats, dte_min: int, dte_max: int, **kwargs):
+    def _filters(
+        *, lf, collect_stats: bool, stats, dte_min: int, dte_max: int, **kwargs
+    ):
         calls.append(("apply_filters", (dte_min, dte_max)))
         assert lf == "LF6"
         if collect_stats:
@@ -78,7 +82,9 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
         return "LF8"
 
     def _put_greeks_simple(*, lf):
-        pytest.fail("add_put_greeks_simple should not be called when derive_put_greeks=True")
+        pytest.fail(
+            "add_put_greeks_simple should not be called when derive_put_greeks=True"
+        )
 
     out_path = tmp_path / "underlying=SPX" / "part-0000.parquet"
 
@@ -99,7 +105,9 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
         return p
 
     monkeypatch.setattr(mod.steps, "scan_inputs", _scan_inputs)
-    monkeypatch.setattr(mod.steps, "filter_preferred_opra_root", _filter_preferred_opra_root)
+    monkeypatch.setattr(
+        mod.steps, "filter_preferred_opra_root", _filter_preferred_opra_root
+    )
     monkeypatch.setattr(mod.steps, "dedupe_options_chain", _dedupe)
     monkeypatch.setattr(mod.steps, "merge_dividend_yield", _merge_yield)
     monkeypatch.setattr(mod.steps, "unify_spot_price", _unify_spot)
@@ -155,7 +163,9 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
     assert "built_at_utc" in payload
 
 
-def test_build_options_chain_put_greeks_simple_mode(monkeypatch, tmp_path: Path) -> None:
+def test_build_options_chain_put_greeks_simple_mode(
+    monkeypatch, tmp_path: Path
+) -> None:
     mod = importlib.import_module(
         "volatility_trading.etl.orats.processed.options_chain.api"
     )
@@ -176,13 +186,19 @@ def test_build_options_chain_put_greeks_simple_mode(monkeypatch, tmp_path: Path)
         return lf
 
     monkeypatch.setattr(mod.steps, "add_put_greeks_simple", _simple)
-    monkeypatch.setattr(mod.steps, "add_put_greeks", lambda **kwargs: pytest.fail("should not call parity greeks"))
+    monkeypatch.setattr(
+        mod.steps,
+        "add_put_greeks",
+        lambda **kwargs: pytest.fail("should not call parity greeks"),
+    )
     monkeypatch.setattr(
         mod.steps,
         "collect_and_write",
         lambda **kwargs: (_DummyDF(columns=["x"], height=1), tmp_path / "out.parquet"),
     )
-    monkeypatch.setattr(mod, "write_manifest_json", lambda **kwargs: tmp_path / "manifest.json")
+    monkeypatch.setattr(
+        mod, "write_manifest_json", lambda **kwargs: tmp_path / "manifest.json"
+    )
 
     mod.build(
         inter_root=tmp_path / "inter",
@@ -195,4 +211,3 @@ def test_build_options_chain_put_greeks_simple_mode(monkeypatch, tmp_path: Path)
     )
 
     assert called["simple"] == 1
-

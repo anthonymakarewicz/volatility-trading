@@ -44,13 +44,28 @@ def test_build_daily_features_collect_stats_and_manifest_missing_endpoints(
     )
 
     # Only return one endpoint LF so we can validate missing_endpoints reporting.
-    def _scan_inputs(*, inter_api_root: Path, ticker: str, endpoints, collect_stats: bool, stats_input_by_endpoint, **kwargs):
+    def _scan_inputs(
+        *,
+        inter_api_root: Path,
+        ticker: str,
+        endpoints,
+        collect_stats: bool,
+        stats_input_by_endpoint,
+        **kwargs,
+    ):
         assert collect_stats is True
         assert stats_input_by_endpoint is not None
         stats_input_by_endpoint["summaries"] = 10
         return {"summaries": "LF_SUM"}
 
-    def _dedupe_endpoint(*, lf, endpoint: str, collect_stats: bool, stats_after_dedupe_by_endpoint, **kwargs):
+    def _dedupe_endpoint(
+        *,
+        lf,
+        endpoint: str,
+        collect_stats: bool,
+        stats_after_dedupe_by_endpoint,
+        **kwargs,
+    ):
         assert collect_stats is True
         assert stats_after_dedupe_by_endpoint is not None
         stats_after_dedupe_by_endpoint[endpoint] = 9
@@ -60,14 +75,18 @@ def test_build_daily_features_collect_stats_and_manifest_missing_endpoints(
     monkeypatch.setattr(mod.steps, "dedupe_endpoint", _dedupe_endpoint)
     monkeypatch.setattr(mod.steps, "apply_bounds", lambda **kwargs: kwargs["lf"])
 
-    def _build_spine(*, lfs: dict, endpoints, collect_stats: bool, stats_n_rows_spine, **kwargs):
+    def _build_spine(
+        *, lfs: dict, endpoints, collect_stats: bool, stats_n_rows_spine, **kwargs
+    ):
         assert set(lfs.keys()) == {"summaries"}
         assert stats_n_rows_spine is not None
         stats_n_rows_spine.append(9)
         return "SPINE"
 
     monkeypatch.setattr(mod.steps, "build_key_spine", _build_spine)
-    monkeypatch.setattr(mod.steps, "join_endpoints_on_spine", lambda **kwargs: "LF_JOINED")
+    monkeypatch.setattr(
+        mod.steps, "join_endpoints_on_spine", lambda **kwargs: "LF_JOINED"
+    )
     monkeypatch.setattr(mod.steps, "canonicalize_columns", lambda **kwargs: "LF_CANON")
 
     out_path = tmp_path / "underlying=SPX" / "part-0000.parquet"
@@ -115,4 +134,3 @@ def test_build_daily_features_collect_stats_and_manifest_missing_endpoints(
     assert payload["params"]["missing_endpoints"] == ["hvs"]
     assert payload["params"]["prefix_endpoint_cols"] is True
     assert "built_at_utc" in payload
-

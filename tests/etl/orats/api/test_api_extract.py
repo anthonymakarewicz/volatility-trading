@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import importlib
 import sys
+from dataclasses import dataclass
 
 import pytest
 
@@ -46,9 +46,7 @@ def test_extract_full_history_ignores_years(monkeypatch, caplog) -> None:
 
     assert isinstance(result, _DummyResult)
     assert captured["tickers"] == ["SPX"]
-    assert any(
-        "year_whitelist is ignored" in rec.message for rec in caplog.records
-    )
+    assert any("year_whitelist is ignored" in rec.message for rec in caplog.records)
 
 
 def test_extract_by_trade_date_requires_years(monkeypatch) -> None:

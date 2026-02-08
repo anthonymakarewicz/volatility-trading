@@ -11,12 +11,16 @@ from volatility_trading.etl.orats.qc.types import (
 )
 
 
-def test_run_options_chain_qc_writes_json_and_fails(monkeypatch, tmp_path: Path) -> None:
+def test_run_options_chain_qc_writes_json_and_fails(
+    monkeypatch, tmp_path: Path
+) -> None:
     import volatility_trading.etl.orats.qc.options_chain.runner as mod
 
     df = pl.DataFrame({"x": [1, 2, 3]})
 
-    monkeypatch.setattr(mod, "get_parquet_path", lambda proc_root, ticker: tmp_path / "p.parquet")
+    monkeypatch.setattr(
+        mod, "get_parquet_path", lambda proc_root, ticker: tmp_path / "p.parquet"
+    )
     monkeypatch.setattr(mod, "read_exercise_style", lambda parquet_path: "EU")
     monkeypatch.setattr(mod, "load_options_chain_df", lambda ticker, proc_root: df)
     monkeypatch.setattr(mod, "apply_roi_filter", lambda df_, **kwargs: df_.head(1))
@@ -53,12 +57,16 @@ def test_run_options_chain_qc_writes_json_and_fails(monkeypatch, tmp_path: Path)
     assert out_json.with_name("qc_config.json").exists()
 
 
-def test_run_daily_features_qc_writes_json_and_fails(monkeypatch, tmp_path: Path) -> None:
+def test_run_daily_features_qc_writes_json_and_fails(
+    monkeypatch, tmp_path: Path
+) -> None:
     import volatility_trading.etl.orats.qc.daily_features.runner as mod
 
     df = pl.DataFrame({"x": [1, 2]})
 
-    monkeypatch.setattr(mod, "daily_features_path", lambda proc_root, ticker: tmp_path / "p.parquet")
+    monkeypatch.setattr(
+        mod, "daily_features_path", lambda proc_root, ticker: tmp_path / "p.parquet"
+    )
     monkeypatch.setattr(mod, "read_daily_features", lambda ticker, proc_root: df)
     monkeypatch.setattr(mod, "log_check", lambda logger, r: None)
 

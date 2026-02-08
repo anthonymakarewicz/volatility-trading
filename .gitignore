@@ -1,6 +1,9 @@
 # MacOS
 .DS_Store
 
+# VSCode
+.vscode/
+
 # Envs
 .env/
 .env
@@ -11,6 +14,9 @@ __pycache__/
 
 # Pytest
 .pytest_cache/
+
+# Ruff
+.ruff_cache/
 
 # Packaging
 *.egg-info/
@@ -23,6 +29,9 @@ build/
 # Data / temp current dir
 /data/
 /temp/
+
+# Backup
+backup/
 
 # Data files
 *.parquet

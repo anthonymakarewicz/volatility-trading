@@ -95,7 +95,7 @@ def test_ftp_download_no_jobs_returns_empty(
     assert result.n_failed == 0
     assert result.out_paths == []
     assert result.failed_paths == []
-    assert instances and getattr(instances[0], "closed") is True
+    assert instances and instances[0].closed is True
 
 
 def test_ftp_download_threaded_path_runs_all_jobs(

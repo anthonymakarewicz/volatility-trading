@@ -108,4 +108,3 @@ def test_write_json_reports_explicit_out_json(tmp_path: Path) -> None:
     assert config_path == out_summary.with_name("qc_config.json")
     assert summary_path.exists()
     assert config_path.exists()
-
