@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from config.constants import OPTION_TYPES
+from volatility_trading.config.constants import OPTION_TYPES
 
 
 def plot_iv_smiles(iv_smiles, ticker):
