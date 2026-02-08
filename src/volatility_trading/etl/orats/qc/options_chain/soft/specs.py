@@ -13,22 +13,6 @@ from ...soft.dataset_checks.underlying_prices import (
     check_spot_constant_per_trade_date,
     check_spot_equals_underlying_per_trade_date_am,
 )
-
-# Row-level checks
-from ...soft.row_checks.quotes import (
-    flag_locked_market,
-    flag_one_sided_quotes,
-    flag_wide_spread,
-)
-from ...soft.row_checks.volume_oi import (
-    flag_pos_vol_zero_oi,
-    flag_zero_vol_pos_oi,
-)
-from ...soft.row_checks.greeks_iv import (
-    flag_delta_bounds,
-    flag_iv_high,
-    flag_theta_positive,
-)
 from ...soft.row_checks.arbitrage_bounds import (
     flag_option_bounds_mid_am_spot,
     flag_option_bounds_mid_eu_forward,
@@ -41,6 +25,22 @@ from ...soft.row_checks.arbitrage_parity import (
     flag_put_call_parity_bounds_mid_am,
     flag_put_call_parity_mid_eu_forward,
 )
+from ...soft.row_checks.greeks_iv import (
+    flag_delta_bounds,
+    flag_iv_high,
+    flag_theta_positive,
+)
+
+# Row-level checks
+from ...soft.row_checks.quotes import (
+    flag_locked_market,
+    flag_one_sided_quotes,
+    flag_wide_spread,
+)
+from ...soft.row_checks.volume_oi import (
+    flag_pos_vol_zero_oi,
+    flag_zero_vol_pos_oi,
+)
 
 # Spec types
 from ...soft.spec_types import (
@@ -48,7 +48,6 @@ from ...soft.spec_types import (
     SoftRowSpec,
     SoftSpec,
 )
-
 
 BASE_KEYS = [
     "trade_date",
@@ -103,7 +102,6 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             flagger_kwargs={"threshold": 2.0, "min_mid": 0.01},
             sample_cols=BASE_KEYS + ["bid_price", "ask_price", "mid_price"],
         ),
-
         # ---- Volume / OI diagnostics ----
         SoftRowSpec(
             base_name="zero_vol_pos_oi",
@@ -119,7 +117,6 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             violation_col="pos_vol_zero_oi_violation",
             sample_cols=BASE_KEYS + ["volume", "open_interest"],
         ),
-
         # ---- Greeks sign diagnostics ----
         SoftRowSpec(
             base_name="delta_bounds_sane",
@@ -137,7 +134,6 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             flagger_kwargs={"eps": 1e-8},
             sample_cols=BASE_KEYS + ["theta"],
         ),
-
         # ---- IV diagnostics ----
         SoftRowSpec(
             base_name="high_iv",
@@ -161,7 +157,6 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             sample_cols=BASE_KEYS + ["smoothed_iv"],
             summarize_by_bucket=False,
         ),
-
         # ---- Arbitrage diagnostics ----
         SoftRowSpec(
             base_name="strike_monotonicity",
@@ -179,7 +174,6 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             flagger_kwargs={"price_col": "mid_price"},
             sample_cols=BASE_KEYS + ["mid_price"],
         ),
-
         # ---- Dataset-level checks (GLOBAL only) ----
         SoftDatasetSpec(
             base_name="missing_sessions_xnys",
@@ -236,7 +230,7 @@ def _get_exercise_soft_specs(exercise_style: str | None) -> list[SoftSpec]:
                 flagger_kwargs={"multiplier": 1.0, "tol_floor": 0.01},
                 by_option_type=False,
                 requires_wide=True,
-                sample_cols=BASE_KEYS + PCP_WIDE_QUOTE_COLS
+                sample_cols=BASE_KEYS + PCP_WIDE_QUOTE_COLS,
             ),
         ]
 

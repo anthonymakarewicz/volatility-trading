@@ -5,8 +5,8 @@ from collections.abc import Sequence
 
 import polars as pl
 
-from ...shared.stats import count_rows
 from ...shared.log_fmt import fmt_int
+from ...shared.stats import count_rows
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +75,7 @@ def join_endpoints_on_spine(
     for ep in endpoints:
         lf_ep = lfs.get(ep)
         if lf_ep is None:
-            logger.info(
-                "Join: skipping missing endpoint=%s ticker=%s",
-                ep,
-                ticker
-            )
+            logger.info("Join: skipping missing endpoint=%s ticker=%s", ep, ticker)
             continue
 
         if collect_stats and stats_n_rows_endpoints is not None:

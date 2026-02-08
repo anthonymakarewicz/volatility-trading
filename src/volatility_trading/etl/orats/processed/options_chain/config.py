@@ -10,7 +10,6 @@ under the same name as before (helps continuity in your logs).
 
 from __future__ import annotations
 
-
 # Output schema (processed dataset)
 OPTIONS_CHAIN_CORE_COLUMNS: tuple[str, ...] = (
     # identifiers / dates
@@ -19,18 +18,15 @@ OPTIONS_CHAIN_CORE_COLUMNS: tuple[str, ...] = (
     "expiry_date",
     "dte",
     "yte",
-
     # underlying & strike
     "underlying_price",
     "spot_price",
     "strike",
-
     # volume & open interest
     "call_volume",
     "put_volume",
     "call_open_interest",
     "put_open_interest",
-
     # prices
     "call_bid_price",
     "call_mid_price",
@@ -42,12 +38,10 @@ OPTIONS_CHAIN_CORE_COLUMNS: tuple[str, ...] = (
     "put_model_price",
     "put_ask_price",
     "put_rel_spread",
-
     # vols
     "smoothed_iv",
     "call_mid_iv",
     "put_mid_iv",
-
     # greeks (C + parity-derived P)
     "call_delta",
     "call_gamma",
@@ -59,7 +53,6 @@ OPTIONS_CHAIN_CORE_COLUMNS: tuple[str, ...] = (
     "put_theta",
     "put_vega",
     "put_rho",
-
     # curves
     "risk_free_rate",
     "dividend_yield",

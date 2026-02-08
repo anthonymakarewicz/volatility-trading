@@ -14,11 +14,10 @@ from pathlib import Path
 
 from ..shared.log_fmt import fmt_int
 from ..shared.manifest import write_manifest_json
-
-from .config import DAILY_FEATURES_CORE_COLUMNS
-from .types import BuildDailyFeaturesResult, BuildStats
-from .manifest import build_manifest_payload
 from . import steps
+from .config import DAILY_FEATURES_CORE_COLUMNS
+from .manifest import build_manifest_payload
+from .types import BuildDailyFeaturesResult, BuildStats
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +65,7 @@ def build(
         missing = [ep for ep in priority_endpoints if ep not in endpoints]
         if missing:
             raise ValueError(
-                "priority_endpoints must be a subset of endpoints; "
-                f"missing={missing}"
+                f"priority_endpoints must be a subset of endpoints; missing={missing}"
             )
 
     t0 = time.perf_counter()
@@ -138,20 +136,14 @@ def build(
         collect_stats=collect_stats,
         # Reuse "after dedupe" dict as join stats dict.
         stats_n_rows_endpoints=(
-            stats.n_rows_after_dedupe_by_endpoint
-            if collect_stats
-            else None
+            stats.n_rows_after_dedupe_by_endpoint if collect_stats else None
         ),
     )
 
     # --------------------------------------------------------------------- #
     # 6) Canonicalize output columns (unprefixed) and write
     # --------------------------------------------------------------------- #
-    output_cols = (
-        DAILY_FEATURES_CORE_COLUMNS
-        if columns is None
-        else tuple(columns)
-    )
+    output_cols = DAILY_FEATURES_CORE_COLUMNS if columns is None else tuple(columns)
 
     lf = steps.canonicalize_columns(
         lf=lf,
@@ -170,9 +162,7 @@ def build(
 
     if collect_stats:
         stats.n_rows_written = int(df.height)
-        stats.n_rows_input_total = int(
-            sum(stats.n_rows_input_by_endpoint.values())
-        )
+        stats.n_rows_input_total = int(sum(stats.n_rows_input_by_endpoint.values()))
 
     # --------------------------------------------------------------------- #
     # Missing endpoints reporting (manifest)
@@ -186,20 +176,16 @@ def build(
         proc_root=proc_root_p,
         columns=list(df.columns),
         n_rows_written=int(df.height),
-
         endpoints=endpoints,
         endpoints_used=endpoints_used,
         missing_endpoints=missing_endpoints,
         prefix_endpoint_cols=prefix_endpoint_cols,
         priority_endpoints=priority_endpoints,
-
         stats=(
             {
                 "n_rows_input_total": stats.n_rows_input_total,
                 "n_rows_spine": stats.n_rows_spine,
-                "n_rows_input_by_endpoint": dict(
-                    stats.n_rows_input_by_endpoint
-                ),
+                "n_rows_input_by_endpoint": dict(stats.n_rows_input_by_endpoint),
                 "n_rows_after_dedupe_by_endpoint": dict(
                     stats.n_rows_after_dedupe_by_endpoint
                 ),
@@ -224,20 +210,15 @@ def build(
         n_rows_input_total=stats.n_rows_input_total if collect_stats else None,
         n_rows_spine=stats.n_rows_spine if collect_stats else None,
         n_rows_input_by_endpoint=(
-            dict(stats.n_rows_input_by_endpoint)
-            if collect_stats
-            else {}
+            dict(stats.n_rows_input_by_endpoint) if collect_stats else {}
         ),
         n_rows_after_dedupe_by_endpoint=(
-            dict(stats.n_rows_after_dedupe_by_endpoint)
-            if collect_stats
-            else {}
+            dict(stats.n_rows_after_dedupe_by_endpoint) if collect_stats else {}
         ),
     )
 
     logger.info(
-        "Finished building daily features ticker=%s rows_written=%s "
-        "duration_s=%.2f",
+        "Finished building daily features ticker=%s rows_written=%s duration_s=%.2f",
         result.ticker,
         fmt_int(result.n_rows_written),
         result.duration_s,

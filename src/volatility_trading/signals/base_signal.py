@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 class Signal(ABC):
     def __init__(self):
         self._z_score = None
-        
+
     @abstractmethod
     def generate_signals(self, skew_series):
         """Returns a DataFrame of boolean columns [long, short, exit]"""
@@ -25,4 +25,4 @@ class Signal(ABC):
     def get_z_score(self):
         """Return the most recent zscore,
         or None if not a zscore strategy."""
-        return self._z_score  
+        return self._z_score

@@ -15,10 +15,10 @@ def _pcp_dyn_abs_tol(
     floor: float = 0.0,
 ) -> pl.Expr:
     """Dynamic absolute tolerance for MID-price parity checks derived from spreads."""
-    call_spread = (pl.col(call_ask_col) - pl.col(call_bid_col))
-    put_spread = (pl.col(put_ask_col) - pl.col(put_bid_col))
+    call_spread = pl.col(call_ask_col) - pl.col(call_bid_col)
+    put_spread = pl.col(put_ask_col) - pl.col(put_bid_col)
 
-    return (multiplier * (call_spread + put_spread) + floor)
+    return multiplier * (call_spread + put_spread) + floor
 
 
 def _pcp_discounts(
@@ -35,6 +35,7 @@ def _pcp_discounts(
 
 # ---- European parity forward (equality) -----
 
+
 def flag_put_call_parity_mid_eu_forward(
     df: pl.DataFrame,
     *,
@@ -44,7 +45,7 @@ def flag_put_call_parity_mid_eu_forward(
     call_ask_col: str = "call_ask_price",
     put_bid_col: str = "put_bid_price",
     put_ask_col: str = "put_ask_price",
-    fwd_col: str = "underlying_price",   # ORATS implied forward
+    fwd_col: str = "underlying_price",  # ORATS implied forward
     strike_col: str = "strike",
     r_col: str = "risk_free_rate",
     yte_col: str = "yte",
@@ -105,6 +106,7 @@ def flag_put_call_parity_mid_eu_forward(
 
 
 # ---- American parity (bounds) -----
+
 
 def flag_put_call_parity_bounds_mid_am(
     df: pl.DataFrame,

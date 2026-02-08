@@ -1,16 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import List
 
-from volatility_trading.signals import Signal
+from volatility_trading.backtesting.types import SliceContext
 from volatility_trading.filters import Filter
-from volatility_trading.backtesting.types import SliceContext 
+from volatility_trading.signals import Signal
 
 
 class Strategy(ABC):
     def __init__(
-        self, 
-        signal: Signal | None = None, 
-        filters: List[Filter] | None = None
+        self, signal: Signal | None = None, filters: list[Filter] | None = None
     ):
         self.signal = signal
         self.filters = filters or []

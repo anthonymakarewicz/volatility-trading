@@ -1,28 +1,35 @@
 import pandas as pd
+
 from .base_signal import Signal
 
 # TODO: Shift the rolling mean and std for z score computation
+
 
 class ZScoreSignal(Signal):
     def __init__(self, window=60, entry=2.0, exit=0.5):
         self.window = window
         self.entry = entry
-        self.exit  = exit
+        self.exit = exit
 
     def get_params(self):
         return {
             "strategy__window": self.window,
-            "strategy__entry":  self.entry,
-            "strategy__exit":   self.exit,
+            "strategy__entry": self.entry,
+            "strategy__exit": self.exit,
         }
 
     def set_params(self, window=None, entry=None, exit=None, **kwargs):
-        if window is not None: self.window = window
-        if entry is not None:  self.entry  = entry
-        if exit is not None:   self.exit   = exit
+        if window is not None:
+            self.window = window
+        if entry is not None:
+            self.entry = entry
+        if exit is not None:
+            self.exit = exit
         if kwargs:
             unexpected = ", ".join(kwargs.keys())
-            raise TypeError(f"Unexpected parameters passed to ZScoreStrategy: {unexpected}")
+            raise TypeError(
+                f"Unexpected parameters passed to ZScoreStrategy: {unexpected}"
+            )
 
     def generate_signals(self, skew_series):
         z_score = compute_zscore(skew_series, window=self.window)
@@ -38,7 +45,7 @@ class ZScoreSignal(Signal):
             if pd.isna(z_score.iloc[i]):  # Skip NaN values for rolling
                 continue
 
-            if position == 0: 
+            if position == 0:
                 # Enter long position
                 if z_score.iloc[i] < -self.entry:
                     signals.at[z_score.index[i], "long"] = True
@@ -46,9 +53,9 @@ class ZScoreSignal(Signal):
                 # Enter short position
                 elif z_score.iloc[i] > self.entry:
                     signals.at[z_score.index[i], "short"] = True
-                    position = -1 
+                    position = -1
 
-            elif position == 1: 
+            elif position == 1:
                 # Exit long position
                 if z_score.iloc[i] >= -self.exit:
                     signals.at[z_score.index[i], "exit"] = True
@@ -60,11 +67,8 @@ class ZScoreSignal(Signal):
                     signals.at[z_score.index[i], "exit"] = True
                     position = 0
 
-        return signals  
-    
+        return signals
+
 
 def compute_zscore(series, window=60):
-    return (
-        (series - series.rolling(window).mean()) /
-         series.rolling(window).std()
-    )
+    return (series - series.rolling(window).mean()) / series.rolling(window).std()

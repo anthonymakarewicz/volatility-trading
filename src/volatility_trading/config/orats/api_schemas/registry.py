@@ -22,7 +22,6 @@ from .hvs import HVS_SCHEMA_SPEC
 from .monies_implied import MONIES_IMPLIED_SCHEMA
 from .summaries import SUMMARIES_SCHEMA
 
-
 # TODO: Implement schema specs for these endpoints (downloaded in RAW)
 UNSUPPORTED_ENDPOINTS: tuple[str, ...] = ("cores", "splits", "ivrank")
 

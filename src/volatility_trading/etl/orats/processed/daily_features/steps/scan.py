@@ -9,7 +9,6 @@ import polars as pl
 from ...shared.io import scan_endpoint_intermediate
 from ...shared.log_fmt import fmt_int
 from ...shared.stats import count_rows
-
 from ..config import DAILY_FEATURES_ENDPOINT_COLUMNS
 from ..transforms import apply_unit_multipliers
 

@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from scipy.stats import norm
 
 
@@ -12,19 +11,19 @@ def bs_d1_d2(S, K, T, sigma, r=0.0, q=0.0):
     return d1, d2
 
 
-def bs_price(S, K, T, sigma, r=0.0, q=0.0, option_type='call'):
+def bs_price(S, K, T, sigma, r=0.0, q=0.0, option_type="call"):
     """Black-Scholes formula with dividend yield"""
     d1, d2 = bs_d1_d2(S, K, T, sigma, r, q)
 
-    if option_type == 'call':
+    if option_type == "call":
         return S * np.exp(-q * T) * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
-    elif option_type == 'put':
+    elif option_type == "put":
         return K * np.exp(-r * T) * norm.cdf(-d2) - S * np.exp(-q * T) * norm.cdf(-d1)
     else:
         raise ValueError("Not a valid option type, type must be 'call' or 'put'")
 
 
-def bs_delta(S, K, T, sigma, r=0.0, q=0.0, option_type='call'):
+def bs_delta(S, K, T, sigma, r=0.0, q=0.0, option_type="call"):
     if sigma <= 0 or T <= 0:
         return 0.0
 
@@ -53,35 +52,35 @@ def bs_vega(S, K, T, sigma, r=0.0, q=0.0):
     return S * np.exp(-q * T) * norm.pdf(d1) * np.sqrt(T)  # per 1.0 vol
 
 
-def bs_theta(S, K, T, sigma, r=0.0, q=0.0, option_type='call'):
+def bs_theta(S, K, T, sigma, r=0.0, q=0.0, option_type="call"):
     if sigma <= 0 or T <= 0:
         return 0.0
     d1, d2 = bs_d1_d2(S, K, T, sigma, r, q)
-    term1 = - (S * np.exp(-q * T) * norm.pdf(d1) * sigma) / (2 * np.sqrt(T))
+    term1 = -(S * np.exp(-q * T) * norm.pdf(d1) * sigma) / (2 * np.sqrt(T))
 
-    if option_type == 'call':
+    if option_type == "call":
         term2 = q * S * np.exp(-q * T) * norm.cdf(d1)
-        term3 = - r * K * np.exp(-r * T) * norm.cdf(d2)
-    elif option_type == 'put':
-        term2 = - q * S * np.exp(-q * T) * norm.cdf(-d1)
-        term3 = + r * K * np.exp(-r * T) * norm.cdf(-d2)
+        term3 = -r * K * np.exp(-r * T) * norm.cdf(d2)
+    elif option_type == "put":
+        term2 = -q * S * np.exp(-q * T) * norm.cdf(-d1)
+        term3 = +r * K * np.exp(-r * T) * norm.cdf(-d2)
     else:
         raise ValueError("option_type must be 'call' or 'put'")
 
-    return term1 + term2 + term3 # per 1.0 YTE
+    return term1 + term2 + term3  # per 1.0 YTE
 
 
-def bs_rho(S, K, T, sigma, r=0.0, q=0.0, option_type='call'):
+def bs_rho(S, K, T, sigma, r=0.0, q=0.0, option_type="call"):
     if sigma <= 0 or T <= 0:
         return 0.0
     _, d2 = bs_d1_d2(S, K, T, sigma, r, q)
-    if option_type == 'call':
+    if option_type == "call":
         return K * T * np.exp(-r * T) * norm.cdf(d2)
-    elif option_type == 'put':
+    elif option_type == "put":
         return -K * T * np.exp(-r * T) * norm.cdf(-d2)
     else:
         raise ValueError("option_type must be 'call' or 'put'")
-    
+
 
 def bs_greeks(S, K, T, sigma, r=0.0, q=0.0, option_type="call"):
     """
@@ -94,24 +93,24 @@ def bs_greeks(S, K, T, sigma, r=0.0, q=0.0, option_type="call"):
         "price": bs_price(S, K, T, sigma, r, q, option_type),
         "delta": bs_delta(S, K, T, sigma, r, q, option_type),
         "gamma": bs_gamma(S, K, T, sigma, r, q),
-        "vega":  bs_vega(S, K, T, sigma, r, q),
+        "vega": bs_vega(S, K, T, sigma, r, q),
         "theta": bs_theta(S, K, T, sigma, r, q, option_type),
-        "rho":   bs_rho(S, K, T, sigma, r, q, option_type),
+        "rho": bs_rho(S, K, T, sigma, r, q, option_type),
     }
 
 
 def solve_strike_for_delta(
-    target_delta, 
-    S, 
-    T, 
-    sigma, 
-    option_type, 
-    r=0.0, 
-    q=0.0, 
-    K_min_factor=0.2, 
-    K_max_factor=3.0, 
-    tol=1e-6, 
-    max_iter=100
+    target_delta,
+    S,
+    T,
+    sigma,
+    option_type,
+    r=0.0,
+    q=0.0,
+    K_min_factor=0.2,
+    K_max_factor=3.0,
+    tol=1e-6,
+    max_iter=100,
 ):
     """
     Solve for strike K such that the (spot) delta equals target_delta.

@@ -1,6 +1,7 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 from sklearn.base import clone
+
 
 class WalkForwardOOS:
     """
@@ -10,6 +11,7 @@ class WalkForwardOOS:
     - can do rolling or expanding windows
     - builds rebalancing dates from the feature index
     """
+
     def __init__(
         self,
         estimator,
@@ -17,8 +19,8 @@ class WalkForwardOOS:
         end_backtest,
         window_years=5,
         expanding=False,
-        rebal_freq="ME", # "ME" month-end, "MS" month-start, "W" weekly
-        purge_horizon=0, # days to purge before test window,
+        rebal_freq="ME",  # "ME" month-end, "MS" month-start, "W" weekly
+        purge_horizon=0,  # days to purge before test window,
         min_train_samples=100,
     ):
         self.estimator = estimator
@@ -39,7 +41,7 @@ class WalkForwardOOS:
             self.end_backtest,
             freq=self.rebal_freq,
         )
-        
+
         idx = index.sort_values()
         rebal_dates = []
         for d in raw_rebals:
@@ -71,7 +73,7 @@ class WalkForwardOOS:
 
             # ----- train window -----
             if self.expanding:
-                train_mask = (X.index < purge_end)
+                train_mask = X.index < purge_end
             else:
                 train_start = t_rebal - pd.DateOffset(years=self.window_years)
                 train_mask = (X.index >= train_start) & (X.index < purge_end)
@@ -82,7 +84,7 @@ class WalkForwardOOS:
             if len(X_tr) < self.min_train_samples:
                 continue
 
-            est = clone(self.estimator) # get a fresh model
+            est = clone(self.estimator)  # get a fresh model
             est.fit(X_tr, y_tr)
 
             # ----- test window -----
@@ -92,10 +94,10 @@ class WalkForwardOOS:
                 t_next = self.end_backtest + pd.Timedelta(days=1)
 
             test_mask = (
-                (X.index >= t_rebal) &
-                (X.index < t_next) &
-                (X.index >= self.start_backtest) &
-                (X.index <= self.end_backtest)
+                (X.index >= t_rebal)
+                & (X.index < t_next)
+                & (X.index >= self.start_backtest)
+                & (X.index <= self.end_backtest)
             )
 
             X_te = X.loc[test_mask]

@@ -43,25 +43,25 @@ ENDPOINTS: dict[str, EndpointSpec] = {
         strategy=DownloadStrategy.FULL_HISTORY,
     ),
     "dailies": EndpointSpec(
-        path="/datav2/hist/dailies", # Daily OHLCV of underlying
+        path="/datav2/hist/dailies",  # Daily OHLCV of underlying
         required=("ticker",),
         optional=("fields",),
         strategy=DownloadStrategy.FULL_HISTORY,
     ),
     "hvs": EndpointSpec(
-        path="/datav2/hist/hvs", # Historical volatilities
+        path="/datav2/hist/hvs",  # Historical volatilities
         required=("ticker",),
         optional=("fields",),
         strategy=DownloadStrategy.FULL_HISTORY,
     ),
     "splits": EndpointSpec(
-        path="/datav2/hist/splits", # Historical splits
+        path="/datav2/hist/splits",  # Historical splits
         required=("ticker",),
         optional=("fields",),
         strategy=DownloadStrategy.FULL_HISTORY,
     ),
     "ivrank": EndpointSpec(
-        path="/datav2/hist/ivrank", # IV rank/percentile
+        path="/datav2/hist/ivrank",  # IV rank/percentile
         required=("ticker",),
         optional=("fields",),
         strategy=DownloadStrategy.FULL_HISTORY,

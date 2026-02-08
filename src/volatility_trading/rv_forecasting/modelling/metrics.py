@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 
 
 def qlike(y_true, y_pred):
@@ -21,8 +21,8 @@ def r2_oos(y_true, y_pred, y_pred_bench):
     y_pred = np.asarray(y_pred)
     y_pred_bench = np.asarray(y_pred_bench)
 
-    num = np.sum((y_true - y_pred)**2)
-    den = np.sum((y_true - y_pred_bench)**2)
+    num = np.sum((y_true - y_pred) ** 2)
+    den = np.sum((y_true - y_pred_bench) ** 2)
     return 1.0 - num / den
 
 
@@ -30,15 +30,14 @@ def compute_metrics(y_true, y_pred, y_pred_bench=None):
     """
     Convenience helper: standard R², MSE, QLIKE.
     """
-    import pandas as pd
     y_true = np.asarray(y_true, dtype=float).ravel()
     y_pred = np.asarray(y_pred, dtype=float).ravel()
     res = y_true - y_pred
 
     out = {
-        "R2":      r2_score(y_true, y_pred),
-        "MSE":     mean_squared_error(y_true, y_pred),
-        "QLIKE":   qlike(y_true, y_pred),
+        "R2": r2_score(y_true, y_pred),
+        "MSE": mean_squared_error(y_true, y_pred),
+        "QLIKE": qlike(y_true, y_pred),
         "Var_res": float(np.var(res, ddof=1)),
     }
 
@@ -67,8 +66,7 @@ def compute_subperiod_metrics(perf, subperiods):
     DataFrame indexed by [period, model] with all metrics
     returned by `compute_metrics` (R2, MSE, QLIKE, Var_res, R2_oos, ...).
     """
-    import pandas as pd
-    
+
     rows = []
 
     for start, end, label in subperiods:
@@ -78,22 +76,14 @@ def compute_subperiod_metrics(perf, subperiods):
         if df_sub.empty:
             continue
 
-        y_true_sub   = df_sub["y_true"]
+        y_true_sub = df_sub["y_true"]
         y_har_vix_sub = df_sub["har_vix"]
-        y_iv_sub     = df_sub["naive_iv"]
-        y_rv_sub     = df_sub["naive_rv"]
+        y_iv_sub = df_sub["naive_iv"]
+        y_rv_sub = df_sub["naive_rv"]
 
         # metrics relative to Naive RV
-        m_har_vix = compute_metrics(
-            y_true_sub, 
-            y_har_vix_sub, 
-            y_pred_bench=y_rv_sub
-        )
-        m_iv = compute_metrics(
-            y_true_sub, 
-            y_iv_sub,
-            y_pred_bench=y_rv_sub
-        )
+        m_har_vix = compute_metrics(y_true_sub, y_har_vix_sub, y_pred_bench=y_rv_sub)
+        m_iv = compute_metrics(y_true_sub, y_iv_sub, y_pred_bench=y_rv_sub)
 
         row_har = {"period": label, "model": "HAR-RV-VIX"}
         row_har.update(m_har_vix)

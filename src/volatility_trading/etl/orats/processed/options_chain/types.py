@@ -18,6 +18,7 @@ class BuildOptionsChainResult:
     When `collect_stats=False`, most counters are left as None to avoid
     additional scans.
     """
+
     ticker: str
     out_path: Path
     duration_s: float
@@ -35,6 +36,7 @@ class BuildOptionsChainResult:
 
     n_rows_after_trading: int | None
     n_rows_after_hard: int | None
+
 
 @dataclass
 class BuildStats:

@@ -10,10 +10,8 @@ from volatility_trading.config.instruments import PREFERRED_OPRA_ROOT
 
 from ...shared.log_fmt import log_before_after
 from ...shared.stats import count_rows
-
-from ..types import BuildStats
 from ..transforms import dedupe_on_keys
-
+from ..types import BuildStats
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +39,7 @@ def dedupe_options_chain(
     collect_stats: bool,
     stats: BuildStats,
 ) -> pl.LazyFrame:
-    logger.info(
-        "Applying key null-checks and de-duplication for ticker=%s",
-        ticker
-    )
+    logger.info("Applying key null-checks and de-duplication for ticker=%s", ticker)
 
     n_before: int | None = count_rows(lf) if collect_stats else None
 
@@ -52,7 +47,11 @@ def dedupe_options_chain(
         lf,
         key_common=["ticker", "trade_date", "expiry_date", "strike"],
         key_when_opra_present=[
-            "ticker", "trade_date", "strike", "call_opra", "put_opra"
+            "ticker",
+            "trade_date",
+            "strike",
+            "call_opra",
+            "put_opra",
         ],
         opra_nonnull_cols=["call_opra", "put_opra"],
         stable_sort=False,

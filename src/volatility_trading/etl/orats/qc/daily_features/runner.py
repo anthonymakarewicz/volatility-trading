@@ -7,6 +7,7 @@ Runs HARD, SOFT, and INFO suites on the processed daily-features panel.
 
 This module is read-only: it does not drop or modify rows.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,18 +15,17 @@ import time
 from pathlib import Path
 
 from volatility_trading.datasets import (
-    read_daily_features,
     daily_features_path,
+    read_daily_features,
 )
 
 from ..common_helpers import (
     compute_outcome,
-    write_json_reports,
     run_all_checks,
+    write_json_reports,
 )
 from ..reporting import log_check
 from ..types import QCConfig, QCRunResult
-
 from .hard.specs import get_hard_specs
 from .info.specs import get_info_specs
 from .soft.specs import get_soft_specs

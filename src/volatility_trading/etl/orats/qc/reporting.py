@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .types import QCCheckResult, QCConfig, Severity
 
-NA_STR = 'n/a'
+NA_STR = "n/a"
 
 
 def _fmt_pct(x: float | None) -> str:
@@ -45,8 +45,8 @@ def log_check(logger: logging.Logger, res: QCCheckResult) -> None:
                     parts.append(f"stats_cols={len(v)}")
                     continue
 
-                if (k in {"sample_rows", "examples", "top_buckets"}
-                    and isinstance(v, list)
+                if k in {"sample_rows", "examples", "top_buckets"} and isinstance(
+                    v, list
                 ):
                     parts.append(f"{k}_n={len(v)}")
                     continue

@@ -8,6 +8,7 @@ from collections.abc import Sequence
 #   * interp_iv(...)
 #   * find_viable_dtes(...)
 
+
 def pick_closest_dte(
     dtes: Sequence[int],
     target: int,

@@ -6,7 +6,6 @@ import polars as pl
 
 from ...shared.log_fmt import log_before_after
 from ...shared.stats import count_rows
-
 from ..transforms import dedupe_on_keys
 
 logger = logging.getLogger(__name__)

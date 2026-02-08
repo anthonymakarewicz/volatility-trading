@@ -47,10 +47,7 @@ def scan_endpoint_intermediate(
         )
 
     logger.info(
-        "Reading API intermediate endpoint=%s ticker=%s: %s",
-        endpoint,
-        ticker,
-        path
+        "Reading API intermediate endpoint=%s ticker=%s: %s", endpoint, ticker, path
     )
     return pl.scan_parquet(str(path))
 

@@ -14,7 +14,6 @@ import requests
 
 from ..io import ALLOWED_COMPRESSIONS, ensure_dir
 
-
 # ORATS list-style param size limit.
 MAX_PER_CALL: int = 10
 
@@ -37,10 +36,7 @@ def unique_preserve_order(items: list[str]) -> list[str]:
 
 def chunk_tickers(tickers: list[str]) -> list[list[str]]:
     """Split tickers into <= MAX_PER_CALL chunks for ORATS list-style params."""
-    return [
-        tickers[i : i + MAX_PER_CALL]
-        for i in range(0, len(tickers), MAX_PER_CALL)
-    ]
+    return [tickers[i : i + MAX_PER_CALL] for i in range(0, len(tickers), MAX_PER_CALL)]
 
 
 def get_trading_days(year: int) -> list[str]:

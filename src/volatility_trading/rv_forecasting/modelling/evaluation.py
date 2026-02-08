@@ -1,9 +1,9 @@
 import pandas as pd
+from sklearn.model_selection import cross_val_predict
+from sklearn.pipeline import Pipeline
 
 from .data_processing import DataProcessor
 from .metrics import compute_metrics
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_val_predict
 
 
 def eval_model_cv(
@@ -25,14 +25,18 @@ def eval_model_cv(
     X_sub = X[features].copy()
 
     # pipeline: DP + model
-    pipe = Pipeline([
-        ("dp", DataProcessor(**dp_kwargs)),
-        ("model", base_estimator),
-    ])
+    pipe = Pipeline(
+        [
+            ("dp", DataProcessor(**dp_kwargs)),
+            ("model", base_estimator),
+        ]
+    )
 
     # CV predictions
     y_pred = cross_val_predict(
-        pipe, X_sub, y,
+        pipe,
+        X_sub,
+        y,
         cv=cv,
         n_jobs=n_jobs,
     )
@@ -46,13 +50,13 @@ def eval_model_cv(
 
 
 def eval_ensembles(
-    y, 
-    y_pred_a, 
-    y_pred_b, 
-    weights, 
+    y,
+    y_pred_a,
+    y_pred_b,
+    weights,
     y_pred_bench=None,
-    label_a="Model_A", 
-    label_b="Model_B"
+    label_a="Model_A",
+    label_b="Model_B",
 ):
     """
     Evaluate linear ensembles of two prediction series.
@@ -91,7 +95,7 @@ def eval_ensembles(
         ens_preds[w] = y_hat_ens
 
         m = compute_metrics(y, y_hat_ens, y_pred_bench)
-        m["model"] = f"{w:.2f} * {label_a} + {1-w:.2f} * {label_b}"
+        m["model"] = f"{w:.2f} * {label_a} + {1 - w:.2f} * {label_b}"
         rows.append(m)
 
     df_metrics = pd.DataFrame(rows).set_index("model")

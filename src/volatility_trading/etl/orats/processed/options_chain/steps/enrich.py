@@ -9,14 +9,13 @@ import polars as pl
 
 from ...shared.io import scan_endpoint_intermediate
 from ...shared.log_fmt import (
+    fmt_int,
     log_before_after,
     log_total_missing,
-    fmt_int,
 )
 from ...shared.stats import count_rows
-
-from ..types import BuildStats
 from ..transforms import dedupe_on_keys
+from ..types import BuildStats
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +32,7 @@ def merge_dividend_yield(
     if not merge_dividend_yield or monies_implied_inter_root is None:
         return lf
 
-    logger.info(
-        "Merging dividend yield from monies_implied for ticker=%s",
-        ticker
-    )
+    logger.info("Merging dividend yield from monies_implied for ticker=%s", ticker)
 
     lf_yield = scan_endpoint_intermediate(
         inter_api_root=monies_implied_inter_root,
@@ -70,17 +66,11 @@ def merge_dividend_yield(
         )
 
     # monies_implied is expiry-specific, so join on (ticker, trade_date, expiry_date)
-    lf_yield = (
-        lf_yield
-        .select(["ticker", "trade_date", "expiry_date", "yield_rate"])
-        .rename({"yield_rate": "_dividend_yield_api"})
-    )
+    lf_yield = lf_yield.select(
+        ["ticker", "trade_date", "expiry_date", "yield_rate"]
+    ).rename({"yield_rate": "_dividend_yield_api"})
 
-    lf = lf.join(
-        lf_yield,
-        on=["ticker", "trade_date", "expiry_date"],
-        how="left"
-    )
+    lf = lf.join(lf_yield, on=["ticker", "trade_date", "expiry_date"], how="left")
 
     if collect_stats:
         try:
@@ -112,8 +102,9 @@ def merge_dividend_yield(
 
     # Replace existing dividend_yield
     lf = lf.with_columns(
-        pl.coalesce([pl.col("_dividend_yield_api"), pl.col("dividend_yield")])
-        .alias("dividend_yield")
+        pl.coalesce([pl.col("_dividend_yield_api"), pl.col("dividend_yield")]).alias(
+            "dividend_yield"
+        )
     ).drop(["_dividend_yield_api"])
 
     return lf

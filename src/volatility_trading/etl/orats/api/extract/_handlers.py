@@ -9,11 +9,11 @@ import polars as pl
 from ..endpoints import DownloadStrategy
 from ..io import (
     intermediate_full_history,
+    json_suffix,
     raw_by_trade_date_dir,
     raw_full_history_dir,
-    json_suffix,
 )
-
+from ..types import ExtractApiResult
 from ._helpers import (
     apply_endpoint_schema,
     glob_raw_suffix,
@@ -23,7 +23,6 @@ from ._helpers import (
     remove_duplicates,
     write_parquet_atomic,
 )
-from ..types import ExtractApiResult
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +51,7 @@ def extract_full_history(
 
     if tickers is None:
         tickers = sorted(
-            p.name.split("=", 1)[1]
-            for p in base.glob("underlying=*")
-            if p.is_dir()
+            p.name.split("=", 1)[1] for p in base.glob("underlying=*") if p.is_dir()
         )
 
     logger.info(
@@ -100,8 +97,7 @@ def extract_full_history(
             payload = load_payload(fp, compression=compression)
             df = payload_to_df(endpoint, payload)
             df = apply_endpoint_schema(endpoint, df)
-            df = remove_duplicates(df, endpoint=endpoint,
-                                   context=f"ticker={ticker}")
+            df = remove_duplicates(df, endpoint=endpoint, context=f"ticker={ticker}")
             n_read += 1
 
             if df.height == 0:
@@ -307,8 +303,7 @@ def extract_by_trade_date(
 
         df_all = pl.concat(dfs, how="diagonal_relaxed")
         df_all = apply_endpoint_schema(endpoint, df_all)
-        df_all = remove_duplicates(df_all, endpoint=endpoint,
-                                   context=f"ticker={t}")
+        df_all = remove_duplicates(df_all, endpoint=endpoint, context=f"ticker={t}")
         write_parquet_atomic(
             df_all,
             out_path,

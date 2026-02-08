@@ -10,8 +10,9 @@ from typing import Any
 
 import polars as pl
 
-from ..io import ALLOWED_COMPRESSIONS, ensure_dir, json_suffix
 from volatility_trading.config.orats.api_schemas import get_schema_spec
+
+from ..io import ALLOWED_COMPRESSIONS, ensure_dir, json_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +113,7 @@ def remove_duplicates(
 
     if n1 != n0:
         logger.warning(
-            "Dropped duplicate rows endpoint=%s %s "
-            "before=%d after=%d dropped=%d",
+            "Dropped duplicate rows endpoint=%s %s before=%d after=%d dropped=%d",
             endpoint,
             context,
             n0,
@@ -148,9 +148,7 @@ def payload_to_df(endpoint: str, payload: dict[str, Any]) -> pl.DataFrame:
         exprs: list[pl.Expr] = []
         for c in date_cols:
             if c in df.columns:
-                exprs.append(
-                    pl.col(c).str.strptime(pl.Date, strict=False).alias(c)
-                )
+                exprs.append(pl.col(c).str.strptime(pl.Date, strict=False).alias(c))
         if exprs:
             df = df.with_columns(exprs)
 
@@ -159,9 +157,7 @@ def payload_to_df(endpoint: str, payload: dict[str, Any]) -> pl.DataFrame:
         dt_type = pl.Datetime(time_zone="UTC")
         for c in datetime_cols:
             if c in df.columns:
-                exprs2.append(
-                    pl.col(c).str.strptime(dt_type, strict=False).alias(c)
-                )
+                exprs2.append(pl.col(c).str.strptime(dt_type, strict=False).alias(c))
         if exprs2:
             df = df.with_columns(exprs2)
 

@@ -8,10 +8,10 @@ import polars as pl
 from .serialization import df_to_jsonable_records
 from .types import Grade, QCCheckResult, Severity
 
-
 # -----------------------------------------------------------------------------
 # Small helpers
 # -----------------------------------------------------------------------------
+
 
 def _grade_from_thresholds(rate: float, thresholds: dict[str, float]) -> Grade:
     """
@@ -39,6 +39,7 @@ def _count_bool_true(s: pl.Series) -> int:
 # -----------------------------------------------------------------------------
 # Public runners
 # -----------------------------------------------------------------------------
+
 
 def run_hard_check(
     *,
@@ -169,11 +170,7 @@ def run_soft_check(
 
     # Optional bucket summary (top-K)
     if summarizer is not None:
-        summary = summarizer(
-            flagged,
-            violation_col=violation_col,
-            **summarizer_kwargs
-        )
+        summary = summarizer(flagged, violation_col=violation_col, **summarizer_kwargs)
         if summary.height > 0:
             out_details["top_buckets"] = summary.head(top_k_buckets).to_dicts()
 
@@ -182,9 +179,9 @@ def run_soft_check(
         # only sample when grade is "bad enough"
         grade_rank = {Grade.OK: 0, Grade.MILD: 1, Grade.WARN: 2, Grade.FAIL: 3}
         if grade_rank[grade] >= grade_rank[sample_when_grade_at_least]:
-            viol_df = flagged.filter(
-                pl.col(violation_col).fill_null(False)
-            ).head(sample_n)
+            viol_df = flagged.filter(pl.col(violation_col).fill_null(False)).head(
+                sample_n
+            )
 
             if sample_cols is not None:
                 cols = [c for c in sample_cols if c in viol_df.columns]
@@ -252,9 +249,7 @@ def run_soft_check_dataset(
 
     metric = out[metric_key]
     if metric is None:
-        raise ValueError(
-            f"dataset checker returned None metric for {metric_key!r}"
-        )
+        raise ValueError(f"dataset checker returned None metric for {metric_key!r}")
 
     grade = _grade_from_thresholds(float(metric), thresholds)
     passed = grade in {Grade.OK, Grade.MILD}
@@ -276,9 +271,9 @@ def run_soft_check_dataset(
         severity=Severity.SOFT,
         grade=grade,
         passed=passed,
-        n_rows=n_rows,       # actual df rows used
-        n_units=n_units,     # units examined (sessions/days/groups)
-        n_viol=n_viol,       # units violated
+        n_rows=n_rows,  # actual df rows used
+        n_units=n_units,  # units examined (sessions/days/groups)
+        n_viol=n_viol,  # units violated
         viol_rate=float(metric),
         details=out_details,
     )

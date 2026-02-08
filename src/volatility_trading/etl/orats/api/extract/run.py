@@ -6,9 +6,8 @@ from pathlib import Path
 
 from ..endpoints import DownloadStrategy, get_endpoint_spec
 from ..io import ALLOWED_COMPRESSIONS, validate_years
-
-from ._handlers import extract_by_trade_date, extract_full_history
 from ..types import ExtractApiResult
+from ._handlers import extract_by_trade_date, extract_full_history
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +66,7 @@ def extract(
         tickers_clean = None
     else:
         tickers_clean = [
-            str(t).strip()
-            for t in tickers
-            if t is not None and str(t).strip()
+            str(t).strip() for t in tickers if t is not None and str(t).strip()
         ]
         # De-duplicate while preserving order
         seen: set[str] = set()
@@ -96,9 +93,7 @@ def extract(
         )
 
     if year_whitelist is None:
-        raise ValueError(
-            "year_whitelist must be provided for BY_TRADE_DATE endpoints"
-        )
+        raise ValueError("year_whitelist must be provided for BY_TRADE_DATE endpoints")
 
     years = validate_years(year_whitelist)
 

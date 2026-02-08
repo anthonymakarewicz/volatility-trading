@@ -25,6 +25,7 @@ def expr_bad_trade_after_expiry(
 # Quote checks
 # -----------------------------------------------------------------------------
 
+
 def expr_bad_bid_ask(bid_col: str, ask_col: str) -> pl.Expr:
     """Flag rows where bid > ask."""
     return pl.col(bid_col) > pl.col(ask_col)
@@ -52,6 +53,7 @@ def expr_bad_crossed_market(
 # Volume / Open Interest checks
 # -----------------------------------------------------------------------------
 
+
 def expr_bad_negative_vol_oi(
     volume_col: str = "volume",
     oi_col: str = "open_interest",
@@ -63,6 +65,7 @@ def expr_bad_negative_vol_oi(
 # -----------------------------------------------------------------------------
 # Greeks checks (kept as-is; you may or may not use them yet)
 # -----------------------------------------------------------------------------
+
 
 def expr_bad_gamma_sign(
     gamma_col: str = "gamma",

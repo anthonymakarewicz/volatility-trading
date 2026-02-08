@@ -11,12 +11,7 @@ from .info.suite import run_info_suite
 from .reporting import write_config_json, write_summary_json
 from .soft.spec_types import SoftSpec
 from .soft.suite import run_soft_suite
-from .types import (
-    Grade,
-    QCCheckResult,
-    QCConfig,
-    Severity
-)
+from .types import Grade, QCCheckResult, QCConfig, Severity
 
 
 def write_json_reports(
@@ -34,9 +29,7 @@ def write_json_reports(
 
     if out_json is None:
         if parquet_path is None:
-            raise FileNotFoundError(
-                "parquet_path is required when out_json is None"
-            )
+            raise FileNotFoundError("parquet_path is required when out_json is None")
 
         if not parquet_path.exists():
             prefix = missing_error_prefix or "Processed dataset not found"
@@ -57,25 +50,17 @@ def write_json_reports(
 def compute_outcome(results: list[QCCheckResult]) -> tuple[bool, int, int, int]:
     """Compute overall pass/fail + a few run-level counts."""
     passed = all(
-        r.passed
-        for r in results
-        if r.severity in {Severity.HARD, Severity.SOFT}
+        r.passed for r in results if r.severity in {Severity.HARD, Severity.SOFT}
     )
 
     n_hard_fail = sum(
-        1
-        for r in results
-        if (r.severity == Severity.HARD and not r.passed)
+        1 for r in results if (r.severity == Severity.HARD and not r.passed)
     )
     n_soft_fail = sum(
-        1
-        for r in results
-        if (r.severity == Severity.SOFT and r.grade == Grade.FAIL)
+        1 for r in results if (r.severity == Severity.SOFT and r.grade == Grade.FAIL)
     )
     n_soft_warn = sum(
-        1
-        for r in results
-        if (r.severity == Severity.SOFT and r.grade == Grade.WARN)
+        1 for r in results if (r.severity == Severity.SOFT and r.grade == Grade.WARN)
     )
 
     return passed, n_hard_fail, n_soft_fail, n_soft_warn

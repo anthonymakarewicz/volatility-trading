@@ -1,4 +1,5 @@
 import pandas as pd
+
 from .base_signal import Signal
 
 
@@ -16,7 +17,7 @@ class LongOnlySignal(Signal):
         signals["long"] = True
         signals["short"] = False
         signals["exit"] = False
-        return signals  
+        return signals
 
 
 class ShortOnlySignal(Signal):

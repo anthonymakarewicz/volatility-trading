@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from volatility_trading.utils.logging_config import setup_logging
-
 
 DEFAULT_LOGGING: dict[str, Any] = {
     "level": "INFO",
@@ -47,9 +47,7 @@ def add_logging_args(parser) -> None:
     parser.set_defaults(log_color=None)
 
 
-def _normalize_logging_config(
-    config: Mapping[str, Any] | None
-) -> dict[str, Any]:
+def _normalize_logging_config(config: Mapping[str, Any] | None) -> dict[str, Any]:
     merged = dict(DEFAULT_LOGGING)
     if not config:
         return merged

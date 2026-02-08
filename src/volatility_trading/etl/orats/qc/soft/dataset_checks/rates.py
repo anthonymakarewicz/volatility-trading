@@ -14,9 +14,9 @@ def check_unique_rf_rate_per_day_expiry(
     trade_col: str = "trade_date",
     expiry_col: str = "expiry_date",
     r_col: str = "risk_free_rate",
-    tol_abs: float = 1e-4,          # ~1bp absolute tolerance
-    tol_rel: float = 0.0,           # optional relative tolerance
-    rel_floor: float = 1e-6,        # avoid div by ~0
+    tol_abs: float = 1e-4,  # ~1bp absolute tolerance
+    tol_rel: float = 0.0,  # optional relative tolerance
+    rel_floor: float = 1e-6,  # avoid div by ~0
     max_examples: int = 5,
 ) -> dict[str, Any]:
     """
@@ -33,11 +33,7 @@ def check_unique_rf_rate_per_day_expiry(
         raise ValueError(f"missing required columns: {missing}")
 
     # Only evaluate where r is present
-    dfx = (
-        df
-        .select([trade_col, expiry_col, r_col])
-        .filter(pl.col(r_col).is_not_null())
-    )
+    dfx = df.select([trade_col, expiry_col, r_col]).filter(pl.col(r_col).is_not_null())
     if dfx.height == 0:
         return {
             "viol_rate": 0.0,
@@ -62,9 +58,8 @@ def check_unique_rf_rate_per_day_expiry(
 
     # Tolerance: abs OR (rel * max(|rate|, floor))
     abs_bad = pl.col("r_spread") > tol_abs
-    rel_bad = (
-        pl.col("r_spread")
-        > (tol_rel * pl.max_horizontal([pl.col("r_max").abs(), pl.lit(rel_floor)]))
+    rel_bad = pl.col("r_spread") > (
+        tol_rel * pl.max_horizontal([pl.col("r_max").abs(), pl.lit(rel_floor)])
     )
     viol_expr = abs_bad | rel_bad
 
@@ -77,9 +72,7 @@ def check_unique_rf_rate_per_day_expiry(
 
     # Some helpful debug payload: worst offenders
     examples_df = (
-        grp2.filter(pl.col("viol"))
-        .sort("r_spread", descending=True)
-        .head(max_examples)
+        grp2.filter(pl.col("viol")).sort("r_spread", descending=True).head(max_examples)
     )
 
     max_spread = float(grp2.select(pl.col("r_spread").max().alias("m"))["m"][0])

@@ -1,13 +1,11 @@
 import numpy as np
 import pandas as pd
 
-from volatility_trading.signals import Signal
-from volatility_trading.filters import Filter
 from volatility_trading.backtesting import BacktestConfig, SliceContext
+from volatility_trading.filters import Filter
+from volatility_trading.signals import Signal
 
 from ..base_strategy import Strategy
-
-from volatility_trading.options.greeks import bs_greeks
 
 
 class VRPHarvestingStrategy2(Strategy):
@@ -72,7 +70,7 @@ class VRPHarvestingStrategy2(Strategy):
 
         options = data["options"]
         features = data.get("features")  # expected: DataFrame with iv_atm etc.
-        hedge = data.get("hedge")        # not used yet, but kept in signature
+        hedge = data.get("hedge")  # not used yet, but kept in signature
 
         # For now: always-on short vol (filters will switch us OFF if needed)
         series = pd.Series(0, index=options.index)
@@ -168,14 +166,14 @@ class VRPHarvestingStrategy2(Strategy):
             put_entry = put_bid - cfg.slip_bid
             call_entry = call_bid - cfg.slip_bid
 
-
-
             # Greeks per contract
             delta_pc, gamma_pc, vega_pc, theta_pc = self._compute_greeks_per_contract(
                 put_q, call_q, put_side, call_side, lot_size
             )
 
-            net_entry = (put_side * put_entry + call_side * call_entry) * lot_size * contracts
+            net_entry = (
+                (put_side * put_entry + call_side * call_entry) * lot_size * contracts
+            )
 
             S_entry = chain["underlying_last"].iloc[0]
             # Best: use IV from the actual legs if you have it
@@ -384,28 +382,24 @@ class VRPHarvestingStrategy2(Strategy):
             return pd.DataFrame(trades), pd.DataFrame()
 
         mtm_agg = pd.DataFrame(mtm_records).set_index("date").sort_index()
-        mtm = (
-            mtm_agg.groupby("date")
-            .agg(
-                {
-                    "delta_pnl": "sum",
-                    "delta": "sum",
-                    "net_delta": "sum",
-                    "gamma": "sum",
-                    "vega": "sum",
-                    "theta": "sum",
-                    "hedge_pnl": "sum",
-                    "S": "first",
-                    "iv": "first",
-                }
-            )
+        mtm = mtm_agg.groupby("date").agg(
+            {
+                "delta_pnl": "sum",
+                "delta": "sum",
+                "net_delta": "sum",
+                "gamma": "sum",
+                "vega": "sum",
+                "theta": "sum",
+                "hedge_pnl": "sum",
+                "S": "first",
+                "iv": "first",
+            }
         )
 
         # equity curve initialized with provided capital
         mtm["equity"] = capital + mtm["delta_pnl"].cumsum()
 
         return pd.DataFrame(trades), mtm
-    
 
 
 class VRPHarvestingStrategy(Strategy):
@@ -415,8 +409,7 @@ class VRPHarvestingStrategy(Strategy):
         filters: list[Filter] | None = None,
         holding_period: int = 5,
         target_dte: int = 30,
-        max_dte_diff: int = 7
-
+        max_dte_diff: int = 7,
     ):
         """
         Baseline VRP harvesting strategy:
@@ -462,7 +455,7 @@ class VRPHarvestingStrategy(Strategy):
         vega = (put_side * put_q["vega"] + call_side * call_q["vega"]) * lot_size
         theta = (put_side * put_q["theta"] + call_side * call_q["theta"]) * lot_size
         return delta, gamma, vega, theta
-    
+
     @staticmethod
     def choose_vrp_expiry(
         chain: pd.DataFrame,
@@ -504,7 +497,7 @@ class VRPHarvestingStrategy(Strategy):
 
         options = data["options"]
         features = data.get("features")  # expected: DataFrame with iv_atm etc.
-        hedge = data.get("hedge")        # not used yet, but kept in signature
+        hedge = data.get("hedge")  # not used yet, but kept in signature
 
         # For now: always-on short vol (filters will switch us OFF if needed)
         series = pd.Series(0, index=options.index)
@@ -584,9 +577,7 @@ class VRPHarvestingStrategy(Strategy):
             # --- choose expiry closest to target DTE if available ---
             chain = options.loc[entry_date]
             chosen_dte = self.choose_vrp_expiry(
-                chain=chain, 
-                target_dte=self.target_dte, 
-                max_dte_diff=self.max_dte_diff
+                chain=chain, target_dte=self.target_dte, max_dte_diff=self.max_dte_diff
             )
             if chosen_dte is None:
                 continue
@@ -631,7 +622,9 @@ class VRPHarvestingStrategy(Strategy):
                 iv_entry = np.nan
 
             # net entry value with sign convention (short)
-            net_entry = (put_side * put_entry + call_side * call_entry) * lot_size * contracts
+            net_entry = (
+                (put_side * put_entry + call_side * call_entry) * lot_size * contracts
+            )
 
             # initial Greeks across all contracts
             delta = delta_pc * contracts
@@ -703,8 +696,10 @@ class VRPHarvestingStrategy(Strategy):
 
                     pnl_mtm = (pe_mid + ce_mid) * lot_size * contracts - net_entry
 
-                    delta_pc_t, gamma_pc_t, vega_pc_t, theta_pc_t = self._compute_greeks_per_contract(
-                        pt, ct, put_side, call_side, lot_size
+                    delta_pc_t, gamma_pc_t, vega_pc_t, theta_pc_t = (
+                        self._compute_greeks_per_contract(
+                            pt, ct, put_side, call_side, lot_size
+                        )
                     )
                     delta = delta_pc_t * contracts
                     gamma = gamma_pc_t * contracts
@@ -722,9 +717,7 @@ class VRPHarvestingStrategy(Strategy):
                     and not put_today.empty
                     and not call_today.empty
                 ):
-                    iv_curr = 0.5 * (
-                        put_today.iloc[0]["iv"] + call_today.iloc[0]["iv"]
-                    )
+                    iv_curr = 0.5 * (put_today.iloc[0]["iv"] + call_today.iloc[0]["iv"])
 
                 hedge_pnl = 0.0  # no hedge baseline
                 net_delta = delta
@@ -805,7 +798,6 @@ class VRPHarvestingStrategy(Strategy):
                     }
                 )
 
-                last_exit = curr_date
                 exited = True
                 break
 
@@ -817,21 +809,18 @@ class VRPHarvestingStrategy(Strategy):
             return pd.DataFrame(trades), pd.DataFrame()
 
         mtm_agg = pd.DataFrame(mtm_records).set_index("date").sort_index()
-        mtm = (
-            mtm_agg.groupby("date")
-            .agg(
-                {
-                    "delta_pnl": "sum",
-                    "delta": "sum",
-                    "net_delta": "sum",
-                    "gamma": "sum",
-                    "vega": "sum",
-                    "theta": "sum",
-                    "hedge_pnl": "sum",
-                    "S": "first",
-                    "iv": "first",
-                }
-            )
+        mtm = mtm_agg.groupby("date").agg(
+            {
+                "delta_pnl": "sum",
+                "delta": "sum",
+                "net_delta": "sum",
+                "gamma": "sum",
+                "vega": "sum",
+                "theta": "sum",
+                "hedge_pnl": "sum",
+                "S": "first",
+                "iv": "first",
+            }
         )
 
         # equity curve initialized with provided capital

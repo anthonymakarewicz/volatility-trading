@@ -9,7 +9,7 @@ class VIXFilter(Filter):
     def get_params(self):
         return {
             "vixfilter__panic_threshold": self.panic_threshold,
-            "vixfilter__mom_threshold":   self.mom_threshold,
+            "vixfilter__mom_threshold": self.mom_threshold,
         }
 
     def set_params(self, panic_threshold=None, mom_threshold=None, **kwargs):
@@ -23,7 +23,7 @@ class VIXFilter(Filter):
 
     def apply(self, signals, ctx):
         vix = ctx["vix"]
-        vix_mask = (vix < self.panic_threshold)
+        vix_mask = vix < self.panic_threshold
         out = signals.copy()
-        out.loc[~vix_mask, ['long','short','exit']] = False
+        out.loc[~vix_mask, ["long", "short", "exit"]] = False
         return out

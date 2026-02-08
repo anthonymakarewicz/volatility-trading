@@ -1,15 +1,12 @@
 import numpy as np
 import pandas as pd
 import yfinance as yf
-from .vol_estimators import rv_intraday
-from ..options.greeks import solve_strike_for_delta
-from .macro_features import create_macro_features
-from typing import Optional, Tuple
 
-def create_forward_target(
-    daily_variance: pd.Series, 
-    horizon: int = 21
-) -> pd.Series:
+from ..options.greeks import solve_strike_for_delta
+from .vol_estimators import rv_intraday
+
+
+def create_forward_target(daily_variance: pd.Series, horizon: int = 21) -> pd.Series:
     """
     daily_variance: per-day realized variance (NOT sqrt, NOT annualized).
                     index = trading days.
@@ -20,9 +17,9 @@ def create_forward_target(
     """
     # trailing mean, then realign to t as forward mean
     fwd_avg_var = (
-        daily_variance
-        .rolling(horizon).mean()       # at t+h: mean of [t+1 .. t+h]
-        .shift(-horizon)               # move it back so it's aligned at t
+        daily_variance.rolling(horizon)
+        .mean()  # at t+h: mean of [t+1 .. t+h]
+        .shift(-horizon)  # move it back so it's aligned at t
     )
 
     y = np.log(fwd_avg_var)
@@ -31,22 +28,18 @@ def create_forward_target(
 
 
 def create_har_lags(real_variance):
-    X_har = pd.DataFrame({
-        "RV_D": real_variance,                   # yesterday’s daily RV
-        "RV_W": real_variance.rolling(5).mean(), # weekly avg of daily RVs
-        "RV_M": real_variance.rolling(21).mean() # monthly avg of daily RVs
-    })
+    X_har = pd.DataFrame(
+        {
+            "RV_D": real_variance,  # yesterday’s daily RV
+            "RV_W": real_variance.rolling(5).mean(),  # weekly avg of daily RVs
+            "RV_M": real_variance.rolling(21).mean(),  # monthly avg of daily RVs
+        }
+    )
     return X_har
 
 
-def create_iv_surface_predictors(  
-    options, 
-    iv_surface_model, 
-    params=None,
-    T1=30/252,
-    T2=60/252,
-    r=0.0, 
-    q=0.0
+def create_iv_surface_predictors(
+    options, iv_surface_model, params=None, T1=30 / 252, T2=60 / 252, r=0.0, q=0.0
 ):
     iv_features = []
 
@@ -67,22 +60,10 @@ def create_iv_surface_predictors(
         # --- 25Δ strikes (approx using ATM vol for the delta inversion) ---
         # target deltas: put = -0.25, call = +0.25
         K_put_25d = solve_strike_for_delta(
-            target_delta=-0.25,
-            S=S,
-            T=T1,
-            sigma=atm_iv_30d,
-            option_type="put",
-            r=r,
-            q=q
+            target_delta=-0.25, S=S, T=T1, sigma=atm_iv_30d, option_type="put", r=r, q=q
         )
         K_call_25d = solve_strike_for_delta(
-            target_delta=0.25,
-            S=S,
-            T=T1,
-            sigma=atm_iv_30d,
-            option_type="call",
-            r=r,
-            q=q
+            target_delta=0.25, S=S, T=T1, sigma=atm_iv_30d, option_type="call", r=r, q=q
         )
 
         # --- 25Δ skew (downside - upside) ---
@@ -93,12 +74,14 @@ def create_iv_surface_predictors(
         # --- Term structure slope (30D → 60D) ---
         iv_ts = atm_iv_60d - atm_iv_30d
 
-        iv_features.append({
-            "date": date,
-            "atm_iv_30d": atm_iv_30d,
-            "iv_skew": iv_skew,
-            "iv_ts": iv_ts,
-        })
+        iv_features.append(
+            {
+                "date": date,
+                "atm_iv_30d": atm_iv_30d,
+                "iv_skew": iv_skew,
+                "iv_ts": iv_ts,
+            }
+        )
 
     iv_features = pd.DataFrame(iv_features).set_index("date").sort_index()
     return iv_features
@@ -118,10 +101,10 @@ def overnight_return(df, rth_start="09:30", rth_end="16:00"):
     rth = df[(tod >= rth_start) & (tod <= rth_end)].copy()
 
     # RTH open = first 'open' of the day, RTH close = last 'close'
-    daily_open  = rth.groupby(rth.index.date)["open"].first()
+    daily_open = rth.groupby(rth.index.date)["open"].first()
     daily_close = rth.groupby(rth.index.date)["close"].last()
 
-    daily_open.index  = pd.to_datetime(daily_open.index)
+    daily_open.index = pd.to_datetime(daily_open.index)
     daily_close.index = pd.to_datetime(daily_close.index)
 
     ov = np.log(daily_open / daily_close.shift(1))
@@ -129,9 +112,7 @@ def overnight_return(df, rth_start="09:30", rth_end="16:00"):
     return ov.dropna()
 
 
-def realized_skew_kurt_intraday(
-        intraday_returns: pd.Series
-    ) -> pd.DataFrame:
+def realized_skew_kurt_intraday(intraday_returns: pd.Series) -> pd.DataFrame:
     # group by calendar day
     g = intraday_returns.groupby(intraday_returns.index.date)
 
@@ -151,22 +132,24 @@ def realized_skew_kurt_intraday(
                 rsk = np.nan
                 rku = np.nan
             else:
-                rsk = np.sqrt(N) * s3 / (s2 ** 1.5)   # RSK_t
-                rku = N * s4 / (s2 ** 2)             # RKU_t
+                rsk = np.sqrt(N) * s3 / (s2**1.5)  # RSK_t
+                rku = N * s4 / (s2**2)  # RKU_t
 
         out.append((pd.to_datetime(day), rsk, rku))
 
-    df = pd.DataFrame(out, columns=["date", "rsk", "rku"]).set_index("date").sort_index()
+    df = (
+        pd.DataFrame(out, columns=["date", "rsk", "rku"]).set_index("date").sort_index()
+    )
     return df
 
 
 def create_return_predictors(
-        daily_returns: pd.Series, 
-        intraday_prices: pd.Series, 
-        h: int = 21, 
-        rth_start="09:30", 
-        rth_end="16:00"
-    ) -> pd.DataFrame:
+    daily_returns: pd.Series,
+    intraday_prices: pd.Series,
+    h: int = 21,
+    rth_start="09:30",
+    rth_end="16:00",
+) -> pd.DataFrame:
     ret_features = pd.DataFrame(index=daily_returns.index)
 
     # ---------- 1) Overnight jumps (RTH close -> next RTH open) ----------
@@ -203,9 +186,11 @@ def create_return_predictors(
 
 def create_market_features(start: str, end: str) -> pd.DataFrame:
     tickers = ["^VIX", "^VVIX", "^VIX3M"]
-    vix = yf.download(tickers, start=start, end=end, auto_adjust=True, progress=False)[["Close"]]
+    vix = yf.download(tickers, start=start, end=end, auto_adjust=True, progress=False)[
+        ["Close"]
+    ]
     vix.columns = [tkr.replace("^", "") for _, tkr in vix.columns]
-    #vix = vix.rename(columns={"VIX": "VIX", "VVIX": "VVIX"}).sort_index()
+    # vix = vix.rename(columns={"VIX": "VIX", "VVIX": "VVIX"}).sort_index()
     vix["vix_ts"] = vix["VIX3M"] - vix["VIX"]
     vix = vix.drop("VIX3M", axis=1)
     return vix
@@ -228,9 +213,9 @@ def feature_engineering(
     # 1. Horizon-aligned smoothing (regime level)
     # -------------------------------------------------
     if "VIX" in X:
-        X_eng["VIX_rm5"]   = X["VIX"].rolling(window_short, min_periods=1).mean()
-        X_eng["VIX_rm21"]  = X["VIX"].rolling(window_long, min_periods=1).mean()
-        X_eng["VIX_ewma"]  = X["VIX"].ewm(alpha=ewma_alpha, adjust=False).mean()
+        X_eng["VIX_rm5"] = X["VIX"].rolling(window_short, min_periods=1).mean()
+        X_eng["VIX_rm21"] = X["VIX"].rolling(window_long, min_periods=1).mean()
+        X_eng["VIX_ewma"] = X["VIX"].ewm(alpha=ewma_alpha, adjust=False).mean()
 
     if "RV_D" in X:
         X_eng["RV_D_ewma"] = X["RV_D"].ewm(alpha=ewma_alpha, adjust=False).mean()
@@ -254,8 +239,8 @@ def feature_engineering(
         X_eng["vvix_over_vix"] = X["VVIX"] / X["VIX"].replace(0, np.nan)
 
     if "VIX" in X and "HY_OAS" in X:
-        X_eng["VIX_time_HY_OAS"] = X["VIX"] * X["HY_OAS"] 
-    
+        X_eng["VIX_time_HY_OAS"] = X["VIX"] * X["HY_OAS"]
+
     if "RV_D" in X:
         X_eng["RV_D_rollvol5"] = X["RV_D"].rolling(5).std()
         X_eng["RV_D_rollvol21"] = X["RV_D"].rolling(21).std()
@@ -270,8 +255,8 @@ def feature_engineering(
 
 def build_naive_targets(
     rv_m: pd.Series,
-    iv_atm: Optional[pd.Series] = None,
-) -> Tuple[pd.Series, Optional[pd.Series]]:
+    iv_atm: pd.Series | None = None,
+) -> tuple[pd.Series, pd.Series | None]:
     """
     Build naive benchmarks on the *same index* as rv_m:
 
@@ -316,7 +301,7 @@ def build_naive_targets(
     y_naive_rv.name = "log_fwd_var_naive_rv"
 
     # Naive IV: ATM 30D implied vol (annualised) -> daily variance -> log
-    var_daily_iv = (iv_atm_aligned ** 2) / 252.0
+    var_daily_iv = (iv_atm_aligned**2) / 252.0
     y_naive_iv = np.log(var_daily_iv)
     y_naive_iv.name = "log_fwd_var_naive_iv"
 
@@ -336,11 +321,11 @@ def build_har_vix_dataset(es_5min, start=None, end=None, h=21):
     y = create_forward_target(daily_rv, horizon=h)
 
     # 3) predictors
-    X_har = create_har_lags(daily_rv)   # RV_D, RV_W, RV_M, ...
+    X_har = create_har_lags(daily_rv)  # RV_D, RV_W, RV_M, ...
 
     # use the target index to get the proper VIX range
     feat_start = y.index.min()
-    feat_end   = y.index.max()
+    feat_end = y.index.max()
 
     X_vix = create_market_features(start=feat_start, end=feat_end)[["VIX"]]
     X_vix = X_vix.reindex(y.index).ffill()

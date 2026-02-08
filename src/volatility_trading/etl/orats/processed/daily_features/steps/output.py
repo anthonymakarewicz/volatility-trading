@@ -9,7 +9,6 @@ import polars as pl
 from ...shared.io import processed_underlying_part_path
 from ...shared.log_fmt import fmt_int
 
-
 logger = logging.getLogger(__name__)
 
 

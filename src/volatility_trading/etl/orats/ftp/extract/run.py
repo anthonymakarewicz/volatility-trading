@@ -8,8 +8,8 @@ from pathlib import Path
 import polars as pl
 from polars.exceptions import NoDataError
 
-from ._helpers import read_orats_zip_to_polars
 from ..types import ExtractFtpResult
+from ._helpers import read_orats_zip_to_polars
 
 logger = logging.getLogger(__name__)
 
@@ -113,18 +113,13 @@ def extract(
             if not year_name.isdigit():
                 continue
 
-            if (
-                year_whitelist_str is not None and 
-                year_name not in year_whitelist_str
-            ):
+            if year_whitelist_str is not None and year_name not in year_whitelist_str:
                 continue
 
             logger.info("Year %s ...", year_name)
 
             # per-year accumulator: ticker -> list of DataFrames
-            dfs_by_ticker: dict[str, list[pl.DataFrame]] = {
-                t: [] for t in tickers
-            }
+            dfs_by_ticker: dict[str, list[pl.DataFrame]] = {t: [] for t in tickers}
 
             # loop over daily ZIP files in this year
             for zip_path in sorted(year_dir.glob("*.zip")):

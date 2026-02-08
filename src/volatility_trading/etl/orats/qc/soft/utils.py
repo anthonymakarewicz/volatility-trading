@@ -46,19 +46,13 @@ def build_wide_views_if_needed(
     """
 
     def _build_wide(df_long: pl.DataFrame) -> pl.DataFrame:
-        wide = (
-            options_chain_long_to_wide(long=df_long, how="inner")
-            .collect()
-        )
+        wide = options_chain_long_to_wide(long=df_long, how="inner").collect()
         if "call_delta" in wide.columns:
             wide = wide.with_columns(pl.col("call_delta").alias("delta"))
         return wide
 
     # Only row specs can set requires_wide
-    needs_wide = any(
-        (spec.kind == "row" and spec.requires_wide)
-        for spec in soft_specs
-    )
+    needs_wide = any((spec.kind == "row" and spec.requires_wide) for spec in soft_specs)
     if not needs_wide:
         return None, None
 

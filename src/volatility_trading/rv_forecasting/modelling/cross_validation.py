@@ -89,6 +89,8 @@ class PurgedKFold(BaseCrossValidator):
                 emb_end = min(emb_start + n_embargo, n_samples)
                 if emb_start < emb_end:
                     embargo_region = np.arange(emb_start, emb_end)
-                    train_idx = np.setdiff1d(train_idx, embargo_region, assume_unique=False)
+                    train_idx = np.setdiff1d(
+                        train_idx, embargo_region, assume_unique=False
+                    )
 
             yield np.sort(train_idx), np.sort(test_idx)

@@ -20,8 +20,8 @@ origin label.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping
 
 
 class _AddShortNameFilter(logging.Filter):
@@ -29,6 +29,7 @@ class _AddShortNameFilter(logging.Filter):
 
     Safe for multi-handler logging because it does not mutate `record.name`.
     """
+
     def filter(self, record: logging.LogRecord) -> bool:
         record.shortname = record.name.split(".")[-1]
         return True
@@ -40,13 +41,14 @@ class _ColorFormatter(logging.Formatter):
     - Colors only the *levelname* (INFO/DEBUG/...) to keep output readable.
     - Apply only to the console handler; file logs should remain uncolored.
     """
+
     _RESET = "\033[0m"
     _LEVEL_COLOR: dict[int, str] = {
-        logging.DEBUG: "\033[36m",        # cyan
-        logging.INFO: "\033[32m",         # green
-        logging.WARNING: "\033[33m",      # yellow
-        logging.ERROR: "\033[31m",        # red
-        logging.CRITICAL: "\033[1;31m",   # bold red
+        logging.DEBUG: "\033[36m",  # cyan
+        logging.INFO: "\033[32m",  # green
+        logging.WARNING: "\033[33m",  # yellow
+        logging.ERROR: "\033[31m",  # red
+        logging.CRITICAL: "\033[1;31m",  # bold red
     }
 
     def format(self, record: logging.LogRecord) -> str:

@@ -4,43 +4,36 @@ import polars as pl
 
 from ..schema_spec import OratsSchemaSpec
 
-
 # ----- Dtypes (vendor) ------
 _MONIES_IMPLIED_VENDOR_DTYPES: dict[str, pl.DataType] = {
     # Keys
     "ticker": pl.Utf8,
     "tradeDate": pl.Utf8,
     "expirDate": pl.Utf8,
-
     # Underlying + rates
     "stockPrice": pl.Float64,
     "spotPrice": pl.Float64,
     "riskFreeRate": pl.Float64,
-
     # Dividend/yield model fields
     "yieldRate": pl.Float64,
     "residualYieldRate": pl.Float64,
     "residualRateSlp": pl.Float64,
     "residualR2": pl.Float64,
     "confidence": pl.Float64,
-
     # ATM vols / calibration
     "atmiv": pl.Float64,
     "calVol": pl.Float64,
     "unadjVol": pl.Float64,
     "earnEffect": pl.Float64,
-
     # Timestamps (parse later)
     "quoteDate": pl.Utf8,
     "updatedAt": pl.Utf8,
-
     # Optional model diagnostics / additional fields
     "mwVol": pl.Float64,
     "typeFlag": pl.Int64,
     "slope": pl.Float64,
     "deriv": pl.Float64,
     "fit": pl.Float64,
-
     # Delta-slice vols
     "vol100": pl.Float64,
     "vol95": pl.Float64,
@@ -66,12 +59,8 @@ _MONIES_IMPLIED_VENDOR_DTYPES: dict[str, pl.DataType] = {
 }
 
 # ----- Dates / datetimes (vendor) ------
-_MONIES_IMPLIED_VENDOR_DATE_COLS: tuple[str, ...] = (
-    "tradeDate", "expirDate"
-)
-_MONIES_IMPLIED_VENDOR_DATETIME_COLS: tuple[str, ...] = (
-    "quoteDate", "updatedAt"
-)
+_MONIES_IMPLIED_VENDOR_DATE_COLS: tuple[str, ...] = ("tradeDate", "expirDate")
+_MONIES_IMPLIED_VENDOR_DATETIME_COLS: tuple[str, ...] = ("quoteDate", "updatedAt")
 
 # ------ Renames vendor -> canonical  ------
 _MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
@@ -79,36 +68,30 @@ _MONIES_IMPLIED_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "ticker": "ticker",
     "tradeDate": "trade_date",
     "expirDate": "expiry_date",
-
     # Underlying + rates
     "stockPrice": "underlying_price",
     "spotPrice": "spot_price",
     "riskFreeRate": "risk_free_rate",
-
     # Yield decomposition
     "yieldRate": "yield_rate",
     "residualYieldRate": "residual_yield_rate",
     "residualRateSlp": "residual_rate_slp",
     "residualR2": "residual_r2",
     "confidence": "confidence",
-
     # ATM vols / calibration
     "atmiv": "atm_iv",
     "calVol": "cal_vol",
     "unadjVol": "unadj_vol",
     "earnEffect": "earn_effect",
-
     # Timestamps
     "quoteDate": "quote_ts",
     "updatedAt": "updated_ts",
-
     # Optional diagnostics
     "mwVol": "mw_vol",
     "typeFlag": "type_flag",
     "slope": "slope",
     "deriv": "deriv",
     "fit": "fit",
-
     # Delta-slice vols
     "vol100": "vol_100",
     "vol95": "vol_95",
@@ -148,7 +131,6 @@ _MONIES_IMPLIED_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "yield_rate": (-1.0, 1.0),
     "residual_yield_rate": (-1.0, 1.0),
     "residual_rate_slp": (-10.0, 10.0),
-
     "atm_iv": (0.0, 10.0),
     "cal_vol": (0.0, 10.0),
     "unadj_vol": (0.0, 10.0),
@@ -161,22 +143,18 @@ _MONIES_IMPLIED_KEEP_CANONICAL: tuple[str, ...] = (
     "ticker",
     "trade_date",
     "expiry_date",
-
     "underlying_price",
     "spot_price",
     "risk_free_rate",
-
     "yield_rate",
     "residual_yield_rate",
     "residual_rate_slp",
     "residual_r2",
     "confidence",
-
     "atm_iv",
     "cal_vol",
     "unadj_vol",
     "earn_effect",
-
     "type_flag",
     "quote_ts",
     "updated_ts",

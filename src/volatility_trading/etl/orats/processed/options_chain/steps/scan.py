@@ -10,7 +10,6 @@ import polars as pl
 
 from ...shared.log_fmt import fmt_int
 from ...shared.stats import count_rows
-
 from ..io import scan_strikes_intermediate
 from ..types import BuildStats
 
@@ -25,11 +24,7 @@ def scan_inputs(
     collect_stats: bool,
     stats: BuildStats,
 ) -> pl.LazyFrame:
-    lf = scan_strikes_intermediate(
-        inter_root=inter_root,
-        ticker=ticker,
-        years=years
-    )
+    lf = scan_strikes_intermediate(inter_root=inter_root, ticker=ticker, years=years)
 
     if collect_stats:
         lf = lf.cache()

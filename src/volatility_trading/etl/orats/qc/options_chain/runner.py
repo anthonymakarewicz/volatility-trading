@@ -10,6 +10,7 @@ Runs three suites on the processed options chain:
 
 This module is read-only: it does not drop or modify rows.
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,21 +18,16 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
-from ..common_helpers import (
-    compute_outcome,
-    write_json_reports,
-    run_all_checks
-)
+from ..common_helpers import compute_outcome, run_all_checks, write_json_reports
 from ..reporting import log_check
 from ..types import QCConfig, QCRunResult
-
+from .hard.specs import get_hard_specs
 from .helpers import (
     apply_roi_filter,
     get_parquet_path,
     load_options_chain_df,
     read_exercise_style,
 )
-from .hard.specs import get_hard_specs
 from .info.specs import get_info_specs
 from .soft.specs import get_soft_specs
 

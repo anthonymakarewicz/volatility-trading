@@ -7,15 +7,15 @@ from concurrent.futures import ThreadPoolExecutor
 from ftplib import FTP
 from pathlib import Path
 
-from ._helpers import YearDownloadResult, download_one_year
 from ..types import DownloadFtpResult
+from ._helpers import YearDownloadResult, download_one_year
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_HOST: str = "orats.hostedftp.com"
 DEFAULT_REMOTE_BASE_DIRS: tuple[str, ...] = (
     "smvstrikes_2007_2012",  # 2007–2012
-    "smvstrikes",            # 2013–present
+    "smvstrikes",  # 2013–present
 )
 
 

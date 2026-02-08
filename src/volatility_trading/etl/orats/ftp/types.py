@@ -7,9 +7,10 @@ from pathlib import Path
 @dataclass(frozen=True)
 class DownloadFtpResult:
     """Summary of an ORATS FTP download run."""
+
     host: str
     n_jobs: int
-    
+
     n_files_total: int
     n_written: int
     n_skipped: int
@@ -24,6 +25,7 @@ class DownloadFtpResult:
 @dataclass(frozen=True)
 class ExtractFtpResult:
     """Summary of an ORATS FTP extraction run."""
+
     n_zip_files_seen: int
     n_zip_files_read: int
     n_zip_files_failed: int

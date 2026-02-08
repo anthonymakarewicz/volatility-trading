@@ -46,13 +46,16 @@ class QCConfig:
 @dataclass(frozen=True)
 class QCCheckResult:
     """Standard output of one QC check."""
+
     name: str
     severity: Severity
     grade: Grade
     passed: bool
 
-    n_rows: int | None = None   # number of rows in df used for the check
-    n_units: int | None = None  # number of "units" for dataset checks (days, day/expiry)
+    n_rows: int | None = None  # number of rows in df used for the check
+    n_units: int | None = (
+        None  # number of "units" for dataset checks (days, day/expiry)
+    )
     n_viol: int | None = None
     viol_rate: float | None = None
 

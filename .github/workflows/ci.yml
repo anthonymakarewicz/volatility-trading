@@ -25,10 +25,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Lint (Ruff)
+      - name: Lint & format (Ruff)
         run: |
-          ruff check .
-          ruff format --check .
+          ruff check src tests
+          ruff format --check src tests
 
       - name: Unit tests
         run: pytest -q

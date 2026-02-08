@@ -10,11 +10,8 @@ def flag_zero_volume(
     volume_col: str = "volume",
 ) -> pl.DataFrame:
     """Flag rows where volume == 0."""
-    df_sub = (
-        df.filter(pl.col("option_type") == option_type)
-        .with_columns(
-            zero_volume_violation=(pl.col(volume_col) == 0).fill_null(False)
-        )
+    df_sub = df.filter(pl.col("option_type") == option_type).with_columns(
+        zero_volume_violation=(pl.col(volume_col) == 0).fill_null(False)
     )
     return df_sub
 
@@ -26,11 +23,8 @@ def flag_zero_open_interest(
     oi_col: str = "open_interest",
 ) -> pl.DataFrame:
     """Flag rows where open interest == 0."""
-    df_sub = (
-        df.filter(pl.col("option_type") == option_type)
-        .with_columns(
-            zero_open_interest_violation=(pl.col(oi_col) == 0).fill_null(False)
-        )
+    df_sub = df.filter(pl.col("option_type") == option_type).with_columns(
+        zero_open_interest_violation=(pl.col(oi_col) == 0).fill_null(False)
     )
     return df_sub
 
@@ -43,13 +37,10 @@ def flag_zero_vol_pos_oi(
     oi_col: str = "open_interest",
 ) -> pl.DataFrame:
     """Flag rows where volume == 0 but OI > 0."""
-    df_sub = (
-        df.filter(pl.col("option_type") == option_type)
-        .with_columns(
-            zero_vol_pos_oi_violation=(
-                (pl.col(volume_col) == 0) & (pl.col(oi_col) > 0)
-            ).fill_null(False)
-        )
+    df_sub = df.filter(pl.col("option_type") == option_type).with_columns(
+        zero_vol_pos_oi_violation=(
+            (pl.col(volume_col) == 0) & (pl.col(oi_col) > 0)
+        ).fill_null(False)
     )
     return df_sub
 
@@ -62,12 +53,9 @@ def flag_pos_vol_zero_oi(
     oi_col: str = "open_interest",
 ) -> pl.DataFrame:
     """Flag rows where volume > 0 but OI == 0."""
-    df_sub = (
-        df.filter(pl.col("option_type") == option_type)
-        .with_columns(
-            pos_vol_zero_oi_violation=(
-                (pl.col(volume_col) > 0) & (pl.col(oi_col) == 0)
-            ).fill_null(False)
-        )
+    df_sub = df.filter(pl.col("option_type") == option_type).with_columns(
+        pos_vol_zero_oi_violation=(
+            (pl.col(volume_col) > 0) & (pl.col(oi_col) == 0)
+        ).fill_null(False)
     )
     return df_sub

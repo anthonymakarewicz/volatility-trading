@@ -4,16 +4,15 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-import py7zr
 import pandas as pd
-from pandas.tseries.offsets import BMonthEnd
+import py7zr
 from pandas.errors import EmptyDataError
+from pandas.tseries.offsets import BMonthEnd
 
 
 def extract_7z_and_load(
-    archive_path: str | Path, 
-    low_memory: bool = True
-)-> pd.DataFrame:
+    archive_path: str | Path, low_memory: bool = True
+) -> pd.DataFrame:
     """
     Extract a single .7z archive, read all non-empty .txt files inside,
     and return a concatenated DataFrame of their contents.
@@ -56,22 +55,26 @@ def extract_7z_and_load(
             df = pd.read_csv(file, low_memory=low_memory)
             all_dfs.append(df)
         except EmptyDataError:
-            print(f"Warning: EmptyDataError encountered while reading {file}, skipping.")
+            print(
+                f"Warning: EmptyDataError encountered while reading {file}, skipping."
+            )
 
     shutil.rmtree(extract_dir, ignore_errors=True)
 
     if not all_dfs:
-        raise EmptyDataError(f"No non-empty .txt files found in archive: {archive_path}")
+        raise EmptyDataError(
+            f"No non-empty .txt files found in archive: {archive_path}"
+        )
 
     return pd.concat(all_dfs, ignore_index=True)
 
 
 def load_options(
-    root: str | Path, 
-    start_year: int = 2012, 
-    end_year: int = 2022, 
-    low_memory: bool = True
- ) -> pd.DataFrame:
+    root: str | Path,
+    start_year: int = 2012,
+    end_year: int = 2022,
+    low_memory: bool = True,
+) -> pd.DataFrame:
     """
     Walk year subdirectories under `root`, load all .7z archives between start_year and end_year,
     and return a raw concatenated DataFrame with normalized column names.
@@ -116,20 +119,16 @@ def load_options(
             frames.append(df)
 
     if not frames:
-        raise FileNotFoundError(f"No .7z archives found between years {start_year} and {end_year} in {root}")
+        raise FileNotFoundError(
+            f"No .7z archives found between years {start_year} and {end_year} in {root}"
+        )
 
     df = pd.concat(frames, ignore_index=True)
 
     df.columns = (
-        df.columns
-        .str.strip()
-        .str.replace(r"[\[\]]", "", regex=True)
-        .str.lower()
+        df.columns.str.strip().str.replace(r"[\[\]]", "", regex=True).str.lower()
     )
-    df = df.rename(columns={
-        "quote_date": "date",
-        "expire_date": "expiry"
-    })
+    df = df.rename(columns={"quote_date": "date", "expire_date": "expiry"})
 
     return df
 
@@ -157,11 +156,11 @@ def reshape_options_wide_to_long(df: pd.DataFrame) -> pd.DataFrame:
 
     call_rows = df[shared_cols + call_cols].copy()
     call_rows = call_rows.rename(columns={col: col[2:] for col in call_cols})
-    call_rows['option_type'] = 'C'
+    call_rows["option_type"] = "C"
 
     put_rows = df[shared_cols + put_cols].copy()
     put_rows = put_rows.rename(columns={col: col[2:] for col in put_cols})
-    put_rows['option_type'] = 'P'
+    put_rows["option_type"] = "P"
 
     long_df = pd.concat([call_rows, put_rows], axis=0)
     long_df = long_df.sort_values(["date", "strike", "option_type"])
@@ -193,13 +192,13 @@ def reshape_options_long_to_wide(df: pd.DataFrame) -> pd.DataFrame:
         df = df.reset_index()
 
     index_cols = [
-        'date',
-        'underlying_last',
-        'expiry',
-        'dte',
-        'strike',
-        'strike_distance',
-        'strike_distance_pct'
+        "date",
+        "underlying_last",
+        "expiry",
+        "dte",
+        "strike",
+        "strike_distance",
+        "strike_distance_pct",
     ]
 
     index_cols = [col for col in df.columns if col in index_cols]
@@ -233,13 +232,22 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
     df = reshape_options_wide_to_long(df)
 
-    cols_to_drop = ['quote_unixtime', 'quote_readtime', 'quote_time_hours', "expire_unix"]
+    cols_to_drop = [
+        "quote_unixtime",
+        "quote_readtime",
+        "quote_time_hours",
+        "expire_unix",
+    ]
     df = df.drop(columns=[col for col in cols_to_drop if col in df.columns])
 
-    size_split = df['size'].astype(str).str.extract(r'(?P<size_bid>\d+)\s*[xX]\s*(?P<size_ask>\d+)')
-    df['size_bid'] = pd.to_numeric(size_split['size_bid'], errors='coerce')
-    df['size_ask'] = pd.to_numeric(size_split['size_ask'], errors='coerce')
-    df = df.drop('size', axis=1)
+    size_split = (
+        df["size"]
+        .astype(str)
+        .str.extract(r"(?P<size_bid>\d+)\s*[xX]\s*(?P<size_ask>\d+)")
+    )
+    df["size_bid"] = pd.to_numeric(size_split["size_bid"], errors="coerce")
+    df["size_ask"] = pd.to_numeric(size_split["size_ask"], errors="coerce")
+    df = df.drop("size", axis=1)
 
     # Convert date columns
     dt_cols = ["date", "expiry"]
@@ -259,12 +267,12 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     df["volume"] = df["volume"].fillna(0)
 
     # Ensure bid/ask/last >= 0 and ask >= bid
-    df = df[df['ask'] >= df['bid']]
+    df = df[df["ask"] >= df["bid"]]
     for col in ["bid", "ask", "last"]:
         df = df[df[col] >= 0]
 
     # Ensure non-negative DTE
-    df = df[df['dte'] >= 0]
+    df = df[df["dte"] >= 0]
     df["dte"] = np.round(df["dte"])  # Avoid decimal expiries
 
     return df
@@ -274,7 +282,7 @@ def remove_illiquid_options(
     df: pd.DataFrame,
     volume_min: int = 1,
     rel_spread_max: float = 0.25,
-    moneyness_band: tuple[float, float] = (0.8, 1.2)
+    moneyness_band: tuple[float, float] = (0.8, 1.2),
 ) -> pd.DataFrame:
     """
     Filter out illiquid options based on minimum volume, relative bid-ask spread,
@@ -299,16 +307,16 @@ def remove_illiquid_options(
     df = df.copy()
 
     # Drop bad prices
-    df = df[(df['bid'] > 0) & (df['ask'] > 0)]
+    df = df[(df["bid"] > 0) & (df["ask"] > 0)]
 
     # Check for wide bid-ask spread
-    mid = 0.5 * (df['bid'] + df['ask'])
-    df = df[((df['ask'] - df['bid']) / mid) <= rel_spread_max]
+    mid = 0.5 * (df["bid"] + df["ask"])
+    df = df[((df["ask"] - df["bid"]) / mid) <= rel_spread_max]
 
     # Remove low volumes
-    df = df[df['volume'] >= volume_min]
+    df = df[df["volume"] >= volume_min]
 
-    moneyness = df['strike'] / df['underlying_last']
+    moneyness = df["strike"] / df["underlying_last"]
     df = df[(moneyness >= moneyness_band[0]) & (moneyness <= moneyness_band[1])]
 
     return df
@@ -391,13 +399,12 @@ def prepare_option_panel(
     output_path = Path(output_path)
 
     if verbose:
-        print(f"Loading options data from {raw_root} for years {start_year} to {end_year}...")
+        print(
+            f"Loading options data from {raw_root} for years {start_year} to {end_year}..."
+        )
 
     df = load_options(
-        raw_root,
-        start_year=start_year,
-        end_year=end_year,
-        low_memory=low_memory
+        raw_root, start_year=start_year, end_year=end_year, low_memory=low_memory
     )
 
     if verbose:
@@ -423,7 +430,9 @@ def prepare_option_panel(
             print("Skipping reshaping...")
         pass  # no reshaping
     else:
-        raise ValueError(f"Invalid reshape option '{reshape}'. Expected 'wide', 'long', or None.")
+        raise ValueError(
+            f"Invalid reshape option '{reshape}'. Expected 'wide', 'long', or None."
+        )
 
     if verbose:
         print(f"Writing Parquet to {output_path}...")

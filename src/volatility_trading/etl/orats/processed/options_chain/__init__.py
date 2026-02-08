@@ -4,6 +4,6 @@ from .api import build
 from .types import BuildOptionsChainResult
 
 __all__ = [
-    "build",
     "BuildOptionsChainResult",
+    "build",
 ]

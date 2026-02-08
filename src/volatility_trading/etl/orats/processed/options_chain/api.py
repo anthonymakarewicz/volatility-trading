@@ -16,11 +16,10 @@ from volatility_trading.config.paths import INTER_ORATS_API
 
 from ..shared.log_fmt import fmt_int
 from ..shared.manifest import write_manifest_json
-
+from . import steps
 from .config import OPTIONS_CHAIN_CORE_COLUMNS
 from .manifest import build_manifest_payload
 from .types import BuildOptionsChainResult, BuildStats
-from . import steps
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +191,6 @@ def build(
         proc_root=proc_root_p,
         columns=list(df.columns),
         n_rows_written=int(df.height),
-
         put_greeks_mode=put_greeks_mode,
         exercise_style=exercise_style,
         merge_dividend_yield=merge_dividend_yield,
@@ -202,7 +200,6 @@ def build(
         dte_max=dte_max,
         moneyness_min=moneyness_min,
         moneyness_max=moneyness_max,
-
         stats={
             "n_rows_input": stats.n_rows_input,
             "n_rows_after_dedupe": stats.n_rows_after_dedupe,
@@ -239,8 +236,7 @@ def build(
     )
 
     logger.info(
-        "Finished building options chain ticker=%s "
-        "rows_written=%s duration_s=%.2f",
+        "Finished building options chain ticker=%s rows_written=%s duration_s=%.2f",
         result.ticker,
         fmt_int(result.n_rows_written),
         result.duration_s,

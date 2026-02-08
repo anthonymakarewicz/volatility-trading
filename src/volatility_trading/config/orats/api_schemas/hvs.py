@@ -15,7 +15,6 @@ import polars as pl
 
 from ..schema_spec import OratsSchemaSpec
 
-
 # ----------------------------------------------------------------------------
 # Vendor dtypes
 # ----------------------------------------------------------------------------
@@ -23,7 +22,6 @@ from ..schema_spec import OratsSchemaSpec
 _HVS_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "ticker": pl.Utf8,
     "tradeDate": pl.Utf8,
-
     # Intraday historical vol (ORATS: orHv*)
     "orHv1d": pl.Float64,
     "orHv5d": pl.Float64,
@@ -37,7 +35,6 @@ _HVS_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "orHv252d": pl.Float64,
     "orHv500d": pl.Float64,
     "orHv1000d": pl.Float64,
-
     # Close-to-close historical vol (ORATS: clsHv*)
     "clsHv5d": pl.Float64,
     "clsHv10d": pl.Float64,
@@ -50,7 +47,6 @@ _HVS_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "clsHv252d": pl.Float64,
     "clsHv500d": pl.Float64,
     "clsHv1000d": pl.Float64,
-
     # Intraday vol excluding day-of and day-after earnings (ORATS: orHvXern*)
     "orHvXern5d": pl.Float64,
     "orHvXern10d": pl.Float64,
@@ -63,7 +59,6 @@ _HVS_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "orHvXern252d": pl.Float64,
     "orHvXern500d": pl.Float64,
     "orHvXern1000d": pl.Float64,
-
     # Close-to-close vol excluding day-of and day-after earnings (clsHvXern*)
     "clsHvXern5d": pl.Float64,
     "clsHvXern10d": pl.Float64,
@@ -76,7 +71,6 @@ _HVS_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "clsHvXern252d": pl.Float64,
     "clsHvXern500d": pl.Float64,
     "clsHvXern1000d": pl.Float64,
-
     # Common ORATS timestamp field on many endpoints
     "updatedAt": pl.Utf8,
 }
@@ -97,7 +91,6 @@ _HVS_VENDOR_DATETIME_COLS: tuple[str, ...] = ("updatedAt",)
 _HVS_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "ticker": "ticker",
     "tradeDate": "trade_date",
-
     # Intraday historical vol
     "orHv1d": "hv_intra_1d",
     "orHv5d": "hv_intra_5d",
@@ -111,7 +104,6 @@ _HVS_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "orHv252d": "hv_intra_252d",
     "orHv500d": "hv_intra_500d",
     "orHv1000d": "hv_intra_1000d",
-
     # Close-to-close historical vol
     "clsHv5d": "hv_close_5d",
     "clsHv10d": "hv_close_10d",
@@ -124,7 +116,6 @@ _HVS_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "clsHv252d": "hv_close_252d",
     "clsHv500d": "hv_close_500d",
     "clsHv1000d": "hv_close_1000d",
-
     # Intraday ex-earnings
     "orHvXern5d": "hv_intra_xern_5d",
     "orHvXern10d": "hv_intra_xern_10d",
@@ -137,7 +128,6 @@ _HVS_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "orHvXern252d": "hv_intra_xern_252d",
     "orHvXern500d": "hv_intra_xern_500d",
     "orHvXern1000d": "hv_intra_xern_1000d",
-
     # Close-to-close ex-earnings
     "clsHvXern5d": "hv_close_xern_5d",
     "clsHvXern10d": "hv_close_xern_10d",
@@ -150,7 +140,6 @@ _HVS_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "clsHvXern252d": "hv_close_xern_252d",
     "clsHvXern500d": "hv_close_xern_500d",
     "clsHvXern1000d": "hv_close_xern_1000d",
-
     "updatedAt": "updated_ts",
 }
 
@@ -175,7 +164,6 @@ _HVS_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "hv_intra_252d": (0.0, 10.0),
     "hv_intra_500d": (0.0, 10.0),
     "hv_intra_1000d": (0.0, 10.0),
-
     "hv_close_5d": (0.0, 10.0),
     "hv_close_10d": (0.0, 10.0),
     "hv_close_20d": (0.0, 10.0),
@@ -187,7 +175,6 @@ _HVS_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "hv_close_252d": (0.0, 10.0),
     "hv_close_500d": (0.0, 10.0),
     "hv_close_1000d": (0.0, 10.0),
-
     "hv_intra_xern_5d": (0.0, 10.0),
     "hv_intra_xern_10d": (0.0, 10.0),
     "hv_intra_xern_20d": (0.0, 10.0),
@@ -199,7 +186,6 @@ _HVS_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "hv_intra_xern_252d": (0.0, 10.0),
     "hv_intra_xern_500d": (0.0, 10.0),
     "hv_intra_xern_1000d": (0.0, 10.0),
-
     "hv_close_xern_5d": (0.0, 10.0),
     "hv_close_xern_10d": (0.0, 10.0),
     "hv_close_xern_20d": (0.0, 10.0),
@@ -221,7 +207,6 @@ _HVS_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
 _HVS_KEEP_CANONICAL: tuple[str, ...] = (
     "ticker",
     "trade_date",
-
     "hv_intra_1d",
     "hv_intra_5d",
     "hv_intra_10d",
@@ -234,7 +219,6 @@ _HVS_KEEP_CANONICAL: tuple[str, ...] = (
     "hv_intra_252d",
     "hv_intra_500d",
     "hv_intra_1000d",
-
     "hv_intra_xern_5d",
     "hv_intra_xern_10d",
     "hv_intra_xern_20d",
@@ -246,7 +230,6 @@ _HVS_KEEP_CANONICAL: tuple[str, ...] = (
     "hv_intra_xern_252d",
     "hv_intra_xern_500d",
     "hv_intra_xern_1000d",
-
     "updated_ts",
 )
 

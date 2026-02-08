@@ -7,6 +7,7 @@ pipeline (downloader + extractor):
 - Encode raw snapshot filename conventions (JSON vs JSON.GZ).
 - Build raw/intermediate directory paths in a consistent layout.
 """
+
 from __future__ import annotations
 
 import datetime as dt

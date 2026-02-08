@@ -312,7 +312,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if config["fail_on_failed"] and result.n_failed:
         logger.error(
-            "Download finished with failures: n_failed=%d " "(see result.failed_paths)",
+            "Download finished with failures: n_failed=%d (see result.failed_paths)",
             result.n_failed,
         )
         raise SystemExit(1)

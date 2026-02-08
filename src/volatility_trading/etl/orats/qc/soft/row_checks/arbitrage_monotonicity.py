@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import polars as pl
 
-
 # -----------------------------------------------------------------------------
 # Strike/Maturity Arbitrage checks
 # -----------------------------------------------------------------------------
+
 
 def flag_strike_monotonicity(
     df_long: pl.DataFrame,
@@ -37,13 +37,10 @@ def flag_strike_monotonicity(
     g = [trade_col, expiry_col]
 
     df_sub = (
-        df_long
-        .filter(pl.col(option_type_col) == option_type)
+        df_long.filter(pl.col(option_type_col) == option_type)
         .sort(g + [strike_col])
         .with_columns(
-            forward_diff=(
-                pl.col(price_col).shift(-1).over(g) - pl.col(price_col)
-            )
+            forward_diff=(pl.col(price_col).shift(-1).over(g) - pl.col(price_col))
         )
         .with_columns(
             strike_monot_violation=(
@@ -69,7 +66,7 @@ def flag_maturity_monotonicity(
     expiry_col: str = "expiry_date",
     option_type_col: str = "option_type",
 ) -> pl.DataFrame:
-    """Flag maturity monotonicity violations (calendar arbitrage) 
+    """Flag maturity monotonicity violations (calendar arbitrage)
     for one option type.
 
     For fixed (trade_date, strike), option value should be non-decreasing
@@ -84,18 +81,13 @@ def flag_maturity_monotonicity(
     g = [trade_col, strike_col]
 
     df_sub = (
-        df_long
-        .filter(pl.col(option_type_col) == option_type)
+        df_long.filter(pl.col(option_type_col) == option_type)
         .sort(g + [expiry_col])
         .with_columns(
-            forward_diff=(
-                pl.col(price_col).shift(-1).over(g) - pl.col(price_col)
-            )
+            forward_diff=(pl.col(price_col).shift(-1).over(g) - pl.col(price_col))
         )
         .with_columns(
-            maturity_monot_violation=(
-                (pl.col("forward_diff") < -tol).fill_null(False)
-            )
+            maturity_monot_violation=((pl.col("forward_diff") < -tol).fill_null(False))
         )
         .drop("forward_diff")
     )

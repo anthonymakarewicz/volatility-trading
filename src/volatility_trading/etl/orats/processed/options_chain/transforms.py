@@ -1,4 +1,4 @@
-"""""volatility_trading.etl.orats.processed.options_chain_transforms
+""" ""volatility_trading.etl.orats.processed.options_chain_transforms
 
 Private transformation helpers used by the ORATS options-chain builder.
 """
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------------
 # Dedupe helper
 # ----------------------------------------------------------------------------
+
 
 def dedupe_on_keys(
     lf: pl.LazyFrame,
@@ -46,14 +47,11 @@ def dedupe_on_keys(
     key_common_eff = [c for c in key_common if c in cols]
     if not key_common_eff:
         raise ValueError(
-            f"_dedupe_on_keys: none of key_common "
-            f"columns exist: {list(key_common)}"
+            f"_dedupe_on_keys: none of key_common columns exist: {list(key_common)}"
         )
 
     # Drop rows with nulls in the always-required keys.
-    lf = lf.filter(
-        pl.all_horizontal([pl.col(c).is_not_null() for c in key_common_eff])
-    )
+    lf = lf.filter(pl.all_horizontal([pl.col(c).is_not_null() for c in key_common_eff]))
 
     def _unique_on(subset: Sequence[str], lf_in: pl.LazyFrame) -> pl.LazyFrame:
         subset_eff = [c for c in subset if c in cols]
@@ -73,9 +71,7 @@ def dedupe_on_keys(
         # OPRA columns not available in this scan; fall back to common key.
         return _unique_on(key_common_eff, lf)
 
-    has_opra_expr = pl.all_horizontal(
-        [pl.col(c).is_not_null() for c in opra_cols_eff]
-    )
+    has_opra_expr = pl.all_horizontal([pl.col(c).is_not_null() for c in opra_cols_eff])
 
     lf_with = _unique_on(key_when_opra_present, lf.filter(has_opra_expr))
     lf_without = _unique_on(key_common_eff, lf.filter(~has_opra_expr))

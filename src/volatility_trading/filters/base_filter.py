@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 class Filter(ABC):
     @abstractmethod
     def apply(self, signals, ctx):
-        pass # returns the filtered signals
+        pass  # returns the filtered signals
 
     @abstractmethod
     def get_params(self):

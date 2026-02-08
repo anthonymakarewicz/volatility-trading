@@ -8,13 +8,13 @@ from typing import Any
 
 import requests
 
-from .endpoints import get_endpoint_spec
 from ._client_helpers import (
     jitter_sleep,
     normalize_orats_params,
     params_summary,
     validate_endpoint_params,
 )
+from .endpoints import get_endpoint_spec
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ class OratsClient:
     - If all retries are exhausted for a retryable failure, raises `RuntimeError`
       with the original exception attached as `__cause__`.
     """
+
     token: str
     base_url: str = ORATS_BASE_URL
     timeout_s: float = 30.0
@@ -90,29 +91,19 @@ class OratsClient:
                     )
 
                     # Fail fast on permanent client errors (except 429)
-                    if (
-                        400 <= resp.status_code <= 499
-                        and resp.status_code != 429
-                    ):
+                    if 400 <= resp.status_code <= 499 and resp.status_code != 429:
                         resp.raise_for_status()
 
                     # Retry on rate limit / server errors
-                    if (
-                        resp.status_code == 429
-                        or 500 <= resp.status_code <= 599
-                    ):
+                    if resp.status_code == 429 or 500 <= resp.status_code <= 599:
                         ra = resp.headers.get("Retry-After")
                         if ra is not None:
                             try:
                                 sleep_s = float(ra)
                             except ValueError:
-                                sleep_s = jitter_sleep(
-                                    self.backoff_s * (2**attempt)
-                                )
+                                sleep_s = jitter_sleep(self.backoff_s * (2**attempt))
                         else:
-                            sleep_s = jitter_sleep(
-                                self.backoff_s * (2**attempt)
-                            )
+                            sleep_s = jitter_sleep(self.backoff_s * (2**attempt))
 
                         sleep_s = min(30.0, sleep_s)
 
@@ -163,8 +154,7 @@ class OratsClient:
                         jitter_sleep(self.backoff_s * (2**attempt)),
                     )
                     logger.warning(
-                        "ORATS HTTPError retrying path=%s params=[%s] "
-                        "sleep_s=%.2f",
+                        "ORATS HTTPError retrying path=%s params=[%s] sleep_s=%.2f",
                         path,
                         params_log,
                         sleep_s,
@@ -238,11 +228,11 @@ class OratsClient:
         ----------
         endpoint:
             Logical endpoint name (key in `orats_api_endpoints.ENDPOINTS`).
-            The client resolves this to an HTTP path and 
+            The client resolves this to an HTTP path and
             validates required parameters.
         params:
             Query parameters for the endpoint. Values may be passed naturally
-            (e.g. lists for `ticker` / `fields`), and will be normalized 
+            (e.g. lists for `ticker` / `fields`), and will be normalized
             into ORATS' expected comma-separated wire format.
         session:
             Optional shared `requests.Session` for connection reuse.
@@ -250,7 +240,7 @@ class OratsClient:
         Returns
         -------
         dict
-            The parsed JSON payload returned by ORATS (typically containing 
+            The parsed JSON payload returned by ORATS (typically containing
             a `data` list plus metadata fields).
 
         Raises
@@ -274,7 +264,6 @@ class OratsClient:
         payload = resp.json()
         if not isinstance(payload, dict):
             raise TypeError(
-                "Expected ORATS JSON payload to be an object/dict, "
-                f"got {type(payload)}"
+                f"Expected ORATS JSON payload to be an object/dict, got {type(payload)}"
             )
         return payload

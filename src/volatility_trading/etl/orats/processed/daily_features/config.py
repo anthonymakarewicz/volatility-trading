@@ -7,11 +7,9 @@ low-frequency predictors sourced from ORATS API endpoints.
 
 from __future__ import annotations
 
-
 DAILY_FEATURES_CORE_COLUMNS: tuple[str, ...] = (
     "ticker",
     "trade_date",
-
     "iv_10d",
     "iv_20d",
     "iv_30d",
@@ -19,7 +17,6 @@ DAILY_FEATURES_CORE_COLUMNS: tuple[str, ...] = (
     "iv_90d",
     "iv_6m",
     "iv_1y",
-
     "iv_dlt25_10d",
     "iv_dlt25_20d",
     "iv_dlt25_30d",
@@ -27,7 +24,6 @@ DAILY_FEATURES_CORE_COLUMNS: tuple[str, ...] = (
     "iv_dlt25_90d",
     "iv_dlt25_6m",
     "iv_dlt25_1y",
-
     "iv_dlt75_10d",
     "iv_dlt75_20d",
     "iv_dlt75_30d",
@@ -35,7 +31,6 @@ DAILY_FEATURES_CORE_COLUMNS: tuple[str, ...] = (
     "iv_dlt75_90d",
     "iv_dlt75_6m",
     "iv_dlt75_1y",
-
     "hv_intra_1d",
     "hv_intra_5d",
     "hv_intra_10d",
@@ -57,7 +52,6 @@ DAILY_FEATURES_ENDPOINT_COLUMNS: dict[str, tuple[str, ...]] = {
     "summaries": (
         "ticker",
         "trade_date",
-
         "iv_10d",
         "iv_20d",
         "iv_30d",
@@ -65,7 +59,6 @@ DAILY_FEATURES_ENDPOINT_COLUMNS: dict[str, tuple[str, ...]] = {
         "iv_90d",
         "iv_6m",
         "iv_1y",
-
         "iv_dlt25_10d",
         "iv_dlt25_20d",
         "iv_dlt25_30d",
@@ -73,7 +66,6 @@ DAILY_FEATURES_ENDPOINT_COLUMNS: dict[str, tuple[str, ...]] = {
         "iv_dlt25_90d",
         "iv_dlt25_6m",
         "iv_dlt25_1y",
-
         "iv_dlt75_10d",
         "iv_dlt75_20d",
         "iv_dlt75_30d",
@@ -85,7 +77,6 @@ DAILY_FEATURES_ENDPOINT_COLUMNS: dict[str, tuple[str, ...]] = {
     "hvs": (
         "ticker",
         "trade_date",
-
         "hv_intra_1d",
         "hv_intra_5d",
         "hv_intra_10d",

@@ -1,16 +1,17 @@
-from .types import BacktestConfig, SliceContext, DataMapping, ParamGrid
 from volatility_trading.strategies import Strategy
+
+from .types import BacktestConfig, DataMapping, ParamGrid, SliceContext
 
 # TODO: Use the adjusted closing price for the buy and hold performance benchmark
 
+
 class Backtester:
     def __init__(
-        self, 
-        data: DataMapping, 
-        strategy: Strategy, 
+        self,
+        data: DataMapping,
+        strategy: Strategy,
         config: BacktestConfig,
         param_grid: ParamGrid | None = None,
-
     ):
         """
         data: Map of named DataFrames/Series, e.g.
@@ -30,7 +31,7 @@ class Backtester:
 
         ctx = SliceContext(
             data=self.data,
-            params= self.param_grid,
+            params=self.param_grid,
             config=self.config,
             capital=current_capital,
         )

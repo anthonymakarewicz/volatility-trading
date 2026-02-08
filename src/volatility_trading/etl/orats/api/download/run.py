@@ -13,10 +13,9 @@ from ..io import (
     DEFAULT_COMPRESSION,
     validate_years,
 )
-
+from ..types import DownloadApiResult
 from ._handlers import DOWNLOAD_HANDLERS
 from ._helpers import unique_preserve_order
-from ..types import DownloadApiResult
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +103,7 @@ def download(
         )
 
     tickers_clean = [
-        str(t).strip()
-        for t in tickers
-        if t is not None and str(t).strip()
+        str(t).strip() for t in tickers if t is not None and str(t).strip()
     ]
     tickers_clean = unique_preserve_order(tickers_clean)
     if not tickers_clean:

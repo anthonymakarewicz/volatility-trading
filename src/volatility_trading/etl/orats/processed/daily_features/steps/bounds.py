@@ -7,10 +7,9 @@ import polars as pl
 from volatility_trading.config.orats.api_schemas import get_schema_spec
 
 from ...shared.bounds import (
-    count_rows_any_oob,
-    apply_bounds_null,
     apply_bounds_drop,
-
+    apply_bounds_null,
+    count_rows_any_oob,
 )
 from ...shared.log_fmt import (
     log_before_after,

@@ -1,9 +1,8 @@
 import numpy as np
 import pandas as pd
-
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 
@@ -86,7 +85,7 @@ class DataProcessor(BaseEstimator, TransformerMixin):
         sqrt_features=None,
         winsor_features=None,
         winsor_sqrt_features=None,
-        scale=True
+        scale=True,
     ):
         """
         log_features: list of cols → log only
@@ -105,7 +104,9 @@ class DataProcessor(BaseEstimator, TransformerMixin):
         self.log_features = [] if log_features is None else log_features
         self.sqrt_features = [] if sqrt_features is None else sqrt_features
         self.winsor_features = [] if winsor_features is None else winsor_features
-        self.winsor_sqrt_features = [] if winsor_sqrt_features is None else winsor_sqrt_features
+        self.winsor_sqrt_features = (
+            [] if winsor_sqrt_features is None else winsor_sqrt_features
+        )
         self.scale = scale
 
         self.preprocessor_ = None
@@ -121,22 +122,22 @@ class DataProcessor(BaseEstimator, TransformerMixin):
         sqrt_cols = [c for c in self.sqrt_features if c in all_cols]
 
         winsor_features_clean = []
-        for (q_range, cols) in self.winsor_features:
+        for q_range, cols in self.winsor_features:
             cols_present = [c for c in cols if c in all_cols]
             winsor_features_clean.append((q_range, cols_present))
 
         winsor_sqrt_features_clean = []
-        for (q_range, cols) in self.winsor_sqrt_features:
+        for q_range, cols in self.winsor_sqrt_features:
             cols_present = [c for c in cols if c in all_cols]
             winsor_sqrt_features_clean.append((q_range, cols_present))
 
         # collect all winsor columns actually present
         winsor_cols_all = []
-        for (q_range, cols) in winsor_features_clean:
+        for q_range, cols in winsor_features_clean:
             winsor_cols_all.extend(cols)
 
         winsor_sqrt_cols_all = []
-        for (q_range, cols) in winsor_sqrt_features_clean:
+        for q_range, cols in winsor_sqrt_features_clean:
             winsor_sqrt_cols_all.extend(cols)
 
         used = (
@@ -155,22 +156,24 @@ class DataProcessor(BaseEstimator, TransformerMixin):
         if sqrt_cols:
             transformers.append(("sqrt", SqrtTransformer(), sqrt_cols))
 
-        for (q_range, cols) in winsor_features_clean:
+        for q_range, cols in winsor_features_clean:
             if not cols:
                 continue
             low, high = q_range
             name = f"winsor_{low}_{high}".replace(".", "p")
             transformers.append((name, Winsorizer(lower=low, upper=high), cols))
 
-        for (q_range, cols) in winsor_sqrt_features_clean:
+        for q_range, cols in winsor_sqrt_features_clean:
             if not cols:
                 continue
             low, high = q_range
             name = f"winsor_sqrt_{low}_{high}".replace(".", "p")
-            ws_pipeline = Pipeline([
-                ("winsor", Winsorizer(lower=low, upper=high)),
-                ("sqrt", SqrtTransformer()),
-            ])
+            ws_pipeline = Pipeline(
+                [
+                    ("winsor", Winsorizer(lower=low, upper=high)),
+                    ("sqrt", SqrtTransformer()),
+                ]
+            )
             transformers.append((name, ws_pipeline, cols))
 
         if passthrough_cols:

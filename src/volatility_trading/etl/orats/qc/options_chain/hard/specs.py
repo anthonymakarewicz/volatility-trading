@@ -11,7 +11,6 @@ from ...hard.exprs import (
 )
 from ...hard.spec_types import HardSpec
 
-
 BASE_KEYS = [
     "trade_date",
     "expiry_date",
@@ -27,9 +26,7 @@ def get_hard_specs() -> list[HardSpec]:
         # ---- Keys / dates ----
         HardSpec(
             name="keys_not_null",
-            predicate_expr=expr_bad_null_keys(
-                "trade_date", "expiry_date", "strike"
-            ),
+            predicate_expr=expr_bad_null_keys("trade_date", "expiry_date", "strike"),
             sample_cols=BASE_KEYS,
         ),
         HardSpec(

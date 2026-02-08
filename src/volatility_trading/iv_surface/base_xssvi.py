@@ -1,46 +1,49 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
 from abc import abstractmethod
-from typing import Tuple
-from scipy.optimize import differential_evolution, minimize
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from scipy.interpolate import PchipInterpolator
+from scipy.optimize import differential_evolution, minimize
+
 from .base_iv_surface_model import IVSurfaceModel
+
 
 class xSSVI(IVSurfaceModel):
     """Intermediary abstract class for SSVI and eSSVI.
     Need to define the virtual method _objective and _w"""
-    def __init__(self,
-                 weight_mode: str = "atm",
-                 butterfly_arb_strict: bool = False,
-                 maturity_band : Tuple = (1/252, 2),
-                 moneyness_band: Tuple = (0.75, 1.25),
-                 min_pts: int = 6
-        ):
+
+    def __init__(
+        self,
+        weight_mode: str = "atm",
+        butterfly_arb_strict: bool = False,
+        maturity_band: tuple = (1 / 252, 2),
+        moneyness_band: tuple = (0.75, 1.25),
+        min_pts: int = 6,
+    ):
         super().__init__()
         self.butterfly_arb_strict = butterfly_arb_strict
         self.weight_mode = weight_mode
-        self.maturity_band  = maturity_band
+        self.maturity_band = maturity_band
         self.moneyness_band = moneyness_band
         self.min_pts = min_pts
 
         self.theta_interp = None
-        self.params = None # Store parameters of SSVi or eSSVI
+        self.params = None  # Store parameters of SSVi or eSSVI
         self.bounds = None
 
     @staticmethod
     @abstractmethod
     def _w(k, theta, params):
         pass
-    
+
     @abstractmethod
     def _objective(self, k, theta, w, weights, params):
         pass
 
     @staticmethod
     def _phi(theta, eta, gamma):
-        return eta * theta**(-gamma)
+        return eta * theta ** (-gamma)
 
     def fit(self, market_data: pd.DataFrame) -> None:
         self._spot = market_data["underlying_last"].iloc[0]
@@ -66,11 +69,11 @@ class xSSVI(IVSurfaceModel):
         for T in T_grid:
             g = groups[T]
             th = self._estimate_theta_slice(g["k"].to_numpy(), g["w"].to_numpy())
-            theta_hat.append(th)    
+            theta_hat.append(th)
 
         self.theta_hat_ = theta_hat
         theta_hat = np.asarray(theta_hat, float)
-        theta_hat  = np.maximum.accumulate(theta_hat)                 # monotone
+        theta_hat = np.maximum.accumulate(theta_hat)  # monotone
         self.T_grid_ = T_grid
         self.theta_interp = PchipInterpolator(T_grid, theta_hat, extrapolate=True)
 
@@ -86,20 +89,32 @@ class xSSVI(IVSurfaceModel):
         self._theta_max = float(theta_all.max())
 
         # ------- global solver + polish ------
-        obj = lambda p: self._objective(k_all, theta_all, w_all, weights, np.asarray(p))
+        def obj(p):
+            return self._objective(
+                k_all,
+                theta_all,
+                w_all,
+                weights,
+                np.asarray(p),
+            )
 
         de = differential_evolution(
-            obj, bounds=self.bounds,
-            strategy="best1bin", popsize=20, maxiter=200,
-            tol=1e-7, mutation=(0.5, 1.0), recombination=0.7,
-            polish=False, disp=False
+            obj,
+            bounds=self.bounds,
+            strategy="best1bin",
+            popsize=20,
+            maxiter=200,
+            tol=1e-7,
+            mutation=(0.5, 1.0),
+            recombination=0.7,
+            polish=False,
+            disp=False,
         )
         if not de.success:
             raise RuntimeError(de.message)
-        
+
         pol = minimize(
-            obj, de.x, method="L-BFGS-B",
-            bounds=self.bounds, options={"maxiter": 500}
+            obj, de.x, method="L-BFGS-B", bounds=self.bounds, options={"maxiter": 500}
         )
         x = pol.x if pol.success and pol.fun <= de.fun else de.x
 
@@ -109,9 +124,9 @@ class xSSVI(IVSurfaceModel):
         if self.weight_mode == "uniform":
             return np.ones_like(k)
         if self.weight_mode == "atm":
-            return 1.0/(np.abs(k)+0.05)
+            return 1.0 / (np.abs(k) + 0.05)
         if self.weight_mode == "atm_theta":
-            return 1.0/(np.abs(k)+0.05) / np.sqrt(theta + 1e-8)
+            return 1.0 / (np.abs(k) + 0.05) / np.sqrt(theta + 1e-8)
         raise ValueError("weight_mode must be 'uniform'|'atm'|'atm_theta'")
 
     def _estimate_theta_slice(self, k, w, band=0.05):
@@ -120,19 +135,16 @@ class xSSVI(IVSurfaceModel):
         m = np.abs(k) <= band
         if m.sum() < 5:
             return np.min(w)  # fallback
-        
-        X = np.c_[np.ones(m.sum()), k[m], k[m]**2]
-        wt = 1.0/(np.abs(k[m])+1e-3)               # ATM-heavy weights
-        beta = np.linalg.lstsq(X*wt[:,None], (w[m]*wt), rcond=None)[0]
-        
+
+        X = np.c_[np.ones(m.sum()), k[m], k[m] ** 2]
+        wt = 1.0 / (np.abs(k[m]) + 1e-3)  # ATM-heavy weights
+        beta = np.linalg.lstsq(X * wt[:, None], (w[m] * wt), rcond=None)[0]
+
         if beta[0] is None:
             return np.min(w)
-        return float(beta[0]) # intercept ~= θ̂
-    
-    def _implied_total_variance(self,
-                                k: np.ndarray,
-                                T: np.ndarray
-                            ) -> np.ndarray:
+        return float(beta[0])  # intercept ~= θ̂
+
+    def _implied_total_variance(self, k: np.ndarray, T: np.ndarray) -> np.ndarray:
         """Return w(k,T) with shape (nT, nK)."""
         k_arr = np.atleast_1d(k).astype(float)
         T_arr = np.atleast_1d(T).astype(float)
@@ -141,11 +153,11 @@ class xSSVI(IVSurfaceModel):
         theta = self.theta_interp(T_arr)  # (nT,)
 
         # broadcast via meshgrid
-        K, Theta = np.meshgrid(k_arr, theta, indexing="xy") # (nT, nK)
+        K, Theta = np.meshgrid(k_arr, theta, indexing="xy")  # (nT, nK)
 
-        return self._w(K, Theta, self.params) # (nT, nK)
-    
-    def pooled_rmse_iv(self) -> float: # Could put it in IVSurfaceModel
+        return self._w(K, Theta, self.params)  # (nT, nK)
+
+    def pooled_rmse_iv(self) -> float:  # Could put it in IVSurfaceModel
         if self._last_market is None:
             raise RuntimeError("Call fit(...) first; _last_market is empty.")
 
@@ -161,12 +173,8 @@ class xSSVI(IVSurfaceModel):
             N += len(sl)
 
         return float(np.sqrt(sse / max(N, 1e-16)))
-    
-    def plot_theta(self,
-               n: int = 300,
-               ax=None,
-               as_dte: bool = True
-        ):
+
+    def plot_theta(self, n: int = 300, ax=None, as_dte: bool = True):
         """Plot the fitted ATM total variance curve θ(T)."""
         if self.theta_interp is None:
             raise RuntimeError("Call fit(...) first; theta_interp is None.")
@@ -194,14 +202,18 @@ class xSSVI(IVSurfaceModel):
         T_obs = np.array(sorted(self._last_market["T"].unique()))
         theta_obs = self.theta_interp(T_obs)
         x_obs = T_obs * 252.0 if as_dte else T_obs
-        ax.scatter(x_obs, theta_obs, s=25, alpha=1, color="orange", label=r"Fitted $\theta(T)$")
+        ax.scatter(
+            x_obs, theta_obs, s=25, alpha=1, color="orange", label=r"Fitted $\theta(T)$"
+        )
         ax.legend(loc="upper left")
         ax.set_xlabel("DTE (days)" if as_dte else "Maturity T (years)")
         ax.set_ylabel(r"$\theta(T)$")
-        ax.set_title(fr"{self.__class__.__name__} ATM total variance term-structure $\theta(T)$")
+        ax.set_title(
+            rf"{self.__class__.__name__} ATM total variance term-structure $\theta(T)$"
+        )
 
         return ax
-    
+
     def plot_phi(self, n: int = 200, ax=None):
         """Plot the fitted vol-vol curve φ(θ)"""
         if self._last_market is None:
@@ -219,7 +231,7 @@ class xSSVI(IVSurfaceModel):
         ax.plot(theta, phi_vals, lw=2)
         ax.set_xlabel(r"$\theta$")
         ax.set_ylabel(r"$\phi(\theta)$")
-        ax.set_title(fr"{self.__class__.__name__} vol-vol curve $\phi(\theta)$")
+        ax.set_title(rf"{self.__class__.__name__} vol-vol curve $\phi(\theta)$")
         if np.all(phi_vals > 0):
             ax.set_yscale("log")
             ax.set_ylabel(r"$\log(\phi(\theta))$")

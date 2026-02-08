@@ -38,8 +38,7 @@ def canonicalize_columns(
         missing = [ep for ep in priority_endpoints if ep not in endpoints]
         if missing:
             raise ValueError(
-                "priority_endpoints must be a subset of endpoints; "
-                f"missing={missing}"
+                f"priority_endpoints must be a subset of endpoints; missing={missing}"
             )
         order = list(priority_endpoints)
     else:
@@ -51,9 +50,7 @@ def canonicalize_columns(
     required_keys = ("ticker", "trade_date")
     for k in required_keys:
         if k not in cols:
-            raise ValueError(
-                f"canonicalize_columns: missing required key column {k!r}"
-            )
+            raise ValueError(f"canonicalize_columns: missing required key column {k!r}")
 
     exprs: list[pl.Expr] = []
     missing_out: list[str] = []
@@ -95,9 +92,7 @@ def canonicalize_columns(
             continue
 
         # Multiple providers -> coalesce in priority order
-        exprs.append(
-            pl.coalesce([pl.col(c) for c in candidates]).alias(out_col)
-        )
+        exprs.append(pl.coalesce([pl.col(c) for c in candidates]).alias(out_col))
 
     if strict and missing_out:
         raise ValueError(

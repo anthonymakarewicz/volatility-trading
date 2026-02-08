@@ -4,10 +4,10 @@ import polars as pl
 
 from .expr_helpers import _all_not_null, _apply_required_mask
 
-
 # -----------------------------------------------------------------------------
 # Theoretical Upper/Lower bounds checks
 # -----------------------------------------------------------------------------
+
 
 def _bounds_dyn_abs_tol(
     *,
@@ -55,16 +55,20 @@ def flag_option_bounds_mid_eu_forward(
 
     is_call = pl.lit(str(option_type).upper() == "C")
 
-    lower = pl.when(is_call).then(
-        (disc_r * (pl.col(forward_col) - pl.col(strike_col))).clip(lower_bound=0.0)
-    ).otherwise(
-        (disc_r * (pl.col(strike_col) - pl.col(forward_col))).clip(lower_bound=0.0)
+    lower = (
+        pl.when(is_call)
+        .then(
+            (disc_r * (pl.col(forward_col) - pl.col(strike_col))).clip(lower_bound=0.0)
+        )
+        .otherwise(
+            (disc_r * (pl.col(strike_col) - pl.col(forward_col))).clip(lower_bound=0.0)
+        )
     )
 
-    upper = pl.when(is_call).then(
-        disc_r * pl.col(forward_col)
-    ).otherwise(
-        disc_r * pl.col(strike_col)
+    upper = (
+        pl.when(is_call)
+        .then(disc_r * pl.col(forward_col))
+        .otherwise(disc_r * pl.col(strike_col))
     )
 
     tol = _bounds_dyn_abs_tol(
@@ -116,12 +120,8 @@ def flag_option_bounds_mid_am_spot(
     """
     is_call = pl.lit(str(option_type).upper() == "C")
 
-    call_intrinsic = (
-        (pl.col(spot_col) - pl.col(strike_col)).clip(lower_bound=0.0)
-    )
-    put_intrinsic = (
-        (pl.col(strike_col) - pl.col(spot_col)).clip(lower_bound=0.0)
-    )
+    call_intrinsic = (pl.col(spot_col) - pl.col(strike_col)).clip(lower_bound=0.0)
+    put_intrinsic = (pl.col(strike_col) - pl.col(spot_col)).clip(lower_bound=0.0)
 
     lower = pl.when(is_call).then(call_intrinsic).otherwise(put_intrinsic)
     upper = pl.when(is_call).then(pl.col(spot_col)).otherwise(pl.col(strike_col))

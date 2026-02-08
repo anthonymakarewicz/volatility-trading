@@ -8,9 +8,8 @@ Expected layout:
 Output:
     data/processed/optionsdx/optionsdx_panel_<START>_<END>.parquet
 """
-from volatility_trading.config.paths import RAW_OPTIONSDX, PROC_OPTIONSDX
+from volatility_trading.config.paths import PROC_OPTIONSDX
 from volatility_trading.etl.optionsdx_loader import prepare_option_panel
-
 
 # ----------------------------------------------------------------------------
 # CONFIG

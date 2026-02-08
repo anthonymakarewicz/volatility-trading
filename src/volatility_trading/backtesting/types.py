@@ -1,33 +1,33 @@
-from dataclasses import dataclass
 from collections.abc import Mapping
-from typing import TypeAlias, Any
-
+from dataclasses import dataclass
+from typing import Any, TypeAlias
 
 # --- Shared aliases -------------------------------------------------
 DataMapping: TypeAlias = Mapping[str, Any]
-ParamGrid: TypeAlias   = dict[str, Any]
+ParamGrid: TypeAlias = dict[str, Any]
 
 # --- Core dataclasses -----------------------------------------------
+
 
 @dataclass(frozen=True)
 class BacktestConfig:
     initial_capital: float = 100_000.0
-    leverage: float        = 1.0
+    leverage: float = 1.0
 
     # Execution / market microstructure
-    lot_size: int          = 100
-    hedge_size: int        = 50
-    slip_ask: float        = 0.01
-    slip_bid: float        = 0.01
+    lot_size: int = 100
+    hedge_size: int = 50
+    slip_ask: float = 0.01
+    slip_bid: float = 0.01
     commission_per_leg: float = 1.0
 
     # Risk “floors” that are environment-like
-    risk_pc_floor: float   = 750.0
+    risk_pc_floor: float = 750.0
 
 
 @dataclass
 class SliceContext:
-    data: Mapping[str, Any]   # {"options": df, "features": df, "hedge": series, ...}
+    data: Mapping[str, Any]  # {"options": df, "features": df, "hedge": series, ...}
     params: dict[str, Any]
     config: BacktestConfig
-    capital: float            # current capital for this run / window
+    capital: float  # current capital for this run / window

@@ -32,8 +32,7 @@ def summarize_by_bucket(
         return pl.DataFrame()
 
     summary = (
-        df
-        .group_by(
+        df.group_by(
             pl.col(dte_col).cut(dte_bins).alias("dte_bucket"),
             pl.col(delta_col).abs().cut(delta_bins).alias("delta_bucket"),
         )

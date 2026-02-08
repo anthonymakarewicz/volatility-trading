@@ -1,9 +1,8 @@
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.dates as mdates
-
-from scipy.stats import skew, kurtosis
+from scipy.stats import kurtosis, skew
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
 
@@ -60,7 +59,9 @@ def plot_macro_block(X_macro: pd.DataFrame):
     - Bottom: Term spread + credit spreads
     """
     cols_rates = [c for c in ["DGS10", "DGS2", "DGS3MO"] if c in X_macro.columns]
-    cols_spreads = [c for c in ["term_spread_10y_3m", "HY_OAS", "IG_OAS"] if c in X_macro.columns]
+    cols_spreads = [
+        c for c in ["term_spread_10y_3m", "HY_OAS", "IG_OAS"] if c in X_macro.columns
+    ]
 
     fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
 
@@ -110,22 +111,26 @@ def plot_feature_histograms(X, bins=40, figsize=(12, 5), nrows=None, ncols=None)
         ax.tick_params(axis="both", labelsize=8)
 
         ax.text(
-            0.97, 0.97,
+            0.97,
+            0.97,
             f"Skew={sk:.2f}\nKurt={kt:.2f}",
             transform=ax.transAxes,
-            ha="right", va="top",
+            ha="right",
+            va="top",
             bbox=dict(facecolor="white", alpha=0.7),
         )
 
     # hide unused axes if any
-    for ax in axes[len(cols):]:
+    for ax in axes[len(cols) :]:
         ax.set_visible(False)
 
     plt.tight_layout()
     plt.show()
 
 
-def plot_hist_transform(series, use_log=False, use_sqrt=False, winsorize=None, figsize=(8, 3)):
+def plot_hist_transform(
+    series, use_log=False, use_sqrt=False, winsorize=None, figsize=(8, 3)
+):
     raw = series.dropna().to_numpy()
 
     transformed = raw.copy()
@@ -161,9 +166,12 @@ def plot_hist_transform(series, use_log=False, use_sqrt=False, winsorize=None, f
     axes[0].hist(raw, bins=40, alpha=0.7, color="steelblue")
     axes[0].set_title(f"Distribution of {series.name} (raw)")
     axes[0].text(
-        0.95, 0.95,
+        0.95,
+        0.95,
         f"Skew={stats_raw[0]:.2f}\nKurt={stats_raw[1]:.2f}",
-        transform=axes[0].transAxes, ha="right", va="top",
+        transform=axes[0].transAxes,
+        ha="right",
+        va="top",
         bbox=dict(facecolor="white", alpha=0.7),
     )
 
@@ -171,14 +179,18 @@ def plot_hist_transform(series, use_log=False, use_sqrt=False, winsorize=None, f
     axes[1].hist(transformed, bins=40, alpha=0.7, color="darkorange")
     axes[1].set_title(f"Distribution of {series.name} ({tlabel})")
     axes[1].text(
-        0.95, 0.95,
+        0.95,
+        0.95,
         f"Skew={stats_trans[0]:.2f}\nKurt={stats_trans[1]:.2f}",
-        transform=axes[1].transAxes, ha="right", va="top",
+        transform=axes[1].transAxes,
+        ha="right",
+        va="top",
         bbox=dict(facecolor="white", alpha=0.7),
     )
 
     plt.tight_layout()
     plt.show()
+
 
 def plot_mean_std_importance(
     df,
@@ -195,9 +207,7 @@ def plot_mean_std_importance(
 
     # sort
     if sort_abs:
-        data = data.reindex(
-            data[value_col].abs().sort_values(ascending=False).index
-        )
+        data = data.reindex(data[value_col].abs().sort_values(ascending=False).index)
     else:
         data = data.sort_values(value_col, ascending=False)
 
@@ -222,20 +232,35 @@ def plot_mean_std_importance(
 
 def plot_purged_kfold_splits(cv, X, y):
     import matplotlib.dates as mdates
+
     dates = X.index
 
     plt.figure(figsize=(10, 3))
     for fold, (tr, val) in enumerate(cv.split(X, y)):
         y_level = fold
-        plt.scatter(dates[tr], np.full_like(tr, y_level),
-                    marker='s', s=4, label='train' if fold == 0 else None, c="blue")
-        plt.scatter(dates[val], np.full_like(val, y_level),
-                    marker='s', s=10, label='val' if fold == 0 else None, c="orange")
+        plt.scatter(
+            dates[tr],
+            np.full_like(tr, y_level),
+            marker="s",
+            s=4,
+            label="train" if fold == 0 else None,
+            c="blue",
+        )
+        plt.scatter(
+            dates[val],
+            np.full_like(val, y_level),
+            marker="s",
+            s=10,
+            label="val" if fold == 0 else None,
+            c="orange",
+        )
 
-    plt.yticks(range(cv.get_n_splits()), [f"Fold {k}" for k in range(cv.get_n_splits())])
+    plt.yticks(
+        range(cv.get_n_splits()), [f"Fold {k}" for k in range(cv.get_n_splits())]
+    )
     ax = plt.gca()
     ax.xaxis.set_major_locator(mdates.YearLocator())
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     plt.xlabel("Date")
     plt.title("Purged K-Fold scheme (train vs validation over time)")
     plt.legend(loc="upper right")
@@ -318,7 +343,6 @@ def plot_cv_mse_comparison(scores_a, scores_b, label_a="Model A", label_b="Model
 
 
 def plot_subperiod_comparison(perf, subperiods, figsize=(12, 6)):
-    n = len(subperiods)
     nrows, ncols = 2, 2
     fig, axes = plt.subplots(nrows, ncols, figsize=figsize, sharex=False)
     axes = axes.ravel()
@@ -352,13 +376,9 @@ def plot_subperiod_comparison(perf, subperiods, figsize=(12, 6)):
     plt.show()
 
 
-def plot_model_comparison_ts(y,
-                             y_pred_1,
-                             y_pred_2,
-                             label_1,
-                             label_2,
-                             start=None,
-                             end=None):
+def plot_model_comparison_ts(
+    y, y_pred_1, y_pred_2, label_1, label_2, start=None, end=None
+):
     # Restrict to window if start/end are provided
     if start is not None or end is not None:
         y = y.loc[start:end]
@@ -378,9 +398,13 @@ def plot_model_comparison_ts(y,
     plt.show()
 
 
-def plot_model_comparison_scatter(y, y_pred_1, y_pred_2,
-                                label_1,
-                                label_2,):
+def plot_model_comparison_scatter(
+    y,
+    y_pred_1,
+    y_pred_2,
+    label_1,
+    label_2,
+):
     # align everything just in case
     y, y_pred_1 = y.align(y_pred_1, join="inner")
     y, y_pred_2 = y.align(y_pred_2, join="inner")
@@ -412,12 +436,14 @@ def plot_model_comparison_scatter(y, y_pred_1, y_pred_2,
 
 
 def plot_acf_pacf(series, lags=40, title=""):
-    fig, axes = plt.subplots(1, 2, figsize=(14,4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
 
     plot_acf(series.dropna(), lags=lags, ax=axes[0])
     axes[0].set_title(f"ACF {title}")
 
-    plot_pacf(series.dropna(), lags=lags, ax=axes[1], method="ywm")  # Yule-Walker-M estimator
+    plot_pacf(
+        series.dropna(), lags=lags, ax=axes[1], method="ywm"
+    )  # Yule-Walker-M estimator
     axes[1].set_title(f"PACF {title}")
 
     plt.tight_layout()

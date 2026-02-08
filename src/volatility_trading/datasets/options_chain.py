@@ -8,6 +8,7 @@ Conventions
 - scan_* returns a Polars LazyFrame
 - read_* returns a Polars DataFrame
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -16,7 +17,6 @@ from pathlib import Path
 import polars as pl
 
 from volatility_trading.config.paths import PROC_ORATS_OPTIONS_CHAIN
-
 
 DEFAULT_BASE_COLS = [
     "ticker",
@@ -105,16 +105,10 @@ def read_options_chain(
     pl.DataFrame
         WIDE options chain (call_* / put_* columns).
     """
-    return (scan_options_chain(
-        ticker, 
-        proc_root=proc_root, 
-        columns=columns).collect()
-    )
+    return scan_options_chain(ticker, proc_root=proc_root, columns=columns).collect()
 
 
-def options_chain_wide_to_long(
-    wide: pl.LazyFrame | pl.DataFrame
-) -> pl.LazyFrame:
+def options_chain_wide_to_long(wide: pl.LazyFrame | pl.DataFrame) -> pl.LazyFrame:
     """Convert a processed options chain from WIDE to LONG format.
 
     WIDE input uses `call_*` / `put_*` prefixed columns.
@@ -225,10 +219,7 @@ def options_chain_long_to_wide(
         value_cols_eff = []
 
     def _widen_side(label: str, prefix: str) -> pl.LazyFrame:
-        sub = (
-            lf.filter(pl.col(opt_col) == label)
-            .select(base_cols_eff + value_cols_eff)
-        )
+        sub = lf.filter(pl.col(opt_col) == label).select(base_cols_eff + value_cols_eff)
 
         if value_cols_eff:
             rename_map = {c: f"{prefix}{c}" for c in value_cols_eff}

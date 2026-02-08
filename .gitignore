@@ -37,3 +37,7 @@ backup/
 *.parquet
 *.7z
 *.zip
+
+# Personal knowledge
+readings/
+course/

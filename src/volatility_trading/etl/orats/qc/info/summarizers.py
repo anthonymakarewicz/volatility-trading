@@ -118,7 +118,7 @@ def summarize_core_numeric_stats(
 
         null_rate = float(s.is_null().mean())
         s_nonnull = s.drop_nulls()
-        n_nonnull = int(len(s_nonnull))
+        n_nonnull = len(s_nonnull)
 
         if n_nonnull == 0:
             stats[c] = {

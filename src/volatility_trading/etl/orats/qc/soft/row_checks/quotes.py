@@ -15,14 +15,10 @@ def flag_locked_market(
     if option_type not in {"C", "P"}:
         raise ValueError("option_type must be 'C' or 'P'.")
 
-    return (
-        df_long
-        .filter(pl.col("option_type") == option_type)
-        .with_columns(
-            ((pl.col(bid_col) == pl.col(ask_col)) & (pl.col(bid_col) > 0))
-            .fill_null(False)
-            .alias(out_col)
-        )
+    return df_long.filter(pl.col("option_type") == option_type).with_columns(
+        ((pl.col(bid_col) == pl.col(ask_col)) & (pl.col(bid_col) > 0))
+        .fill_null(False)
+        .alias(out_col)
     )
 
 
@@ -38,14 +34,8 @@ def flag_one_sided_quotes(
     if option_type not in {"C", "P"}:
         raise ValueError("option_type must be 'C' or 'P'.")
 
-    return (
-        df_long
-        .filter(pl.col("option_type") == option_type)
-        .with_columns(
-            ((pl.col(bid_col) == 0) & (pl.col(ask_col) > 0))
-            .fill_null(False)
-            .alias(out_col)
-        )
+    return df_long.filter(pl.col("option_type") == option_type).with_columns(
+        ((pl.col(bid_col) == 0) & (pl.col(ask_col) > 0)).fill_null(False).alias(out_col)
     )
 
 

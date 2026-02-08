@@ -25,19 +25,13 @@ def _normalize_strikes_vendor_df(df: pl.DataFrame) -> pl.DataFrame:
     for c in spec.vendor_date_cols:
         if c in df.columns:
             exprs.append(
-                pl.col(c)
-                .str.strptime(pl.Date, format=DATE_FMT, strict=False)
-                .alias(c)
+                pl.col(c).str.strptime(pl.Date, format=DATE_FMT, strict=False).alias(c)
             )
 
     # Datetimes (if ever provided by the vendor). We keep this generic.
     for c in spec.vendor_datetime_cols:
         if c in df.columns:
-            exprs.append(
-                pl.col(c)
-                .str.strptime(pl.Datetime, strict=False)
-                .alias(c)
-            )
+            exprs.append(pl.col(c).str.strptime(pl.Datetime, strict=False).alias(c))
 
     if exprs:
         df = df.with_columns(exprs)

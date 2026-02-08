@@ -24,9 +24,7 @@ def add_put_greeks(*, lf: pl.LazyFrame) -> pl.LazyFrame:
             )
             / CALENDAR_DAYS_PER_YEAR
         ),
-        put_rho=(
-            pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r / 100
-        ),
+        put_rho=(pl.col("call_rho") - pl.col("yte") * pl.col("strike") * disc_r / 100),
     )
 
 

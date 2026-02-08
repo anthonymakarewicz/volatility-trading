@@ -9,6 +9,7 @@ from .endpoints import DownloadStrategy
 @dataclass(frozen=True)
 class DownloadApiResult:
     """Summary of a download run."""
+
     endpoint: str
     strategy: DownloadStrategy
     n_requests_total: int
@@ -24,6 +25,7 @@ class DownloadApiResult:
 @dataclass(frozen=True)
 class ExtractApiResult:
     """Summary of an extraction run."""
+
     endpoint: str
     strategy: DownloadStrategy
     n_raw_files_seen: int

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Mapping
 import os
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
 
 try:
     import yaml
@@ -25,8 +26,7 @@ def load_yaml_config(path: str | Path | None) -> dict[str, Any]:
 
     if yaml is None:
         raise RuntimeError(
-            "PyYAML is required for --config. "
-            "Install with `pip install pyyaml`."
+            "PyYAML is required for --config. Install with `pip install pyyaml`."
         )
 
     p = Path(path)
@@ -37,9 +37,7 @@ def load_yaml_config(path: str | Path | None) -> dict[str, Any]:
         data = yaml.safe_load(f) or {}
 
     if not isinstance(data, dict):
-        raise ValueError(
-            "Config file must contain a YAML mapping at the top level."
-        )
+        raise ValueError("Config file must contain a YAML mapping at the top level.")
 
     return data
 
@@ -57,10 +55,7 @@ def deep_merge(
             merged[key] = value
 
     for key, value in updates.items():
-        if (
-            isinstance(value, Mapping)
-            and isinstance(merged.get(key), Mapping)
-        ):
+        if isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
             merged[key] = deep_merge(merged[key], value)
         else:
             merged[key] = value

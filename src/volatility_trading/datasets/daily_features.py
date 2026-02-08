@@ -8,6 +8,7 @@ Conventions
 - scan_* returns a Polars LazyFrame
 - read_* returns a Polars DataFrame
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -16,7 +17,6 @@ from pathlib import Path
 import polars as pl
 
 from volatility_trading.config.paths import PROC_ORATS_DAILY_FEATURES
-
 
 DEFAULT_BASE_COLS = [
     "ticker",
@@ -96,14 +96,11 @@ def read_daily_features(
     pl.DataFrame
         Daily-features panel keyed by (ticker, trade_date).
     """
-    return (
-        scan_daily_features(
-            ticker,
-            proc_root=proc_root,
-            columns=columns,
-        )
-        .collect()
-    )
+    return scan_daily_features(
+        ticker,
+        proc_root=proc_root,
+        columns=columns,
+    ).collect()
 
 
 def join_daily_features(

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import date
-from typing import Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,10 +9,10 @@ import polars as pl
 
 from volatility_trading.iv_surface.term_structure import pick_closest_dte
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def plot_smiles_by_delta(
     df_long: pl.DataFrame,
@@ -57,12 +56,7 @@ def plot_smiles_by_delta(
             continue
 
         # available DTEs that day
-        dtes = (
-            sub.select(pl.col("dte").unique())
-            .sort("dte")
-            .to_series()
-            .to_list()
-        )
+        dtes = sub.select(pl.col("dte").unique()).sort("dte").to_series().to_list()
 
         chosen: dict[str, int] = {}
         for target, label in targets:
@@ -79,7 +73,7 @@ def plot_smiles_by_delta(
                 sub.filter(
                     pl.col("dte") == dte_val,
                 )
-                .with_columns(abs_delta = pl.col("put_delta").abs())
+                .with_columns(abs_delta=pl.col("put_delta").abs())
                 .sort("abs_delta")
             )
             if grp.height == 0:
@@ -152,9 +146,7 @@ def plot_term_structures_by_delta(
             # for each DTE, pick row whose call_delta is closest to target_delta
             ts = (
                 sub.with_columns(
-                    (pl.col("call_delta") - target_delta)
-                    .abs()
-                    .alias("_dist")
+                    (pl.col("call_delta") - target_delta).abs().alias("_dist")
                 )
                 .sort(["dte", "_dist"])
                 .group_by("dte", maintain_order=True)
@@ -212,10 +204,9 @@ def plot_avg_volume_by_delta(
         delta_bins = np.linspace(0.0, 1.0, 21)
 
     vol_by_delta = (
-        df_long
-        .filter(pl.col("dte").is_between(dte_min, dte_max))
+        df_long.filter(pl.col("dte").is_between(dte_min, dte_max))
         .with_columns(
-            delta_bucket = pl.col("delta").abs().cut(delta_bins),
+            delta_bucket=pl.col("delta").abs().cut(delta_bins),
         )
         .group_by(["delta_bucket", "option_type"])
         .agg(pl.col("volume").mean().alias("avg_volume"))
@@ -228,13 +219,13 @@ def plot_avg_volume_by_delta(
 
     pivot = vol_by_delta.pivot_table(
         index="delta_bucket",
-        columns="option_type",   # "C" / "P"
+        columns="option_type",  # "C" / "P"
         values="avg_volume",
     )
 
     # Build human-readable labels from bin edges
     edges = np.asarray(delta_bins)
-    labels = [f"{edges[i]:.2f}-{edges[i+1]:.2f}" for i in range(len(edges) - 1)]
+    labels = [f"{edges[i]:.2f}-{edges[i + 1]:.2f}" for i in range(len(edges) - 1)]
 
     x = np.arange(len(pivot))
 
@@ -271,7 +262,9 @@ def plot_liquidity_by_dte(
     dte_bins = list(dte_bins)
 
     if dte_labels is None:
-        dte_labels = [f"({dte_bins[i]}–{dte_bins[i + 1]}]" for i in range(len(dte_bins) - 1)]
+        dte_labels = [
+            f"({dte_bins[i]}–{dte_bins[i + 1]}]" for i in range(len(dte_bins) - 1)
+        ]
     else:
         dte_labels = list(dte_labels)
 
@@ -286,8 +279,7 @@ def plot_liquidity_by_dte(
     ).clip(0, len(dte_bins) - 2)
 
     liq_by_dte = (
-        df_long
-        .filter(
+        df_long.filter(
             pl.col(delta_col).abs().is_between(delta_min, delta_max),
             pl.col("dte").is_not_null(),
         )
@@ -302,8 +294,7 @@ def plot_liquidity_by_dte(
     # Ensure we always plot all buckets in order
     all_buckets = pl.DataFrame({"dte_bucket": list(range(len(dte_labels)))})
     liq_by_dte = (
-        all_buckets
-        .join(liq_by_dte, on="dte_bucket", how="left")
+        all_buckets.join(liq_by_dte, on="dte_bucket", how="left")
         .with_columns(
             pl.col("avg_volume").fill_null(0.0),
             pl.col("avg_open_interest").fill_null(0.0),
@@ -316,7 +307,9 @@ def plot_liquidity_by_dte(
     fig, ax1 = plt.subplots(figsize=(9, 4))
     ax2 = ax1.twinx()
 
-    ax1.bar(x - 0.15, liq_by_dte["avg_volume"].to_numpy(), width=0.3, label="Avg volume")
+    ax1.bar(
+        x - 0.15, liq_by_dte["avg_volume"].to_numpy(), width=0.3, label="Avg volume"
+    )
     ax2.bar(
         x + 0.15,
         liq_by_dte["avg_open_interest"].to_numpy(),
@@ -343,6 +336,7 @@ def plot_liquidity_by_dte(
 # ======================================================================
 # Internal helpers
 # ======================================================================
+
 
 def _make_facet_axes(
     picked_dates: Sequence[date],

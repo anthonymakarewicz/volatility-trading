@@ -46,15 +46,15 @@ def flag_delta_bounds(
     else:  # "P"
         violation = (d < (-1.0 - eps)) | (d > (0.0 + eps))
 
-    return (
-        df.filter(pl.col("option_type") == option_type)
-        .with_columns(violation.fill_null(False).alias(out_col))
+    return df.filter(pl.col("option_type") == option_type).with_columns(
+        violation.fill_null(False).alias(out_col)
     )
 
 
 # -----------------------------------------------------------------------------
 # Implied volatility checks
 # -----------------------------------------------------------------------------
+
 
 def flag_iv_high(
     df: pl.DataFrame,

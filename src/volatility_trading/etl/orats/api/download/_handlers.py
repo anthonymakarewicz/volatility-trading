@@ -11,7 +11,7 @@ import requests
 from ..client import OratsClient
 from ..endpoints import DownloadStrategy
 from ..io import raw_path_by_trade_date, raw_path_full_history
-
+from ..types import DownloadApiResult
 from ._helpers import (
     LOG_EVERY_N_DATES,
     LOG_EVERY_N_TICKERS,
@@ -20,7 +20,6 @@ from ._helpers import (
     is_fatal_download_error,
     write_json_atomic,
 )
-from ..types import DownloadApiResult
 
 logger = logging.getLogger(__name__)
 
@@ -240,8 +239,7 @@ def download_by_trade_date(
                     if not data:
                         n_empty_payloads += 1
                         logger.debug(
-                            "Empty payload data. endpoint=%s "
-                            "tradeDate=%s part=%d",
+                            "Empty payload data. endpoint=%s tradeDate=%s part=%d",
                             endpoint,
                             trade_date,
                             part,
@@ -254,8 +252,7 @@ def download_by_trade_date(
                 except Exception as e:
                     failed_paths.append(out_path)
                     logger.exception(
-                        "Failed BY_TRADE_DATE endpoint=%s tradeDate=%s "
-                        "part=%d path=%s",
+                        "Failed BY_TRADE_DATE endpoint=%s tradeDate=%s part=%d path=%s",
                         endpoint,
                         trade_date,
                         part,

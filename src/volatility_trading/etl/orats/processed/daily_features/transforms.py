@@ -107,6 +107,7 @@ def apply_unit_multipliers(
 # Dedupe helper
 # ----------------------------------------------------------------------------
 
+
 def dedupe_on_keys(
     lf: pl.LazyFrame,
     *,
@@ -126,13 +127,9 @@ def dedupe_on_keys(
 
     keys_eff = [c for c in keys if c in cols]
     if not keys_eff:
-        raise ValueError(
-            f"dedupe_on_keys: none of key columns exist: {list(keys)}"
-        )
+        raise ValueError(f"dedupe_on_keys: none of key columns exist: {list(keys)}")
 
-    lf = lf.filter(
-        pl.all_horizontal([pl.col(c).is_not_null() for c in keys_eff])
-    )
+    lf = lf.filter(pl.all_horizontal([pl.col(c).is_not_null() for c in keys_eff]))
 
     if stable_sort:
         lf = lf.sort(keys_eff)

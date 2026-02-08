@@ -1,4 +1,4 @@
-"""""volatility_trading.etl.orats.processed.options_chain_io
+""" ""volatility_trading.etl.orats.processed.options_chain_io
 
 This module contains intermediate scans for FTP strikes whose behaviour requires
 placing it in options_chain/ rather than shared/
@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
+from pathlib import Path
 
 import polars as pl
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +31,7 @@ def scan_strikes_intermediate(
     root = inter_root / f"underlying={ticker}"
 
     if not root.exists():
-        raise FileNotFoundError(
-            f"No ORATS directory found for {ticker!r} at {root}"
-        )
+        raise FileNotFoundError(f"No ORATS directory found for {ticker!r} at {root}")
 
     logger.info("Building ORATS options chain for ticker=%s", ticker)
     logger.info("Reading intermediate from: %s", root)
@@ -62,9 +60,7 @@ def scan_strikes_intermediate(
         scans.append(pl.scan_parquet(str(part)))
 
     if not scans:
-        raise FileNotFoundError(
-            f"No ORATS files found for {ticker!r} under {root}"
-        )
+        raise FileNotFoundError(f"No ORATS files found for {ticker!r} under {root}")
 
     # allow schema evolution across years (e.g. cOpra/pOpra appear later)
     return pl.concat(scans, how="diagonal")

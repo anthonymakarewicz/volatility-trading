@@ -24,7 +24,6 @@ import polars as pl
 
 from .schema_spec import OratsSchemaSpec
 
-
 # ----------------------------------------------------------------------------
 # Dtypes (vendor)
 # ----------------------------------------------------------------------------
@@ -43,7 +42,6 @@ _STRIKES_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "ticker": pl.Utf8,
     "cOpra": pl.Utf8,
     "pOpra": pl.Utf8,
-
     # underlying / dates
     "stkPx": pl.Float64,
     "spot_px": pl.Float64,
@@ -51,13 +49,11 @@ _STRIKES_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "trade_date": pl.Utf8,
     "yte": pl.Float64,
     "strike": pl.Float64,
-
     # volume / open interest
     "cVolu": pl.Int64,
     "cOi": pl.Int64,
     "pVolu": pl.Int64,
     "pOi": pl.Int64,
-
     # quotes
     "cBidPx": pl.Float64,
     "cValue": pl.Float64,
@@ -65,7 +61,6 @@ _STRIKES_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "pBidPx": pl.Float64,
     "pValue": pl.Float64,
     "pAskPx": pl.Float64,
-
     # implied vols
     "cBidIv": pl.Float64,
     "cMidIv": pl.Float64,
@@ -74,12 +69,10 @@ _STRIKES_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "pBidIv": pl.Float64,
     "pMidIv": pl.Float64,
     "pAskIv": pl.Float64,
-
     # rates
     "iRate": pl.Float64,
     "divRate": pl.Float64,
     "residualRateData": pl.Float64,
-
     # greeks
     "delta": pl.Float64,
     "gamma": pl.Float64,
@@ -88,7 +81,6 @@ _STRIKES_VENDOR_DTYPES: dict[str, pl.DataType] = {
     "rho": pl.Float64,
     "phi": pl.Float64,
     "driftlessTheta": pl.Float64,
-
     # external vols / theo
     "extVol": pl.Float64,
     "extCTheo": pl.Float64,
@@ -122,7 +114,6 @@ _STRIKES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "ticker": "ticker",
     "cOpra": "call_opra",
     "pOpra": "put_opra",
-
     # underlying / dates
     "stkPx": "underlying_price",
     "spot_px": "spot_price",
@@ -130,13 +121,11 @@ _STRIKES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "trade_date": "trade_date",
     "yte": "yte",
     "strike": "strike",
-
     # volume / open interest
     "cVolu": "call_volume",
     "cOi": "call_open_interest",
     "pVolu": "put_volume",
     "pOi": "put_open_interest",
-
     # quotes
     "cBidPx": "call_bid_price",
     "cValue": "call_model_price",
@@ -144,7 +133,6 @@ _STRIKES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "pBidPx": "put_bid_price",
     "pValue": "put_model_price",
     "pAskPx": "put_ask_price",
-
     # implied vols
     "cBidIv": "call_bid_iv",
     "cMidIv": "call_mid_iv",
@@ -153,12 +141,10 @@ _STRIKES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "pBidIv": "put_bid_iv",
     "pMidIv": "put_mid_iv",
     "pAskIv": "put_ask_iv",
-
     # rates
     "iRate": "risk_free_rate",
     "divRate": "dividend_yield",
     "residualRateData": "residual_rate_data",
-
     # greeks (raw)
     "delta": "call_delta",
     "gamma": "call_gamma",
@@ -167,7 +153,6 @@ _STRIKES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "rho": "call_rho",
     "phi": "phi",
     "driftlessTheta": "driftless_theta",
-
     # external
     "extVol": "ext_iv",
     "extCTheo": "ext_call_theo",
@@ -186,21 +171,17 @@ _STRIKES_KEEP_CANONICAL: tuple[str, ...] = (
     "expiry_date",
     "yte",
     "strike",
-
     # underlying
     "underlying_price",
     "spot_price",
-
     # identifiers (useful for de-dupe; optional but I’d keep)
     "call_opra",
     "put_opra",
-
     # volume / OI
     "call_volume",
     "put_volume",
     "call_open_interest",
     "put_open_interest",
-
     # quotes
     "call_bid_price",
     "call_model_price",
@@ -208,24 +189,20 @@ _STRIKES_KEEP_CANONICAL: tuple[str, ...] = (
     "put_bid_price",
     "put_model_price",
     "put_ask_price",
-
     # vols
     "smoothed_iv",
     "call_mid_iv",
     "put_mid_iv",
-
     # curves
     "risk_free_rate",
     "dividend_yield",
     "residual_rate_data",
-
     # call greeks (vendor only)
     "call_delta",
     "call_gamma",
     "call_theta",
     "call_vega",
     "call_rho",
-
     # optional vendor-only columns if you actually use them downstream
     # "phi",
     # "driftless_theta",
@@ -256,7 +233,6 @@ _STRIKES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "put_bid_price": (0.0, 1e7),
     "put_model_price": (0.0, 1e7),
     "put_ask_price": (0.0, 1e7),
-
     # vols
     "smoothed_iv": (0.0, 10.0),
     "call_bid_iv": (0.0, 10.0),
@@ -265,25 +241,21 @@ _STRIKES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "put_bid_iv": (0.0, 10.0),
     "put_mid_iv": (0.0, 10.0),
     "put_ask_iv": (0.0, 10.0),
-
     # rates / yields
     "risk_free_rate": (-1.0, 1.0),
     "dividend_yield": (-1.0, 1.0),
     "residual_rate_data": (-2.0, 2.0),
-
     # volumes / OI (negative makes no sense; keep row but null the field)
     "call_volume": (0.0, 1e9),
     "put_volume": (0.0, 1e9),
     "call_open_interest": (0.0, 1e9),
     "put_open_interest": (0.0, 1e9),
-
     # greeks (very wide; null absurds)
     "call_delta": (-2.0, 2.0),
     "call_gamma": (0.0, 1e3),
     "call_theta": (-1e5, 1e5),
     "call_vega": (0.0, 1e5),
     "call_rho": (-1e5, 1e5),
-
     # misc
     "phi": (-1e5, 1e5),
     "driftless_theta": (-1e5, 1e5),
