@@ -44,3 +44,4 @@ pytest -k extract -q
 - Most ETL tests are written to be offline and fast (they stub IO/network with `monkeypatch` and use `tmp_path`).
 - Integration/smoke tests live under `tests/integration/`.
 - `pytest` excludes integration tests by default via `addopts = "-m 'not integration'"`.
+- CI runs Ruff + unit tests on every PR/push; integration tests run on pushes to `main`.

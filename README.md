@@ -67,6 +67,13 @@ See:
 - `docs/test_structure.md` for tests and how to run them
 - `docs/package_structure.md` for the package layout
 
+## **CI**
+
+GitHub Actions runs:
+- Ruff lint + format checks
+- Unit tests by default
+- Integration tests on pushes to `main` (and manual runs)
+
 ## **Research Notebooks and Results**
 
 

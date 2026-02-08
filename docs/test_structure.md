@@ -74,3 +74,8 @@ Pytest configuration lives in `pyproject.toml` under
 - `testpaths = ["tests"]`
 - `addopts = "-q -m 'not integration'"`
 - `pythonpath = ["src"]`
+
+## CI
+
+GitHub Actions runs Ruff + unit tests on every PR/push, and runs integration
+tests on pushes to `main` (or manual workflow runs).
