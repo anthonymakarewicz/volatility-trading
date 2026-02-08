@@ -24,9 +24,11 @@ from typing import Any
 from dotenv import load_dotenv
 
 from volatility_trading.apps._cli import (
+    add_dry_run_arg,
     add_print_config_arg,
     collect_logging_overrides,
     ensure_list,
+    log_dry_run,
     print_config,
 )
 from volatility_trading.cli import (
@@ -40,9 +42,9 @@ from volatility_trading.cli import (
 from volatility_trading.config.paths import RAW_ORATS_FTP
 from volatility_trading.etl.orats.ftp import download
 
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "logging": DEFAULT_LOGGING,
+    "dry_run": False,
     "ftp": {
         "user_env": "ORATS_FTP_USER",
         "pass_env": "ORATS_FTP_PASS",
@@ -69,6 +71,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_config_arg(parser)
     add_logging_args(parser)
     add_print_config_arg(parser)
+    add_dry_run_arg(parser)
 
     parser.add_argument(
         "--raw-root",
@@ -200,6 +203,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.fail_on_failed is not None:
         overrides["fail_on_failed"] = args.fail_on_failed
 
+    if args.dry_run:
+        overrides["dry_run"] = True
+
     logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
@@ -241,13 +247,12 @@ def main(argv: list[str] | None = None) -> None:
     max_workers = config["max_workers"]
     host = ftp_cfg.get("host")
     remote_base_dirs = ftp_cfg.get("remote_base_dirs")
+    dry_run = config.get("dry_run", False)
 
     logger.info("RAW FTP root:  %s", raw_root)
     logger.info(
         "Years:         %s",
-        "ALL" if year_whitelist is None else sorted(
-            str(y) for y in year_whitelist
-        ),
+        "ALL" if year_whitelist is None else sorted(str(y) for y in year_whitelist),
     )
     logger.info("Validate ZIP:  %s", validate_zip)
     logger.info("Max workers:   %s", max_workers)
@@ -256,6 +261,26 @@ def main(argv: list[str] | None = None) -> None:
         logger.info("FTP host:      %s", host)
     if remote_base_dirs:
         logger.info("Remote dirs:   %s", remote_base_dirs)
+
+    if dry_run:
+        log_dry_run(
+            logger,
+            {
+                "action": "orats_ftp_download",
+                "raw_root": raw_root,
+                "year_whitelist": year_whitelist,
+                "validate_zip": validate_zip,
+                "max_workers": max_workers,
+                "host": host,
+                "remote_base_dirs": remote_base_dirs,
+                "fail_on_failed": config["fail_on_failed"],
+                "user_env": user_env,
+                "pass_env": pass_env,
+                "user_present": bool(user),
+                "password_present": bool(password),
+            },
+        )
+        return
 
     raw_root.mkdir(parents=True, exist_ok=True)
 

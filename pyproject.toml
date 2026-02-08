@@ -27,6 +27,7 @@ ignore = [
     "E501",   # line length handled by formatter
     "B008",   # allow function calls in defaults
     "SIM105", # allow try/except pass (sometimes clearer in tests)
+    "UP038",  # allow isinstance(x, (a, b)) for readability
 ]
 
 [tool.ruff.format]

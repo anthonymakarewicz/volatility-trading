@@ -17,9 +17,11 @@ import logging
 from typing import Any
 
 from volatility_trading.apps._cli import (
+    add_dry_run_arg,
     add_print_config_arg,
     collect_logging_overrides,
     ensure_list,
+    log_dry_run,
     print_config,
 )
 from volatility_trading.cli import (
@@ -33,12 +35,12 @@ from volatility_trading.cli import (
 from volatility_trading.config.paths import INTER_ORATS_API, RAW_ORATS_API
 from volatility_trading.etl.orats.api import extract
 
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "logging": DEFAULT_LOGGING,
+    "dry_run": False,
     "paths": {
         "raw_root": RAW_ORATS_API,
-        "intermediate_root": INTER_ORATS_API,
+        "inter_root": INTER_ORATS_API,
     },
     "endpoint": "hvs",
     "tickers": [
@@ -69,6 +71,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_config_arg(parser)
     add_logging_args(parser)
     add_print_config_arg(parser)
+    add_dry_run_arg(parser)
 
     parser.add_argument(
         "--raw-root",
@@ -162,7 +165,7 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.raw_root:
         paths["raw_root"] = args.raw_root
     if args.intermediate_root:
-        paths["intermediate_root"] = args.intermediate_root
+        paths["inter_root"] = args.intermediate_root
     if paths:
         overrides["paths"] = paths
 
@@ -189,6 +192,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.fail_on_failed is not None:
         overrides["fail_on_failed"] = args.fail_on_failed
 
+    if args.dry_run:
+        overrides["dry_run"] = True
+
     logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
@@ -200,7 +206,6 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     overrides = _build_overrides(args)
     config = build_config(DEFAULT_CONFIG, args.config, overrides)
-
     if args.print_config:
         print_config(config)
         return
@@ -209,9 +214,9 @@ def main(argv: list[str] | None = None) -> None:
     logger = logging.getLogger(__name__)
 
     raw_root = resolve_path(config["paths"]["raw_root"])
-    inter_root = resolve_path(config["paths"]["intermediate_root"])
+    inter_root = resolve_path(config["paths"]["inter_root"])
     if raw_root is None or inter_root is None:
-        raise ValueError("Both raw_root and intermediate_root must be set.")
+        raise ValueError("Both raw_root and inter_root must be set.")
 
     endpoint = config["endpoint"]
     tickers = ensure_list(config.get("tickers"))
@@ -219,6 +224,7 @@ def main(argv: list[str] | None = None) -> None:
     raw_compression = config["raw_compression"]
     overwrite = config["overwrite"]
     parquet_compression = config["parquet_compression"]
+    dry_run = config.get("dry_run", False)
 
     logger.info("RAW API root:         %s", raw_root)
     logger.info("Intermediate API root:%s", inter_root)
@@ -229,6 +235,24 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("Overwrite:            %s", overwrite)
     logger.info("Parquet compression:  %s", parquet_compression)
     logger.info("Fail on failed:       %s", config["fail_on_failed"])
+
+    if dry_run:
+        log_dry_run(
+            logger,
+            {
+                "action": "orats_api_extract",
+                "raw_root": raw_root,
+                "inter_root": inter_root,
+                "endpoint": endpoint,
+                "tickers": tickers,
+                "year_whitelist": year_whitelist,
+                "raw_compression": raw_compression,
+                "overwrite": overwrite,
+                "parquet_compression": parquet_compression,
+                "fail_on_failed": config["fail_on_failed"],
+            },
+        )
+        return
 
     raw_root.mkdir(parents=True, exist_ok=True)
     inter_root.mkdir(parents=True, exist_ok=True)

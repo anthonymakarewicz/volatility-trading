@@ -16,9 +16,11 @@ import logging
 from typing import Any
 
 from volatility_trading.apps._cli import (
+    add_dry_run_arg,
     add_print_config_arg,
     collect_logging_overrides,
     ensure_list,
+    log_dry_run,
     print_config,
 )
 from volatility_trading.cli import (
@@ -36,12 +38,12 @@ from volatility_trading.config.paths import (
 )
 from volatility_trading.etl.orats.processed.options_chain import build
 
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "logging": DEFAULT_LOGGING,
+    "dry_run": False,
     "paths": {
-        "inter_strikes_root": INTER_ORATS_FTP,
-        "monies_implied_inter_root": INTER_ORATS_API,
+        "inter_root": INTER_ORATS_FTP,
+        "monies_implied_root": INTER_ORATS_API,
         "proc_root": PROC_ORATS_OPTIONS_CHAIN,
     },
     "tickers": ["AAPL"],
@@ -64,6 +66,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_config_arg(parser)
     add_logging_args(parser)
     add_print_config_arg(parser)
+    add_dry_run_arg(parser)
 
     parser.add_argument(
         "--inter-strikes-root",
@@ -179,9 +182,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
 
     paths: dict[str, Any] = {}
     if args.inter_strikes_root:
-        paths["inter_strikes_root"] = args.inter_strikes_root
+        paths["inter_root"] = args.inter_strikes_root
     if args.monies_implied_root:
-        paths["monies_implied_inter_root"] = args.monies_implied_root
+        paths["monies_implied_root"] = args.monies_implied_root
     if args.proc_root:
         paths["proc_root"] = args.proc_root
     if paths:
@@ -213,6 +216,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.merge_dividend_yield is not None:
         overrides["merge_dividend_yield"] = args.merge_dividend_yield
 
+    if args.dry_run:
+        overrides["dry_run"] = True
+
     logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
@@ -224,7 +230,6 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     overrides = _build_overrides(args)
     config = build_config(DEFAULT_CONFIG, args.config, overrides)
-
     if args.print_config:
         print_config(config)
         return
@@ -232,11 +237,11 @@ def main(argv: list[str] | None = None) -> None:
     setup_logging_from_config(config.get("logging"))
     logger = logging.getLogger(__name__)
 
-    inter_strikes_root = resolve_path(config["paths"]["inter_strikes_root"])
-    monies_implied_root = resolve_path(config["paths"]["monies_implied_inter_root"])
+    inter_strikes_root = resolve_path(config["paths"]["inter_root"])
+    monies_implied_root = resolve_path(config["paths"].get("monies_implied_root"))
     proc_root = resolve_path(config["paths"]["proc_root"])
     if inter_strikes_root is None or proc_root is None:
-        raise ValueError("inter_strikes_root and proc_root must be set.")
+        raise ValueError("inter_root and proc_root must be set.")
 
     tickers = ensure_list(config.get("tickers"))
     if not tickers:
@@ -251,9 +256,11 @@ def main(argv: list[str] | None = None) -> None:
     collect_stats = config["collect_stats"]
     derive_put_greeks = config["derive_put_greeks"]
     merge_dividend_yield = config["merge_dividend_yield"]
+    dry_run = config.get("dry_run", False)
 
-    logger.info("INTER strikes root: %s", inter_strikes_root)
-    logger.info("INTER API root:     %s", monies_implied_root)
+    logger.info("INTER root (strikes): %s", inter_strikes_root)
+    if monies_implied_root is not None:
+        logger.info("Monies-implied root:  %s", monies_implied_root)
     logger.info("PROC root:          %s", proc_root)
     logger.info("Tickers:            %s", tickers)
     logger.info("Years:              %s", years)
@@ -266,6 +273,28 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("Collect stats:      %s", collect_stats)
     logger.info("Derive put greeks:  %s", derive_put_greeks)
     logger.info("Merge dividend:     %s", merge_dividend_yield)
+
+    if dry_run:
+        log_dry_run(
+            logger,
+            {
+                "action": "orats_build_options_chain",
+                "inter_root": inter_strikes_root,
+                "monies_implied_root": monies_implied_root,
+                "proc_root": proc_root,
+                "tickers": tickers,
+                "years": years,
+                "dte_min": dte_min,
+                "dte_max": dte_max,
+                "moneyness_min": moneyness_min,
+                "moneyness_max": moneyness_max,
+                "columns": columns,
+                "collect_stats": collect_stats,
+                "derive_put_greeks": derive_put_greeks,
+                "merge_dividend_yield": merge_dividend_yield,
+            },
+        )
+        return
 
     proc_root.mkdir(parents=True, exist_ok=True)
 

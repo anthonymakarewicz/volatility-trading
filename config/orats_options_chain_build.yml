@@ -4,8 +4,8 @@ logging:
   color: true
 
 paths:
-  inter_strikes_root: data/intermediate/orats/ftp/strikes
-  monies_implied_inter_root: data/intermediate/orats/api
+  inter_root: data/intermediate/orats/ftp/strikes
+  monies_implied_root: data/intermediate/orats/api
   proc_root: data/processed/orats/options_chain
 
 tickers:

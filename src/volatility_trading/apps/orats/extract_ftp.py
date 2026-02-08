@@ -16,9 +16,11 @@ import logging
 from typing import Any
 
 from volatility_trading.apps._cli import (
+    add_dry_run_arg,
     add_print_config_arg,
     collect_logging_overrides,
     ensure_list,
+    log_dry_run,
     print_config,
 )
 from volatility_trading.cli import (
@@ -32,12 +34,12 @@ from volatility_trading.cli import (
 from volatility_trading.config.paths import INTER_ORATS_FTP, RAW_ORATS_FTP
 from volatility_trading.etl.orats.ftp import extract
 
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "logging": DEFAULT_LOGGING,
+    "dry_run": False,
     "paths": {
         "raw_root": RAW_ORATS_FTP,
-        "out_root": INTER_ORATS_FTP,
+        "inter_root": INTER_ORATS_FTP,
     },
     "tickers": ["SPX"],
     "year_whitelist": [2007],
@@ -52,6 +54,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_config_arg(parser)
     add_logging_args(parser)
     add_print_config_arg(parser)
+    add_dry_run_arg(parser)
 
     parser.add_argument(
         "--raw-root",
@@ -107,7 +110,7 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.raw_root:
         paths["raw_root"] = args.raw_root
     if args.out_root:
-        paths["out_root"] = args.out_root
+        paths["inter_root"] = args.out_root
     if paths:
         overrides["paths"] = paths
 
@@ -122,6 +125,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.strict is not None:
         overrides["strict"] = args.strict
 
+    if args.dry_run:
+        overrides["dry_run"] = True
+
     logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
@@ -133,7 +139,6 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     overrides = _build_overrides(args)
     config = build_config(DEFAULT_CONFIG, args.config, overrides)
-
     if args.print_config:
         print_config(config)
         return
@@ -142,9 +147,9 @@ def main(argv: list[str] | None = None) -> None:
     logger = logging.getLogger(__name__)
 
     raw_root = resolve_path(config["paths"]["raw_root"])
-    out_root = resolve_path(config["paths"]["out_root"])
+    out_root = resolve_path(config["paths"]["inter_root"])
     if raw_root is None or out_root is None:
-        raise ValueError("Both raw_root and out_root must be set.")
+        raise ValueError("Both raw_root and inter_root must be set.")
 
     tickers = ensure_list(config.get("tickers"))
     if not tickers:
@@ -152,6 +157,7 @@ def main(argv: list[str] | None = None) -> None:
 
     year_whitelist = ensure_list(config.get("year_whitelist"))
     strict = config["strict"]
+    dry_run = config.get("dry_run", False)
 
     logger.info("Raw ORATS root:          %s", raw_root)
     logger.info("Output (by-ticker) root: %s", out_root)
@@ -161,6 +167,20 @@ def main(argv: list[str] | None = None) -> None:
         "ALL" if year_whitelist is None else sorted(str(y) for y in year_whitelist),
     )
     logger.info("Strict:                  %s", strict)
+
+    if dry_run:
+        log_dry_run(
+            logger,
+            {
+                "action": "orats_ftp_extract",
+                "raw_root": raw_root,
+                "inter_root": out_root,
+                "tickers": tickers,
+                "year_whitelist": year_whitelist,
+                "strict": strict,
+            },
+        )
+        return
 
     out_root.mkdir(parents=True, exist_ok=True)
 

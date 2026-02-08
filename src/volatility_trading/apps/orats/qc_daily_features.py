@@ -16,9 +16,11 @@ import logging
 from typing import Any
 
 from volatility_trading.apps._cli import (
+    add_dry_run_arg,
     add_print_config_arg,
     collect_logging_overrides,
     ensure_list,
+    log_dry_run,
     print_config,
 )
 from volatility_trading.cli import (
@@ -32,9 +34,9 @@ from volatility_trading.cli import (
 from volatility_trading.config.paths import PROC_ORATS_DAILY_FEATURES
 from volatility_trading.etl.orats.qc.api import run_daily_features_qc
 
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "logging": DEFAULT_LOGGING,
+    "dry_run": False,
     "paths": {
         "proc_root": PROC_ORATS_DAILY_FEATURES,
     },
@@ -51,6 +53,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_config_arg(parser)
     add_logging_args(parser)
     add_print_config_arg(parser)
+    add_dry_run_arg(parser)
 
     parser.add_argument(
         "--proc-root",
@@ -104,6 +107,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.out_json is not None:
         overrides["out_json"] = args.out_json
 
+    if args.dry_run:
+        overrides["dry_run"] = True
+
     logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
@@ -135,12 +141,26 @@ def main(argv: list[str] | None = None) -> None:
     out_json = config.get("out_json")
     if out_json is not None and len(tickers) > 1:
         raise ValueError("--out-json requires a single ticker.")
+    dry_run = config.get("dry_run", False)
 
     logger.info("PROC root:  %s", proc_root)
     logger.info("Tickers:    %s", tickers)
     logger.info("Write JSON: %s", write_json)
     if out_json:
         logger.info("Out JSON:   %s", out_json)
+
+    if dry_run:
+        log_dry_run(
+            logger,
+            {
+                "action": "orats_qc_daily_features",
+                "proc_root": proc_root,
+                "tickers": tickers,
+                "write_json": write_json,
+                "out_json": out_json,
+            },
+        )
+        return
 
     all_passed = True
     for ticker in tickers:

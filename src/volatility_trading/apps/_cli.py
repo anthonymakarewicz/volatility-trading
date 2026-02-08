@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 
 def ensure_list(value: Any) -> list[Any] | None:
@@ -18,6 +19,14 @@ def add_print_config_arg(parser) -> None:
         "--print-config",
         action="store_true",
         help="Print merged config (JSON) and exit.",
+    )
+
+
+def add_dry_run_arg(parser) -> None:
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate config and log the plan without executing any actions.",
     )
 
 
@@ -47,3 +56,9 @@ def _normalize(obj: Any) -> Any:
 def print_config(config: Mapping[str, Any]) -> None:
     normalized = _normalize(config)
     print(json.dumps(normalized, indent=2, sort_keys=True))
+
+
+def log_dry_run(logger, plan: Mapping[str, Any]) -> None:
+    normalized = _normalize(plan)
+    logger.info("DRY RUN: no actions were executed.")
+    logger.info("DRY RUN plan:\n%s", json.dumps(normalized, indent=2, sort_keys=True))

@@ -21,9 +21,11 @@ from typing import Any
 from dotenv import load_dotenv
 
 from volatility_trading.apps._cli import (
+    add_dry_run_arg,
     add_print_config_arg,
     collect_logging_overrides,
     ensure_list,
+    log_dry_run,
     print_config,
 )
 from volatility_trading.cli import (
@@ -37,9 +39,9 @@ from volatility_trading.cli import (
 from volatility_trading.config.paths import RAW_ORATS_API
 from volatility_trading.etl.orats.api import download
 
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "logging": DEFAULT_LOGGING,
+    "dry_run": False,
     "api": {
         "token_env": "ORATS_API_KEY",
         "token": None,
@@ -77,6 +79,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_config_arg(parser)
     add_logging_args(parser)
     add_print_config_arg(parser)
+    add_dry_run_arg(parser)
 
     parser.add_argument(
         "--raw-root",
@@ -210,6 +213,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.fail_on_failed is not None:
         overrides["fail_on_failed"] = args.fail_on_failed
 
+    if args.dry_run:
+        overrides["dry_run"] = True
+
     api_overrides: dict[str, Any] = {}
     if args.token is not None:
         api_overrides["token"] = args.token
@@ -258,6 +264,7 @@ def main(argv: list[str] | None = None) -> None:
     compression = config["compression"]
     overwrite = config["overwrite"]
     sleep_s = config["sleep_s"]
+    dry_run = config.get("dry_run", False)
 
     logger.info("RAW API root: %s", raw_root)
     logger.info("Endpoint:     %s", endpoint)
@@ -268,6 +275,26 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("Overwrite:    %s", overwrite)
     logger.info("Sleep (s):    %s", sleep_s)
     logger.info("Fail on failed: %s", config["fail_on_failed"])
+
+    if dry_run:
+        log_dry_run(
+            logger,
+            {
+                "action": "orats_api_download",
+                "raw_root": raw_root,
+                "endpoint": endpoint,
+                "tickers": tickers,
+                "year_whitelist": year_whitelist,
+                "fields": fields,
+                "compression": compression,
+                "overwrite": overwrite,
+                "sleep_s": sleep_s,
+                "fail_on_failed": config["fail_on_failed"],
+                "token_env": token_env,
+                "token_present": bool(token),
+            },
+        )
+        return
 
     raw_root.mkdir(parents=True, exist_ok=True)
 
@@ -285,8 +312,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if config["fail_on_failed"] and result.n_failed:
         logger.error(
-            "Download finished with failures: n_failed=%d "
-            "(see result.failed_paths)",
+            "Download finished with failures: n_failed=%d " "(see result.failed_paths)",
             result.n_failed,
         )
         raise SystemExit(1)

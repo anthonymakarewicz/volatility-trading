@@ -16,9 +16,11 @@ import logging
 from typing import Any
 
 from volatility_trading.apps._cli import (
+    add_dry_run_arg,
     add_print_config_arg,
     collect_logging_overrides,
     ensure_list,
+    log_dry_run,
     print_config,
 )
 from volatility_trading.cli import (
@@ -32,9 +34,9 @@ from volatility_trading.cli import (
 from volatility_trading.config.paths import PROC_ORATS_OPTIONS_CHAIN
 from volatility_trading.etl.orats.qc.api import run_options_chain_qc
 
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "logging": DEFAULT_LOGGING,
+    "dry_run": False,
     "paths": {
         "proc_root": PROC_ORATS_OPTIONS_CHAIN,
     },
@@ -58,6 +60,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_config_arg(parser)
     add_logging_args(parser)
     add_print_config_arg(parser)
+    add_dry_run_arg(parser)
 
     parser.add_argument(
         "--proc-root",
@@ -170,6 +173,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.top_k_buckets is not None:
         overrides["top_k_buckets"] = args.top_k_buckets
 
+    if args.dry_run:
+        overrides["dry_run"] = True
+
     logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
@@ -209,6 +215,7 @@ def main(argv: list[str] | None = None) -> None:
     roi_delta_min = config["roi_delta_min"]
     roi_delta_max = config["roi_delta_max"]
     top_k_buckets = config["top_k_buckets"]
+    dry_run = config.get("dry_run", False)
 
     logger.info("PROC root:      %s", proc_root)
     logger.info("Tickers:        %s", tickers)
@@ -220,6 +227,26 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("DTE bins:       %s", dte_bins)
     logger.info("Delta bins:     %s", delta_bins)
     logger.info("Top K buckets:  %s", top_k_buckets)
+
+    if dry_run:
+        log_dry_run(
+            logger,
+            {
+                "action": "orats_qc_options_chain",
+                "proc_root": proc_root,
+                "tickers": tickers,
+                "write_json": write_json,
+                "out_json": out_json,
+                "dte_bins": dte_bins,
+                "delta_bins": delta_bins,
+                "roi_dte_min": roi_dte_min,
+                "roi_dte_max": roi_dte_max,
+                "roi_delta_min": roi_delta_min,
+                "roi_delta_max": roi_delta_max,
+                "top_k_buckets": top_k_buckets,
+            },
+        )
+        return
 
     all_passed = True
     for ticker in tickers:

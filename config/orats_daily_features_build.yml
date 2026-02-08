@@ -4,7 +4,7 @@ logging:
   color: true
 
 paths:
-  inter_api_root: data/intermediate/orats/api
+  inter_root: data/intermediate/orats/api
   proc_root: data/processed/orats/daily_features
 
 tickers:

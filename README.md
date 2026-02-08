@@ -1,7 +1,73 @@
-# **Volatility Trading on Index Equity Options**
+# **Volatility Trading on Equity Options**
 
-This projects presents several daily volatility trading strategies on SPX Index Equity Options.
+This project presents several daily volatility trading strategies on index and single‑stock equity options.
 Each strategy is thoroughly backtested and appropriate risk management constraints are considered.
+
+## **Quickstart**
+
+1. Create a virtual environment and install dependencies (Python 3.10+):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+2. Optional (dev tools + tests):
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+3. Set credentials (ORATS):
+
+```bash
+cp .env.example .env
+```
+
+Then set `ORATS_API_KEY`, `ORATS_FTP_USER`, and `ORATS_FTP_PASS` in `.env`.
+
+## **ORATS ETL Pipeline (End-to-End)**
+
+Use `--dry-run` to validate config/paths/creds without writing or downloading.
+
+```bash
+orats-api-download --config config/orats_api_download.yml --dry-run
+orats-api-download --config config/orats_api_download.yml
+
+orats-api-extract --config config/orats_api_extract.yml --dry-run
+orats-api-extract --config config/orats_api_extract.yml
+
+orats-ftp-download --config config/orats_ftp_download.yml --dry-run
+orats-ftp-download --config config/orats_ftp_download.yml
+
+orats-ftp-extract --config config/orats_ftp_extract.yml --dry-run
+orats-ftp-extract --config config/orats_ftp_extract.yml
+
+orats-build-options-chain --config config/orats_options_chain_build.yml --dry-run
+orats-build-options-chain --config config/orats_options_chain_build.yml
+
+orats-build-daily-features --config config/orats_daily_features_build.yml --dry-run
+orats-build-daily-features --config config/orats_daily_features_build.yml
+
+orats-qc-options-chain --config config/orats_qc_options_chain.yml --dry-run
+orats-qc-options-chain --config config/orats_qc_options_chain.yml
+
+orats-qc-daily-features --config config/orats_qc_daily_features.yml --dry-run
+orats-qc-daily-features --config config/orats_qc_daily_features.yml
+```
+
+## **Docs**
+
+See:
+- `docs/entrypoints.md` for CLI entrypoints and flags
+- `docs/configs.md` for YAML schema and config reference
+- `docs/data_pipeline.md` for the end-to-end pipeline flow
+- `docs/troubleshooting.md` for common errors and fixes
+- `docs/test_structure.md` for tests and how to run them
+- `docs/package_structure.md` for the package layout
+
+## **Research Notebooks and Results**
 
 
 ## **Realized Volatility Forecasting (HAR-RV-VIX vs RF)**

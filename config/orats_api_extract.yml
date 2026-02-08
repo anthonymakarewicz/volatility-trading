@@ -5,7 +5,7 @@ logging:
 
 paths:
   raw_root: data/raw/orats/api
-  intermediate_root: data/intermediate/orats/api
+  inter_root: data/intermediate/orats/api
 
 endpoint: hvs
 tickers:

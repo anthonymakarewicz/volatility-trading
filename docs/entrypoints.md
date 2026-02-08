@@ -21,3 +21,19 @@ Example:
 ```bash
 orats-api-download --config config/orats_api_download.yml
 ```
+
+## Common Flags
+
+- `--config <path>`: load a YAML config file.
+- `--print-config`: print the merged config (JSON) and exit.
+- `--dry-run`: validate config/paths/creds and log the execution plan **without**
+  making network calls or writing files.
+
+## Config Schema (Paths)
+
+All ORATS apps now use a **consistent** paths schema:
+
+- `paths.raw_root`
+- `paths.inter_root` (intermediate data)
+- `paths.proc_root` (processed data)
+- `paths.monies_implied_root` (options-chain build only)

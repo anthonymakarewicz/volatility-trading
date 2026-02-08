@@ -16,9 +16,11 @@ import logging
 from typing import Any
 
 from volatility_trading.apps._cli import (
+    add_dry_run_arg,
     add_print_config_arg,
     collect_logging_overrides,
     ensure_list,
+    log_dry_run,
     print_config,
 )
 from volatility_trading.cli import (
@@ -35,11 +37,11 @@ from volatility_trading.config.paths import (
 )
 from volatility_trading.etl.orats.processed.daily_features import build
 
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "logging": DEFAULT_LOGGING,
+    "dry_run": False,
     "paths": {
-        "inter_api_root": INTER_ORATS_API,
+        "inter_root": INTER_ORATS_API,
         "proc_root": PROC_ORATS_DAILY_FEATURES,
     },
     "tickers": ["AAPL"],
@@ -58,6 +60,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     add_config_arg(parser)
     add_logging_args(parser)
     add_print_config_arg(parser)
+    add_dry_run_arg(parser)
 
     parser.add_argument(
         "--inter-api-root",
@@ -130,7 +133,7 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
 
     paths: dict[str, Any] = {}
     if args.inter_api_root:
-        paths["inter_api_root"] = args.inter_api_root
+        paths["inter_root"] = args.inter_api_root
     if args.proc_root:
         paths["proc_root"] = args.proc_root
     if paths:
@@ -154,6 +157,9 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
     if args.collect_stats is not None:
         overrides["collect_stats"] = args.collect_stats
 
+    if args.dry_run:
+        overrides["dry_run"] = True
+
     logging_overrides = collect_logging_overrides(args)
     if logging_overrides:
         overrides["logging"] = logging_overrides
@@ -165,7 +171,6 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     overrides = _build_overrides(args)
     config = build_config(DEFAULT_CONFIG, args.config, overrides)
-
     if args.print_config:
         print_config(config)
         return
@@ -173,10 +178,10 @@ def main(argv: list[str] | None = None) -> None:
     setup_logging_from_config(config.get("logging"))
     logger = logging.getLogger(__name__)
 
-    inter_api_root = resolve_path(config["paths"]["inter_api_root"])
+    inter_api_root = resolve_path(config["paths"]["inter_root"])
     proc_root = resolve_path(config["paths"]["proc_root"])
     if inter_api_root is None or proc_root is None:
-        raise ValueError("inter_api_root and proc_root must be set.")
+        raise ValueError("inter_root and proc_root must be set.")
 
     tickers = ensure_list(config.get("tickers"))
     if not tickers:
@@ -187,8 +192,9 @@ def main(argv: list[str] | None = None) -> None:
     prefix_endpoint_cols = config["prefix_endpoint_cols"]
     collect_stats = config["collect_stats"]
     columns = config.get("columns")
+    dry_run = config.get("dry_run", False)
 
-    logger.info("INTER API root:       %s", inter_api_root)
+    logger.info("INTER root:           %s", inter_api_root)
     logger.info("PROC root:            %s", proc_root)
     logger.info("Tickers:              %s", tickers)
     logger.info("Endpoints:            %s", endpoints)
@@ -199,6 +205,23 @@ def main(argv: list[str] | None = None) -> None:
         "DEFAULT" if columns is None else len(columns),
     )
     logger.info("Collect stats:        %s", collect_stats)
+
+    if dry_run:
+        log_dry_run(
+            logger,
+            {
+                "action": "orats_build_daily_features",
+                "inter_root": inter_api_root,
+                "proc_root": proc_root,
+                "tickers": tickers,
+                "endpoints": endpoints,
+                "priority_endpoints": priority_endpoints,
+                "prefix_endpoint_cols": prefix_endpoint_cols,
+                "collect_stats": collect_stats,
+                "columns": columns,
+            },
+        )
+        return
 
     proc_root.mkdir(parents=True, exist_ok=True)
 
