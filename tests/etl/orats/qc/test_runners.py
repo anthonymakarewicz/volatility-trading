@@ -12,7 +12,8 @@ from volatility_trading.etl.orats.qc.types import (
 
 
 def test_run_options_chain_qc_writes_json_and_fails(
-    monkeypatch, tmp_path: Path
+    monkeypatch,
+    tmp_path: Path,
 ) -> None:
     import volatility_trading.etl.orats.qc.options_chain.runner as mod
 
@@ -58,7 +59,8 @@ def test_run_options_chain_qc_writes_json_and_fails(
 
 
 def test_run_daily_features_qc_writes_json_and_fails(
-    monkeypatch, tmp_path: Path
+    monkeypatch,
+    tmp_path: Path,
 ) -> None:
     import volatility_trading.etl.orats.qc.daily_features.runner as mod
 

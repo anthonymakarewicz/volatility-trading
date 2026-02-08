@@ -1,20 +1,16 @@
 from __future__ import annotations
 
 import importlib
-from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 
-@dataclass(frozen=True)
-class _DummyDF:
-    columns: list[str]
-    height: int
-
-
 def test_build_options_chain_collect_stats_and_writes_manifest(
-    monkeypatch, tmp_path: Path
+    monkeypatch,
+    tmp_path: Path,
+    dummy_df_factory,
+    manifest_writer,
 ) -> None:
     mod = importlib.import_module(
         "volatility_trading.etl.orats.processed.options_chain.api"
@@ -41,7 +37,12 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
         return "LF2"
 
     def _merge_yield(
-        *, lf, collect_stats: bool, stats, merge_dividend_yield: bool, **kwargs
+        *,
+        lf,
+        collect_stats: bool,
+        stats,
+        merge_dividend_yield: bool,
+        **kwargs,
     ):
         calls.append(("merge_dividend_yield", merge_dividend_yield))
         assert lf == "LF2"
@@ -67,7 +68,13 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
         return "LF6"
 
     def _filters(
-        *, lf, collect_stats: bool, stats, dte_min: int, dte_max: int, **kwargs
+        *,
+        lf,
+        collect_stats: bool,
+        stats,
+        dte_min: int,
+        dte_max: int,
+        **kwargs,
     ):
         calls.append(("apply_filters", (dte_min, dte_max)))
         assert lf == "LF6"
@@ -93,16 +100,7 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
         assert lf == "LF8"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(b"")
-        return _DummyDF(columns=list(columns), height=123), out_path
-
-    captured: dict[str, object] = {}
-
-    def _write_manifest_json(*, out_dir: Path, payload: dict):
-        captured["out_dir"] = out_dir
-        captured["payload"] = payload
-        p = out_dir / "manifest.json"
-        p.write_text("{}", encoding="utf-8")
-        return p
+        return dummy_df_factory(columns=columns, height=123), out_path
 
     monkeypatch.setattr(mod.steps, "scan_inputs", _scan_inputs)
     monkeypatch.setattr(
@@ -117,6 +115,7 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
     monkeypatch.setattr(mod.steps, "add_put_greeks", _put_greeks)
     monkeypatch.setattr(mod.steps, "add_put_greeks_simple", _put_greeks_simple)
     monkeypatch.setattr(mod.steps, "collect_and_write", _collect_and_write)
+    captured, _write_manifest_json = manifest_writer
     monkeypatch.setattr(mod, "write_manifest_json", _write_manifest_json)
     monkeypatch.setattr(mod, "OPTION_EXERCISE_STYLE", {"SPX": "EU"})
 
@@ -164,7 +163,9 @@ def test_build_options_chain_collect_stats_and_writes_manifest(
 
 
 def test_build_options_chain_put_greeks_simple_mode(
-    monkeypatch, tmp_path: Path
+    monkeypatch,
+    tmp_path: Path,
+    dummy_df_factory,
 ) -> None:
     mod = importlib.import_module(
         "volatility_trading.etl.orats.processed.options_chain.api"
@@ -194,7 +195,10 @@ def test_build_options_chain_put_greeks_simple_mode(
     monkeypatch.setattr(
         mod.steps,
         "collect_and_write",
-        lambda **kwargs: (_DummyDF(columns=["x"], height=1), tmp_path / "out.parquet"),
+        lambda **kwargs: (
+            dummy_df_factory(columns=["x"], height=1),
+            tmp_path / "out.parquet",
+        ),
     )
     monkeypatch.setattr(
         mod, "write_manifest_json", lambda **kwargs: tmp_path / "manifest.json"

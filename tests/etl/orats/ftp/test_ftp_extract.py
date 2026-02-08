@@ -13,7 +13,10 @@ def _make_year_dir(raw_root: Path, year: str, base: str = "smvstrikes") -> Path:
 
 
 def test_ftp_extract_respects_year_whitelist_and_writes_partitions(
-    monkeypatch, ftp_roots, write_zip_files, write_parquet_stub
+    monkeypatch,
+    ftp_roots,
+    write_zip_files,
+    write_parquet_stub,
 ) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.extract.run")
 
@@ -60,7 +63,10 @@ def test_ftp_extract_respects_year_whitelist_and_writes_partitions(
 
 
 def test_ftp_extract_strict_raises_on_failed_zip(
-    monkeypatch, ftp_roots, write_zip_files, write_parquet_stub
+    monkeypatch,
+    ftp_roots,
+    write_zip_files,
+    write_parquet_stub,
 ) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.extract.run")
 
@@ -85,7 +91,9 @@ def test_ftp_extract_strict_raises_on_failed_zip(
 
 
 def test_ftp_extract_non_strict_records_failures(
-    monkeypatch, ftp_roots, write_zip_files
+    monkeypatch,
+    ftp_roots,
+    write_zip_files,
 ) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.extract.run")
 
@@ -115,7 +123,10 @@ def test_ftp_extract_non_strict_records_failures(
 
 
 def test_ftp_extract_deduplicates_exact_rows(
-    monkeypatch, ftp_roots, write_zip_files, write_parquet_stub
+    monkeypatch,
+    ftp_roots,
+    write_zip_files,
+    write_parquet_stub,
 ) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.extract.run")
 

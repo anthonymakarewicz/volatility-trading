@@ -1,16 +1,9 @@
 from __future__ import annotations
 
 import importlib
-from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-
-
-@dataclass(frozen=True)
-class _DummyDF:
-    columns: list[str]
-    height: int
 
 
 def test_build_daily_features_validates_inputs() -> None:
@@ -37,7 +30,10 @@ def test_build_daily_features_validates_inputs() -> None:
 
 
 def test_build_daily_features_collect_stats_and_manifest_missing_endpoints(
-    monkeypatch, tmp_path: Path
+    monkeypatch,
+    tmp_path: Path,
+    dummy_df_factory,
+    manifest_writer,
 ) -> None:
     mod = importlib.import_module(
         "volatility_trading.etl.orats.processed.daily_features.api"
@@ -76,7 +72,12 @@ def test_build_daily_features_collect_stats_and_manifest_missing_endpoints(
     monkeypatch.setattr(mod.steps, "apply_bounds", lambda **kwargs: kwargs["lf"])
 
     def _build_spine(
-        *, lfs: dict, endpoints, collect_stats: bool, stats_n_rows_spine, **kwargs
+        *,
+        lfs: dict,
+        endpoints,
+        collect_stats: bool,
+        stats_n_rows_spine,
+        **kwargs,
     ):
         assert set(lfs.keys()) == {"summaries"}
         assert stats_n_rows_spine is not None
@@ -94,16 +95,10 @@ def test_build_daily_features_collect_stats_and_manifest_missing_endpoints(
     def _collect_and_write(*, columns, **kwargs):
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(b"")
-        return _DummyDF(columns=list(columns), height=7), out_path
+        return dummy_df_factory(columns=columns, height=7), out_path
 
     monkeypatch.setattr(mod.steps, "collect_and_write", _collect_and_write)
-
-    captured: dict[str, object] = {}
-
-    def _write_manifest_json(*, out_dir: Path, payload: dict):
-        captured["payload"] = payload
-        return out_dir / "manifest.json"
-
+    captured, _write_manifest_json = manifest_writer
     monkeypatch.setattr(mod, "write_manifest_json", _write_manifest_json)
 
     result = mod.build(

@@ -1,7 +1,16 @@
 ## Scripts
-- Finish reaftcroign all scripts to use the CLI/config
-- Combine qc_orats_options_chain.py + qc_orats_daily_features.py into 
-  one qc_orats.py with a --dataset flag.
+- Add --dry-run everywhere:
+    * Validate config, paths, creds, and log “what would run” without writing anything.
+
+-Unify config schema:
+  Standardize keys like paths.proc_root across all steps (right now you have a few naming variants like out_root vs intermediate_root).
+
+- Smoke tests for entrypoints:
+  Tiny tests that run each console script with --help and --print-config to catch argparse/config regressions.
+
+- Add small tests for CLI + config precedence:
+  Unit tests that assert CLI > YAML > defaults, and that missing credentials error messages are correct.
+
 - Create e2e scripts that download, extract and processed
 
 ## Quality Checks:

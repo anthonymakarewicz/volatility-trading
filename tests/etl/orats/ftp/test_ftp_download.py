@@ -30,7 +30,9 @@ def _make_download_one_year(
 
 
 def test_ftp_download_filters_year_whitelist_and_aggregates(
-    monkeypatch, tmp_path: Path, dummy_ftp_factory
+    monkeypatch,
+    tmp_path: Path,
+    dummy_ftp_factory,
 ) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.download.run")
 
@@ -64,7 +66,9 @@ def test_ftp_download_filters_year_whitelist_and_aggregates(
 
 
 def test_ftp_download_no_jobs_returns_empty(
-    monkeypatch, tmp_path: Path, dummy_ftp_factory
+    monkeypatch,
+    tmp_path: Path,
+    dummy_ftp_factory,
 ) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.download.run")
 
@@ -99,7 +103,9 @@ def test_ftp_download_no_jobs_returns_empty(
 
 
 def test_ftp_download_threaded_path_runs_all_jobs(
-    monkeypatch, tmp_path: Path, dummy_ftp_factory
+    monkeypatch,
+    tmp_path: Path,
+    dummy_ftp_factory,
 ) -> None:
     mod = importlib.import_module("volatility_trading.etl.orats.ftp.download.run")
 

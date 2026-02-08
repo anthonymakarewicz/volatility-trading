@@ -7,21 +7,29 @@ the same high-level domain layout as `src/volatility_trading/`.
 
 ```plaintext
 tests/
+├── cli
+│   ├── conftest.py
+│   ├── test_config.py
+│   └── test_logging.py
 ├── etl
 │   └── orats
 │       ├── api
 │       │   ├── test_api_download.py
 │       │   └── test_api_extract.py
 │       ├── ftp
+│       │   ├── conftest.py
 │       │   ├── test_ftp_download.py
 │       │   └── test_ftp_extract.py
 │       ├── processed
+│       │   ├── conftest.py
 │       │   ├── test_build_daily_features.py
 │       │   └── test_build_options_chain.py
 │       └── qc
 │           ├── test_common_helpers.py
 │           └── test_runners.py
 └── README.md
+
+8 directories, 14 files
 ```
 
 ## Naming
