@@ -28,6 +28,16 @@ pytest tests/unit -q
 pytest -m integration -q
 ```
 
+## Make Targets
+
+If you have `make` available, use:
+
+```bash
+make test
+make test-unit
+make test-integration
+```
+
 ## Running A Subset
 
 ```bash

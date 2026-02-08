@@ -66,6 +66,14 @@ pytest -m integration -q
 pytest -k extract -q
 ```
 
+If you have `make` available:
+
+```bash
+make test
+make test-unit
+make test-integration
+```
+
 ## Configuration
 
 Pytest configuration lives in `pyproject.toml` under

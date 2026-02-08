@@ -5,7 +5,14 @@ Each strategy is thoroughly backtested and appropriate risk management constrain
 
 ## **Quickstart**
 
-1. Create a virtual environment and install dependencies (Python 3.12+):
+1. Clone the repository:
+
+```bash
+git clone https://github.com/anthonymakarewicz/volatility-trading.git
+cd volatility_trading
+```
+
+2. Create a virtual environment and install dependencies (Python 3.12+):
 
 ```bash
 python -m venv .venv
@@ -13,13 +20,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Optional (dev tools + tests):
+3. Optional (dev tools + tests):
 
 ```bash
 pip install -r requirements-dev.txt
 ```
 
-3. Set credentials (ORATS):
+4. Set credentials (ORATS):
 
 ```bash
 cp .env.example .env
@@ -29,50 +36,76 @@ Then set `ORATS_API_KEY`, `ORATS_FTP_USER`, and `ORATS_FTP_PASS` in `.env`.
 
 ## **ORATS ETL Pipeline (End-to-End)**
 
-Use `--dry-run` to validate config/paths/creds without writing or downloading.
+Pipeline steps:
+- API download
+- API extract
+- FTP download
+- FTP extract
+- Build options chain
+- Build daily features
+- QC options chain
+- QC daily features
+
+Use `--dry-run` to validate config, paths, and credentials before running writes/network.
 
 ```bash
 orats-api-download --config config/orats_api_download.yml --dry-run
-orats-api-download --config config/orats_api_download.yml
-
-orats-api-extract --config config/orats_api_extract.yml --dry-run
-orats-api-extract --config config/orats_api_extract.yml
-
-orats-ftp-download --config config/orats_ftp_download.yml --dry-run
-orats-ftp-download --config config/orats_ftp_download.yml
-
-orats-ftp-extract --config config/orats_ftp_extract.yml --dry-run
-orats-ftp-extract --config config/orats_ftp_extract.yml
-
-orats-build-options-chain --config config/orats_options_chain_build.yml --dry-run
-orats-build-options-chain --config config/orats_options_chain_build.yml
-
-orats-build-daily-features --config config/orats_daily_features_build.yml --dry-run
-orats-build-daily-features --config config/orats_daily_features_build.yml
-
-orats-qc-options-chain --config config/orats_qc_options_chain.yml --dry-run
-orats-qc-options-chain --config config/orats_qc_options_chain.yml
-
-orats-qc-daily-features --config config/orats_qc_daily_features.yml --dry-run
-orats-qc-daily-features --config config/orats_qc_daily_features.yml
 ```
 
-## **Docs**
+For the full command sequence, see [Data pipeline](docs/data_pipeline.md).
 
-See:
-- `docs/entrypoints.md` for CLI entrypoints and flags
-- `docs/configs.md` for YAML schema and config reference
-- `docs/data_pipeline.md` for the end-to-end pipeline flow
-- `docs/troubleshooting.md` for common errors and fixes
-- `docs/test_structure.md` for tests and how to run them
-- `docs/package_structure.md` for the package layout
+## **Tests**
 
-## **CI**
+Run unit tests (default):
+
+```bash
+pytest -q
+```
+
+Run integration tests:
+
+```bash
+pytest -q -m integration
+```
+
+See [Test structure](docs/test_structure.md) for layout and conventions.
+
+## **Continuous Integration (CI)**
 
 GitHub Actions runs:
 - Ruff lint + format checks
 - Unit tests by default
 - Integration tests on pushes to `main` (and manual runs)
+
+See [CI workflow](.github/workflows/ci.yml).
+
+## **Developer Workflow**
+
+Common commands are available via `Makefile`:
+
+```bash
+make lint
+make format
+make check
+make test
+make test-unit
+make test-integration
+make ci
+```
+
+For full setup and tooling details, see [Development guide](docs/development.md).
+
+## **Docs**
+
+See:
+- [Development guide](docs/development.md) for local dev workflow, pre-commit, and dependency updates
+- [Entrypoints](docs/entrypoints.md) for CLI entrypoints and flags
+- [Configs](docs/configs.md) for YAML schema and config reference
+- [Data pipeline](docs/data_pipeline.md) for the end-to-end pipeline flow
+- [Troubleshooting](docs/troubleshooting.md) for common errors and fixes
+- [Test structure](docs/test_structure.md) for tests and how to run them
+- [See the full package here](docs/package_structure.md)
+
 
 ## **Research Notebooks and Results**
 
@@ -81,9 +114,9 @@ GitHub Actions runs:
 
 We build a **21-day realized variance** forecasting model on ES futures (2010–2025) and compare:
 
-- **Naive RV benchmark** – carry current 21D RV forward  
-- **HAR-RV** – classic daily / weekly / monthly RV lags  
-- **HAR-RV-VIX** – HAR-RV + VIX as a forward-looking volatility proxy  
+- **Naive RV benchmark** – carry current 21D RV forward
+- **HAR-RV** – classic daily / weekly / monthly RV lags
+- **HAR-RV-VIX** – HAR-RV + VIX as a forward-looking volatility proxy
 - **Random Forest (RF)** – non-linear benchmark on the same feature set
 
 Before model selection, we run a **feature-importance & stability analysis** (SFI, Lasso, RF, permutation importance) to keep only **parsimonious, economically sensible** predictors for the linear and RF models.
@@ -109,40 +142,40 @@ All metrics are computed on **log 21D RV**, using an expanding walk-forward with
 
 ###  Takeaways
 
-- **HAR-RV-VIX** is the **final candidate model**: it clearly beats both **Naive RV** and **HAR-RV** in OOS $R²$, MSE and QLIKE, and delivers a **~30% $R²_{oos}$** vs the naive benchmark.  
-- The **Random Forest** does **not** improve on HAR-RV-VIX in the validation period and is therefore **not carried forward** to the final walk-forward evaluation.  
+- **HAR-RV-VIX** is the **final candidate model**: it clearly beats both **Naive RV** and **HAR-RV** in OOS $R²$, MSE and QLIKE, and delivers a **~30% $R²_{oos}$** vs the naive benchmark.
+- The **Random Forest** does **not** improve on HAR-RV-VIX in the validation period and is therefore **not carried forward** to the final walk-forward evaluation.
 - All modelling choices (features, models, hyper-parameters) were fixed on **2010–2020**; the **2021–2025** walk-forward backtest is run **once** to avoid backtest-tuning bias.
 
-👉 Full notebook: `notebooks/rv_forecasting.ipynb`
+[Full notebook](notebooks/rv_forecasting.ipynb)
 
 
 ## **Implied Volatility Surface Modelling (Parametric vs Non-Parametric)**
 
 ![Iv surface](plots/iv_surface_grid.png)
 
-👉 Full notebook: `notebooks/iv_surface_modelling.ipynb`
+[Full notebook](notebooks/iv_surface_modelling.ipynb)
 
 
 ## **Skew Volatility Trading (30 DTE / 25 Δ)**
 
 Trade the 30-day to expiry, 25 Delta SPX put–call skew via a delta-hedged risk reversal:
 
-- **Synthetic Skew**  
-  – Interpolate across expiries to build a continuous “30 DTE / 25 Δ” skew series.  
+- **Synthetic Skew**
+  – Interpolate across expiries to build a continuous “30 DTE / 25 Δ” skew series.
 
-- **Entry / Exit**  
-  – **Short RR** when skew z-score ≥ 1.5 (too steep)  
-  – **Long RR** when skew z-score ≤ –1.5 (too flat)  
-  – **Exit** when |z-score| ≤ 0.5  
+- **Entry / Exit**
+  – **Short RR** when skew z-score ≥ 1.5 (too steep)
+  – **Long RR** when skew z-score ≤ –1.5 (too flat)
+  – **Exit** when |z-score| ≤ 0.5
 
 ![Abs vs Norm Skew](plots/abs_vs_norm_skew.png)
 
 ---
 
 ### **Signal Filters**
-- **VIX Filter:** Block entries if VIX > 30  
-- **IV Percentile:** Trade only when ATM IV is within its 20–80 historical percentile  
-- **Skew Percentile:** Trade only when skew is below its 30th (for longs) or above its 70th (for shorts) percentile  
+- **VIX Filter:** Block entries if VIX > 30
+- **IV Percentile:** Trade only when ATM IV is within its 20–80 historical percentile
+- **Skew Percentile:** Trade only when skew is below its 30th (for longs) or above its 70th (for shorts) percentile
 
 ![Skew Z-score](plots/z_score_signal_vix_filter.png)
 
@@ -153,25 +186,25 @@ We run a walk-forward backtest on daily SPX options (2016 – 2023), starting wi
 
 ### Configuration
 
-- **Entry Rule**  
+- **Entry Rule**
 50-day z-score mean-reversion on normalized skew (|z| ≥ 1.5 triggers a risk reversal; exit when |z| falls below 0.5)
 
-- **Signal Filters**  
-  - **VIX Filter:** Skip trades when VIX > 30  
-  - **Skew Percentile:** Only go long when normalized skew falls below its 30th percentile, and short when it rises above its 70th percentile   
+- **Signal Filters**
+  - **VIX Filter:** Skip trades when VIX > 30
+  - **Skew Percentile:** Only go long when normalized skew falls below its 30th percentile, and short when it rises above its 70th percentile
 
-- **Execution Costs**  
-  - **Bid/Ask & Slippage:** Fill sells at the bid, buys at the ask + \$0.01 slippage per leg  
-  - **Commissions:** \$1 per option leg  
+- **Execution Costs**
+  - **Bid/Ask & Slippage:** Fill sells at the bid, buys at the ask + \$0.01 slippage per leg
+  - **Commissions:** \$1 per option leg
 
 - **Risk Controls**
   - **Delta Hedging:** E-mini S&P 500 futures (ES=F) used to neutralize net Δ (lot size = 50)
   - **Position Sizing:** Dynamically scale trade size by signal strength (base 1% of equity at entry-threshold, +0.5% per additional 0.5σ) and cap it at 2%
-  - **Risk Floor:** Enforce a minimum \$750 worst-case risk per contract to prevent oversized position sizing when Greek-based risk is very low    
-  - **Stop-Loss & Take-Profit:** SL at 100% of notional, TP at 70% of notional  
+  - **Risk Floor:** Enforce a minimum \$750 worst-case risk per contract to prevent oversized position sizing when Greek-based risk is very low
+  - **Stop-Loss & Take-Profit:** SL at 100% of notional, TP at 70% of notional
   - **Holding Period Cap:** 3 business days (skip negative theta trades on Fridays if 2-day θ decay > 200)
 
-👉 Full notebook: `notebooks/skew_trading.ipynb`
+[Full notebook](notebooks/skew_trading.ipynb)
 
 ---
 
