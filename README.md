@@ -5,7 +5,7 @@ Each strategy is thoroughly backtested and appropriate risk management constrain
 
 ## **Quickstart**
 
-1. Create a virtual environment and install dependencies (Python 3.10+):
+1. Create a virtual environment and install dependencies (Python 3.12+):
 
 ```bash
 python -m venv .venv
