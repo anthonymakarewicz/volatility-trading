@@ -10,13 +10,13 @@ This project uses `pytest`.
 python -m pip install -r requirements-dev.txt
 ```
 
-2. Run the full test suite:
+2. Run unit tests (default; integration is excluded):
 
 ```bash
 pytest
 ```
 
-3. Run only unit tests:
+3. Run a specific unit test folder:
 
 ```bash
 pytest tests/unit -q
@@ -43,3 +43,4 @@ pytest -k extract -q
 - `pythonpath = ["src"]` is set so tests can import `volatility_trading...` without installing the package.
 - Most ETL tests are written to be offline and fast (they stub IO/network with `monkeypatch` and use `tmp_path`).
 - Integration/smoke tests live under `tests/integration/`.
+- `pytest` excludes integration tests by default via `addopts = "-m 'not integration'"`.

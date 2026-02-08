@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-m 'not integration'"
 pythonpath = ["src"]
 markers = [
     "integration: integration/smoke tests",

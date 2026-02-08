@@ -10,7 +10,14 @@ tests/
 ├── integration
 │   └── apps
 │       ├── conftest.py
-│       └── test_orats_api_download_smoke.py
+│       ├── test_orats_api_download_smoke.py
+│       ├── test_orats_api_extract_smoke.py
+│       ├── test_orats_ftp_download_smoke.py
+│       ├── test_orats_ftp_extract_smoke.py
+│       ├── test_orats_build_options_chain_smoke.py
+│       ├── test_orats_build_daily_features_smoke.py
+│       ├── test_orats_qc_options_chain_smoke.py
+│       └── test_orats_qc_daily_features_smoke.py
 ├── unit
 │   ├── cli
 │   │   ├── conftest.py
@@ -52,7 +59,7 @@ tests/
 ## Running Tests
 
 ```bash
-pytest
+pytest  # unit tests only (integration excluded by default)
 pytest tests/unit/etl/orats/ftp -q
 pytest tests/integration/apps -q
 pytest -m integration -q
@@ -65,4 +72,5 @@ Pytest configuration lives in `pyproject.toml` under
 `[tool.pytest.ini_options]`:
 
 - `testpaths = ["tests"]`
+- `addopts = "-q -m 'not integration'"`
 - `pythonpath = ["src"]`
