@@ -1,35 +1,38 @@
 # Test Structure
 
-This project uses `pytest` for unit tests. Tests live under `tests/` and follow
-the same high-level domain layout as `src/volatility_trading/`.
+This project uses `pytest` for unit and integration tests. Tests live under
+`tests/` and follow the same high-level domain layout as `src/volatility_trading/`.
 
 ## Layout
 
 ```plaintext
 tests/
-├── cli
-│   ├── conftest.py
-│   ├── test_config.py
-│   └── test_logging.py
-├── etl
-│   └── orats
-│       ├── api
-│       │   ├── test_api_download.py
-│       │   └── test_api_extract.py
-│       ├── ftp
-│       │   ├── conftest.py
-│       │   ├── test_ftp_download.py
-│       │   └── test_ftp_extract.py
-│       ├── processed
-│       │   ├── conftest.py
-│       │   ├── test_build_daily_features.py
-│       │   └── test_build_options_chain.py
-│       └── qc
-│           ├── test_common_helpers.py
-│           └── test_runners.py
+├── integration
+│   └── apps
+│       ├── conftest.py
+│       └── test_orats_api_download_smoke.py
+├── unit
+│   ├── cli
+│   │   ├── conftest.py
+│   │   ├── test_config.py
+│   │   └── test_logging.py
+│   └── etl
+│       └── orats
+│           ├── api
+│           │   ├── test_api_download.py
+│           │   └── test_api_extract.py
+│           ├── ftp
+│           │   ├── conftest.py
+│           │   ├── test_ftp_download.py
+│           │   └── test_ftp_extract.py
+│           ├── processed
+│           │   ├── conftest.py
+│           │   ├── test_build_daily_features.py
+│           │   └── test_build_options_chain.py
+│           └── qc
+│               ├── test_common_helpers.py
+│               └── test_runners.py
 └── README.md
-
-8 directories, 14 files
 ```
 
 ## Naming
@@ -43,14 +46,16 @@ tests/
 
 - Use `monkeypatch` to stub network/IO in ETL tests.
 - Use `tmp_path` for temporary directories and files.
-- Prefer small, focused unit tests; keep integration tests in a separate folder
-  if you add them later.
+- Prefer small, focused unit tests; integration/smoke tests live under
+  `tests/integration/`.
 
 ## Running Tests
 
 ```bash
 pytest
-pytest tests/etl/orats/ftp -q
+pytest tests/unit/etl/orats/ftp -q
+pytest tests/integration/apps -q
+pytest -m integration -q
 pytest -k extract -q
 ```
 

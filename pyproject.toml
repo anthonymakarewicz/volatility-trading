@@ -6,6 +6,9 @@ build-backend = "setuptools.build_meta"
 testpaths = ["tests"]
 addopts = "-q"
 pythonpath = ["src"]
+markers = [
+    "integration: integration/smoke tests",
+]
 
 [tool.ruff]
 target-version = "py310"
