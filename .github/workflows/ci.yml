@@ -30,6 +30,9 @@ jobs:
           ruff check src tests
           ruff format --check src tests
 
+      - name: Type check (Pyright)
+        run: pyright
+
       - name: Unit tests
         run: pytest -q
 

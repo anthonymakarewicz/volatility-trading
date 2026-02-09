@@ -187,7 +187,7 @@ def main(argv: list[str] | None = None) -> None:
     if not tickers:
         raise ValueError("tickers must be set.")
 
-    endpoints = ensure_list(config.get("endpoints"))
+    endpoints = ensure_list(config.get("endpoints")) or []
     priority_endpoints = ensure_list(config.get("priority_endpoints"))
     prefix_endpoint_cols = config["prefix_endpoint_cols"]
     collect_stats = config["collect_stats"]

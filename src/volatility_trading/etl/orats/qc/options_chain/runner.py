@@ -40,7 +40,7 @@ def run_options_chain_qc(
     proc_root: Path | str,
     out_json: Path | str | None = None,
     write_json: bool = True,
-    dte_bins: Sequence[int | float] = (0, 10, 30, 60, 180),
+    dte_bins: Sequence[int] = (0, 10, 30, 60, 180),
     delta_bins: Sequence[float] = (0.0, 0.05, 0.1, 0.3, 0.7, 0.9, 0.95, 1.0),
     roi_dte_min: int = 10,
     roi_dte_max: int = 60,

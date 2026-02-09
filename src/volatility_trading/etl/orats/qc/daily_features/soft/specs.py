@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from ...soft.row_checks.greeks_iv import flag_iv_high
-from ...soft.spec_types import SoftRowSpec
+from ...soft.spec_types import SoftRowSpec, SoftSpec
 from ..specs_base import BASE_KEYS, IV_COLUMNS
 
 
-def get_soft_specs() -> list[SoftRowSpec]:
+def get_soft_specs() -> list[SoftSpec]:
     """Return SOFT (diagnostic) checks for daily-features QC."""
-    specs: list[SoftRowSpec] = []
+    specs: list[SoftSpec] = []
 
     for col in IV_COLUMNS:
         violation_col = f"{col}_too_high_violation"

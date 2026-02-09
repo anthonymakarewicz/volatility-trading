@@ -41,3 +41,25 @@ indent-style = "space"
 [tool.ruff.lint.per-file-ignores]
 # Tests commonly use bare `assert` and local rebinds for clarity.
 "tests/**/*.py" = ["S101"]
+
+[tool.pyright]
+include = [
+  "src/volatility_trading/apps",
+  "src/volatility_trading/cli",
+  "src/volatility_trading/etl",
+  "src/volatility_trading/config",
+]
+exclude = [
+  "**/__pycache__",
+  "**/*.ipynb",
+]
+ignore = [
+    "src/volatility_trading/backtesting",
+    "src/volatility_trading/rv_forecasting",
+    "src/volatility_trading/strategies",
+    "src/volatility_trading/iv_surface",
+]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingImports = "none"
+reportMissingTypeStubs = "none"

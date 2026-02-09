@@ -8,7 +8,7 @@ from typing import Any, Literal
 import polars as pl
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class SoftSpecBase:
     base_name: str
     thresholds: dict[str, float] | None = None
@@ -16,11 +16,11 @@ class SoftSpecBase:
     sample_cols: list[str] | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class SoftRowSpec(SoftSpecBase):
+    flagger: Callable[..., pl.DataFrame]
+    violation_col: str
     kind: Literal["row"] = "row"
-    flagger: Callable[..., pl.DataFrame] = None  # required in practice
-    violation_col: str = ""  # required in practice
     flagger_kwargs: dict[str, Any] = field(default_factory=dict)
 
     by_option_type: bool = True
@@ -30,10 +30,10 @@ class SoftRowSpec(SoftSpecBase):
     summarize_by_bucket: bool = True
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class SoftDatasetSpec(SoftSpecBase):
+    checker: Callable[..., dict[str, Any]]
     kind: Literal["dataset"] = "dataset"
-    checker: Callable[..., dict[str, Any]] = None  # required in practice
     checker_kwargs: dict[str, Any] = field(default_factory=dict)
 
 

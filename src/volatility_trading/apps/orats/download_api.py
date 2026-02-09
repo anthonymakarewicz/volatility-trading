@@ -258,7 +258,7 @@ def main(argv: list[str] | None = None) -> None:
         )
 
     endpoint = config["endpoint"]
-    tickers = ensure_list(config.get("tickers"))
+    tickers = ensure_list(config.get("tickers")) or []
     year_whitelist = ensure_list(config.get("year_whitelist"))
     fields = ensure_list(config.get("fields"))
     compression = config["compression"]

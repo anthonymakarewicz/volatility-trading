@@ -1,3 +1,5 @@
 pytest
 ruff
 pre-commit
+pyright
+pandas-stubs

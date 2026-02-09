@@ -22,13 +22,14 @@ Use the `Makefile` targets:
 make lint
 make format
 make check
+make typecheck
 make test
 make test-unit
 make test-integration
 make ci
 ```
 
-`make ci` mirrors the main local quality gate (lint, format check, unit tests).
+`make ci` mirrors the main local quality gate (lint, format check, typecheck, unit tests).
 
 ## Pre-commit
 
@@ -81,5 +82,6 @@ pytest -m integration -q
 
 GitHub Actions workflow:
 - runs Ruff lint + format checks on `src/` and `tests/`
+- runs Pyright type checks on stable `src/volatility_trading` subpackages
 - runs unit tests on PRs and pushes to `main`
 - runs integration tests on pushes to `main` and manual workflow runs

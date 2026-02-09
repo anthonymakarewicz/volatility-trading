@@ -36,6 +36,7 @@ If you have `make` available, use:
 make test
 make test-unit
 make test-integration
+make typecheck
 ```
 
 ## Running A Subset

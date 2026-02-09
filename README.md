@@ -74,6 +74,7 @@ See [Test structure](docs/test_structure.md) for layout and conventions.
 
 GitHub Actions runs:
 - Ruff lint + format checks
+- Pyright type checks
 - Unit tests by default
 - Integration tests on pushes to `main` (and manual runs)
 
@@ -87,6 +88,7 @@ Common commands are available via `Makefile`:
 make lint
 make format
 make check
+make typecheck
 make test
 make test-unit
 make test-integration
