@@ -37,7 +37,7 @@ from .schema_spec import OratsSchemaSpec
 # Using explicit dtypes avoids costly inference and keeps the raw->intermediate
 # step stable across years.
 
-_STRIKES_VENDOR_DTYPES: dict[str, pl.DataType] = {
+_STRIKES_VENDOR_DTYPES: dict[str, type[pl.DataType]] = {
     # identifiers
     "ticker": pl.Utf8,
     "cOpra": pl.Utf8,

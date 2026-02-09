@@ -8,6 +8,10 @@
 .env/
 .env
 
+# Virtual envs
+.venv/
+.venv
+
 # Python
 __pycache__/
 *.pyc

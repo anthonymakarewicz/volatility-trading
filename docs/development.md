@@ -11,7 +11,9 @@ This guide is for day-to-day development in this repository.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+python -m pip install -U pip setuptools wheel
 pip install -r requirements.txt -r requirements-dev.txt
+pip install -e .
 ```
 
 ## Core Workflow

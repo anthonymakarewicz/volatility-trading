@@ -338,7 +338,7 @@ def extract_eom_options(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
 
-    df["eom_expiry"] = (df.index + BMonthEnd(0)).to_list()
+    df["eom_expiry"] = df.index.to_series().add(BMonthEnd(0)).values
     eom_options = df[df["eom_expiry"] == df["expiry"]].drop(columns="eom_expiry")
 
     return eom_options

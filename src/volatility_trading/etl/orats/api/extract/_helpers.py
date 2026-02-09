@@ -6,7 +6,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, TypeAlias, cast
 
 import polars as pl
 
@@ -15,6 +15,16 @@ from volatility_trading.config.orats.api_schemas import get_schema_spec
 from ..io import ALLOWED_COMPRESSIONS, ensure_dir, json_suffix
 
 logger = logging.getLogger(__name__)
+
+ParquetCompression: TypeAlias = Literal[
+    "lz4",
+    "uncompressed",
+    "snappy",
+    "gzip",
+    "lzo",
+    "brotli",
+    "zstd",
+]
 
 
 def is_non_fatal_extract_error(e: Exception) -> bool:
@@ -64,10 +74,10 @@ def write_parquet_atomic(
         ) as f:
             tmp_path = f.name
 
-        if tmp_path is None:
-            raise RuntimeError("Failed to allocate a temporary file")
-
-        df.write_parquet(tmp_path, compression=compression)
+        df.write_parquet(
+            tmp_path,
+            compression=cast(ParquetCompression, compression),
+        )
 
         try:
             with open(tmp_path, mode="rb") as fh:

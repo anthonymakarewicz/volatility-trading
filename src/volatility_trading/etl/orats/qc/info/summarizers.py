@@ -7,6 +7,11 @@ from typing import Any
 import polars as pl
 
 
+def _to_float(value: Any) -> float:
+    """Convert a Polars scalar summary value to float."""
+    return float(value)
+
+
 def summarize_volume_oi_metrics(
     *,
     df: pl.DataFrame,
@@ -25,8 +30,8 @@ def summarize_volume_oi_metrics(
         s = df.get_column(volume_col)
         out.update(
             {
-                "volume_null_rate": float(s.is_null().mean()),
-                "volume_zero_rate": float((s.fill_null(0) == 0).mean()),
+                "volume_null_rate": _to_float(s.is_null().mean()),
+                "volume_zero_rate": _to_float((s.fill_null(0) == 0).mean()),
             }
         )
 
@@ -34,8 +39,8 @@ def summarize_volume_oi_metrics(
         s = df.get_column(oi_col)
         out.update(
             {
-                "oi_null_rate": float(s.is_null().mean()),
-                "oi_zero_rate": float((s.fill_null(0) == 0).mean()),
+                "oi_null_rate": _to_float(s.is_null().mean()),
+                "oi_zero_rate": _to_float((s.fill_null(0) == 0).mean()),
             }
         )
 
@@ -61,7 +66,7 @@ def summarize_risk_free_rate_metrics(
 
     s = df.get_column(r_col)
     s_nonnull = s.drop_nulls()
-    out["r_null_rate"] = float(s.is_null().mean())
+    out["r_null_rate"] = _to_float(s.is_null().mean())
 
     if len(s_nonnull) == 0:
         out["reason"] = "all risk_free_rate null"
@@ -69,10 +74,10 @@ def summarize_risk_free_rate_metrics(
 
     out.update(
         {
-            "r_min": float(s_nonnull.min()),
-            "r_max": float(s_nonnull.max()),
-            "r_mean": float(s_nonnull.mean()),
-            "r_median": float(s_nonnull.median()),
+            "r_min": _to_float(s_nonnull.min()),
+            "r_max": _to_float(s_nonnull.max()),
+            "r_mean": _to_float(s_nonnull.mean()),
+            "r_median": _to_float(s_nonnull.median()),
         }
     )
 
@@ -116,7 +121,7 @@ def summarize_core_numeric_stats(
         if s.dtype == pl.Decimal:
             s = s.cast(pl.Float64)
 
-        null_rate = float(s.is_null().mean())
+        null_rate = _to_float(s.is_null().mean())
         s_nonnull = s.drop_nulls()
         n_nonnull = len(s_nonnull)
 
@@ -132,11 +137,11 @@ def summarize_core_numeric_stats(
         col_stats: dict[str, Any] = {
             "null_rate": null_rate,
             "n_nonnull": n_nonnull,
-            "min": float(s_nonnull.min()),
-            "max": float(s_nonnull.max()),
-            "mean": float(s_nonnull.mean()),
-            "std": float(s_nonnull.std()),
-            "median": float(s_nonnull.median()),
+            "min": _to_float(s_nonnull.min()),
+            "max": _to_float(s_nonnull.max()),
+            "mean": _to_float(s_nonnull.mean()),
+            "std": _to_float(s_nonnull.std()),
+            "median": _to_float(s_nonnull.median()),
         }
 
         # Quantiles
@@ -144,7 +149,7 @@ def summarize_core_numeric_stats(
             # Polars returns scalar; for safety cast to float
             v = s_nonnull.quantile(q, "nearest")
             key = f"q_{q:.2f}"
-            col_stats[key] = float(v)
+            col_stats[key] = _to_float(v)
 
         stats[c] = col_stats
 

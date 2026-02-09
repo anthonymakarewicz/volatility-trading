@@ -47,7 +47,7 @@ class OratsSchemaSpec:
         Values outside bounds are set to null.
     """
 
-    vendor_dtypes: dict[str, pl.DataType]
+    vendor_dtypes: dict[str, type[pl.DataType]]
     renames_vendor_to_canonical: dict[str, str]
     keep_canonical: tuple[str, ...]
 

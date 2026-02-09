@@ -5,7 +5,7 @@ import polars as pl
 from ..schema_spec import OratsSchemaSpec
 
 # ----- Dtypes (vendor) -----
-_SUMMARIES_VENDOR_DTYPES: dict[str, pl.DataType] = {
+_SUMMARIES_VENDOR_DTYPES: dict[str, type[pl.DataType]] = {
     "ticker": pl.Utf8,
     "tradeDate": pl.Utf8,
     "stockPrice": pl.Float64,

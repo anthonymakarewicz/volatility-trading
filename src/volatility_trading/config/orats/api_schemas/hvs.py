@@ -19,7 +19,7 @@ from ..schema_spec import OratsSchemaSpec
 # Vendor dtypes
 # ----------------------------------------------------------------------------
 
-_HVS_VENDOR_DTYPES: dict[str, pl.DataType] = {
+_HVS_VENDOR_DTYPES: dict[str, type[pl.DataType]] = {
     "ticker": pl.Utf8,
     "tradeDate": pl.Utf8,
     # Intraday historical vol (ORATS: orHv*)

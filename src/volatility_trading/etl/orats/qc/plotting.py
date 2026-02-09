@@ -6,6 +6,8 @@ from datetime import date
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from volatility_trading.iv_surface.term_structure import pick_closest_dte
 
@@ -202,11 +204,12 @@ def plot_avg_volume_by_delta(
     """
     if delta_bins is None:
         delta_bins = np.linspace(0.0, 1.0, 21)
+    delta_breaks: list[float] = np.asarray(delta_bins, dtype=float).tolist()
 
     vol_by_delta = (
         df_long.filter(pl.col("dte").is_between(dte_min, dte_max))
         .with_columns(
-            delta_bucket=pl.col("delta").abs().cut(delta_bins),
+            delta_bucket=pl.col("delta").abs().cut(delta_breaks),
         )
         .group_by(["delta_bucket", "option_type"])
         .agg(pl.col("volume").mean().alias("avg_volume"))
@@ -343,7 +346,7 @@ def _make_facet_axes(
     nrows: int,
     ncols: int,
     figsize_per: tuple[float, float] = (5.0, 4.0),
-) -> tuple[plt.Figure, np.ndarray]:
+) -> tuple[Figure, np.ndarray]:
     """Helper to create a faceted grid of subplots and flatten the axes array."""
     fig, axes = plt.subplots(
         nrows=nrows,
@@ -356,7 +359,7 @@ def _make_facet_axes(
 
 
 def _set_panel_title(
-    ax: plt.Axes,
+    ax: Axes,
     day: date,
     event_labels: Mapping[date, str] | None,
 ) -> None:

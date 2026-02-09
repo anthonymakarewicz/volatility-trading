@@ -49,6 +49,8 @@ include = [
   "src/volatility_trading/etl",
   "src/volatility_trading/config",
 ]
+venvPath = "."
+venv = ".venv"
 exclude = [
   "**/__pycache__",
   "**/*.ipynb",
@@ -60,6 +62,6 @@ ignore = [
     "src/volatility_trading/iv_surface",
 ]
 pythonVersion = "3.12"
-typeCheckingMode = "basic"
+typeCheckingMode = "standard"
 reportMissingImports = "none"
 reportMissingTypeStubs = "none"
