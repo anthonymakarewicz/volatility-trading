@@ -1,4 +1,5 @@
-# etl/orats/processed/_shared/logfmt.py
+"""Shared logging-format helpers for processed ORATS builders."""
+
 from __future__ import annotations
 
 import logging

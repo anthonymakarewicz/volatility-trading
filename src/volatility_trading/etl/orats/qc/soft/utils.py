@@ -1,4 +1,5 @@
-# qc/soft/utils.py
+"""Utility helpers for SOFT QC subset selection and wide views."""
+
 from __future__ import annotations
 
 import polars as pl

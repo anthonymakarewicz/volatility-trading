@@ -1,3 +1,5 @@
+"""Internal helpers for downloading ORATS FTP files safely."""
+
 from __future__ import annotations
 
 import logging
@@ -13,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class YearDownloadResult:
+    """Per-year download summary used by the top-level FTP downloader."""
+
     base: str
     year_name: str
     n_files_total: int
@@ -87,10 +91,7 @@ def _ensure_file(
     *,
     validate_zip: bool = True,
 ) -> bool:
-    """Ensure `local_path` is a complete, valid copy of the remote ZIP.
-
-    Returns True if the file was downloaded (written), False if it was skipped.
-    """
+    """Ensure `local_path` is a complete valid copy of the remote ZIP."""
     remote_size: int | None = None
 
     if local_path.exists():
@@ -146,9 +147,9 @@ def download_one_year(
     raw_root: Path,
     validate_zip: bool,
 ) -> YearDownloadResult:
-    """Download all ZIP files for a given `(base, year_name)` into `raw_root`.
+    """Download one `(base, year)` FTP folder into the local raw directory.
 
-    Opens its own FTP connection so it can be executed safely in a thread.
+    Opens its own FTP connection so the function can run safely in a thread.
     """
     logger.info("Starting FTP download base=%s year=%s", base, year_name)
 

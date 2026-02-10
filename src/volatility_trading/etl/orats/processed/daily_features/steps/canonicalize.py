@@ -1,3 +1,5 @@
+"""Column canonicalization step for processed daily-features panels."""
+
 from __future__ import annotations
 
 import logging

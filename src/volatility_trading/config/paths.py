@@ -1,3 +1,5 @@
+"""Canonical filesystem paths used across data pipelines."""
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]

@@ -1,3 +1,5 @@
+"""Private pipeline steps for building processed daily-features datasets."""
+
 from .bounds import apply_bounds
 from .canonicalize import canonicalize_columns
 from .dedupe import dedupe_endpoint

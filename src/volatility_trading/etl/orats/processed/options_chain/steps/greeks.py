@@ -1,4 +1,4 @@
-# volatility_trading/etl/orats/processed/options_chain/_steps/greeks.py
+"""Put-greek derivation steps for processed options-chain panels."""
 
 from __future__ import annotations
 

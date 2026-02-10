@@ -1,4 +1,5 @@
-# qc/info/specs.py
+"""INFO QC spec definitions for options-chain panels."""
+
 from __future__ import annotations
 
 from ...info.spec_types import InfoSpec

@@ -1,3 +1,5 @@
+"""Shared CLI helper utilities for app entrypoints."""
+
 from __future__ import annotations
 
 import json
@@ -7,6 +9,7 @@ from typing import Any
 
 
 def ensure_list(value: Any) -> list[Any] | None:
+    """Normalize a scalar/iterable value into a list or `None`."""
     if value is None:
         return None
     if isinstance(value, (list, tuple, set)):
@@ -15,6 +18,7 @@ def ensure_list(value: Any) -> list[Any] | None:
 
 
 def add_print_config_arg(parser) -> None:
+    """Add a `--print-config` flag to a parser."""
     parser.add_argument(
         "--print-config",
         action="store_true",
@@ -23,6 +27,7 @@ def add_print_config_arg(parser) -> None:
 
 
 def add_dry_run_arg(parser) -> None:
+    """Add a `--dry-run` flag to a parser."""
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -31,6 +36,7 @@ def add_dry_run_arg(parser) -> None:
 
 
 def collect_logging_overrides(args) -> dict[str, Any]:
+    """Collect logging override values from parsed CLI args."""
     overrides: dict[str, Any] = {}
     if getattr(args, "log_level", None):
         overrides["level"] = args.log_level
@@ -44,6 +50,7 @@ def collect_logging_overrides(args) -> dict[str, Any]:
 
 
 def _normalize(obj: Any) -> Any:
+    """Convert paths/mappings/sequences to JSON-serializable structures."""
     if isinstance(obj, Path):
         return str(obj)
     if isinstance(obj, Mapping):
@@ -54,11 +61,13 @@ def _normalize(obj: Any) -> Any:
 
 
 def print_config(config: Mapping[str, Any]) -> None:
+    """Pretty-print merged config as deterministic JSON."""
     normalized = _normalize(config)
     print(json.dumps(normalized, indent=2, sort_keys=True))
 
 
 def log_dry_run(logger, plan: Mapping[str, Any]) -> None:
+    """Log the dry-run plan as formatted JSON."""
     normalized = _normalize(plan)
     logger.info("DRY RUN: no actions were executed.")
     logger.info("DRY RUN plan:\n%s", json.dumps(normalized, indent=2, sort_keys=True))

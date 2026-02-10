@@ -1,11 +1,10 @@
 """Shared ORATS API IO helpers.
 
-This module contains small, dependency-light utilities used by the ORATS API
-pipeline (downloader + extractor):
-
-- Validate year whitelists (bounded by min_year and current year by default).
-- Encode raw snapshot filename conventions (JSON vs JSON.GZ).
-- Build raw/intermediate directory paths in a consistent layout.
+This module provides small dependency-light utilities used by the ORATS API
+download/extract pipeline:
+- year whitelist validation
+- raw snapshot naming conventions
+- raw/intermediate path builders
 """
 
 from __future__ import annotations
@@ -22,14 +21,10 @@ ALLOWED_COMPRESSIONS: set[str] = {"gz", "none"}
 
 
 def ensure_dir(p: Path) -> None:
-    """Ensure a directory exists.
+    """Ensure a directory exists, creating parents as needed.
 
-    Creates the directory and any missing parents. Safe to call repeatedly.
-
-    Parameters
-    ----------
-    p:
-        Directory path to create.
+    Args:
+        p: Directory path to create.
     """
     p.mkdir(parents=True, exist_ok=True)
 
@@ -40,34 +35,18 @@ def validate_years(
     min_year: int = MIN_YEAR,
     max_year: int | None = None,
 ) -> list[int]:
-    """Validate and coerce an iterable of years into a list of ints.
+    """Validate and coerce a year iterable into a list of integers.
 
-    Used by download/extract orchestration for endpoints that require an explicit
-    year whitelist.
+    Args:
+        years: Iterable of years (ints or strings).
+        min_year: Minimum allowed year (inclusive).
+        max_year: Maximum allowed year (inclusive). Defaults to current year.
 
-    Rules:
-    - Input must be non-empty.
-    - Years must be within [min_year, max_year].
-    - max_year defaults to the current calendar year.
-
-    Parameters
-    ----------
-    years:
-        Iterable of years (ints or strings).
-    min_year:
-        Minimum allowed year (inclusive).
-    max_year:
-        Maximum allowed year (inclusive). Defaults to date.today().year.
-
-    Returns
-    -------
-    list[int]
+    Returns:
         Validated years as integers.
 
-    Raises
-    ------
-    ValueError
-        If the input is empty or contains out-of-range years.
+    Raises:
+        ValueError: If the input is empty or contains out-of-range years.
     """
     if max_year is None:
         max_year = dt.date.today().year
@@ -86,22 +65,16 @@ def validate_years(
 
 
 def json_suffix(compression: str) -> str:
-    """Return the raw snapshot suffix for a compression mode.
+    """Return the raw snapshot file suffix for a compression mode.
 
-    Parameters
-    ----------
-    compression:
-        "gz" for gzip-compressed JSON, or "none" for plain JSON.
+    Args:
+        compression: `"gz"` for gzip JSON or `"none"` for plain JSON.
 
-    Returns
-    -------
-    str
-        File suffix (".json.gz" or ".json").
+    Returns:
+        File suffix (`".json.gz"` or `".json"`).
 
-    Raises
-    ------
-    ValueError
-        If the compression mode is unsupported.
+    Raises:
+        ValueError: If compression mode is unsupported.
     """
     if compression == "gz":
         return ".json.gz"
@@ -114,19 +87,17 @@ def json_suffix(compression: str) -> str:
 
 
 def raw_by_trade_date_dir(raw_root: Path, endpoint: str, year: int) -> Path:
-    """Directory containing BY_TRADE_DATE raw snapshots for a year.
+    """Return BY_TRADE_DATE raw directory for one endpoint year.
 
-    Layout:
-        raw_root/endpoint=<endpoint>/year=YYYY/
+    Layout: `raw_root/endpoint=<endpoint>/year=YYYY/`.
     """
     return raw_root / f"endpoint={endpoint}" / f"year={year}"
 
 
 def raw_full_history_dir(raw_root: Path, endpoint: str, ticker: str) -> Path:
-    """Directory containing FULL_HISTORY raw snapshots for one underlying.
+    """Return FULL_HISTORY raw directory for one endpoint/ticker pair.
 
-    Layout:
-        raw_root/endpoint=<endpoint>/underlying=<TICKER>/
+    Layout: `raw_root/endpoint=<endpoint>/underlying=<TICKER>/`.
     """
     return raw_root / f"endpoint={endpoint}" / f"underlying={ticker}"
 
@@ -138,16 +109,17 @@ def raw_path_by_trade_date(
     part: int,
     compression: str,
 ) -> Path:
-    """Full path for one BY_TRADE_DATE raw snapshot file.
+    """Return raw file path for one BY_TRADE_DATE request snapshot.
 
-    Layout:
-        raw_root/endpoint=<endpoint>/year=YYYY/
-            YYYY-MM-DD_chunkXXX.json(.gz)
+    Args:
+        raw_root: Raw root directory.
+        endpoint: Endpoint name.
+        trade_date: Trade date in `YYYY-MM-DD`.
+        part: Ticker chunk index (`chunkXXX`).
+        compression: Compression mode (`"gz"` or `"none"`).
 
-    Notes
-    -----
-    The `part` index corresponds to the ticker chunk (e.g. chunk000 for the
-    first group of tickers).
+    Returns:
+        Full snapshot path under `endpoint=<endpoint>/year=<YYYY>/`.
     """
     year = int(trade_date[:4])
     base = raw_by_trade_date_dir(raw_root, endpoint, year)
@@ -160,10 +132,9 @@ def raw_path_full_history(
     ticker: str,
     compression: str,
 ) -> Path:
-    """Full path for one FULL_HISTORY raw snapshot file.
+    """Return raw file path for one FULL_HISTORY snapshot.
 
-    Layout:
-        raw_root/endpoint=<endpoint>/underlying=<TICKER>/data.json(.gz)
+    Layout: `raw_root/endpoint=<endpoint>/underlying=<TICKER>/data.json(.gz)`.
     """
     base = raw_full_history_dir(raw_root, endpoint, ticker)
     return base / f"data{json_suffix(compression)}"
@@ -174,10 +145,10 @@ def intermediate_full_history(
     endpoint: str,
     ticker: str,
 ) -> Path:
-    """Default intermediate parquet path for one ticker (full history).
+    """Return default intermediate parquet path for one endpoint/ticker.
 
     Layout:
-        intermediate_root/endpoint=<endpoint>/underlying=<TICKER>/full.parquet
+        `intermediate_root/endpoint=<endpoint>/underlying=<TICKER>/part-0000.parquet`.
     """
     return (
         intermediate_root

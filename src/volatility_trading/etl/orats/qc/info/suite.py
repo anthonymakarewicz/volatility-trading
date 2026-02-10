@@ -1,4 +1,5 @@
-# qc/info/suite.py
+"""Execution suite for INFO QC checks."""
+
 from __future__ import annotations
 
 import polars as pl

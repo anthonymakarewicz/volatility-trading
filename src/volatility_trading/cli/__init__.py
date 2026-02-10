@@ -1,3 +1,5 @@
+"""Reusable CLI config and logging helpers for app entrypoints."""
+
 from .config import (
     add_config_arg,
     build_config,

@@ -1,3 +1,5 @@
+"""Dataclasses for processed ORATS daily-features build outputs and stats."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

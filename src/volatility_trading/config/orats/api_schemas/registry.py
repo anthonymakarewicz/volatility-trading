@@ -36,10 +36,14 @@ API_SCHEMAS: Final[dict[str, OratsSchemaSpec]] = {
 def get_schema_spec(endpoint: str) -> OratsSchemaSpec:
     """Return the schema spec for a supported ORATS API endpoint.
 
-    Raises
-    ------
-    KeyError
-        If the endpoint is unknown.
+    Args:
+        endpoint: Logical endpoint key (for example `summaries` or `hvs`).
+
+    Returns:
+        Schema specification used by extract/build steps.
+
+    Raises:
+        KeyError: If the endpoint is not registered in `API_SCHEMAS`.
     """
     try:
         return API_SCHEMAS[endpoint]

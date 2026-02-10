@@ -1,3 +1,8 @@
+"""Download step for ORATS HTTP API raw payload snapshots.
+
+Reads ORATS endpoint payloads and writes one raw JSON snapshot per request.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -32,67 +37,24 @@ def download(
     sleep_s: float = 0.0,
     overwrite: bool = False,
 ) -> DownloadApiResult:
-    """
-    Download an ORATS API endpoint and store raw JSON payload snapshots.
+    """Download one ORATS endpoint and store raw JSON payload snapshots.
 
-    This is an ingestion utility that writes *one JSON file per API request*,
-    preserving the response as returned by ORATS ("raw" layer). Downstream
-    pipelines can later parse these snapshots into curated parquet datasets.
+    Args:
+        token: ORATS API token.
+        endpoint: Logical endpoint name from the endpoint registry.
+        raw_root: Root directory where raw snapshots are written.
+        tickers: Requested ticker universe; cleaned and de-duplicated in-order.
+        year_whitelist: Required for BY_TRADE_DATE endpoints; ignored otherwise.
+        fields: Optional subset of endpoint fields.
+        compression: Raw JSON compression mode (`"gz"` or `"none"`).
+        sleep_s: Delay in seconds between requests.
+        overwrite: Replace existing raw snapshots when `True`.
 
-    Strategy
-    --------
-    The endpoint determines the download strategy via `get_endpoint_spec(endpoint)`:
+    Returns:
+        Summary including request counts, written paths, failures, and duration.
 
-    - BY_TRADE_DATE:
-        Iterates over NYSE trading sessions (XNYS) for the requested years, and
-        downloads one payload per (tradeDate, ticker_chunk). Tickers are chunked
-        to respect ORATS list-parameter size limits.
-
-    - FULL_HISTORY:
-        Downloads one payload per ticker (no `tradeDate`). Any `year_whitelist`
-        passed by the caller is ignored (and a warning is logged).
-
-    Storage layout
-    --------------
-    - BY_TRADE_DATE:
-        raw_root/endpoint=<endpoint>/year=YYYY/YYYY-MM-DD_chunk000.json.gz
-
-    - FULL_HISTORY:
-        raw_root/endpoint=<endpoint>/underlying=<TICKER>/data.json.gz
-
-    Parameters
-    ----------
-    token:
-        ORATS API token.
-    endpoint:
-        Logical endpoint name (key in `orats_api_endpoints.ENDPOINTS`).
-    raw_root:
-        Root folder where raw snapshots will be written.
-    tickers:
-        Sequence of tickers. Values are stripped, de-duplicated (preserving first
-        occurrence), and then (for BY_TRADE_DATE) chunked into <= MAX_PER_CALL.
-    year_whitelist:
-        Years to download for BY_TRADE_DATE endpoints. Required for BY_TRADE_DATE
-        and ignored for FULL_HISTORY.
-    fields:
-        Optional list of ORATS fields to request. If None, ORATS returns its
-        default field set for the endpoint.
-    compression:
-        Compression mode for raw JSON snapshots: "gz" (gzip) or "none".
-    sleep_s:
-        Optional polite delay (seconds) between requests.
-    overwrite:
-        If False (default), existing output files are skipped. If True, existing
-        files are replaced.
-
-    Notes
-    -----
-    - JSON payloads are written even when `payload['data']` is empty.
-    - No `.empty`/`.error` markers are written.
-    - Transient failures are logged and recorded in the returned result; the
-      downloader continues.
-    - Fatal failures (e.g., non-429 4xx, bad params, non-JSON responses) are
-      re-raised to stop the run.
+    Raises:
+        ValueError: For invalid compression, empty tickers, or missing years.
     """
     raw_root_p = Path(raw_root)
 

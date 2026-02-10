@@ -1,4 +1,5 @@
-# qc/__init__.py
+"""Public API for ORATS QC runners and result types."""
+
 from __future__ import annotations
 
 from .api import (

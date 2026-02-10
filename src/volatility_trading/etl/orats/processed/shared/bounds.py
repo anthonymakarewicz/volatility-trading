@@ -1,4 +1,5 @@
-# etl/orats/processed/_shared/bounds.py
+"""Shared bounds helpers used by processed ORATS build pipelines."""
+
 from __future__ import annotations
 
 import logging
@@ -62,7 +63,7 @@ def count_rows_any_oob(
     *,
     bounds: dict[str, tuple[float, float]] | None,
 ) -> tuple[int | None, int | None]:
-    """Best-effort stats for bounds-null: (rows_total, rows_with_any_oob)."""
+    """Return best-effort bounds stats as (rows_total, rows_with_any_oob)."""
     if not bounds:
         return None, None
 

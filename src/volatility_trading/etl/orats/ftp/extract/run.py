@@ -1,3 +1,9 @@
+"""Extraction step for ORATS FTP ZIP snapshots.
+
+Reads raw ZIP snapshots, normalizes vendor columns, filters requested tickers,
+and writes partitioned intermediate parquet outputs.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -24,53 +30,20 @@ def extract(
     year_whitelist: Iterable[int] | Iterable[str] | None = None,
     strict: bool = True,
 ) -> ExtractFtpResult:
-    """Extract ORATS SMV strikes from raw ZIPs into intermediate Parquet.
+    """Extract ORATS FTP snapshots into normalized intermediate parquet data.
 
-    This function reads daily ZIP snapshots from the ORATS hosted FTP dump,
-    normalizes vendor columns (date parsing + rename to canonical), filters for
-    the requested tickers, de-duplicates exact rows, and writes Parquet files
-    partitioned by underlying and year.
+    Args:
+        raw_root: Root directory containing raw FTP ZIP dumps.
+        out_root: Output root directory for parquet partitions.
+        tickers: Underlying tickers to extract (for example `["SPX", "AAPL"]`).
+        year_whitelist: Optional allowlist of years to read.
+        strict: If `True`, raise when one or more ZIP files cannot be read.
 
-    Expected raw layout
-    -------------------
-    raw_root/
-        smvstrikes_2007_2012/
-            2007/*.zip
-            2008/*.zip
-            ...
-        smvstrikes/
-            2013/*.zip
-            2014/*.zip
-            ...
+    Returns:
+        Summary including read/write counts, output paths, and failures.
 
-    Output layout
-    -------------
-    out_root/
-        underlying=<TICKER>/year=<YYYY>/part-0000.parquet
-
-    Parameters
-    ----------
-    raw_root:
-        Root directory containing the FTP ZIP dumps.
-    out_root:
-        Output root directory for intermediate Parquet partitions.
-    tickers:
-        Underlying tickers to extract (e.g. ["SPX", "AAPL"]).
-    year_whitelist:
-        Optional year allowlist. If provided, only those year folders are read.
-    strict:
-        If True (default), raise a RuntimeError if any ZIP files failed to read.
-        If False, record failures in the returned result and continue.
-
-    Returns
-    -------
-    ExtractFtpResult
-        Summary including counts, duration, written Parquet paths and failed ZIPs.
-
-    Raises
-    ------
-    RuntimeError
-        If `strict=True` and at least one ZIP failed to read.
+    Raises:
+        RuntimeError: If `strict=True` and at least one ZIP fails to read.
     """
     raw_root = Path(raw_root)
     out_root = Path(out_root)

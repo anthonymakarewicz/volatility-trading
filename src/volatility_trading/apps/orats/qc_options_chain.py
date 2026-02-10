@@ -54,6 +54,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """Parse CLI arguments for the options-chain QC app."""
     parser = argparse.ArgumentParser(
         description="Run QC on ORATS options-chain panels."
     )
@@ -142,6 +143,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
+    """Build config overrides from parsed CLI arguments."""
     overrides: dict[str, Any] = {}
 
     paths: dict[str, Any] = {}
@@ -184,6 +186,7 @@ def _build_overrides(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Run the options-chain QC entrypoint."""
     args = _parse_args(argv)
     overrides = _build_overrides(args)
     config = build_config(DEFAULT_CONFIG, args.config, overrides)

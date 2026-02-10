@@ -1,4 +1,4 @@
-# volatility_trading/etl/orats/processed/options_chain/_steps/dedupe.py
+"""De-duplication and OPRA-root filtering steps for options-chain panels."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ def filter_preferred_opra_root(
     lf: pl.LazyFrame,
     ticker: str,
 ) -> pl.LazyFrame:
+    """Filter to preferred OPRA root for tickers that define one."""
     preferred_root = PREFERRED_OPRA_ROOT.get(ticker)
     if preferred_root is None:
         return lf
@@ -39,6 +40,7 @@ def dedupe_options_chain(
     collect_stats: bool,
     stats: BuildStats,
 ) -> pl.LazyFrame:
+    """Apply options-chain de-duplication policy and optional row-count stats."""
     logger.info("Applying key null-checks and de-duplication for ticker=%s", ticker)
 
     n_before: int | None = count_rows(lf) if collect_stats else None

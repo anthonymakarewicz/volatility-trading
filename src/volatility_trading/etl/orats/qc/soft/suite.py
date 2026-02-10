@@ -1,4 +1,5 @@
-# qc/soft/suite.py
+"""Execution suite for SOFT QC checks."""
+
 from __future__ import annotations
 
 import polars as pl

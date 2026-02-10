@@ -1,4 +1,4 @@
-# volatility_trading/etl/orats/processed/options_chain/_steps/enrich.py
+"""Enrichment steps for processed options-chain panels."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ def merge_dividend_yield(
     collect_stats: bool,
     stats: BuildStats,
 ) -> pl.LazyFrame:
+    """Merge dividend yield from `monies_implied` onto options-chain rows."""
     if not merge_dividend_yield or monies_implied_inter_root is None:
         return lf
 

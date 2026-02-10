@@ -1,3 +1,5 @@
+"""HARD QC spec definitions for daily-features panels."""
+
 from __future__ import annotations
 
 from ...hard.exprs import expr_bad_negative, expr_bad_null_keys

@@ -1,4 +1,4 @@
-# volatility_trading/etl/orats/processed/options_chain/_steps/scan.py
+"""Input scan step for processed options-chain build orchestration."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ def scan_inputs(
     collect_stats: bool,
     stats: BuildStats,
 ) -> pl.LazyFrame:
+    """Scan intermediate inputs and optionally collect row-count stats."""
     lf = scan_strikes_intermediate(inter_root=inter_root, ticker=ticker, years=years)
 
     if collect_stats:

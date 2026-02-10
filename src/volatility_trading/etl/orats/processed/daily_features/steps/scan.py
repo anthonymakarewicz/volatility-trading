@@ -1,3 +1,5 @@
+"""Input scan step for processed daily-features build orchestration."""
+
 from __future__ import annotations
 
 import logging

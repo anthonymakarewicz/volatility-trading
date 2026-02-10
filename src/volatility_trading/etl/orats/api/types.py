@@ -1,3 +1,5 @@
+"""Result dataclasses for ORATS API download and extraction runs."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,7 +10,7 @@ from .endpoints import DownloadStrategy
 
 @dataclass(frozen=True)
 class DownloadApiResult:
-    """Summary of a download run."""
+    """Summary metrics and paths produced by one API download run."""
 
     endpoint: str
     strategy: DownloadStrategy
@@ -24,7 +26,7 @@ class DownloadApiResult:
 
 @dataclass(frozen=True)
 class ExtractApiResult:
-    """Summary of an extraction run."""
+    """Summary metrics and paths produced by one API extraction run."""
 
     endpoint: str
     strategy: DownloadStrategy

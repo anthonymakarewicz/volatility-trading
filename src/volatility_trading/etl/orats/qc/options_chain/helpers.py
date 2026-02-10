@@ -1,8 +1,4 @@
-"""
-Internal helpers for the ORATS QC runner.
-
-This module holds small orchestration utilities used by `runner.py`.
-"""
+"""Helper utilities for options-chain QC runner orchestration."""
 
 from __future__ import annotations
 
@@ -19,7 +15,7 @@ from volatility_trading.datasets import (
 
 
 def get_parquet_path(proc_root: Path, ticker: str) -> Path | None:
-    """Best-effort locate the processed options-chain parquet."""
+    """Best-effort locate the processed options-chain parquet path."""
     try:
         return options_chain_path(proc_root, ticker)
     except Exception:
@@ -27,7 +23,7 @@ def get_parquet_path(proc_root: Path, ticker: str) -> Path | None:
 
 
 def read_exercise_style(*, parquet_path: Path | None) -> str | None:
-    """Best-effort read exercise_style (EU/AM) from manifest.json."""
+    """Best-effort read `exercise_style` (`EU`/`AM`) from `manifest.json`."""
     if parquet_path is None:
         return None
 
@@ -62,7 +58,7 @@ def apply_roi_filter(
     delta_min: float = 0.1,
     delta_max: float = 0.9,
 ) -> pl.DataFrame:
-    """Filter to ROI used by soft/info reporting."""
+    """Filter to the ROI subset used by SOFT/INFO reporting."""
     return df.filter(
         pl.col("dte").is_between(dte_min, dte_max),
         pl.col("delta").abs().is_between(delta_min, delta_max),

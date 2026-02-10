@@ -1,3 +1,5 @@
+"""Bucket summarizers for SOFT QC diagnostics."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

@@ -1,22 +1,22 @@
-"""
-volatility_trading.datasets.options_chain
-------------------------------------
-Small, opinionated I/O layer for the processed options chain dataset.
+"""I/O and reshape helpers for the processed ORATS options-chain panel.
 
-Conventions
-----------
-- scan_* returns a Polars LazyFrame
-- read_* returns a Polars DataFrame
+Provides utilities to:
+- resolve ticker-level parquet paths
+- scan/read the processed wide chain
+- convert between wide (`call_*` / `put_*`) and long (`option_type`) layouts
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 import polars as pl
 
 from volatility_trading.config.paths import PROC_ORATS_OPTIONS_CHAIN
+
+JoinStrategy = Literal["inner", "left", "right", "full", "semi", "anti", "cross"]
 
 DEFAULT_BASE_COLS = [
     "ticker",
@@ -34,8 +34,17 @@ DEFAULT_BASE_COLS = [
 
 
 def options_chain_path(proc_root: Path | str, ticker: str) -> Path:
-    """
-    Return the processed options chain parquet path for a ticker.
+    """Build the processed options-chain parquet path for one ticker.
+
+    Args:
+        proc_root: Root directory of the processed dataset.
+        ticker: Underlying symbol (for example `SPX` or `AAPL`).
+
+    Returns:
+        Filesystem path to `underlying=<TICKER>/part-0000.parquet`.
+
+    Raises:
+        ValueError: If `ticker` is empty after normalization.
     """
     root = Path(proc_root)
     t = str(ticker).strip().upper()
@@ -50,26 +59,18 @@ def scan_options_chain(
     proc_root: Path | str = PROC_ORATS_OPTIONS_CHAIN,
     columns: Sequence[str] | None = None,
 ) -> pl.LazyFrame:
-    """Scan the processed **WIDE** ORATS options chain for one ticker (lazy).
+    """Scan the processed wide options-chain parquet lazily.
 
-    Parameters
-    ----------
-    ticker:
-        Underlying symbol (e.g. "SPX", "SPY").
-    proc_root:
-        Root directory of the processed options chain dataset.
-    columns:
-        Optional column subset to project during the scan.
+    Args:
+        ticker: Underlying symbol to load.
+        proc_root: Root directory of the processed options-chain dataset.
+        columns: Optional projection list to select while scanning.
 
-    Returns
-    -------
-    pl.LazyFrame
-        LazyFrame pointing to `underlying=<TICKER>/part-0000.parquet`.
+    Returns:
+        Lazy frame backed by `underlying=<TICKER>/part-0000.parquet`.
 
-    Raises
-    ------
-    FileNotFoundError
-        If the processed parquet does not exist.
+    Raises:
+        FileNotFoundError: If the ticker parquet file does not exist.
     """
     root = Path(proc_root)
     path = options_chain_path(root, ticker)
@@ -89,41 +90,33 @@ def read_options_chain(
     proc_root: Path | str = PROC_ORATS_OPTIONS_CHAIN,
     columns: Sequence[str] | None = None,
 ) -> pl.DataFrame:
-    """Read the processed ORATS options chain for one ticker (WIDE, eager).
+    """Read the processed wide options-chain parquet eagerly.
 
-    Parameters
-    ----------
-    ticker:
-        Underlying symbol (e.g. "SPX", "SPY").
-    proc_root:
-        Root directory of the processed dataset.
-    columns:
-        Optional list of columns to load.
+    Args:
+        ticker: Underlying symbol to load.
+        proc_root: Root directory of the processed options-chain dataset.
+        columns: Optional projection list to load.
 
-    Returns
-    -------
-    pl.DataFrame
-        WIDE options chain (call_* / put_* columns).
+    Returns:
+        Wide options-chain DataFrame with `call_*` and `put_*` columns.
     """
     return scan_options_chain(ticker, proc_root=proc_root, columns=columns).collect()
 
 
 def options_chain_wide_to_long(wide: pl.LazyFrame | pl.DataFrame) -> pl.LazyFrame:
-    """Convert a processed options chain from WIDE to LONG format.
+    """Convert a processed options chain from wide to long layout.
 
-    WIDE input uses `call_*` / `put_*` prefixed columns.
-    LONG output standardizes names (prefix removed) and adds `option_type`
-    in {"C", "P"}.
+    Wide input uses `call_*` and `put_*` prefixed columns. Long output removes
+    those prefixes and adds `option_type` in `{"C", "P"}`.
 
-    Parameters
-    ----------
-    wide:
-        WIDE options chain (LazyFrame or DataFrame).
+    Args:
+        wide: Wide options-chain frame (lazy or eager).
 
-    Returns
-    -------
-    pl.LazyFrame
-        LONG options chain with `option_type`.
+    Returns:
+        Long options-chain lazy frame with standardized per-leg columns.
+
+    Raises:
+        ValueError: If no `call_*` or `put_*` columns are present.
     """
     lf = wide.lazy() if isinstance(wide, pl.DataFrame) else wide
 
@@ -163,30 +156,25 @@ def options_chain_long_to_wide(
     call_label: str = "C",
     put_label: str = "P",
     base_cols: Sequence[str] | None = None,
-    how: str = "inner",
+    how: JoinStrategy = "inner",
 ) -> pl.LazyFrame:
-    """Convert a LONG options chain into a WIDE chain with call_/put_ prefixes.
+    """Convert a long options chain into a wide call/put representation.
 
-    This is the inverse helper of `options_chain_wide_to_long()`.
+    This is the inverse helper of `options_chain_wide_to_long`.
 
-    Parameters
-    ----------
-    long:
-        Long-format options chain (DataFrame or LazyFrame).
-    opt_col:
-        Option type column name (default: "option_type").
-    call_label, put_label:
-        Labels used inside `opt_col` to identify calls/puts.
-    base_cols:
-        Join keys / shared identifiers. If None, defaults to DEFAULT_BASE_COLS
-        intersected with columns available in `long`.
-    how:
-        Join type between calls and puts ("inner" default is strict pairing).
+    Args:
+        long: Long-format options chain (lazy or eager).
+        opt_col: Column containing option-type labels.
+        call_label: Label in `opt_col` representing calls.
+        put_label: Label in `opt_col` representing puts.
+        base_cols: Join keys used to align call and put rows.
+        how: Join strategy between call and put subsets.
 
-    Returns
-    -------
-    pl.LazyFrame
-        Wide-format chain with call_* and put_* columns.
+    Returns:
+        Wide-format lazy frame with `call_*` and `put_*` value columns.
+
+    Raises:
+        ValueError: If `opt_col` is missing or no usable base keys are found.
     """
     lf = long.lazy() if isinstance(long, pl.DataFrame) else long
     schema = lf.collect_schema()

@@ -1,3 +1,5 @@
+"""SOFT QC spec definitions for options-chain panels."""
+
 from __future__ import annotations
 
 # Dataset-level checks

@@ -1,11 +1,4 @@
-# volatility_trading/etl/orats/processed/options_chain/_steps/__init__.py
-"""volatility_trading.etl.orats.processed.options_chain._steps
-
-Private pipeline steps for building the processed ORATS options chain.
-
-Each step is pure (returns a LazyFrame) and is designed to be orchestrated by
-`build_options_chain()` in the public builder module.
-"""
+"""Private pipeline steps for building processed ORATS options-chain datasets."""
 
 from .bounds import apply_bounds
 from .dedupe import dedupe_options_chain, filter_preferred_opra_root

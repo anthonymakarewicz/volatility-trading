@@ -1,3 +1,9 @@
+"""Download step for ORATS HostedFTP raw ZIP snapshots.
+
+Reads from the remote FTP tree and writes mirrored ZIP files under a local
+raw-data root.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -30,56 +36,20 @@ def download(
     validate_zip: bool = True,
     max_workers: int = 1,
 ) -> DownloadFtpResult:
-    """Download ORATS raw ZIP files from HostedFTP into a local directory.
+    """Download ORATS FTP ZIP files into a mirrored local directory tree.
 
-    Remote layout (example)
-    -----------------------
-    smvstrikes_2007_2012/
-        2007/
-            ...
-        2012/
-            ...
-    smvstrikes/
-        2013/
-            ...
-        2025/
-            ...
+    Args:
+        user: FTP username.
+        password: FTP password.
+        raw_root: Local root directory where ZIPs are stored.
+        host: FTP host to connect to.
+        remote_base_dirs: Remote base directories containing year subfolders.
+        year_whitelist: Optional allowlist of years to download.
+        validate_zip: Validate downloaded and existing files as ZIP archives.
+        max_workers: Number of parallel `(base, year)` jobs.
 
-    Local layout (mirrored)
-    -----------------------
-    <raw_root>/
-        smvstrikes_2007_2012/
-            2007/*.zip
-            ...
-        smvstrikes/
-            2013/*.zip
-            ...
-
-    Parameters
-    ----------
-    user:
-        FTP username.
-    password:
-        FTP password.
-    raw_root:
-        Local root directory where ZIPs will be stored.
-    host:
-        FTP host to connect to. Defaults to `DEFAULT_HOST`.
-    remote_base_dirs:
-        Remote base directories to scan for yearly folders.
-        Defaults to `DEFAULT_REMOTE_BASE_DIRS`.
-    year_whitelist:
-        Optional allowlist of years to download (e.g. `[2020, 2021]`). If None,
-        downloads all available years under `remote_base_dirs`.
-    validate_zip:
-        If True, validate downloaded (and existing) files as ZIPs.
-    max_workers:
-        Number of parallel year-jobs to run. Use 1 for sequential downloads.
-
-    Returns
-    -------
-    DownloadFtpResult
-        Summary including counts, written paths, failures, and elapsed time.
+    Returns:
+        Summary including counts, output paths, failure paths, and duration.
     """
     t0 = time.perf_counter()
     raw_root_p = Path(raw_root)

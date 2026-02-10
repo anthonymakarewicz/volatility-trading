@@ -1,3 +1,5 @@
+"""Row-level SOFT QC checks for ORATS option data."""
+
 from __future__ import annotations
 
 import polars as pl

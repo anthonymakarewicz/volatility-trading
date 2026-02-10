@@ -1,3 +1,5 @@
+"""Core datatypes for ORATS QC configuration and results."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,12 +9,16 @@ from typing import Any
 
 
 class Severity(str, Enum):
+    """Check family used by the QC framework."""
+
     HARD = "HARD"  # structural constraints (should be ~0 violations)
     SOFT = "SOFT"  # arbitrage-ish / surface consistency checks
     INFO = "INFO"  # descriptive metrics, not pass/fail
 
 
 class Grade(str, Enum):
+    """Outcome grade for HARD/SOFT checks."""
+
     OK = "OK"
     MILD = "MILD"
     WARN = "WARN"
@@ -21,6 +27,8 @@ class Grade(str, Enum):
 
 @dataclass(frozen=True)
 class QCConfig:
+    """Configuration used to run one QC pass for one ticker."""
+
     ticker: str
     run_global: bool = True
     run_roi: bool = True

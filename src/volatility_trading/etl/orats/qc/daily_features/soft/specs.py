@@ -1,3 +1,5 @@
+"""SOFT QC spec definitions for daily-features panels."""
+
 from __future__ import annotations
 
 from ...soft.row_checks.greeks_iv import flag_iv_high

@@ -1,3 +1,5 @@
+"""Reusable predicate expressions for HARD QC checks."""
+
 from __future__ import annotations
 
 import polars as pl

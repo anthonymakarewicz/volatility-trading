@@ -1,3 +1,5 @@
+"""Internal helpers for ORATS API parameter normalization and validation."""
+
 from __future__ import annotations
 
 import logging

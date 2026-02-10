@@ -1,3 +1,5 @@
+"""Logging and JSON reporting helpers for ORATS QC checks."""
+
 from __future__ import annotations
 
 import json

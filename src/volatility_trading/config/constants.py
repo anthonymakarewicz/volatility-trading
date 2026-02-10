@@ -1,3 +1,5 @@
+"""Global constants shared across trading and ETL modules."""
+
 OPTION_TYPES = ["C", "P"]
 
 # Day-count conventions

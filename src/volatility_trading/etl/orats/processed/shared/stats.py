@@ -1,3 +1,5 @@
+"""Shared lightweight stats helpers for lazy processed pipelines."""
+
 from __future__ import annotations
 
 import polars as pl

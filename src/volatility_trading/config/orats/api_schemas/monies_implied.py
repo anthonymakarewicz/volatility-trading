@@ -1,4 +1,12 @@
+"""ORATS API schema spec for endpoint `monies_implied`.
+
+Defines vendor-to-canonical normalization for term-structure level implied data
+including rates, yields, ATM vols, and supporting calibration diagnostics.
+"""
+
 from __future__ import annotations
+
+from typing import Final
 
 import polars as pl
 
@@ -165,7 +173,7 @@ _MONIES_IMPLIED_KEEP_CANONICAL: tuple[str, ...] = (
 # Public schema spec
 # ----------------------------------------------------------------------------
 
-MONIES_IMPLIED_SCHEMA = OratsSchemaSpec(
+MONIES_IMPLIED_SCHEMA: Final[OratsSchemaSpec] = OratsSchemaSpec(
     vendor_dtypes=_MONIES_IMPLIED_VENDOR_DTYPES,
     vendor_date_cols=_MONIES_IMPLIED_VENDOR_DATE_COLS,
     vendor_datetime_cols=_MONIES_IMPLIED_VENDOR_DATETIME_COLS,

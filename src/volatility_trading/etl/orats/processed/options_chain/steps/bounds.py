@@ -1,4 +1,4 @@
-# volatility_trading/etl/orats/processed/options_chain/_steps/features.py
+"""Bounds/null-filter step for processed options-chain panels."""
 
 from __future__ import annotations
 
@@ -28,6 +28,7 @@ def apply_bounds(
     ticker: str,
     collect_stats: bool,
 ) -> pl.LazyFrame:
+    """Apply schema-driven bounds nulling and bounds-based row dropping."""
     # 6A) Bounds NA replacement (NULL)
     bounds_null = getattr(spec, "bounds_null_canonical", None)
 

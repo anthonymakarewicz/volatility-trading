@@ -1,3 +1,8 @@
+"""Compatibility facade for the ORATS FTP ETL API.
+
+This module re-exports the FTP download/extract entrypoints and result types.
+"""
+
 from __future__ import annotations
 
 from .download.run import download

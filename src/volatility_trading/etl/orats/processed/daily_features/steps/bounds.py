@@ -1,3 +1,5 @@
+"""Bounds/null-filter step for processed daily-features endpoint panels."""
+
 from __future__ import annotations
 
 import logging

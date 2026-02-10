@@ -1,4 +1,12 @@
+"""ORATS API schema spec for endpoint `summaries`.
+
+Defines vendor-to-canonical normalization for summary-level market context
+fields such as term-structure IVs, rates, borrow, and dividend estimates.
+"""
+
 from __future__ import annotations
+
+from typing import Final
 
 import polars as pl
 
@@ -207,7 +215,7 @@ _SUMMARIES_KEEP_CANONICAL: tuple[str, ...] = (
 # Public schema spec
 # ----------------------------------------------------------------------------
 
-SUMMARIES_SCHEMA = OratsSchemaSpec(
+SUMMARIES_SCHEMA: Final[OratsSchemaSpec] = OratsSchemaSpec(
     vendor_dtypes=_SUMMARIES_VENDOR_DTYPES,
     vendor_date_cols=_SUMMARIES_VENDOR_DATE_COLS,
     vendor_datetime_cols=_SUMMARIES_VENDOR_DATETIME_COLS,

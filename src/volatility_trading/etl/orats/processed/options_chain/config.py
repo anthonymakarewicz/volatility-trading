@@ -1,12 +1,4 @@
-"""volatility_trading.etl.orats.processed.options_chain.config
-
-Configuration constants for the ORATS processed options-chain builder.
-
-Notes
------
-We keep one shared logger name across the split modules so logs still appear
-under the same name as before (helps continuity in your logs).
-"""
+"""Configuration constants for the processed ORATS options-chain builder."""
 
 from __future__ import annotations
 

@@ -1,11 +1,7 @@
-"""
-volatility_trading.etl.orats.qc.daily_features.runner
+"""QC runner for processed ORATS daily-features panels.
 
-ORATS daily-features QC runner.
-
-Runs HARD, SOFT, and INFO suites on the processed daily-features panel.
-
-This module is read-only: it does not drop or modify rows.
+Runs HARD, SOFT, and INFO suites and optionally writes JSON QC artifacts.
+This module is read-only and does not mutate dataset rows.
 """
 
 from __future__ import annotations
@@ -40,17 +36,16 @@ def run_daily_features_qc(
     out_json: Path | str | None = None,
     write_json: bool = True,
 ) -> QCRunResult:
-    """
-    Run QC on the processed ORATS daily-features panel for one ticker.
+    """Run QC on one processed daily-features ticker panel.
 
-    What it does:
-    - Loads the processed daily-features panel from `proc_root` for `ticker`.
-    - Runs HARD, SOFT, and INFO suites on the GLOBAL dataset.
-    - Logs a compact line per check.
-    - Optionally writes qc_summary.json and qc_config.json.
+    Args:
+        ticker: Underlying ticker symbol.
+        proc_root: Root directory containing processed daily-features panels.
+        out_json: Optional explicit path for `qc_summary.json`.
+        write_json: Write `qc_summary.json` and `qc_config.json` when `True`.
 
-    Returns a QCRunResult with config, results, pass/fail, counts, timings,
-    and artifact paths (when written).
+    Returns:
+        Run summary with check results, outcome counts, timing, and artifact paths.
     """
     t0 = time.perf_counter()
 

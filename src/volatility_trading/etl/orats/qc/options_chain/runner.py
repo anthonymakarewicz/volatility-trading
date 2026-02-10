@@ -1,14 +1,7 @@
-"""
-volatility_trading.etl.orats.qc.runner
+"""QC runner for processed ORATS options-chain panels.
 
-ORATS options-chain QC runner.
-
-Runs three suites on the processed options chain:
-- HARD: must-pass invariants (structural sanity).
-- SOFT: diagnostics/quality signals (graded by thresholds).
-- INFO: descriptive metrics only (never fails).
-
-This module is read-only: it does not drop or modify rows.
+Runs HARD, SOFT, and INFO suites and optionally writes JSON QC artifacts.
+This module is read-only and does not mutate dataset rows.
 """
 
 from __future__ import annotations
@@ -48,19 +41,23 @@ def run_options_chain_qc(
     roi_delta_max: float = 0.9,
     top_k_buckets: int = 10,
 ) -> QCRunResult:
-    """
-    Run QC on the processed ORATS options chain for one ticker.
+    """Run QC on one processed options-chain ticker panel.
 
-    What it does:
-    - Loads the processed options chain from `proc_root` for `ticker`.
-    - Detects exercise style (EU/AM) from manifest.json next to the parquet
-      when available, to enable style-specific SOFT checks.
-    - Runs HARD, SOFT, and INFO suites on GLOBAL and ROI subsets.
-    - Logs a compact line per check.
-    - Optionally writes qc_summary.json and qc_config.json.
+    Args:
+        ticker: Underlying ticker symbol.
+        proc_root: Root directory containing processed options-chain panels.
+        out_json: Optional explicit path for `qc_summary.json`.
+        write_json: Write `qc_summary.json` and `qc_config.json` when `True`.
+        dte_bins: DTE bucket edges for SOFT diagnostics.
+        delta_bins: Absolute-delta bucket edges for SOFT diagnostics.
+        roi_dte_min: Minimum DTE for ROI subset checks.
+        roi_dte_max: Maximum DTE for ROI subset checks.
+        roi_delta_min: Minimum absolute delta for ROI subset checks.
+        roi_delta_max: Maximum absolute delta for ROI subset checks.
+        top_k_buckets: Maximum number of bucket summaries to keep per check.
 
-    Returns a QCRunResult with config, results, pass/fail, counts, timings,
-    and artifact paths (when written).
+    Returns:
+        Run summary with check results, outcome counts, timing, and artifact paths.
     """
     t0 = time.perf_counter()
 

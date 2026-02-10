@@ -1,3 +1,5 @@
+"""INFO QC spec definitions for daily-features panels."""
+
 from __future__ import annotations
 
 from ...info.spec_types import InfoSpec

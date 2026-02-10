@@ -1,3 +1,5 @@
+"""Internal helpers for ORATS API raw-to-parquet extraction."""
+
 from __future__ import annotations
 
 import gzip

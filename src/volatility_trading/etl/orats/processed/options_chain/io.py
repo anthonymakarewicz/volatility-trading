@@ -1,8 +1,4 @@
-""" ""volatility_trading.etl.orats.processed.options_chain_io
-
-This module contains intermediate scans for FTP strikes whose behaviour requires
-placing it in options_chain/ rather than shared/
-"""
+"""IO helpers specific to processed ORATS options-chain inputs."""
 
 from __future__ import annotations
 

@@ -1,3 +1,5 @@
+"""Logging argument and setup helpers for CLI entrypoints."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -14,6 +16,7 @@ DEFAULT_LOGGING: dict[str, Any] = {
 
 
 def add_logging_args(parser) -> None:
+    """Add common logging CLI flags to a parser."""
     parser.add_argument(
         "--log-level",
         type=str,
@@ -48,6 +51,7 @@ def add_logging_args(parser) -> None:
 
 
 def _normalize_logging_config(config: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Merge runtime logging config with defaults and legacy aliases."""
     merged = dict(DEFAULT_LOGGING)
     if not config:
         return merged
@@ -67,6 +71,7 @@ def _normalize_logging_config(config: Mapping[str, Any] | None) -> dict[str, Any
 
 
 def setup_logging_from_config(config: Mapping[str, Any] | None) -> None:
+    """Configure application logging from merged logging settings."""
     log_cfg = _normalize_logging_config(config)
     setup_logging(
         log_cfg["level"],

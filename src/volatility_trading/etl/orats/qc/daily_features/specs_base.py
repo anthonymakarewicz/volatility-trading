@@ -1,3 +1,5 @@
+"""Shared constants for daily-features QC spec definitions."""
+
 from __future__ import annotations
 
 from volatility_trading.etl.orats.processed.daily_features.config import (

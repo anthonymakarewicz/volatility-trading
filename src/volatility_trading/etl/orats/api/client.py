@@ -1,3 +1,5 @@
+"""HTTP client for ORATS API requests with validation and retry behavior."""
+
 from __future__ import annotations
 
 import logging

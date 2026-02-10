@@ -1,4 +1,5 @@
-# qc/spec_types.py
+"""Spec dataclasses for SOFT QC row and dataset checks."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -10,6 +11,8 @@ import polars as pl
 
 @dataclass(frozen=True, kw_only=True)
 class SoftSpecBase:
+    """Shared fields for all SOFT QC spec definitions."""
+
     base_name: str
     thresholds: dict[str, float] | None = None
     use_roi: bool = True
@@ -18,6 +21,8 @@ class SoftSpecBase:
 
 @dataclass(frozen=True, kw_only=True)
 class SoftRowSpec(SoftSpecBase):
+    """Definition of one row-level SOFT QC check."""
+
     flagger: Callable[..., pl.DataFrame]
     violation_col: str
     kind: Literal["row"] = "row"
@@ -32,6 +37,8 @@ class SoftRowSpec(SoftSpecBase):
 
 @dataclass(frozen=True, kw_only=True)
 class SoftDatasetSpec(SoftSpecBase):
+    """Definition of one dataset-level SOFT QC check."""
+
     checker: Callable[..., dict[str, Any]]
     kind: Literal["dataset"] = "dataset"
     checker_kwargs: dict[str, Any] = field(default_factory=dict)

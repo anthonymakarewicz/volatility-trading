@@ -1,4 +1,5 @@
-# etl/orats/processed/_shared/manifest.py
+"""Shared manifest writer for processed ORATS outputs."""
+
 from __future__ import annotations
 
 import json

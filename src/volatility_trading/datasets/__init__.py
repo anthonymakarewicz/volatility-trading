@@ -1,3 +1,9 @@
+"""Dataset I/O helpers for processed ORATS panels.
+
+This package exposes thin convenience wrappers to locate, scan, read, and
+reshape the processed `options_chain` and `daily_features` datasets.
+"""
+
 from .daily_features import (
     daily_features_path,
     join_daily_features,

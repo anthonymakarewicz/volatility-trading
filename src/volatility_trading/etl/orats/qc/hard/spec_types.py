@@ -1,3 +1,5 @@
+"""Spec dataclasses for HARD QC checks."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

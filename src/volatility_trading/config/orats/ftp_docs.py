@@ -1,3 +1,5 @@
+"""Column-level documentation dictionaries for ORATS FTP strikes datasets."""
+
 STRIKES_VENDOR_COL_DOCS = {
     "ticker": "Underlying symbol representing the stock or index.",
     "cOpra": (

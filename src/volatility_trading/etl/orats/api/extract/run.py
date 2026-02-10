@@ -1,3 +1,9 @@
+"""Extraction step for ORATS API raw payload snapshots.
+
+Reads raw JSON snapshots, applies endpoint schema normalization, and writes
+intermediate parquet outputs.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -23,34 +29,23 @@ def extract(
     overwrite: bool = False,
     parquet_compression: str = "zstd",
 ) -> ExtractApiResult:
-    """
-    Extract ORATS raw API snapshots into intermediate parquet.
+    """Extract ORATS raw API snapshots into intermediate parquet datasets.
 
-    Parameters
-    ----------
-    endpoint:
-        Endpoint name (key in `orats_api_endpoints.ENDPOINTS`).
-    raw_root:
-        Root of raw snapshots produced by `orats_downloader_api.download`.
-    intermediate_root:
-        Root of intermediate parquet output.
-    tickers:
-        Optional ticker allowlist. If None:
-          - FULL_HISTORY: inferred from `underlying=*` folders.
-          - BY_TRADE_DATE: keep all tickers present in payloads.
-    year_whitelist:
-        Required for BY_TRADE_DATE endpoints. Ignored for FULL_HISTORY.
-    compression:
-        "gz" or "none" (must match how raw snapshots were written).
-    overwrite:
-        If False (default), skip intermediate files that already exist.
-    parquet_compression:
-        Parquet compression (e.g. "zstd", "snappy").
+    Args:
+        endpoint: Endpoint name from the endpoint registry.
+        raw_root: Root directory containing raw JSON snapshots.
+        intermediate_root: Root directory for intermediate parquet outputs.
+        tickers: Optional ticker allowlist.
+        year_whitelist: Required for BY_TRADE_DATE endpoints.
+        compression: Raw snapshot compression mode (`"gz"` or `"none"`).
+        overwrite: Replace existing intermediate files when `True`.
+        parquet_compression: Compression codec for parquet writes.
 
-    Returns
-    -------
-    ExtractApiResult:
-        Summary including written files and failures.
+    Returns:
+        Summary including read/write counts, output paths, and failures.
+
+    Raises:
+        ValueError: For invalid compression, invalid tickers, or missing years.
     """
     raw_root_p = Path(raw_root)
     interm_root_p = Path(intermediate_root)

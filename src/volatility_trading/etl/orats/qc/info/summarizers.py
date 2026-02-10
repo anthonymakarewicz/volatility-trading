@@ -1,4 +1,5 @@
-# qc/info/summarizers.py
+"""Informational metric summarizers for QC reports."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

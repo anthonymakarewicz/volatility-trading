@@ -40,68 +40,28 @@ def build(
     collect_stats: bool = False,
     columns: Sequence[str] | None = OPTIONS_CHAIN_CORE_COLUMNS,
 ) -> BuildOptionsChainResult:
-    """Build a cleaned, WIDE ORATS panel for a single ticker.
+    """Build a processed options-chain panel for one ticker.
 
-    Raw (intermediate) layout
-    -------------------------
-    inter_root/
-        underlying=<TICKER>/year=<YYYY>/part-0000.parquet
+    Args:
+        inter_root: Root of intermediate ORATS strikes partitions.
+        proc_root: Root directory where processed parquet is written.
+        ticker: Underlying symbol (for example `"SPX"`).
+        years: Optional subset of years to include.
+        dte_min: Minimum allowed DTE.
+        dte_max: Maximum allowed DTE.
+        moneyness_min: Minimum allowed strike/spot moneyness.
+        moneyness_max: Maximum allowed strike/spot moneyness.
+        monies_implied_inter_root: Intermediate ORATS API root used to merge
+            dividend yield from `monies_implied`.
+        merge_dividend_yield: Enable/disable dividend-yield merge step.
+        derive_put_greeks: Derive put greeks via parity when `True`, otherwise
+            use the simplified put-greek convention.
+        collect_stats: Collect optional row-count stats during build.
+        columns: Optional explicit output column list.
 
-    Processed output
-    ----------------
-    proc_root/
-        underlying=<TICKER>/part-0000.parquet
-
-    The processed panel:
-    - parses dates (trade_date, expiry_date)
-    - computes DTE and K/S moneyness
-    - normalises vendor names (stkPx -> spot_price, cBidPx -> call_bid_price)
-    - optionally merges dividend yield from ORATS API monies_implied
-      (replacing empty/invalid dividend_yield in the FTP strikes)
-    - computes call/put mid prices, spreads, relative spreads
-    - applies basic sanity filters
-    - trims extreme DTE and moneyness
-    - drops completely dead contracts (no quotes, no theo value)
-    - exposes call Greeks as call_delta, call_gamma, ...
-    - adds put Greeks via European put–call parity (put_delta, put_gamma)
-
-    Parameters
-    ----------
-    inter_root:
-        Root of intermediate ORATS-by-ticker parquet structure.
-    proc_root:
-        Root for processed ORATS panels.
-    ticker:
-        Underlying symbol (e.g. "SPX").
-    years:
-        Optional subset of years to include (ints or strings).
-    dte_min, dte_max:
-        DTE band to keep in the processed panel.
-    moneyness_min, moneyness_max:
-        Coarse K/S moneyness band to keep.
-    monies_implied_inter_root:
-        Root of intermediate ORATS API parquet output (the folder that contains
-        `endpoint=monies_implied/underlying=<TICKER>/part-0000.parquet`).
-        If None, the merge step is skipped.
-    merge_dividend_yield:
-        If True (default), replace/overwrite `dividend_yield` in the
-        options chain using `yield_rate` from the monies_implied endpoint
-        joined on (ticker, trade_date, expiry_date).
-    derive_put_greeks:
-        If True (default), derive put Greeks via European put–call parity using
-        dividend_yield and risk_free_rate. If False, use a minimal convention:
-        put_delta = call_delta - 1 and copy theta/rho/gamma/vega from the call.
-    collect_stats:
-        If True, collect all the rows counts from filtering operations e.g.
-        removed duplicates, remove negative prices ...
-    columns:
-        Optional explicit list of columns for the output schema.
-        If None, uses OPTIONS_CHAIN_CORE_COLUMNS.
-
-    Returns
-    -------
-    BuildOptionsChainResult
-        Summary including optional row-drop stats when `collect_stats=True`.
+    Returns:
+        Build summary including output path, duration, row count, and optional
+        stats counters.
     """
     inter_root_p = Path(inter_root)
     proc_root_p = Path(proc_root)

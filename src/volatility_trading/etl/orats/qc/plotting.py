@@ -1,3 +1,5 @@
+"""Plotting utilities for ORATS QC exploratory diagnostics."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence

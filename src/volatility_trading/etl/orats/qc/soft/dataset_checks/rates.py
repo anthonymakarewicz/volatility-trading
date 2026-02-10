@@ -1,4 +1,5 @@
-# qc/soft/dataset_checks/risk_free_rate.py
+"""Dataset-level SOFT QC checks for ORATS option data."""
+
 from __future__ import annotations
 
 from typing import Any

@@ -1,4 +1,4 @@
-# volatility_trading/etl/orats/processed/options_chain/_steps/filters.py
+"""Filtering steps for processed options-chain panels."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ def apply_filters(
     collect_stats: bool,
     stats: BuildStats,
 ) -> pl.LazyFrame:
+    """Apply trading-band filters and hard sanity filters."""
     # 8A) Trading band filters
     n_before_trading: int | None = count_rows(lf) if collect_stats else None
 

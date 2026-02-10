@@ -1,3 +1,5 @@
+"""Endpoint registry and contracts for ORATS API download/extract."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -5,12 +7,16 @@ from enum import Enum
 
 
 class DownloadStrategy(Enum):
+    """Supported ORATS download strategies."""
+
     FULL_HISTORY = "full_history"
     BY_TRADE_DATE = "by_trade_date"
 
 
 @dataclass(frozen=True)
 class EndpointSpec:
+    """Endpoint contract used by API download/extract runners."""
+
     path: str
     strategy: DownloadStrategy
     required: tuple[str, ...]

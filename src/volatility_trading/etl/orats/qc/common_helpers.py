@@ -1,3 +1,5 @@
+"""Shared orchestration helpers for ORATS QC runs."""
+
 from __future__ import annotations
 
 from pathlib import Path

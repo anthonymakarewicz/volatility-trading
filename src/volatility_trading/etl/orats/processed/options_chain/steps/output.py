@@ -1,4 +1,4 @@
-# volatility_trading/etl/orats/processed/options_chain/_steps/output.py
+"""Output/materialization step for processed options-chain panels."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ def collect_and_write(
     ticker: str,
     columns: Sequence[str],
 ) -> tuple[pl.DataFrame, Path]:
+    """Collect final panel, sort rows, and write parquet output."""
     lf = lf.sort(["trade_date", "expiry_date", "strike"])
     df = lf.select(list(columns)).collect()
 

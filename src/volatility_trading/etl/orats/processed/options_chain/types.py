@@ -1,7 +1,4 @@
-"""volatility_trading.etl.orats.processed.options_chain.types
-
-Public and internal dataclasses for the ORATS processed options-chain builder.
-"""
+"""Dataclasses for processed ORATS options-chain build outputs and stats."""
 
 from __future__ import annotations
 

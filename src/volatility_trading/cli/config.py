@@ -1,3 +1,5 @@
+"""Config-loading and merging helpers for CLI entrypoints."""
+
 from __future__ import annotations
 
 import os
@@ -12,6 +14,7 @@ except ModuleNotFoundError:  # pragma: no cover - handled at runtime
 
 
 def add_config_arg(parser, *, default: str | None = None) -> None:
+    """Add a `--config` YAML-path argument to a parser."""
     parser.add_argument(
         "--config",
         type=str,
@@ -21,6 +24,7 @@ def add_config_arg(parser, *, default: str | None = None) -> None:
 
 
 def load_yaml_config(path: str | Path | None) -> dict[str, Any]:
+    """Load a top-level YAML mapping config from disk."""
     if path is None:
         return {}
 
@@ -46,6 +50,7 @@ def deep_merge(
     base: Mapping[str, Any],
     updates: Mapping[str, Any],
 ) -> dict[str, Any]:
+    """Recursively merge two mapping trees."""
     merged: dict[str, Any] = {}
 
     for key, value in base.items():
@@ -68,6 +73,7 @@ def build_config(
     yaml_path: str | Path | None,
     overrides: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Build final config via defaults <- YAML <- CLI overrides."""
     config = deep_merge(defaults, load_yaml_config(yaml_path))
     if overrides:
         config = deep_merge(config, overrides)
@@ -75,6 +81,7 @@ def build_config(
 
 
 def resolve_path(value: str | Path | None) -> Path | None:
+    """Resolve env/user-expanded path strings to `Path` objects."""
     if value is None:
         return None
     if isinstance(value, Path):

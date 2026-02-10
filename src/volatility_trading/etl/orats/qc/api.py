@@ -1,4 +1,5 @@
-# qc/api.py
+"""Compatibility facade for ORATS QC public entrypoints and types."""
+
 from __future__ import annotations
 
 from .daily_features.runner import run_daily_features_qc

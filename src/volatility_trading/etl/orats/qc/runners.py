@@ -1,3 +1,5 @@
+"""Core check runners used by HARD, SOFT, and INFO QC suites."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence

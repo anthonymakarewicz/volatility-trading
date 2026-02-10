@@ -1,3 +1,5 @@
+"""Strategy-specific handlers for ORATS API extraction orchestration."""
+
 from __future__ import annotations
 
 import logging

@@ -26,6 +26,7 @@ def build_manifest_payload(
     # stats
     stats: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    """Build the manifest payload recorded next to processed parquet output."""
     return {
         "schema_version": 1,
         "dataset": "orats_daily_features",

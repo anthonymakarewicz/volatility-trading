@@ -1,3 +1,5 @@
+"""Join/spine construction steps for processed daily-features panels."""
+
 from __future__ import annotations
 
 import logging

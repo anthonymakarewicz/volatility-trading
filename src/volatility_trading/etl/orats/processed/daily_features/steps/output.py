@@ -1,3 +1,5 @@
+"""Output/materialization step for processed daily-features panels."""
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +21,7 @@ def collect_and_write(
     ticker: str,
     columns: Sequence[str],
 ) -> tuple[pl.DataFrame, Path]:
+    """Collect final panel, sort rows, and write parquet output."""
     lf = lf.sort(["trade_date"])
     df = lf.select(list(columns)).collect()
 

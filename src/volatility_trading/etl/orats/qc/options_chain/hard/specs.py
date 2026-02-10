@@ -1,3 +1,5 @@
+"""HARD QC spec definitions for options-chain panels."""
+
 from __future__ import annotations
 
 from ...hard.exprs import (

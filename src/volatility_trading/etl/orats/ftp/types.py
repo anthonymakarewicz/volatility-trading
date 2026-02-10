@@ -1,3 +1,5 @@
+"""Result dataclasses for ORATS FTP download/extract runs."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,7 +8,7 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class DownloadFtpResult:
-    """Summary of an ORATS FTP download run."""
+    """Summary metrics and paths produced by one FTP download run."""
 
     host: str
     n_jobs: int
@@ -24,7 +26,7 @@ class DownloadFtpResult:
 
 @dataclass(frozen=True)
 class ExtractFtpResult:
-    """Summary of an ORATS FTP extraction run."""
+    """Summary metrics and paths produced by one FTP extraction run."""
 
     n_zip_files_seen: int
     n_zip_files_read: int

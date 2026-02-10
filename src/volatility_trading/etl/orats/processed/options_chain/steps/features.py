@@ -1,4 +1,4 @@
-# volatility_trading/etl/orats/processed/options_chain/_steps/features.py
+"""Feature-derivation step for processed options-chain panels."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import polars as pl
 
 
 def add_derived_features(*, lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Add DTE, moneyness, mids, spreads, and relative-spread columns."""
     lf = lf.with_columns(
         dte=(pl.col("expiry_date") - pl.col("trade_date")).dt.total_days(),
         moneyness_ks=pl.col("strike") / pl.col("spot_price"),

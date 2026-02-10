@@ -1,7 +1,4 @@
-"""volatility_trading.etl.orats.processed.options_chain.manifest
-
-Manifest helpers for the ORATS options-chain builder.
-"""
+"""Manifest payload helpers for processed ORATS options-chain outputs."""
 
 from __future__ import annotations
 
@@ -30,6 +27,7 @@ def build_manifest_payload(
     # stats
     stats: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    """Build the manifest payload recorded next to processed parquet output."""
     return {
         "schema_version": 1,
         "dataset": "orats_options_chain",

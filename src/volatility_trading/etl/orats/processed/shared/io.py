@@ -1,3 +1,5 @@
+"""Shared IO/path helpers for processed ORATS datasets."""
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +16,7 @@ def _intermediate_endpoint_part_path(
     endpoint: str,
     ticker: str,
 ) -> Path:
+    """Return intermediate path for one endpoint/ticker parquet partition."""
     root = Path(inter_api_root)
     t = str(ticker).strip().upper()
     if not t:

@@ -1,3 +1,5 @@
+"""Internal helpers for reading and normalizing ORATS FTP strike ZIP files."""
+
 from __future__ import annotations
 
 import logging
@@ -55,7 +57,17 @@ def _normalize_strikes_vendor_df(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def read_orats_zip_to_polars(zip_path: Path) -> pl.DataFrame:
-    """Read one ORATS strikes ZIP (containing a CSV) into a normalized DataFrame."""
+    """Read one ORATS strikes ZIP into a normalized Polars DataFrame.
+
+    Args:
+        zip_path: Path to a ZIP file expected to contain at least one CSV entry.
+
+    Returns:
+        Normalized strikes DataFrame using canonical column names.
+
+    Raises:
+        FileNotFoundError: If no CSV entry is found inside the ZIP.
+    """
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
 

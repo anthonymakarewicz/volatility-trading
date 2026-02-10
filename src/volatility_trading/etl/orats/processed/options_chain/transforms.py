@@ -1,7 +1,4 @@
-""" ""volatility_trading.etl.orats.processed.options_chain_transforms
-
-Private transformation helpers used by the ORATS options-chain builder.
-"""
+"""Private transformation helpers for the processed options-chain builder."""
 
 from __future__ import annotations
 

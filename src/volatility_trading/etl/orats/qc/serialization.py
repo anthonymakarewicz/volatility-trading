@@ -1,4 +1,5 @@
-# qc/serialization.py
+"""Serialization helpers for QC report payloads."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

@@ -46,8 +46,9 @@ indent-style = "space"
 include = [
   "src/volatility_trading/apps",
   "src/volatility_trading/cli",
-  "src/volatility_trading/etl",
   "src/volatility_trading/config",
+  "src/volatility_trading/datasets",
+  "src/volatility_trading/etl",
 ]
 venvPath = "."
 venv = ".venv"
