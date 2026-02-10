@@ -1,5 +1,12 @@
 # **Volatility Trading on Equity Options**
 
+[![CI](https://github.com/anthonymakarewicz/volatility_trading/actions/workflows/ci.yml/badge.svg)](https://github.com/anthonymakarewicz/volatility_trading/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+[![Ruff](https://img.shields.io/badge/lint-ruff-46a?logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
+[![Pyright](https://img.shields.io/badge/type%20check-pyright-blue)](https://github.com/microsoft/pyright)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 This project presents several daily volatility trading strategies on index and single‑stock equity options.
 Each strategy is thoroughly backtested and appropriate risk management constraints are considered.
 
