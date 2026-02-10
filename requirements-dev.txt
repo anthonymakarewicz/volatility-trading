@@ -3,3 +3,5 @@ ruff
 pre-commit
 pyright
 pandas-stubs
+jupytext
+jupyter

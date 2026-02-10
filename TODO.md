@@ -1,8 +1,4 @@
 ## Project
-- Added CI wiht github/workflows
-- Add Makefile for common dev actions like make test, make lint, make format, make test-integration, make precommit, make all + add a doc for dev worklow
-- Add pyright to local + CI
-- Added badges to README.md
 
 ## Release hygiene
 Add CHANGELOG.md, LICENSE, CONTRIBUTING.md

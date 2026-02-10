@@ -28,6 +28,8 @@ make typecheck
 make test
 make test-unit
 make test-integration
+make sync-nb
+make sync-nb-all
 make ci
 ```
 
@@ -52,6 +54,19 @@ Current hooks include:
 - YAML validation
 - large-file guard
 - Ruff lint and format for `src/` and `tests/`
+- Jupytext sync for paired notebooks in `notebooks/`
+
+## Notebook Workflow
+
+Notebook usage is standardized with Jupytext pairing (`.ipynb` + `.py:percent`).
+
+- Single notebook sync:
+  - `make sync-nb NOTEBOOK=notebooks/foo.ipynb`
+- Sync all notebooks:
+  - `make sync-nb-all`
+
+For full setup and policy (pairing, execution checks, output policy), see
+[Notebook workflow](notebooks.md).
 
 ## Dependency Updates
 
