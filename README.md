@@ -105,7 +105,9 @@ make ci
 ```
 
 For full setup and tooling details, see [Development guide](docs/development.md).
-For notebook pairing and sync workflow, see [Notebook workflow](docs/notebooks.md).
+For notebook pairing and sync workflow, see [Jupytext workflow](docs/jupytext.md).
+For notebook summaries and published report links, see [Notebook catalog](docs/notebooks.md).
+Notebook HTML outputs are published under `reports/`.
 
 ## **Docs**
 
@@ -116,7 +118,8 @@ See:
 - [Data pipeline](docs/data_pipeline.md) for the end-to-end pipeline flow
 - [Troubleshooting](docs/troubleshooting.md) for common errors and fixes
 - [Test structure](docs/test_structure.md) for tests and how to run them
-- [Notebook workflow](docs/notebooks.md) for Jupytext pairing, sync, and reproducible execution
+- [Jupytext workflow](docs/jupytext.md) for notebook pairing, sync, and reproducible execution
+- [Notebook catalog](docs/notebooks.md) for notebook summaries and report links
 - [See the full package here](docs/package_structure.md)
 
 

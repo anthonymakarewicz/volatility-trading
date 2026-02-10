@@ -66,7 +66,7 @@ Notebook usage is standardized with Jupytext pairing (`.ipynb` + `.py:percent`).
   - `make sync-nb-all`
 
 For full setup and policy (pairing, execution checks, output policy), see
-[Notebook workflow](notebooks.md).
+[Jupytext workflow](jupytext.md).
 
 ## Dependency Updates
 

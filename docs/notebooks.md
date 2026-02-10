@@ -1,56 +1,27 @@
-# Notebook Workflow (Jupytext)
+# Notebook Catalog
 
-Use Jupytext to keep notebooks reviewable in Git while still runnable in Jupyter.
+This page summarizes research notebooks and links to published HTML reports.
+For pairing and sync instructions, see [Jupytext workflow](jupytext.md).
 
-## Quickstart (Default)
+## Published Reports
 
-1. Pair once per notebook:
+- `greeks`: options Greeks analysis and sanity checks.
+  - Source: `notebooks/greeks.ipynb`
+  - Report: `reports/greeks.html`
+- `iv_surface_modelling`: implied-volatility surface modelling and comparison.
+  - Source: `notebooks/iv_surface_modelling.ipynb`
+  - Report: `reports/iv_surface_modelling.html`
+- `rv_forecasting`: realized volatility forecasting pipeline and model evaluation.
+  - Source: `notebooks/rv_forecasting.ipynb`
+  - Report: `reports/rv_forecasting.html`
+- `skew_trading`: skew mean-reversion strategy design and backtest.
+  - Source: `notebooks/skew_trading.ipynb`
+  - Report: `reports/skew_trading.html`
+- `vrp_harvesting`: volatility risk premium strategy research and results.
+  - Source: `notebooks/vrp_harvesting.ipynb`
+  - Report: `reports/vrp_harvesting.html`
 
-```bash
-jupytext --set-formats ipynb,py:percent notebooks/foo.ipynb
-```
+## Other Notebooks (work-in-progress)
 
-2. Edit either side:
-- `notebooks/foo.ipynb` in Jupyter
-- `notebooks/foo.py` in VS Code/text editor
-
-3. Sync before commit:
-
-```bash
-make sync-nb NOTEBOOK=notebooks/foo.ipynb
-```
-
-You can pass either `.ipynb` or `.py`.
-
-4. Commit both paired files (`.ipynb` + `.py`).
-
-## Optional Checks
-
-Run from a clean kernel to catch hidden state:
-
-```bash
-jupyter nbconvert --to notebook --execute --inplace notebooks/foo.ipynb
-```
-
-Clear outputs for cleaner diffs (team preference):
-
-```bash
-jupyter nbconvert --clear-output --inplace notebooks/foo.ipynb
-make sync-nb NOTEBOOK=notebooks/foo.ipynb
-```
-
-## Automation
-
-Pre-commit includes a Jupytext sync hook for files under `notebooks/`.
-
-Install once:
-
-```bash
-pre-commit install
-```
-
-Run manually when needed:
-
-```bash
-pre-commit run --all-files
-```
+- `notebooks/orats_spy_validation.ipynb`: SPY options quality diagnostics.
+- `notebooks/orats_spy_eda.ipynb`: SPY options EDA.
