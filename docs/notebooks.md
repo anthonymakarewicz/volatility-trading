@@ -2,24 +2,31 @@
 
 This page summarizes research notebooks and links to published HTML reports.
 For pairing and sync instructions, see [Jupytext workflow](jupytext.md).
+For deployment details, see [Publishing](publishing.md).
+Published reports are served from GitHub Pages.
+
+Base URL: `https://anthonymakarewicz.github.io/volatility_trading/`
+Deployment workflow: `.github/workflows/pages.yml`
+
+To activate publishing, set `Settings -> Pages -> Source` to `GitHub Actions`.
 
 ## Published Reports
 
 - `greeks`: options Greeks analysis and sanity checks.
   - Source: `notebooks/greeks.ipynb`
-  - Report: `reports/greeks.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility_trading/greeks.html`
 - `iv_surface_modelling`: implied-volatility surface modelling and comparison.
   - Source: `notebooks/iv_surface_modelling.ipynb`
-  - Report: `reports/iv_surface_modelling.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility_trading/iv_surface_modelling.html`
 - `rv_forecasting`: realized volatility forecasting pipeline and model evaluation.
   - Source: `notebooks/rv_forecasting.ipynb`
-  - Report: `reports/rv_forecasting.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility_trading/rv_forecasting.html`
 - `skew_trading`: skew mean-reversion strategy design and backtest.
   - Source: `notebooks/skew_trading.ipynb`
-  - Report: `reports/skew_trading.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility_trading/skew_trading.html`
 - `vrp_harvesting`: volatility risk premium strategy research and results.
   - Source: `notebooks/vrp_harvesting.ipynb`
-  - Report: `reports/vrp_harvesting.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility_trading/vrp_harvesting.html`
 
 ## Other Notebooks (work-in-progress)
 

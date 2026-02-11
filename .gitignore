@@ -29,6 +29,8 @@ build/
 
 # Jupyter
 .ipynb_checkpoints/
+reports/
+site/
 
 # Data / temp current dir
 /data/

@@ -1,0 +1,73 @@
+name: Build and Deploy Notebook Reports
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install nbconvert
+
+      - name: Build HTML reports
+        run: |
+          mkdir -p site
+          jupyter nbconvert --to html --output-dir site \
+            notebooks/greeks.ipynb \
+            notebooks/iv_surface_modelling.ipynb \
+            notebooks/rv_forecasting.ipynb \
+            notebooks/skew_trading.ipynb \
+            notebooks/vrp_harvesting.ipynb
+
+      - name: Add index page
+        run: |
+          python - <<'PY'
+          import glob
+          import os
+
+          files = sorted(glob.glob("site/*.html"))
+          with open("site/index.html", "w", encoding="utf-8") as f:
+              f.write("<h1>Notebook Reports</h1><ul>")
+              for p in files:
+                  name = os.path.basename(p)
+                  if name == "index.html":
+                      continue
+                  f.write(f'<li><a href="{name}">{name}</a></li>')
+              f.write("</ul>")
+          PY
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

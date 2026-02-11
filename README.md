@@ -10,6 +10,8 @@
 This project presents several daily volatility trading strategies on index and single‑stock equity options.
 Each strategy is thoroughly backtested and appropriate risk management constraints are considered.
 
+Notebook reports (GitHub Pages): `https://anthonymakarewicz.github.io/volatility_trading/`
+
 ## **Quickstart**
 
 1. Clone the repository:
@@ -107,7 +109,8 @@ make ci
 For full setup and tooling details, see [Development guide](docs/development.md).
 For notebook pairing and sync workflow, see [Jupytext workflow](docs/jupytext.md).
 For notebook summaries and published report links, see [Notebook catalog](docs/notebooks.md).
-Notebook HTML outputs are published under `reports/`.
+For deployment details, see [Publishing](docs/publishing.md).
+Notebook HTML reports are built in GitHub Actions and published to GitHub Pages.
 
 ## **Docs**
 
@@ -120,6 +123,7 @@ See:
 - [Test structure](docs/test_structure.md) for tests and how to run them
 - [Jupytext workflow](docs/jupytext.md) for notebook pairing, sync, and reproducible execution
 - [Notebook catalog](docs/notebooks.md) for notebook summaries and report links
+- [Publishing](docs/publishing.md) for GitHub Pages build and deploy workflow
 - [See the full package here](docs/package_structure.md)
 
 
