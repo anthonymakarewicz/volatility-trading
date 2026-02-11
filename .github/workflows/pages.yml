@@ -1,4 +1,4 @@
-name: Build and Deploy Notebook Reports
+name: Pages
 
 on:
   push:

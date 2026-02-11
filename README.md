@@ -1,16 +1,17 @@
 # **Volatility Trading on Equity Options**
 
-[![CI](https://github.com/anthonymakarewicz/volatility_trading/actions/workflows/ci.yml/badge.svg)](https://github.com/anthonymakarewicz/volatility_trading/actions/workflows/ci.yml)
+[![CI](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/ci.yml)
+[![Pages](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/pages.yml/badge.svg)](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/pages.yml)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![Ruff](https://img.shields.io/badge/lint-ruff-46a?logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
 [![Pyright](https://img.shields.io/badge/type%20check-pyright-blue)](https://github.com/microsoft/pyright)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-This project presents several daily volatility trading strategies on index and single‑stock equity options.
-Each strategy is thoroughly backtested and appropriate risk management constraints are considered.
+This project develops and evaluates daily options-volatility strategies on index and single-stock underlyings.
+Research spans the full pipeline: data engineering and quality checks, implied-volatility surface modelling, volatility forecasting, and strategy backtesting.
+Backtests use realistic execution assumptions (bid/ask, slippage, commissions, position sizing, and risk limits) and are documented with reproducible notebooks and published reports.
 
-Notebook reports (GitHub Pages): `https://anthonymakarewicz.github.io/volatility_trading/`
+Notebook reports (GitHub Pages): [https://anthonymakarewicz.github.io/volatility-trading/](https://anthonymakarewicz.github.io/volatility-trading/)
 
 ## **Quickstart**
 

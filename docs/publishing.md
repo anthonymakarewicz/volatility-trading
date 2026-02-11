@@ -6,7 +6,7 @@ GitHub Actions.
 ## Source of Truth
 
 - Workflow file: `.github/workflows/pages.yml`
-- Published site: `https://anthonymakarewicz.github.io/volatility_trading/`
+- Published site: `https://anthonymakarewicz.github.io/volatility-trading/`
 - Notebook/report catalog: `docs/notebooks.md`
 
 ## How It Works

@@ -5,7 +5,7 @@ For pairing and sync instructions, see [Jupytext workflow](jupytext.md).
 For deployment details, see [Publishing](publishing.md).
 Published reports are served from GitHub Pages.
 
-Base URL: `https://anthonymakarewicz.github.io/volatility_trading/`
+Base URL: `https://anthonymakarewicz.github.io/volatility-trading/`
 Deployment workflow: `.github/workflows/pages.yml`
 
 To activate publishing, set `Settings -> Pages -> Source` to `GitHub Actions`.
@@ -14,19 +14,19 @@ To activate publishing, set `Settings -> Pages -> Source` to `GitHub Actions`.
 
 - `greeks`: options Greeks analysis and sanity checks.
   - Source: `notebooks/greeks.ipynb`
-  - Report: `https://anthonymakarewicz.github.io/volatility_trading/greeks.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility-trading/greeks.html`
 - `iv_surface_modelling`: implied-volatility surface modelling and comparison.
   - Source: `notebooks/iv_surface_modelling.ipynb`
-  - Report: `https://anthonymakarewicz.github.io/volatility_trading/iv_surface_modelling.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility-trading/iv_surface_modelling.html`
 - `rv_forecasting`: realized volatility forecasting pipeline and model evaluation.
   - Source: `notebooks/rv_forecasting.ipynb`
-  - Report: `https://anthonymakarewicz.github.io/volatility_trading/rv_forecasting.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility-trading/rv_forecasting.html`
 - `skew_trading`: skew mean-reversion strategy design and backtest.
   - Source: `notebooks/skew_trading.ipynb`
-  - Report: `https://anthonymakarewicz.github.io/volatility_trading/skew_trading.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility-trading/skew_trading.html`
 - `vrp_harvesting`: volatility risk premium strategy research and results.
   - Source: `notebooks/vrp_harvesting.ipynb`
-  - Report: `https://anthonymakarewicz.github.io/volatility_trading/vrp_harvesting.html`
+  - Report: `https://anthonymakarewicz.github.io/volatility-trading/vrp_harvesting.html`
 
 ## Other Notebooks (work-in-progress)
 
