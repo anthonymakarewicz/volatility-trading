@@ -10,10 +10,6 @@ import polars as pl
 from .serialization import df_to_jsonable_records
 from .types import Grade, QCCheckResult, Severity
 
-# -----------------------------------------------------------------------------
-# Small helpers
-# -----------------------------------------------------------------------------
-
 
 def _grade_from_thresholds(rate: float, thresholds: dict[str, float]) -> Grade:
     """
@@ -36,11 +32,6 @@ def _grade_from_thresholds(rate: float, thresholds: dict[str, float]) -> Grade:
 def _count_bool_true(s: pl.Series) -> int:
     # Polars booleans can include null -> treat null as False
     return int(s.fill_null(False).sum())
-
-
-# -----------------------------------------------------------------------------
-# Public runners
-# -----------------------------------------------------------------------------
 
 
 def run_hard_check(

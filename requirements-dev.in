@@ -1,0 +1,12 @@
+# Requires Python >= 3.12
+
+-r requirements.in
+
+jupyter
+jupytext
+pandas-stubs
+pip-tools
+pre-commit
+pyright
+pytest
+ruff

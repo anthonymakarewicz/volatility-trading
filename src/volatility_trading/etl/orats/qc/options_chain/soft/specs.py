@@ -87,6 +87,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
         SoftRowSpec(
             base_name="one_sided_quotes",
             flagger=flag_one_sided_quotes,
+            thresholds={"mild": 0.02, "warn": 0.05, "fail": 0.15},
             violation_col="one_sided_quote_violation",
             sample_cols=BASE_KEYS + ["bid_price", "ask_price"],
         ),

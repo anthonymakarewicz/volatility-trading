@@ -22,7 +22,7 @@ git clone https://github.com/anthonymakarewicz/volatility-trading.git
 cd volatility_trading
 ```
 
-2. Create a virtual environment and install dependencies (Python 3.12+):
+2. Create a virtual environment and install runtime dependencies (Python 3.12+):
 
 ```bash
 python -m venv .venv
@@ -30,11 +30,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. Optional (dev tools + tests):
+3. Optional (development setup: runtime + dev tools + tests):
 
 ```bash
 pip install -r requirements-dev.txt
 ```
+
+`requirements-dev.txt` already includes all runtime dependencies from
+`requirements.txt`.
 
 4. Set credentials (ORATS):
 

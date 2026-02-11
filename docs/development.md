@@ -6,15 +6,18 @@ This guide is for day-to-day development in this repository.
 
 1. Use Python 3.12+.
 2. Create and activate a virtual environment.
-3. Install runtime and dev dependencies.
+3. Install development dependencies (includes runtime dependencies).
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip setuptools wheel
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements-dev.txt
 pip install -e .
 ```
+
+`requirements-dev.txt` includes the runtime dependency set, so installing only
+`requirements-dev.txt` is sufficient for local development.
 
 ## Core Workflow
 
