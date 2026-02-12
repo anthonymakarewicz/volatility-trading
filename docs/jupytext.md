@@ -24,6 +24,29 @@ You can pass either `.ipynb` or `.py`.
 
 4. Commit both paired files (`.ipynb` + `.py`).
 
+## If Sync Fails (Files Inconsistent)
+
+If Jupytext reports that `.ipynb` and `.py` are inconsistent, pick one file as the
+source of truth and regenerate the other:
+
+Trust `.ipynb` and recreate `.py`:
+
+```bash
+jupytext --to py:percent notebooks/foo.ipynb
+```
+
+Trust `.py` and recreate `.ipynb`:
+
+```bash
+jupytext --to ipynb notebooks/foo.py
+```
+
+Then run:
+
+```bash
+jupytext --sync notebooks/foo.ipynb
+```
+
 ## Optional Checks
 
 Run from a clean kernel to catch hidden state:

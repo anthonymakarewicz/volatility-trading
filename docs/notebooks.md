@@ -30,5 +30,5 @@ To activate publishing, set `Settings -> Pages -> Source` to `GitHub Actions`.
 
 ## Other Notebooks (work-in-progress)
 
-- `notebooks/orats_spy_validation.ipynb`: SPY options quality diagnostics.
-- `notebooks/orats_spy_eda.ipynb`: SPY options EDA.
+- `notebooks/orats_spy_qc_eda.ipynb`: SPY options quality diagnostics.
+- `notebooks/orats_spy_qc_eda.ipynb`: SPY options EDA.

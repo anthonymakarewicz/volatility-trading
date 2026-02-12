@@ -1,6 +1,6 @@
 .PHONY: help lint format check typecheck test test-unit test-integration ci sync-nb sync-nb-all
 
-NOTEBOOK ?= notebooks/orats_spy_eda.ipynb
+NOTEBOOK ?= notebooks/orats_spy_qc_eda.ipynb
 
 help:
 	@echo "Targets:"
