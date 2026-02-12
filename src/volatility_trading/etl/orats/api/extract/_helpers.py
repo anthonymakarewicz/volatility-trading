@@ -23,7 +23,6 @@ ParquetCompression: TypeAlias = Literal[
     "uncompressed",
     "snappy",
     "gzip",
-    "lzo",
     "brotli",
     "zstd",
 ]
