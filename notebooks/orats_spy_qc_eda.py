@@ -26,18 +26,20 @@
 # %load_ext autoreload
 # %autoreload 2
 
-from __future__ import annotations
-
 import json
 from datetime import date
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import polars as pl
 import yfinance as yf
 
-from volatility_trading.datasets import options_chain_wide_to_long, scan_options_chain
+from volatility_trading.config.paths import PROC_ORATS_OPTIONS_CHAIN
+from volatility_trading.datasets import (
+    options_chain_wide_to_long,
+    read_daily_features,
+    scan_options_chain,
+)
 from volatility_trading.etl.orats.qc.plotting import (
     plot_avg_volume_by_delta,
     plot_liquidity_by_dte,
@@ -45,6 +47,7 @@ from volatility_trading.etl.orats.qc.plotting import (
     plot_term_structures_by_delta,
 )
 from volatility_trading.iv_surface.term_structure import pick_closest_dte
+
 
 # %% [markdown]
 # # Read SPY Options data
@@ -56,7 +59,7 @@ from volatility_trading.iv_surface.term_structure import pick_closest_dte
 TICKER = "SPY"
 
 start = date(2007, 1, 1)
-end = date(2025, 12, 31)
+end = date(2025, 12, 5)
 
 delta_min = 0.01
 delta_max = 0.99
@@ -77,14 +80,23 @@ df_long = options_chain_wide_to_long(df).collect()
 df
 
 # %% [markdown]
+#
+
+# %%
+daily_features = read_daily_features(TICKER)
+daily_features = daily_features.filter(
+    pl.col("trade_date").is_between(start, end)
+)
+daily_features = daily_features.to_pandas().set_index("trade_date")
+daily_features
+
+# %% [markdown]
 # # Load QC summary artifact
 #
 # The checks below are read from the quality checks summary after running `orats-api-download --config config/orats_api_download.yml`
 # ```
 
 # %%
-from volatility_trading.config.paths import PROC_ORATS_OPTIONS_CHAIN
-
 qc_summary_path = (
      PROC_ORATS_OPTIONS_CHAIN / f"underlying={TICKER}" / "qc_summary.json"
 )
@@ -117,16 +129,40 @@ def qc_table(names: list[str]) -> pl.DataFrame:
     return pl.DataFrame(rows).sort(["severity", "name"])
 
 
-def qc_top_buckets(name: str) -> pl.DataFrame:
-    """Return top bucket diagnostics for one SOFT check."""
-    row = qc_by_name.get(name, {})
-    top_buckets = row.get("details", {}).get("top_buckets", [])
-    return pl.DataFrame(top_buckets)
+def qc_top_buckets(names: str | list[str]) -> pl.DataFrame:
+    """Return top bucket diagnostics for one or many SOFT checks."""
+    if isinstance(names, str):
+        row = qc_by_name.get(names, {})
+        top_buckets = row.get("details", {}).get("top_buckets", [])
+        return pl.DataFrame(top_buckets)
+
+    rows: list[dict[str, object]] = []
+    for name in names:
+        row = qc_by_name.get(name, {})
+        top_buckets = row.get("details", {}).get("top_buckets", [])
+        for bucket in top_buckets:
+            rows.append({"name": name, **bucket})
+    return pl.DataFrame(rows)
 
 
-def qc_details(name: str) -> dict:
-    """Return details payload for one QC check name."""
-    return qc_by_name.get(name, {}).get("details", {})
+def qc_thresholds(names: str | list[str]) -> dict[str, object] | pl.DataFrame:
+    """Return thresholds for one or many QC check names."""
+    if isinstance(names, str):
+        return qc_by_name.get(names, {}).get("details", {}).get("thresholds", {})
+
+    rows: list[dict[str, object]] = []
+    for name in names:
+        thresholds = qc_by_name.get(name, {}).get("details", {}).get("thresholds", {})
+        if thresholds:
+            rows.append({"name": name, **thresholds})
+    return pl.DataFrame(rows).sort("name") if rows else pl.DataFrame()
+
+
+def qc_details(names: str | list[str]) -> dict:
+    """Return details payload for one QC check or a name->details mapping."""
+    if isinstance(names, str):
+        return qc_by_name.get(names, {}).get("details", {})
+    return {name: qc_by_name.get(name, {}).get("details", {}) for name in names}
 
 
 def first_existing(*candidates: str) -> str | None:
@@ -147,7 +183,7 @@ def info_stats_metric(info_name: str, metric: str) -> pd.DataFrame:
     return out
 
 
-len(qc_summary), qc_summary[0]
+len(qc_summary), qc_summary[3]
 
 # %% [markdown]
 # # **Basic Checks**
@@ -270,10 +306,10 @@ microstructure_quote_checks = qc_table(
 microstructure_quote_checks
 
 # %%
-qc_top_buckets("GLOBAL_one_sided_quotes_P").head(10)
+qc_top_buckets("GLOBAL_one_sided_quotes_P")
 
 # %%
-qc_top_buckets("ROI_one_sided_quotes_P").head(10)
+qc_top_buckets("ROI_one_sided_quotes_P")
 
 # %% [markdown]
 # ## 3) Spread diagnostics (execution quality)
@@ -298,20 +334,36 @@ spread_quote_checks = qc_table(
 spread_quote_checks
 
 # %%
-qc_top_buckets("GLOBAL_wide_spread_P").head(10)
+qc_top_buckets("GLOBAL_wide_spread_P")
 
 # %%
-qc_top_buckets("ROI_wide_spread_P").head(10)
+qc_top_buckets("ROI_wide_spread_P")
 
 # %% [markdown]
 # # **Volume & Open Interest Checks**
 #
-# Hard sign checks + soft mismatch diagnostics + INFO volume/OI metrics.
+# Here we separate volume/OI checks into 3 groups:
+#
+# 1. **Hard data errors** (drop-candidate rows)
+#    - `negative_vol_oi`: negative traded volume or open interest (invalid values)
+#
+# 2. **Soft consistency diagnostics** (investigate first)
+#    - `zero_vol_pos_oi`: positive OI with zero volume
+#    - `pos_vol_zero_oi`: positive volume with zero OI
+#    These are often explainable by microstructure/timing but can cluster in weak
+#    quality regions.
+#
+# 3. **INFO liquidity diagnostics**
+#    - `volume_oi_metrics` summaries for GLOBAL and ROI scopes
+#    Not a pass/fail rule; used to profile tradability and market depth.
 
 # %%
-vol_oi_checks = qc_table(
+hard_vol_oi_checks = qc_table(["negative_vol_oi"])
+hard_vol_oi_checks
+
+# %%
+soft_vol_oi_checks = qc_table(
     [
-        "negative_vol_oi",
         "GLOBAL_zero_vol_pos_oi_C",
         "GLOBAL_zero_vol_pos_oi_P",
         "ROI_zero_vol_pos_oi_C",
@@ -322,25 +374,34 @@ vol_oi_checks = qc_table(
         "ROI_pos_vol_zero_oi_P",
     ]
 )
-vol_oi_checks
+soft_vol_oi_checks
 
 # %%
-pd.DataFrame(
+vol_oi_metrics = pd.DataFrame(
     [
         qc_details("GLOBAL_volume_oi_metrics"),
         qc_details("ROI_volume_oi_metrics"),
     ],
     index=["GLOBAL_volume_oi_metrics", "ROI_volume_oi_metrics"],
 )
+vol_oi_metrics
 
 # %%
-qc_top_buckets("GLOBAL_pos_vol_zero_oi_P").head(10)
+qc_top_buckets("GLOBAL_zero_vol_pos_oi_P")
+
+# %%
+qc_top_buckets("GLOBAL_pos_vol_zero_oi_P")
 
 # %% [markdown]
 # # **Spot price sanity checks**
 #
 # Spot consistency checks come from the QC summary; external price comparison
 # remains as EDA context.
+
+# %% [markdown]
+# Here we chekc that the spot price is the same for a given (ticker, trade_date, expiry_date, strike) bucket, namely that it is the same accros teh whole chain for a given day.
+#
+# In the case of ETF/Stock options, there is no implied froward price whihc is store din the `underlying_price` column so the `spot_price` shoudl be the same as `underlying_price`.
 
 # %%
 spot_checks = qc_table(
@@ -353,6 +414,10 @@ spot_checks
 
 # %% [markdown]
 # ## ORATS SPY vs Yahoo Finance Non-adjusted Closing Price
+#
+# In ORATS, the options chain data provies a complete snapshot of the US equity options market 14 minutes before the close of trading each day.
+#
+# Thus we should expect it to be very close to another data source, for instance Yahoo finance data which is reliable for a highly liquid ETF liek `SPY`.
 
 # %%
 spx_yf = yf.download(TICKER, start=start, end=end, auto_adjust=False)["Close"]
@@ -388,20 +453,7 @@ plt.title("ORATS Spot vs Yahoo SPY Close")
 plt.show()
 
 # %% [markdown]
-# # **Parity-Implied Forward Index Price Check**
-#
-# Surface-level parity consistency checks are sourced from QC summary keys.
-
-# %%
-forward_or_spot_dataset_check = first_existing(
-    "GLOBAL_forward_constant_per_trade_date_expiry",  # EU naming
-    "GLOBAL_spot_equals_underlying_per_trade_date",  # AM naming
-)
-
-if forward_or_spot_dataset_check is None:
-    print("No exercise-style-specific forward/spot dataset check found.")
-else:
-    qc_table([forward_or_spot_dataset_check])
+# The two are very close to this confirms that the spot price data form ORATS is of good quality.
 
 # %% [markdown]
 # # **Risk free rate check**
@@ -422,6 +474,43 @@ pd.DataFrame(
     ],
     index=["GLOBAL_risk_free_rate_metrics", "ROI_risk_free_rate_metrics"],
 )
+
+# %%
+sample_days = [
+    date(2007, 1, 3),
+    date(2012, 6, 15),
+    date(2018, 12, 24),
+    date(2025, 1, 3),
+]
+
+nrows, ncols = 2, 2
+fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(10, 6))
+axes = axes.ravel()
+
+for ax, day in zip(axes, sample_days, strict=False):
+    sub_pd = (
+        df.filter(pl.col("trade_date") == day)
+        .select("dte", "risk_free_rate")
+        .sort("dte")
+        .to_pandas()
+    )
+
+    if sub_pd.empty:
+        ax.set_axis_off()
+        continue
+
+    ax.plot(sub_pd["dte"], sub_pd["risk_free_rate"], marker="o", linestyle="-", label=str(day))
+    ax.set_title(day.strftime("%Y-%m-%d"))
+    ax.set_xlabel("DTE")
+    ax.grid(alpha=0.3)
+
+axes[0].set_ylabel("risk_free_rate")
+fig.suptitle("Term-structure of ORATS risk_free_rate on sample days")
+fig.tight_layout()
+plt.show()
+
+# %% [markdown]
+# Here ORATS is using a 4-point yield curve per day, one for short maturities (less than 30 DTE) and one for int  (30 <= 90) and one for (90< dte <180) aned the last one beyond 180.
 
 # %% [markdown]
 # # **Implied Volatility Quality Checks**
@@ -467,35 +556,48 @@ event_labels = {
 plot_smiles_by_delta(df, picked_dates=picked_dates, event_labels=event_labels)
 
 # %% [markdown]
+# The smootthed IV alreadu comes from a smoothed surface so a single linear interpolation between the reporetd strikes is enough and does not require any smoothing. Thus if we would request a particular striek we would jsut extratc the closest to the target.
+
+# %% [markdown]
 # ## IV Term-Structure Shapes
 
 # %%
 plot_term_structures_by_delta(df, picked_dates=picked_dates, event_labels=event_labels)
 
 # %% [markdown]
+# On crash dates the term strcutrue is inverted (in backwardation) while in normal regime it is upward sloping (in contango).
+
+# %% [markdown]
+# ## Plot the IV time series like 30 DTE vs 15 vs 60 vs date
+
+# %%
+daily_features.loc[:, ["iv_10d", "iv_30d", "iv_90d","iv_1y"]].plot(figsize=(12, 6))
+
+# %% [markdown]
+# The shorter DTEs IV series are much more reactive than the larger ones espcailly the 1 y, especially durign crisis wher eteh risk is expected to be larger over the next few weeks wheres the larger oens like 1y still reacts but includes the future 1 year period thus includes the recovery expetced afetr the crisis happening over teh next few weeks.
+
+# %% [markdown]
 # # **Greeks Sanity Checks**
 #
-# Use hard + soft QC results and keep a strike slice plot for intuition.
 
 # %%
-greeks_checks = qc_table(
-    [
-        "gamma_non_negative",
-        "vega_non_negative",
-        "GLOBAL_delta_bounds_sane_C",
-        "GLOBAL_delta_bounds_sane_P",
-        "ROI_delta_bounds_sane_C",
-        "ROI_delta_bounds_sane_P",
-        "GLOBAL_theta_positive_C",
-        "GLOBAL_theta_positive_P",
-        "ROI_theta_positive_C",
-        "ROI_theta_positive_P",
-    ]
-)
-greeks_checks
+greeks_checks_cols = [
+    "gamma_non_negative",
+    "vega_non_negative",
+    "GLOBAL_delta_bounds_sane_C",
+    "GLOBAL_delta_bounds_sane_P",
+    "ROI_delta_bounds_sane_C",
+    "ROI_delta_bounds_sane_P",
+    "GLOBAL_theta_positive_C",
+    "GLOBAL_theta_positive_P",
+    "ROI_theta_positive_C",
+    "ROI_theta_positive_P",
+]
+
+qc_table(greeks_checks_cols)
 
 # %%
-qc_top_buckets("GLOBAL_theta_positive_P").head(10)
+qc_thresholds(greeks_checks_cols)
 
 # %% [markdown]
 # ## Greeks vs Strike
@@ -545,7 +647,31 @@ plt.show()
 # %% [markdown]
 # # **Model-driven / arbitrage checks**
 #
-# Liquidity context remains EDA-driven.
+# Before looking at theoretical arbitrage violations, it is important to
+# remember that **not all of the option chain is realistically tradable for us**.
+#
+# - In practice we care mainly about:
+#   - **ATM options** (both calls and puts),
+#   - **OTM calls and puts**, and
+#   - some **deep OTM puts** (typically not below ~10-delta).
+# - Deep ITM options (|Δ| ≈ 1) are usually **not attractive for vol trading**:
+#   they behave almost like the underlying (delta ≈ ±1, other Greeks ≈ 0),
+#   so it is often cleaner to trade the underlying directly.
+#
+# On the maturity side:
+#
+# - Our horizon of interest is roughly **10–60 days to expiry**:
+#   - very short maturities (< 10 DTE) suffer from extreme time decay,
+#   - very long maturities (> 60 DTE) often have low VRP and liquidity is thinner.
+#
+# Therefore:
+#
+# - **Violations in far wings (very small or very large delta) and very short/long DTE
+#   are much less relevant** than violations inside our core tradable region
+#   (e.g. 10–90Δ, 10–60 DTE).
+#
+# To make this concrete, we first visualise how **liquidity (volume / open interest)**
+# is distributed across moneyness and maturity.
 
 # %% [markdown]
 # ## Volume for Calls/Puts by $\Delta$ Moneyness
@@ -554,31 +680,77 @@ plt.show()
 plot_avg_volume_by_delta(df_long)
 
 # %% [markdown]
+# Here it is obvious that deep OTM puts are much more traded than OTM calls and taht is because of hedging demand for large institutional investors and contrarian directional options invetsor who bet on a crahs to happen.
+
+# %% [markdown]
 # ## Volume/Open Interest by DTE
 
 # %%
 plot_liquidity_by_dte(df_long)
 
 # %% [markdown]
+# Here short maturities are much more traded wrt the open interest (the nb of oustandijgn contartcs currently in the market) but the larger we go in the DTEs the larger the OI and the lwoer the traded volume whihc also makes sense.
+
+# %% [markdown]
 # # **Put-Call Parity checks**
 #
-# Pull parity diagnostics from summary keys (AM/EU aware).
+# **Economic context (AOA):**
+# In frictionless markets, no-arbitrage implies a strict parity relation for
+# European options:
+#
+# $$
+# C_E - P_E = S_0 e^{-qT} - K e^{-rT}.
+# $$
+#
+# **Tradable arbitrage context:**
+# In live markets, we cannot trade at mid and we pay bid/ask costs. So a small
+# parity gap is often non-actionable. We therefore assess parity with a
+# spread-aware tolerance rather than as an exact equality.
+
+# %% [markdown]
+# ## American parity check used in this QC
+#
+# SPY options are American, so we use bounds (not equality):
+#
+# $$
+# S_0 e^{-qT} - K \le C_A - P_A \le S_0 - K e^{-rT}.
+# $$
+#
+# Using mid prices:
+#
+# $$
+# L = C_{\text{mid}} - P_{\text{mid}}.
+# $$
+#
+# Dynamic tolerance:
+#
+# $$
+# \tau = \alpha\Big((C_{\text{ask}}-C_{\text{bid}}) + (P_{\text{ask}}-P_{\text{bid}})\Big) + \tau_0.
+# $$
+#
+# In this pipeline, $\alpha = 1.0$ and $\tau_0 = 0.01$.
+# We flag a violation when:
+#
+# $$
+# L < \text{lower} - \tau \quad \text{or} \quad L > \text{upper} + \tau.
+# $$
+#
+# This is a SOFT data-quality diagnostic: high violations in ROI are more
+# concerning than violations concentrated in illiquid wings.
 
 # %%
-pcp_checks = qc_table(
-    [
-        "GLOBAL_pcp_mid_eu_forward",
-        "ROI_pcp_mid_eu_forward",
-        "GLOBAL_pcp_bounds_mid_am",
-        "ROI_pcp_bounds_mid_am",
-    ]
-)
-pcp_checks
+pcp_checks_cols = [
+    "GLOBAL_pcp_bounds_mid_am",
+    "ROI_pcp_bounds_mid_am",
+]
+
+qc_table(pcp_checks_cols)
 
 # %%
-pcp_global_name = first_existing("GLOBAL_pcp_mid_eu_forward", "GLOBAL_pcp_bounds_mid_am")
-if pcp_global_name is not None:
-    qc_top_buckets(pcp_global_name).head(10)
+qc_top_buckets(pcp_checks_cols[0])
+
+# %%
+qc_top_buckets(pcp_checks_cols[1])
 
 # %% [markdown]
 # # **Arbitrage bounds for call & put prices**
