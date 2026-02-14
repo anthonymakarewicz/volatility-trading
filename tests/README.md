@@ -1,11 +1,10 @@
 # Tests
 
-This project uses `pytest`.
+This file is a quick local entrypoint for test commands.
+For standards and full conventions, use:
 
-For detailed docs:
-
-- `docs/testing_guide.md` (layout, conventions, run commands)
-- `docs/test_authoring.md` (how to write high-quality tests)
+- [Testing Guide](../docs/contributing/testing_guide.md)
+- [Test Authoring Guide](../docs/contributing/test_authoring.md)
 
 ## Quick Start
 
@@ -15,27 +14,19 @@ For detailed docs:
 python -m pip install -r requirements-dev.txt
 ```
 
-2. Run unit tests (default; integration is excluded):
+2. Run default tests (unit; integration excluded):
 
 ```bash
 pytest
 ```
 
-3. Run a specific unit test folder:
-
-```bash
-pytest tests/unit -q
-```
-
-4. Run only integration tests (marker):
+3. Run integration tests explicitly:
 
 ```bash
 pytest -m integration -q
 ```
 
-## Make Targets
-
-If you have `make` available, use:
+## Common Targets
 
 ```bash
 make test
@@ -44,7 +35,7 @@ make test-integration
 make typecheck
 ```
 
-## Running A Subset
+## Common Subsets
 
 ```bash
 pytest tests/unit/etl/orats/qc -q
@@ -52,12 +43,3 @@ pytest tests/unit/etl/orats/api -q
 pytest tests/integration/apps -q
 pytest -k extract -q
 ```
-
-## Notes
-
-- Test configuration lives in `pyproject.toml` under `[tool.pytest.ini_options]`.
-- `pythonpath = ["src"]` is set so tests can import `volatility_trading...` without installing the package.
-- Most ETL tests are written to be offline and fast (they stub IO/network with `monkeypatch` and use `tmp_path`).
-- Integration/smoke tests live under `tests/integration/`.
-- `pytest` excludes integration tests by default via `addopts = "-m 'not integration'"`.
-- CI runs Ruff + unit tests on every PR/push; integration tests run on pushes to `main`.

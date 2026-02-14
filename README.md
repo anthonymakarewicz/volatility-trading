@@ -65,7 +65,7 @@ Use `--dry-run` to validate config, paths, and credentials before running writes
 orats-api-download --config config/orats_api_download.yml --dry-run
 ```
 
-For the full command sequence, see [Data pipeline](docs/data_pipeline.md).
+For the full command sequence, see [Data pipeline](docs/reference/data_pipeline.md).
 
 ## **Tests**
 
@@ -81,7 +81,7 @@ Run integration tests:
 pytest -q -m integration
 ```
 
-See [Testing guide](docs/testing_guide.md) for layout and conventions.
+See [Testing guide](docs/contributing/testing_guide.md) for layout and conventions.
 
 ## **Continuous Integration (CI)**
 
@@ -110,27 +110,17 @@ make sync-nb-all
 make ci
 ```
 
-For full setup and tooling details, see [Development guide](docs/development.md).
-For notebook pairing and sync workflow, see [Jupytext workflow](docs/jupytext.md).
-For notebook summaries and published report links, see [Notebook catalog](docs/notebooks.md).
-For deployment details, see [Publishing](docs/publishing.md).
+For full setup and tooling details, see the
+[Documentation index](docs/README.md).
 Notebook HTML reports are built in GitHub Actions and published to GitHub Pages.
 
 ## **Docs**
 
-See:
-- [Development guide](docs/development.md) for local dev workflow, pre-commit, and dependency updates
-- [Coding guide](docs/coding_guide.md) for code authoring and refactoring rules
-- [Docstrings](docs/docstrings.md) for docstring policy
-- [Entrypoints](docs/entrypoints.md) for CLI entrypoints and flags
-- [Configs](docs/configs.md) for YAML schema and config reference
-- [Data pipeline](docs/data_pipeline.md) for the end-to-end pipeline flow
-- [Troubleshooting](docs/troubleshooting.md) for common errors and fixes
-- [Testing guide](docs/testing_guide.md) for tests and how to run them
-- [Jupytext workflow](docs/jupytext.md) for notebook pairing, sync, and reproducible execution
-- [Notebook catalog](docs/notebooks.md) for notebook summaries and report links
-- [Publishing](docs/publishing.md) for GitHub Pages build and deploy workflow
-- [See the full package here](docs/package_structure.md)
+See [Documentation index](docs/README.md) for the full docs map.
+Most-used pages:
+- [Development guide](docs/contributing/development.md)
+- [Testing guide](docs/contributing/testing_guide.md)
+- [Notebook catalog](docs/research/notebooks.md)
 
 
 ## **Research Notebooks and Results**

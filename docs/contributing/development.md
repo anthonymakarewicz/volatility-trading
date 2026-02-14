@@ -1,6 +1,7 @@
 # Development Guide
 
 This guide is for day-to-day development in this repository.
+For common environment/tooling failures, see [Troubleshooting](../troubleshooting.md).
 
 ## Environment Setup
 
@@ -87,16 +88,17 @@ make check
 make test
 ```
 
-## Test Scope
+## Testing
 
-By default, `pytest` runs unit tests and excludes integration tests via
-`pyproject.toml`.
-
-Run integration tests explicitly:
+By default, `pytest` runs unit tests and excludes integration tests.
+Run integration tests explicitly with:
 
 ```bash
 pytest -m integration -q
 ```
+
+For full testing layout/conventions, see [Testing Guide](testing_guide.md).
+For quick local test commands, see [Tests README](../../tests/README.md).
 
 ## CI Behavior
 

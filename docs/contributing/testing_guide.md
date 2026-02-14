@@ -5,6 +5,7 @@ This project uses `pytest` for unit and integration tests. Tests live under
 
 For test-writing standards (fixtures, edge cases, parametrization, determinism),
 see [Test Authoring Guide](test_authoring.md).
+For quick local commands, see [Tests README](../../tests/README.md).
 
 ## Layout
 

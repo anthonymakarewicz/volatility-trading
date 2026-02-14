@@ -1,8 +1,8 @@
 # Notebook Catalog
 
 This page summarizes research notebooks and links to published HTML reports.
-For pairing and sync instructions, see [Jupytext workflow](jupytext.md).
-For notebook design standards, see [Notebook authoring guide](notebook_authoring.md).
+For pairing and sync instructions, see [Jupytext workflow](../contributing/jupytext.md).
+For notebook design standards, see [Notebook authoring guide](../contributing/notebook_authoring.md).
 For deployment details, see [Publishing](publishing.md).
 Published reports are served from GitHub Pages.
 
@@ -31,5 +31,4 @@ To activate publishing, set `Settings -> Pages -> Source` to `GitHub Actions`.
 
 ## Other Notebooks (work-in-progress)
 
-- `notebooks/orats_spy_qc_eda.ipynb`: SPY options quality diagnostics.
-- `notebooks/orats_spy_qc_eda.ipynb`: SPY options EDA.
+- `notebooks/orats_spy_qc_eda.ipynb`: SPY options quality diagnostics and EDA.

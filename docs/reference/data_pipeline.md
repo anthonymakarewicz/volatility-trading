@@ -7,6 +7,10 @@ This project uses a staged ORATS pipeline:
 3. **Processed** datasets (options chain + daily features)
 4. **QC** checks for data integrity
 
+For pipeline-specific failure modes and fixes, see
+[ORATS Troubleshooting](orats_troubleshooting.md).
+For general tooling/dev issues, see [Troubleshooting](../troubleshooting.md).
+
 ## Full Runbook (All Steps)
 
 Run in this order:

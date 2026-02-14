@@ -127,4 +127,3 @@ Options-chain QC also includes:
 - `roi_dte_min`, `roi_dte_max`
 - `roi_delta_min`, `roi_delta_max`
 - `top_k_buckets`
-
