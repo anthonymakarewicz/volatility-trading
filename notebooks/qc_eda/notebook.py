@@ -29,7 +29,6 @@
 import json
 from datetime import date
 
-import matplotlib.pyplot as plt
 import pandas as pd
 import polars as pl
 import yfinance as yf
@@ -40,13 +39,31 @@ from volatility_trading.datasets import (
     read_daily_features,
     scan_options_chain,
 )
-from volatility_trading.etl.orats.qc.plotting import (
-    plot_avg_volume_by_delta,
-    plot_liquidity_by_dte,
-    plot_smiles_by_delta,
-    plot_term_structures_by_delta,
-)
-from volatility_trading.iv_surface.term_structure import pick_closest_dte
+
+try:
+    from notebooks.qc_eda.helpers import QCSummaryHelper
+    from notebooks.qc_eda.plotting import (
+        plot_avg_volume_by_delta,
+        plot_greeks_vs_strike,
+        plot_iv_time_series_with_slope,
+        plot_liquidity_by_dte,
+        plot_risk_free_term_structure_samples,
+        plot_smiles_by_delta,
+        plot_spot_vs_yahoo,
+        plot_term_structures_by_delta,
+    )
+except ModuleNotFoundError:
+    from helpers import QCSummaryHelper
+    from plotting import (
+        plot_avg_volume_by_delta,
+        plot_greeks_vs_strike,
+        plot_iv_time_series_with_slope,
+        plot_liquidity_by_dte,
+        plot_risk_free_term_structure_samples,
+        plot_smiles_by_delta,
+        plot_spot_vs_yahoo,
+        plot_term_structures_by_delta,
+    )
 
 
 # %% [markdown]
@@ -101,84 +118,7 @@ qc_summary_path = (
 with qc_summary_path.open(encoding="utf-8") as f:
     qc_summary = json.load(f)
 
-qc_by_name = {row["name"]: row for row in qc_summary}
-
-
-def qc_table(names: list[str]) -> pl.DataFrame:
-    """Return a compact QC table for check names that exist."""
-    rows: list[dict[str, object]] = []
-    for name in names:
-        row = qc_by_name.get(name)
-        if row is None:
-            continue
-        rows.append(
-            {
-                "name": row["name"],
-                "severity": row["severity"],
-                "grade": row["grade"],
-                "passed": row["passed"],
-                "n_rows": row.get("n_rows"),
-                "n_units": row.get("n_units"),
-                "n_viol": row.get("n_viol"),
-                "viol_rate": row.get("viol_rate"),
-            }
-        )
-    return pl.DataFrame(rows).sort(["severity", "name"])
-
-
-def qc_top_buckets(names: str | list[str]) -> pl.DataFrame:
-    """Return top bucket diagnostics for one or many SOFT checks."""
-    if isinstance(names, str):
-        row = qc_by_name.get(names, {})
-        top_buckets = row.get("details", {}).get("top_buckets", [])
-        return pl.DataFrame(top_buckets)
-
-    rows: list[dict[str, object]] = []
-    for name in names:
-        row = qc_by_name.get(name, {})
-        top_buckets = row.get("details", {}).get("top_buckets", [])
-        for bucket in top_buckets:
-            rows.append({"name": name, **bucket})
-    return pl.DataFrame(rows)
-
-
-def qc_thresholds(names: str | list[str]) -> dict[str, object] | pl.DataFrame:
-    """Return thresholds for one or many QC check names."""
-    if isinstance(names, str):
-        return qc_by_name.get(names, {}).get("details", {}).get("thresholds", {})
-
-    rows: list[dict[str, object]] = []
-    for name in names:
-        thresholds = qc_by_name.get(name, {}).get("details", {}).get("thresholds", {})
-        if thresholds:
-            rows.append({"name": name, **thresholds})
-    return pl.DataFrame(rows).sort("name") if rows else pl.DataFrame()
-
-
-def qc_details(names: str | list[str]) -> dict:
-    """Return details payload for one QC check or a name->details mapping."""
-    if isinstance(names, str):
-        return qc_by_name.get(names, {}).get("details", {})
-    return {name: qc_by_name.get(name, {}).get("details", {}) for name in names}
-
-
-def first_existing(*candidates: str) -> str | None:
-    """Return first check name found in qc_summary."""
-    for c in candidates:
-        if c in qc_by_name:
-            return c
-    return None
-
-
-def info_stats_metric(info_name: str, metric: str) -> pd.DataFrame:
-    """Return one metric block from INFO core_numeric_stats."""
-    stats = qc_details(info_name).get("stats", {})
-    if metric not in stats:
-        return pd.DataFrame()
-    out = pd.DataFrame([stats[metric]])
-    out.insert(0, "metric", metric)
-    return out
-
+qc_helpers = QCSummaryHelper(qc_summary)
 
 len(qc_summary), qc_summary[3]
 
@@ -244,7 +184,7 @@ plot_liquidity_by_dte(df_long)
 # - Any material violation is a data-integrity blocker.
 
 # %%
-basic_checks = qc_table(
+basic_checks = qc_helpers.qc_table(
     [
         "keys_not_null",
     ]
@@ -259,7 +199,7 @@ basic_checks
 # - Small, explainable exceptions are investigated before escalation.
 
 # %%
-basic_checks = qc_table(
+basic_checks = qc_helpers.qc_table(
     [
         "keys_not_null",
         "trade_date_leq_expiry_date",
@@ -270,8 +210,8 @@ basic_checks = qc_table(
 basic_checks
 
 # %%
-missing_sessions = qc_details("GLOBAL_missing_sessions_xnys").get("missing_dates", [])
-non_trading = qc_details("GLOBAL_non_trading_dates_present_xnys").get("extra_dates", [])
+missing_sessions = qc_helpers.qc_details("GLOBAL_missing_sessions_xnys").get("missing_dates", [])
+non_trading = qc_helpers.qc_details("GLOBAL_non_trading_dates_present_xnys").get("extra_dates", [])
 
 print("Missing XNYS sessions:", len(missing_sessions))
 print("Non-trading dates present:", len(non_trading))
@@ -301,14 +241,14 @@ df.filter(pl.col("trade_date") == pl.date(2018, 12, 5))
 # ## 1) Hard trade-date vs expiry consistency
 
 # %%
-dte_checks = qc_table(["trade_date_leq_expiry_date"])
+dte_checks = qc_helpers.qc_table(["trade_date_leq_expiry_date"])
 dte_checks
 
 # %% [markdown]
 # ## 2) DTE distribution sanity (INFO diagnostics)
 
 # %%
-global_dte_stats = info_stats_metric("GLOBAL_core_numeric_stats", "dte")
+global_dte_stats = qc_helpers.info_stats_metric("GLOBAL_core_numeric_stats", "dte")
 print("GLOBAL DTE stats")
 display(global_dte_stats)
 
@@ -340,7 +280,7 @@ display(global_dte_stats)
 # - Expected outcome in clean data: near-zero violation rates.
 
 # %%
-hard_quote_checks = qc_table(
+hard_quote_checks = qc_helpers.qc_table(
     [
         "bid_ask_sane",
         "negative_quotes",
@@ -357,7 +297,7 @@ hard_quote_checks
 # - Escalate only if rates are high in ROI (10-60 DTE, 10-90 delta).
 
 # %%
-microstructure_quote_checks = qc_table(
+microstructure_quote_checks = qc_helpers.qc_table(
     [
         "GLOBAL_locked_market_C",
         "GLOBAL_locked_market_P",
@@ -372,10 +312,10 @@ microstructure_quote_checks = qc_table(
 microstructure_quote_checks
 
 # %%
-qc_top_buckets("GLOBAL_one_sided_quotes_P")
+qc_helpers.qc_top_buckets("GLOBAL_one_sided_quotes_P")
 
 # %%
-qc_top_buckets("ROI_one_sided_quotes_P")
+qc_helpers.qc_top_buckets("ROI_one_sided_quotes_P")
 
 # %% [markdown]
 # ## 3) Spread diagnostics (execution quality)
@@ -385,7 +325,7 @@ qc_top_buckets("ROI_one_sided_quotes_P")
 # - We focus on ROI behavior to assess strategy impact.
 
 # %%
-spread_quote_checks = qc_table(
+spread_quote_checks = qc_helpers.qc_table(
     [
         "GLOBAL_wide_spread_C",
         "GLOBAL_wide_spread_P",
@@ -400,10 +340,10 @@ spread_quote_checks = qc_table(
 spread_quote_checks
 
 # %%
-qc_top_buckets("GLOBAL_wide_spread_P")
+qc_helpers.qc_top_buckets("GLOBAL_wide_spread_P")
 
 # %%
-qc_top_buckets("ROI_wide_spread_P")
+qc_helpers.qc_top_buckets("ROI_wide_spread_P")
 
 # %% [markdown]
 # # **Volume & Open Interest Checks**
@@ -427,14 +367,14 @@ qc_top_buckets("ROI_wide_spread_P")
 # ## 1) Hard volume/OI sign errors (non-negotiable)
 
 # %%
-hard_vol_oi_checks = qc_table(["negative_vol_oi"])
+hard_vol_oi_checks = qc_helpers.qc_table(["negative_vol_oi"])
 hard_vol_oi_checks
 
 # %% [markdown]
 # ## 2) Soft volume/OI mismatch diagnostics
 
 # %%
-soft_vol_oi_checks = qc_table(
+soft_vol_oi_checks = qc_helpers.qc_table(
     [
         "GLOBAL_zero_vol_pos_oi_C",
         "GLOBAL_zero_vol_pos_oi_P",
@@ -454,18 +394,18 @@ soft_vol_oi_checks
 # %%
 vol_oi_metrics = pd.DataFrame(
     [
-        qc_details("GLOBAL_volume_oi_metrics"),
-        qc_details("ROI_volume_oi_metrics"),
+        qc_helpers.qc_details("GLOBAL_volume_oi_metrics"),
+        qc_helpers.qc_details("ROI_volume_oi_metrics"),
     ],
     index=["GLOBAL_volume_oi_metrics", "ROI_volume_oi_metrics"],
 )
 vol_oi_metrics
 
 # %%
-qc_top_buckets("GLOBAL_zero_vol_pos_oi_P")
+qc_helpers.qc_top_buckets("GLOBAL_zero_vol_pos_oi_P")
 
 # %%
-qc_top_buckets("GLOBAL_pos_vol_zero_oi_P")
+qc_helpers.qc_top_buckets("GLOBAL_pos_vol_zero_oi_P")
 
 # %% [markdown]
 # # **Spot price sanity checks**
@@ -481,7 +421,7 @@ qc_top_buckets("GLOBAL_pos_vol_zero_oi_P")
 # In the case of ETF/Stock options, there is no implied froward price whihc is store din the `underlying_price` column so the `spot_price` shoudl be the same as `underlying_price`.
 
 # %%
-spot_checks = qc_table(
+spot_checks = qc_helpers.qc_table(
     [
         "GLOBAL_spot_constant_per_trade_date",
         "GLOBAL_spot_equals_underlying_per_trade_date",
@@ -523,11 +463,7 @@ display(
 )
 
 # %%
-spx.plot(figsize=(12, 6))
-plt.xlabel("Date")
-plt.ylabel("Price")
-plt.title("ORATS Spot vs Yahoo SPY Close")
-plt.show()
+plot_spot_vs_yahoo(spx)
 
 # %% [markdown]
 # The two are very close to this confirms that the spot price data form ORATS is of good quality.
@@ -539,7 +475,7 @@ plt.show()
 # ## 1) Structural uniqueness check (per day-expiry bucket)
 
 # %%
-rf_checks = qc_table(
+rf_checks = qc_helpers.qc_table(
     [
         "GLOBAL_unique_risk_free_rate_per_day_expiry",
     ]
@@ -552,8 +488,8 @@ rf_checks
 # %%
 pd.DataFrame(
     [
-        qc_details("GLOBAL_risk_free_rate_metrics"),
-        qc_details("ROI_risk_free_rate_metrics"),
+        qc_helpers.qc_details("GLOBAL_risk_free_rate_metrics"),
+        qc_helpers.qc_details("ROI_risk_free_rate_metrics"),
     ],
     index=["GLOBAL_risk_free_rate_metrics", "ROI_risk_free_rate_metrics"],
 )
@@ -569,31 +505,7 @@ sample_days = [
     date(2025, 1, 3),
 ]
 
-nrows, ncols = 2, 2
-fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(10, 6))
-axes = axes.ravel()
-
-for ax, day in zip(axes, sample_days, strict=False):
-    sub_pd = (
-        df.filter(pl.col("trade_date") == day)
-        .select("dte", "risk_free_rate")
-        .sort("dte")
-        .to_pandas()
-    )
-
-    if sub_pd.empty:
-        ax.set_axis_off()
-        continue
-
-    ax.plot(sub_pd["dte"], sub_pd["risk_free_rate"], marker="o", linestyle="-", label=str(day))
-    ax.set_title(day.strftime("%Y-%m-%d"))
-    ax.set_xlabel("DTE")
-    ax.grid(alpha=0.3)
-
-axes[0].set_ylabel("risk_free_rate")
-fig.suptitle("Term-structure of ORATS risk_free_rate on sample days")
-fig.tight_layout()
-plt.show()
+plot_risk_free_term_structure_samples(df, sample_days=sample_days)
 
 # %% [markdown]
 # Here ORATS is using a 4-point yield curve per day, one for short maturities (less than 30 DTE) and one for int  (30 <= 90) and one for (90< dte <180) aned the last one beyond 180.
@@ -617,7 +529,7 @@ plt.show()
 # ## 1) Hard and soft IV threshold checks
 
 # %%
-iv_checks = qc_table(
+iv_checks = qc_helpers.qc_table(
     [
         "iv_non_negative",
         "GLOBAL_high_iv",
@@ -630,7 +542,7 @@ iv_checks
 # ## 2) INFO IV distribution diagnostics
 
 # %%
-info_stats_metric("GLOBAL_core_numeric_stats", "smoothed_iv")
+qc_helpers.info_stats_metric("GLOBAL_core_numeric_stats", "smoothed_iv")
 
 # %% [markdown]
 # ## 3) Smile Shapes
@@ -644,14 +556,14 @@ info_stats_metric("GLOBAL_core_numeric_stats", "smoothed_iv")
 
 # %%
 picked_dates = [
-    date(2008, 10, 10),  # GFC
+    date(2008, 10, 10),
     date(2010, 12, 2),
     date(2013, 6, 13),
-    date(2015, 8, 24),  # vol event
-    date(2018, 2, 5),  # volmageddon
+    date(2015, 8, 24),  
+    date(2018, 2, 5),  
     date(2018, 9, 12),
-    date(2020, 3, 16),  # covid crash
-    date(2022, 6, 16),  # high vol / rates
+    date(2020, 3, 16), 
+    date(2022, 6, 16), 
     date(2025, 3, 3),
 ]
 
@@ -703,53 +615,7 @@ plot_term_structures_by_delta(df, picked_dates=picked_dates, event_labels=event_
 # - long-dated IV (1Y) embeds **structural / long-run expectations**
 
 # %%
-iv_ts = daily_features.loc[:, ["iv_10d", "iv_30d", "iv_90d", "iv_1y"]].dropna()
-
-fig, (ax_top, ax_bottom) = plt.subplots(
-    2,
-    1,
-    figsize=(13, 7),
-    sharex=True,
-    gridspec_kw={"height_ratios": [3, 1]},
-)
-
-series_style = {
-    "iv_10d": ("IV 10D", "#d62728", 1.4),
-    "iv_30d": ("IV 30D", "#1f77b4", 1.4),
-    "iv_90d": ("IV 90D", "#2ca02c", 1.4),
-    "iv_1y": ("IV 1Y", "#9467bd", 1.6),
-}
-
-for column, (label, color, linewidth) in series_style.items():
-    ax_top.plot(iv_ts.index, iv_ts[column], label=label, color=color, linewidth=linewidth)
-
-for event_day in event_labels:
-    ax_top.axvline(event_day, color="gray", alpha=0.15, linewidth=0.8)
-
-ax_top.set_title("Smoothed IV term snapshots over time (10D, 30D, 90D, 1Y)")
-ax_top.set_ylabel("Implied volatility")
-ax_top.grid(alpha=0.25)
-ax_top.legend(ncol=4, frameon=False, loc="upper left")
-
-iv_slope_10d_1y = iv_ts["iv_10d"] - iv_ts["iv_1y"]
-ax_bottom.plot(
-    iv_ts.index,
-    iv_slope_10d_1y,
-    color="#111111",
-    linewidth=1.2,
-    label="10D - 1Y",
-)
-ax_bottom.axhline(0.0, color="black", linestyle="--", linewidth=0.9, alpha=0.7)
-for event_day in event_labels:
-    ax_bottom.axvline(event_day, color="gray", alpha=0.15, linewidth=0.8)
-
-ax_bottom.set_ylabel("Slope")
-ax_bottom.set_xlabel("Trade date")
-ax_bottom.grid(alpha=0.25)
-ax_bottom.legend(frameon=False, loc="upper left")
-
-fig.tight_layout()
-plt.show()
+plot_iv_time_series_with_slope(daily_features, event_labels=event_labels)
 
 # %% [markdown]
 # Short-dated IV is more reactive than longer maturities, especially during crises,
@@ -808,13 +674,13 @@ greeks_checks_cols = [
     "ROI_theta_positive_P",
 ]
 
-qc_table(greeks_checks_cols)
+qc_helpers.qc_table(greeks_checks_cols)
 
 # %% [markdown]
 # ## 2) Soft-threshold policy view
 
 # %%
-qc_thresholds(greeks_checks_cols)
+qc_helpers.qc_thresholds(greeks_checks_cols)
 
 # %% [markdown]
 # ## 3) Greeks vs Strike
@@ -827,43 +693,7 @@ qc_thresholds(greeks_checks_cols)
 day = date(2024, 12, 16)
 dte_target = 30
 
-sub = df_long.filter(pl.col("trade_date") == day)
-dtes_for_day = sub.select(pl.col("dte").unique()).sort("dte").to_series().to_list()
-
-dte_true = pick_closest_dte(dtes_for_day, dte_target, max_tol=10)
-if dte_true is None:
-    raise ValueError(f"No DTE within 10 days of target={dte_target} on {day}")
-
-sub = sub.filter(pl.col("dte") == dte_true).sort("strike")
-S = sub.select("underlying_price").to_series().item(0)
-calls = sub.filter(pl.col("option_type") == "C")
-puts = sub.filter(pl.col("option_type") == "P")
-
-fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=False)
-ax_d, ax_g = axes[0]
-ax_v, ax_t = axes[1]
-
-plots = [
-    ("delta", ax_d, "Delta", "Delta vs strike"),
-    ("gamma", ax_g, "Gamma", "Gamma vs strike"),
-    ("vega", ax_v, "Vega", "Vega vs strike"),
-    ("theta", ax_t, "Theta", "Theta vs strike"),
-]
-
-for col, ax, ylabel, title in plots:
-    ax.plot(calls["strike"], calls[col], label=f"Call {col}", marker="o")
-    ax.plot(puts["strike"], puts[col], label=f"Put {col}", marker="o")
-    ax.axvline(S, linestyle="--", linewidth=0.8, label="Spot S")
-    ax.set_title(title)
-    ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-
-ax_v.set_xlabel("Strike")
-ax_t.set_xlabel("Strike")
-fig.suptitle(f"Greeks vs strike - {day}, DTE={dte_true}, S={S:.2f}")
-fig.tight_layout()
-plt.show()
+plot_greeks_vs_strike(df_long, day=day, dte_target=dte_target)
 
 # %% [markdown]
 # - **Delta** should be monotonic in strike: from near `+1` (deep ITM calls) toward
@@ -938,13 +768,13 @@ pcp_checks_cols = [
     "ROI_pcp_bounds_mid_am",
 ]
 
-qc_table(pcp_checks_cols)
+qc_helpers.qc_table(pcp_checks_cols)
 
 # %%
-qc_top_buckets(pcp_checks_cols[0])
+qc_helpers.qc_top_buckets(pcp_checks_cols[0])
 
 # %%
-qc_top_buckets(pcp_checks_cols[1])
+qc_helpers.qc_top_buckets(pcp_checks_cols[1])
 
 # %% [markdown]
 # ## 2) Price-bounds diagnostics (calls and puts)
@@ -952,7 +782,7 @@ qc_top_buckets(pcp_checks_cols[1])
 # Price-bound diagnostics from summary keys.
 
 # %%
-bounds_checks = qc_table(
+bounds_checks = qc_helpers.qc_table(
     [
         "GLOBAL_price_bounds_mid_eu_forward_C",
         "GLOBAL_price_bounds_mid_eu_forward_P",
@@ -967,12 +797,12 @@ bounds_checks = qc_table(
 bounds_checks
 
 # %%
-bounds_global_put = first_existing(
+bounds_global_put = qc_helpers.first_existing(
     "GLOBAL_price_bounds_mid_eu_forward_P",
     "GLOBAL_price_bounds_mid_am_P",
 )
 if bounds_global_put is not None:
-    qc_top_buckets(bounds_global_put).head(10)
+    qc_helpers.qc_top_buckets(bounds_global_put).head(10)
 
 # %% [markdown]
 # ## 3) Strike and maturity monotonicity diagnostics
@@ -980,7 +810,7 @@ if bounds_global_put is not None:
 # Use SOFT monotonicity checks from qc summary.
 
 # %%
-monotonicity_checks = qc_table(
+monotonicity_checks = qc_helpers.qc_table(
     [
         "GLOBAL_strike_monotonicity_C",
         "GLOBAL_strike_monotonicity_P",
@@ -995,7 +825,7 @@ monotonicity_checks = qc_table(
 monotonicity_checks
 
 # %%
-qc_top_buckets("GLOBAL_strike_monotonicity_P").head(10)
+qc_helpers.qc_top_buckets("GLOBAL_strike_monotonicity_P").head(10)
 
 # %%
-qc_top_buckets("GLOBAL_maturity_monotonicity_P").head(10)
+qc_helpers.qc_top_buckets("GLOBAL_maturity_monotonicity_P").head(10)

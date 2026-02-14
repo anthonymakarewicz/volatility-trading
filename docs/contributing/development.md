@@ -57,8 +57,8 @@ Current hooks include:
 - whitespace and EOF normalization
 - YAML validation
 - large-file guard
-- Ruff lint and format for `src/` and `tests/`
-- Jupytext sync for paired notebooks in `notebooks/`
+- Ruff lint and format for `src/`, `tests/`, and notebook helper modules (`notebooks/**/*.py`, excluding `notebooks/**/notebook.py`)
+- Jupytext sync for paired notebook scripts (`notebooks/**/notebook.py`)
 
 ## Notebook Workflow
 
@@ -103,7 +103,7 @@ For quick local test commands, see [Tests README](../../tests/README.md).
 ## CI Behavior
 
 GitHub Actions workflow:
-- runs Ruff lint + format checks on `src/` and `tests/`
-- runs Pyright type checks on stable `src/volatility_trading` subpackages
+- runs Ruff lint + format checks on `src/`, `tests/`, and notebook helper modules (`notebooks/**/*.py`, excluding `notebooks/**/notebook.py`)
+- runs Pyright type checks on stable `src/volatility_trading` subpackages plus notebook helper modules (`notebooks/**/*.py`, excluding `notebooks/**/notebook.py`)
 - runs unit tests on PRs and pushes to `main`
 - runs integration tests on pushes to `main` and manual workflow runs

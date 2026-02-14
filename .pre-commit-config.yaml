@@ -3,7 +3,7 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        exclude: ^notebooks/.*\.py$
+        exclude: ^notebooks/.*/notebook\.py$
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
@@ -13,12 +13,14 @@ repos:
     hooks:
       - id: ruff
         args: ["--fix"]
-        files: ^(src|tests)/
+        files: ^(src|tests|notebooks)/.*\.py$
+        exclude: ^notebooks/.*/notebook\.py$
       - id: ruff-format
-        files: ^(src|tests)/
+        files: ^(src|tests|notebooks)/.*\.py$
+        exclude: ^notebooks/.*/notebook\.py$
   - repo: https://github.com/mwouts/jupytext
     rev: v1.19.1
     hooks:
       - id: jupytext
         args: ["--sync"]
-        files: ^notebooks/.*\.py$
+        files: ^notebooks/.*/notebook\.py$

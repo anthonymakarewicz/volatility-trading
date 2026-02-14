@@ -4,10 +4,10 @@ NOTEBOOK ?= notebooks/qc_eda/notebook.ipynb
 
 help:
 	@echo "Targets:"
-	@echo "  make lint               Run Ruff lint on src/ and tests/"
-	@echo "  make format             Format src/ and tests/ with Ruff"
+	@echo "  make lint               Run Ruff lint on src/, tests/, and notebooks helpers"
+	@echo "  make format             Format src/, tests/, and notebooks helpers with Ruff"
 	@echo "  make check              Lint + format check (no changes)"
-	@echo "  make typecheck          Run Pyright on src/"
+	@echo "  make typecheck          Run Pyright on src/ + notebooks helpers"
 	@echo "  make test               Run unit tests (default pytest)"
 	@echo "  make test-unit          Run unit tests only"
 	@echo "  make test-integration   Run integration tests only"
@@ -16,14 +16,14 @@ help:
 	@echo "  make ci                 Run lint + format check + typecheck + unit tests"
 
 lint:
-	ruff check src tests
+	ruff check src tests notebooks
 
 format:
-	ruff format src tests
+	ruff format src tests notebooks
 
 check:
-	ruff check src tests
-	ruff format --check src tests
+	ruff check src tests notebooks
+	ruff format --check src tests notebooks
 
 typecheck:
 	pyright
@@ -38,8 +38,8 @@ test-integration:
 	pytest -m integration
 
 ci:
-	ruff check src tests
-	ruff format --check src tests
+	ruff check src tests notebooks
+	ruff format --check src tests notebooks
 	pyright
 	pytest -q
 

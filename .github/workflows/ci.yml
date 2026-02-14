@@ -27,8 +27,8 @@ jobs:
 
       - name: Lint & format (Ruff)
         run: |
-          ruff check src tests
-          ruff format --check src tests
+          ruff check src tests notebooks
+          ruff format --check src tests notebooks
 
       - name: Type check (Pyright)
         run: pyright

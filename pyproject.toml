@@ -15,7 +15,7 @@ target-version = "py312"
 line-length = 88
 extend-exclude = [
     "*.ipynb",
-    "notebooks/",
+    "notebooks/**/notebook.py",
 ]
 
 [tool.ruff.lint]
@@ -34,7 +34,6 @@ ignore = [
     "E501",   # line length handled by formatter
     "B008",   # allow function calls in defaults
     "SIM105", # allow try/except pass (sometimes clearer in tests)
-    "UP038",  # allow isinstance(x, (a, b)) for readability
 ]
 
 [tool.ruff.format]
@@ -52,13 +51,14 @@ include = [
   "src/volatility_trading/config",
   "src/volatility_trading/datasets",
   "src/volatility_trading/etl",
+  "notebooks/**/*.py",
 ]
 venvPath = "."
 venv = ".venv"
 exclude = [
   "**/__pycache__",
   "**/*.ipynb",
-  "notebooks/**",
+  "notebooks/**/notebook.py",
 ]
 ignore = [
     "src/volatility_trading/backtesting",

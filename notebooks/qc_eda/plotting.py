@@ -1,4 +1,4 @@
-"""Plotting utilities for ORATS QC exploratory diagnostics."""
+"""Plotting utilities for the ORATS SPY QC EDA notebook."""
 
 from __future__ import annotations
 
@@ -7,15 +7,12 @@ from datetime import date
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import polars as pl
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from volatility_trading.iv_surface.term_structure import pick_closest_dte
-
-# ======================================================================
-# Public API
-# ======================================================================
 
 
 def plot_smiles_by_delta(
@@ -31,26 +28,7 @@ def plot_smiles_by_delta(
     ncols: int = 3,
     event_labels: Mapping[date, str] | None = None,
 ) -> None:
-    """
-    Plot smoothed IV smiles vs |delta| for several DTE targets on multiple dates.
-
-    Parameters
-    ----------
-    df :
-        WIDE ORATS panel with columns at least:
-        ["trade_date", "dte", "option_type", "call_delta", "smoothed_iv"].
-    picked_dates :
-        Dates to show as facets.
-    targets :
-        Sequence of (target_dte, label) pairs, e.g. (10, "≈10D").
-    nrows, ncols :
-        Grid shape for the facet layout.
-    event_labels :
-        Optional mapping {date -> label} to annotate special events in titles.
-    option_type :
-        "C" for calls or "P" for puts. For SPX-like equity index skew,
-        using puts ("P") gives the usual downward-sloping smile in |delta|.
-    """
+    """Plot smoothed IV smiles vs |delta| for several DTE targets on multiple dates."""
     fig, axes = _make_facet_axes(picked_dates, nrows, ncols)
 
     for ax, day in zip(axes, picked_dates):
@@ -59,7 +37,6 @@ def plot_smiles_by_delta(
             ax.set_axis_off()
             continue
 
-        # available DTEs that day
         dtes = sub.select(pl.col("dte").unique()).sort("dte").to_series().to_list()
 
         chosen: dict[str, int] = {}
@@ -74,9 +51,7 @@ def plot_smiles_by_delta(
 
         for label, dte_val in chosen.items():
             grp = (
-                sub.filter(
-                    pl.col("dte") == dte_val,
-                )
+                sub.filter(pl.col("dte") == dte_val)
                 .with_columns(abs_delta=pl.col("put_delta").abs())
                 .sort("abs_delta")
             )
@@ -90,18 +65,17 @@ def plot_smiles_by_delta(
                 linewidth=1.5,
             )
 
-        ax.axvline(0.5, linestyle="--", linewidth=0.8)  # ATM call delta
+        ax.axvline(0.5, linestyle="--", linewidth=0.8)
         ax.set_xlabel("|Delta|")
         ax.set_ylabel("Smoothed IV")
         _set_panel_title(ax, day, event_labels)
         ax.grid(True, alpha=0.3)
         ax.legend(loc="upper right")
 
-    # hide unused axes (if fewer dates than grid slots)
-    for k in range(len(picked_dates), len(axes)):
-        axes[k].set_axis_off()
+    for index in range(len(picked_dates), len(axes)):
+        axes[index].set_axis_off()
 
-    labels = ", ".join(lbl for _, lbl in targets)
+    labels = ", ".join(label for _, label in targets)
     fig.suptitle(f"Smoothed IV Smiles by |Delta| ({labels})", y=1.01, fontsize=16)
     fig.tight_layout()
     plt.show()
@@ -120,26 +94,7 @@ def plot_term_structures_by_delta(
     ncols: int = 3,
     event_labels: Mapping[date, str] | None = None,
 ) -> None:
-    """
-    Plot IV term structures for a few delta buckets across multiple dates.
-
-    For each (trade_date, target_delta) and each DTE, we pick the option
-    whose call_delta is closest to `target_delta` and plot smoothed_iv vs DTE.
-
-    Parameters
-    ----------
-    df :
-        WIDE ORATS panel with columns at least:
-        ["trade_date", "dte", "call_delta", "smoothed_iv"].
-    picked_dates :
-        Dates to show as facets.
-    delta_targets :
-        Sequence of (delta, label) pairs to plot, e.g. (0.5, "ATM").
-    nrows, ncols :
-        Grid shape for the facet layout.
-    event_labels :
-        Optional mapping {date -> label} to annotate special events in titles.
-    """
+    """Plot IV term structures for selected delta buckets across multiple dates."""
     fig, axes = _make_facet_axes(picked_dates, nrows, ncols)
 
     for ax, day in zip(axes, picked_dates):
@@ -149,7 +104,6 @@ def plot_term_structures_by_delta(
             continue
 
         for target_delta, label in delta_targets:
-            # for each DTE, pick row whose call_delta is closest to target_delta
             ts = (
                 sub.with_columns(
                     (pl.col("call_delta") - target_delta).abs().alias("_dist")
@@ -165,7 +119,6 @@ def plot_term_structures_by_delta(
 
             dte_vals = ts["dte"].to_numpy()
             iv_vals = ts["smoothed_iv"].to_numpy()
-
             ax.plot(dte_vals, iv_vals, label=label, linewidth=1.5)
             ax.scatter(dte_vals, iv_vals, s=15, alpha=0.7, color="red")
 
@@ -175,10 +128,10 @@ def plot_term_structures_by_delta(
         ax.grid(True, alpha=0.3)
         ax.legend(loc="upper right")
 
-    for k in range(len(picked_dates), len(axes)):
-        axes[k].set_axis_off()
+    for index in range(len(picked_dates), len(axes)):
+        axes[index].set_axis_off()
 
-    labels = ", ".join(lbl for _, lbl in delta_targets)
+    labels = ", ".join(label for _, label in delta_targets)
     fig.suptitle(f"IV Term Structures by Delta Bucket ({labels})", y=1.01, fontsize=16)
     fig.tight_layout()
     plt.show()
@@ -192,31 +145,14 @@ def plot_avg_volume_by_delta(
     dte_max: int = 60,
     label_step: int = 2,
 ) -> None:
-    """
-    Plot average option volume by |delta| bucket, separately for calls and puts.
-
-    Parameters
-    ----------
-    df_long :
-        LONG ORATS panel with at least:
-        ["dte", "delta", "option_type", "volume"].
-    delta_bins :
-        Array of bin edges for |delta|, e.g. np.linspace(0.0, 1.0, 21).
-        If None, use 0.00–1.00 in steps of 0.05.
-    dte_min, dte_max :
-        Restrict to options with dte in [dte_min, dte_max].
-    label_step :
-        Show every `label_step`th bucket label on the x-axis for readability.
-    """
+    """Plot average option volume by |delta| bucket, separately for calls and puts."""
     if delta_bins is None:
         delta_bins = np.linspace(0.0, 1.0, 21)
     delta_breaks: list[float] = np.asarray(delta_bins, dtype=float).tolist()
 
     vol_by_delta = (
         df_long.filter(pl.col("dte").is_between(dte_min, dte_max))
-        .with_columns(
-            delta_bucket=pl.col("delta").abs().cut(delta_breaks),
-        )
+        .with_columns(delta_bucket=pl.col("delta").abs().cut(delta_breaks))
         .group_by(["delta_bucket", "option_type"])
         .agg(pl.col("volume").mean().alias("avg_volume"))
         .sort(["delta_bucket", "option_type"])
@@ -228,27 +164,22 @@ def plot_avg_volume_by_delta(
 
     pivot = vol_by_delta.pivot_table(
         index="delta_bucket",
-        columns="option_type",  # "C" / "P"
+        columns="option_type",
         values="avg_volume",
     )
 
-    # Build human-readable labels from bin edges
     edges = np.asarray(delta_bins)
-    labels = [f"{edges[i]:.2f}-{edges[i + 1]:.2f}" for i in range(len(edges) - 1)]
-
-    x = np.arange(len(pivot))
+    labels = [f"{edges[idx]:.2f}-{edges[idx + 1]:.2f}" for idx in range(len(edges) - 1)]
+    x_values = np.arange(len(pivot))
 
     plt.figure(figsize=(8, 4))
-
     if "C" in pivot.columns:
-        plt.plot(x, pivot["C"], marker="o", label="Call volume")
+        plt.plot(x_values, pivot["C"], marker="o", label="Call volume")
     if "P" in pivot.columns:
-        plt.plot(x, pivot["P"], marker="o", label="Put volume")
+        plt.plot(x_values, pivot["P"], marker="o", label="Put volume")
 
-    # Avoid index/label mismatch if some bins are empty
     step = max(label_step, 1)
-    plt.xticks(x[::step], labels[::step], rotation=25)
-
+    plt.xticks(x_values[::step], labels[::step], rotation=25)
     plt.xlabel("|Delta| bucket")
     plt.ylabel("Average volume")
     plt.title("Average Option Volume by |Delta|")
@@ -264,15 +195,16 @@ def plot_liquidity_by_dte(
     dte_labels: Sequence[str] | None = None,
     delta_min: float = 0.1,
     delta_max: float = 0.9,
-    delta_col: str = "delta",  # <-- change if your column is call_delta etc.
+    delta_col: str = "delta",
 ) -> None:
+    """Plot average volume and average open interest across DTE buckets."""
     if dte_bins is None:
         dte_bins = [0, 10, 15, 20, 30, 45, 60, 90, 180]
     dte_bins = list(dte_bins)
 
     if dte_labels is None:
         dte_labels = [
-            f"({dte_bins[i]}–{dte_bins[i + 1]}]" for i in range(len(dte_bins) - 1)
+            f"({dte_bins[idx]}–{dte_bins[idx + 1]}]" for idx in range(len(dte_bins) - 1)
         ]
     else:
         dte_labels = list(dte_labels)
@@ -280,11 +212,9 @@ def plot_liquidity_by_dte(
     if len(dte_labels) != len(dte_bins) - 1:
         raise ValueError("dte_labels must have length len(dte_bins)-1")
 
-    # --- 1) Build bucket index (0..n-1) without relying on cut() string labels ---
-    # bucket = sum(dte > edge) - 1 (clipped)
-    # Example: dte=12 with edges [0,10,15,...] => (dte>0)+(dte>10)=2 => bucket=1 => (10,15]
     bucket_expr = (
-        pl.sum_horizontal([(pl.col("dte") > e).cast(pl.Int32) for e in dte_bins]) - 1
+        pl.sum_horizontal([(pl.col("dte") > edge).cast(pl.Int32) for edge in dte_bins])
+        - 1
     ).clip(0, len(dte_bins) - 2)
 
     liq_by_dte = (
@@ -300,7 +230,6 @@ def plot_liquidity_by_dte(
         )
     )
 
-    # Ensure we always plot all buckets in order
     all_buckets = pl.DataFrame({"dte_bucket": list(range(len(dte_labels)))})
     liq_by_dte = (
         all_buckets.join(liq_by_dte, on="dte_bucket", how="left")
@@ -311,23 +240,25 @@ def plot_liquidity_by_dte(
         .sort("dte_bucket")
     )
 
-    x = np.arange(len(dte_labels))
+    x_values = np.arange(len(dte_labels))
 
     fig, ax1 = plt.subplots(figsize=(9, 4))
     ax2 = ax1.twinx()
-
     ax1.bar(
-        x - 0.15, liq_by_dte["avg_volume"].to_numpy(), width=0.3, label="Avg volume"
+        x_values - 0.15,
+        liq_by_dte["avg_volume"].to_numpy(),
+        width=0.3,
+        label="Avg volume",
     )
     ax2.bar(
-        x + 0.15,
+        x_values + 0.15,
         liq_by_dte["avg_open_interest"].to_numpy(),
         width=0.3,
         alpha=0.7,
         label="Avg open interest",
     )
 
-    ax1.set_xticks(x)
+    ax1.set_xticks(x_values)
     ax1.set_xticklabels(dte_labels)
     ax1.set_xlabel("DTE bucket")
     ax1.set_ylabel("Avg volume")
@@ -342,9 +273,169 @@ def plot_liquidity_by_dte(
     plt.show()
 
 
-# ======================================================================
-# Internal helpers
-# ======================================================================
+def plot_spot_vs_yahoo(spx: pd.DataFrame) -> None:
+    """Plot ORATS spot versus Yahoo close over time."""
+    if spx.empty:
+        return
+    spx.plot(figsize=(12, 6))
+    plt.xlabel("Date")
+    plt.ylabel("Price")
+    plt.title("ORATS Spot vs Yahoo SPY Close")
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_risk_free_term_structure_samples(
+    df: pl.DataFrame,
+    sample_days: Sequence[date],
+    *,
+    nrows: int = 2,
+    ncols: int = 2,
+) -> None:
+    """Plot risk-free term structure (rate vs DTE) for sample dates."""
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(10, 6))
+    axes = np.asarray(axes).ravel()
+
+    for ax, day in zip(axes, sample_days):
+        sub_pd = (
+            df.filter(pl.col("trade_date") == day)
+            .select("dte", "risk_free_rate")
+            .sort("dte")
+            .to_pandas()
+        )
+
+        if sub_pd.empty:
+            ax.set_axis_off()
+            continue
+
+        ax.plot(sub_pd["dte"], sub_pd["risk_free_rate"], marker="o", linestyle="-")
+        ax.set_title(day.strftime("%Y-%m-%d"))
+        ax.set_xlabel("DTE")
+        ax.grid(alpha=0.3)
+
+    for index in range(len(sample_days), len(axes)):
+        axes[index].set_axis_off()
+
+    if len(axes) > 0:
+        axes[0].set_ylabel("risk_free_rate")
+    fig.suptitle("Term-structure of ORATS risk_free_rate on sample days")
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_iv_time_series_with_slope(
+    daily_features: pd.DataFrame,
+    *,
+    event_labels: Mapping[date, str] | None = None,
+    columns: Sequence[str] = ("iv_10d", "iv_30d", "iv_90d", "iv_1y"),
+) -> None:
+    """Plot IV time series across maturities with a 10D-1Y slope panel."""
+    iv_ts = daily_features.loc[:, list(columns)].dropna()
+    if iv_ts.empty:
+        return
+
+    fig, (ax_top, ax_bottom) = plt.subplots(
+        2,
+        1,
+        figsize=(13, 7),
+        sharex=True,
+        gridspec_kw={"height_ratios": [3, 1]},
+    )
+
+    series_style: dict[str, tuple[str, str, float]] = {
+        "iv_10d": ("IV 10D", "#d62728", 1.4),
+        "iv_30d": ("IV 30D", "#1f77b4", 1.4),
+        "iv_90d": ("IV 90D", "#2ca02c", 1.4),
+        "iv_1y": ("IV 1Y", "#9467bd", 1.6),
+    }
+
+    for column in columns:
+        if column not in iv_ts.columns or column not in series_style:
+            continue
+        label, color, linewidth = series_style[column]
+        ax_top.plot(
+            iv_ts.index, iv_ts[column], label=label, color=color, linewidth=linewidth
+        )
+
+    if event_labels:
+        for event_day in event_labels:
+            ax_top.axvline(event_day, color="gray", alpha=0.15, linewidth=0.8)
+
+    ax_top.set_title("Smoothed IV term snapshots over time (10D, 30D, 90D, 1Y)")
+    ax_top.set_ylabel("Implied volatility")
+    ax_top.grid(alpha=0.25)
+    ax_top.legend(ncol=4, frameon=False, loc="upper left")
+
+    iv_slope_10d_1y = iv_ts["iv_10d"] - iv_ts["iv_1y"]
+    ax_bottom.plot(
+        iv_ts.index,
+        iv_slope_10d_1y,
+        color="#111111",
+        linewidth=1.2,
+        label="10D - 1Y",
+    )
+    ax_bottom.axhline(0.0, color="black", linestyle="--", linewidth=0.9, alpha=0.7)
+
+    if event_labels:
+        for event_day in event_labels:
+            ax_bottom.axvline(event_day, color="gray", alpha=0.15, linewidth=0.8)
+
+    ax_bottom.set_ylabel("Slope")
+    ax_bottom.set_xlabel("Trade date")
+    ax_bottom.grid(alpha=0.25)
+    ax_bottom.legend(frameon=False, loc="upper left")
+
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_greeks_vs_strike(
+    df_long: pl.DataFrame,
+    *,
+    day: date,
+    dte_target: int = 30,
+    max_tol: int = 10,
+) -> None:
+    """Plot delta/gamma/vega/theta by strike for calls and puts."""
+    sub = df_long.filter(pl.col("trade_date") == day)
+    dtes_for_day = sub.select(pl.col("dte").unique()).sort("dte").to_series().to_list()
+
+    dte_true = pick_closest_dte(dtes_for_day, dte_target, max_tol=max_tol)
+    if dte_true is None:
+        raise ValueError(
+            f"No DTE within {max_tol} days of target={dte_target} on {day}"
+        )
+
+    sub = sub.filter(pl.col("dte") == dte_true).sort("strike")
+    spot = float(sub.select("underlying_price").to_series().item(0))
+    calls = sub.filter(pl.col("option_type") == "C")
+    puts = sub.filter(pl.col("option_type") == "P")
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=False)
+    ax_d, ax_g = axes[0]
+    ax_v, ax_t = axes[1]
+
+    plots: list[tuple[str, Axes, str, str]] = [
+        ("delta", ax_d, "Delta", "Delta vs strike"),
+        ("gamma", ax_g, "Gamma", "Gamma vs strike"),
+        ("vega", ax_v, "Vega", "Vega vs strike"),
+        ("theta", ax_t, "Theta", "Theta vs strike"),
+    ]
+
+    for col, ax, ylabel, title in plots:
+        ax.plot(calls["strike"], calls[col], label=f"Call {col}", marker="o")
+        ax.plot(puts["strike"], puts[col], label=f"Put {col}", marker="o")
+        ax.axvline(spot, linestyle="--", linewidth=0.8, label="Spot S")
+        ax.set_title(title)
+        ax.set_ylabel(ylabel)
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+
+    ax_v.set_xlabel("Strike")
+    ax_t.set_xlabel("Strike")
+    fig.suptitle(f"Greeks vs strike - {day}, DTE={dte_true}, S={spot:.2f}")
+    fig.tight_layout()
+    plt.show()
 
 
 def _make_facet_axes(
@@ -353,7 +444,7 @@ def _make_facet_axes(
     ncols: int,
     figsize_per: tuple[float, float] = (5.0, 4.0),
 ) -> tuple[Figure, np.ndarray]:
-    """Helper to create a faceted grid of subplots and flatten the axes array."""
+    """Create a faceted grid of subplots and flatten the axes array."""
     fig, axes = plt.subplots(
         nrows=nrows,
         ncols=ncols,
@@ -369,8 +460,8 @@ def _set_panel_title(
     day: date,
     event_labels: Mapping[date, str] | None,
 ) -> None:
-    """Set the subplot title, optionally appending an event label."""
+    """Set subplot title and append an event label when available."""
     title = day.strftime("%Y-%m-%d")
     if event_labels and day in event_labels:
-        title += f" – {event_labels[day]}"
+        title += f" - {event_labels[day]}"
     ax.set_title(title)
