@@ -2,7 +2,7 @@
 
 This page summarizes research notebooks and links to published HTML reports.
 For pairing and sync instructions, see [Jupytext workflow](jupytext.md).
-For notebook design standards, see [Notebook Section Instructions](notebook_section_llm_instructions.md).
+For notebook design standards, see [Notebook authoring guide](notebook_authoring.md).
 For deployment details, see [Publishing](publishing.md).
 Published reports are served from GitHub Pages.
 
