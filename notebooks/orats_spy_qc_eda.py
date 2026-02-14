@@ -79,9 +79,6 @@ df_long = options_chain_wide_to_long(df).collect()
 
 df
 
-# %% [markdown]
-#
-
 # %%
 daily_features = read_daily_features(TICKER)
 daily_features = daily_features.filter(
@@ -190,6 +187,13 @@ len(qc_summary), qc_summary[3]
 #
 # Hard structural checks + calendar-level dataset checks from the QC summary.
 
+# %% [markdown]
+# ## 1) Hard key integrity checks (non-negotiable)
+#
+# Policy:
+# - Keys required to identify one contract observation should never be null.
+# - Any material violation is a data-integrity blocker.
+
 # %%
 basic_checks = qc_table(
     [
@@ -197,6 +201,13 @@ basic_checks = qc_table(
     ]
 )
 basic_checks
+
+# %% [markdown]
+# ## 2) Calendar-level dataset checks (GLOBAL diagnostics)
+#
+# Policy:
+# - Missing exchange sessions and non-trading dates are dataset-level diagnostics.
+# - Small, explainable exceptions are investigated before escalation.
 
 # %%
 basic_checks = qc_table(
@@ -237,9 +248,15 @@ df.filter(pl.col("trade_date") == pl.date(2018, 12, 5))
 #
 # We alos check the distributuon of the `dte` column expecting dte ranging from the tradebale filters we have applied.
 
+# %% [markdown]
+# ## 1) Hard trade-date vs expiry consistency
+
 # %%
 dte_checks = qc_table(["trade_date_leq_expiry_date"])
 dte_checks
+
+# %% [markdown]
+# ## 2) DTE distribution sanity (INFO diagnostics)
 
 # %%
 global_dte_stats = info_stats_metric("GLOBAL_core_numeric_stats", "dte")
@@ -357,9 +374,15 @@ qc_top_buckets("ROI_wide_spread_P")
 #    - `volume_oi_metrics` summaries for GLOBAL and ROI scopes
 #    Not a pass/fail rule; used to profile tradability and market depth.
 
+# %% [markdown]
+# ## 1) Hard volume/OI sign errors (non-negotiable)
+
 # %%
 hard_vol_oi_checks = qc_table(["negative_vol_oi"])
 hard_vol_oi_checks
+
+# %% [markdown]
+# ## 2) Soft volume/OI mismatch diagnostics
 
 # %%
 soft_vol_oi_checks = qc_table(
@@ -375,6 +398,9 @@ soft_vol_oi_checks = qc_table(
     ]
 )
 soft_vol_oi_checks
+
+# %% [markdown]
+# ## 3) INFO liquidity metrics (GLOBAL vs ROI)
 
 # %%
 vol_oi_metrics = pd.DataFrame(
@@ -399,6 +425,8 @@ qc_top_buckets("GLOBAL_pos_vol_zero_oi_P")
 # remains as EDA context.
 
 # %% [markdown]
+# ## 1) Structural spot consistency checks (QC summary)
+#
 # Here we chekc that the spot price is the same for a given (ticker, trade_date, expiry_date, strike) bucket, namely that it is the same accros teh whole chain for a given day.
 #
 # In the case of ETF/Stock options, there is no implied froward price whihc is store din the `underlying_price` column so the `spot_price` shoudl be the same as `underlying_price`.
@@ -413,7 +441,7 @@ spot_checks = qc_table(
 spot_checks
 
 # %% [markdown]
-# ## ORATS SPY vs Yahoo Finance Non-adjusted Closing Price
+# ## 2) ORATS SPY vs Yahoo Finance non-adjusted close
 #
 # In ORATS, the options chain data provies a complete snapshot of the US equity options market 14 minutes before the close of trading each day.
 #
@@ -458,6 +486,9 @@ plt.show()
 # %% [markdown]
 # # **Risk free rate check**
 
+# %% [markdown]
+# ## 1) Structural uniqueness check (per day-expiry bucket)
+
 # %%
 rf_checks = qc_table(
     [
@@ -465,6 +496,9 @@ rf_checks = qc_table(
     ]
 )
 rf_checks
+
+# %% [markdown]
+# ## 2) INFO risk-free metrics (GLOBAL vs ROI)
 
 # %%
 pd.DataFrame(
@@ -474,6 +508,9 @@ pd.DataFrame(
     ],
     index=["GLOBAL_risk_free_rate_metrics", "ROI_risk_free_rate_metrics"],
 )
+
+# %% [markdown]
+# ## 3) Term-structure sanity on sample days
 
 # %%
 sample_days = [
@@ -514,6 +551,21 @@ plt.show()
 
 # %% [markdown]
 # # **Implied Volatility Quality Checks**
+#
+# We split IV diagnostics into one HARD validity check and two SOFT tail checks.
+#
+# - `iv_non_negative` is a **HARD** check: implied volatility should never be
+#   negative in clean data.
+#
+# - `GLOBAL_high_iv` uses a **100% IV threshold** (`smoothed_iv > 1.0`).
+#   This can occur during extreme stress regimes (for example, crisis windows).
+#
+# - `GLOBAL_very_high_iv` uses a **200% IV threshold** (`smoothed_iv > 2.0`).
+#   This is much stricter and should be rare.
+#
+
+# %% [markdown]
+# ## 1) Hard and soft IV threshold checks
 
 # %%
 iv_checks = qc_table(
@@ -525,12 +577,21 @@ iv_checks = qc_table(
 )
 iv_checks
 
+# %% [markdown]
+# ## 2) INFO IV distribution diagnostics
+
 # %%
-display(info_stats_metric("GLOBAL_core_numeric_stats", "smoothed_iv"))
-display(info_stats_metric("ROI_core_numeric_stats", "smoothed_iv"))
+info_stats_metric("GLOBAL_core_numeric_stats", "smoothed_iv")
 
 # %% [markdown]
-# ## Smile shape for 10, 30 and 60 DTE
+# ## 3) Smile Shapes
+#
+# We use **delta** as the moneyness measure so that calls and puts can be placed on a
+# single, continuous implied-volatility curve.
+#
+# ORATS provides a **smoothed implied-volatility surface** (SMV) that is shared across
+# calls and puts. This lets us analyse the smile consistently across option types and
+# maturities (e.g., 10, 30, and 60 DTE).
 
 # %%
 picked_dates = [
@@ -556,29 +617,83 @@ event_labels = {
 plot_smiles_by_delta(df, picked_dates=picked_dates, event_labels=event_labels)
 
 # %% [markdown]
-# The smootthed IV alreadu comes from a smoothed surface so a single linear interpolation between the reporetd strikes is enough and does not require any smoothing. Thus if we would request a particular striek we would jsut extratc the closest to the target.
+# Because the **IV values we plot are already SMV-smoothed**, we do not apply any
+# additional smoothing. A simple interpolation across reported points is sufficient
+# when we want to visualise a continuous curve. In practice, if we need IV at a
+# specific target (e.g., a strike or delta bucket), we either:
+# - **select the closest available quote** (nearest neighbour), or
+# - **linearly interpolate** between adjacent quotes (if the target lies between them).
+#
+# For details on the ORATS smoothing methodology (SMV system), see:
+# https://orats.com/blog/smoothing-options-implied-volatilities-using-orats-smv-system
 
 # %% [markdown]
-# ## IV Term-Structure Shapes
+# ## 4) Term-Structure Shapes
+#
+# This figure plots **implied-volatility term structures** (Smoothed IV vs **DTE**) for a few **delta buckets**
+# across multiple **trade dates** (one facet per date).
 
 # %%
 plot_term_structures_by_delta(df, picked_dates=picked_dates, event_labels=event_labels)
 
 # %% [markdown]
-# On crash dates the term strcutrue is inverted (in backwardation) while in normal regime it is upward sloping (in contango).
+# On **crash / stress dates**, the term structure often becomes **inverted (backwardation)**: short-dated IV rises
+# relative to longer-dated IV. In more **normal regimes**, it is typically **upward sloping (contango)**, with
+# longer-dated IV above short-dated IV.
 
 # %% [markdown]
-# ## Plot the IV time series like 30 DTE vs 15 vs 60 vs date
+# ## 5) Implied Volatility Time-Series
+#
+# The figure shows the evolution of smoothed implied volatility over time for
+# multiple maturities (e.g., 10D, 30D, 90D, 1Y).
+#
+# Each series reflects the market’s forward-looking risk expectations over a
+# different horizon:
+# - short-dated IV (10–30D) captures **near-term uncertainty**
+# - medium maturities (90D) reflect **quarterly risk**
+# - long-dated IV (1Y) embeds **structural / long-run expectations**
 
 # %%
 daily_features.loc[:, ["iv_10d", "iv_30d", "iv_90d","iv_1y"]].plot(figsize=(12, 6))
 
 # %% [markdown]
-# The shorter DTEs IV series are much more reactive than the larger ones espcailly the 1 y, especially durign crisis wher eteh risk is expected to be larger over the next few weeks wheres the larger oens like 1y still reacts but includes the future 1 year period thus includes the recovery expetced afetr the crisis happening over teh next few weeks.
+# Short-dated IV is more reactive than longer maturities, especially during crises,
+# as markets price immediate uncertainty over the next weeks.
+#
+# Longer maturities (e.g., 1Y) also rise but more smoothly since they embed
+# expectations over a full year, including the anticipated post-shock recovery.
 
 # %% [markdown]
 # # **Greeks Sanity Checks**
 #
+# We split Greeks QC into HARD data errors and SOFT diagnostics.
+#
+# 1. **HARD sign errors (drop-candidate rows)**
+#    - `gamma_non_negative`
+#    - `vega_non_negative`
+#    These are treated as structural issues in a clean options chain.
+#    In the pipeline they are HARD checks with a tiny numeric tolerance:
+#    violation if `gamma < -1e-8` or `vega < -1e-8`.
+#
+# 2. **SOFT diagnostics (investigate rate and location first)**
+#    - `*_delta_bounds_sane_*` for calls/puts, GLOBAL and ROI
+#    - `*_theta_positive_*` for calls/puts, GLOBAL and ROI
+#
+#    Delta theoretical bounds are:
+#    $$
+#    0 \le \Delta_C \le 1,\qquad -1 \le \Delta_P \le 0.
+#    $$
+#    We still allow small numeric noise at row level (`eps=1e-5`), then judge
+#    the **violation rate** with soft thresholds.
+#
+#    Positive theta is also SOFT (row tolerance `eps=1e-8`) because it can be
+#    legitimate in some cases, for example:
+#    - dividend/carry effects (especially American options),
+#    - deep ITM contracts with early-exercise effects,
+#    - very short-maturity edge cases and vendor-Greeks approximation noise.
+
+# %% [markdown]
+# ## 1) QC summary table (hard + soft checks)
 
 # %%
 greeks_checks_cols = [
@@ -596,11 +711,18 @@ greeks_checks_cols = [
 
 qc_table(greeks_checks_cols)
 
+# %% [markdown]
+# ## 2) Soft-threshold policy view
+
 # %%
 qc_thresholds(greeks_checks_cols)
 
 # %% [markdown]
-# ## Greeks vs Strike
+# ## 3) Greeks vs Strike
+#
+# Here we investigate how option Greeks vary with strike for both calls and puts,
+# highlighting the typical theoretical shapes observed around the ATM region and
+# in the wings.
 
 # %%
 day = date(2024, 12, 16)
@@ -645,6 +767,20 @@ fig.tight_layout()
 plt.show()
 
 # %% [markdown]
+# - **Delta** should be monotonic in strike: from near `+1` (deep ITM calls) toward
+#   `0` (deep OTM calls). For puts, delta typically lies in `[-1, 0]` under the
+#   standard sign convention.
+# - **Gamma** and **Vega** usually peak near ATM and decay in the wings.
+# - **Theta** is typically negative for long options near ATM, though localized
+#   positive-theta pockets can appear (carry/dividend effects and, for American
+#   options, early-exercise features).
+#
+# **Note on ORATS conventions:** ORATS uses a consistent convention for quoting
+# Greeks across calls and puts (e.g., shared formulations and sign conventions).
+# When comparing call/put surfaces, interpret values according to this convention.
+# See: [ORATS – “Option Greeks are the same for calls and puts”](https://orats.com/blog/option-greeks-are-the-same-for-calls-and-puts).
+
+# %% [markdown]
 # # **Model-driven / arbitrage checks**
 #
 # Before looking at theoretical arbitrage violations, it is important to
@@ -674,7 +810,7 @@ plt.show()
 # is distributed across moneyness and maturity.
 
 # %% [markdown]
-# ## Volume for Calls/Puts by $\Delta$ Moneyness
+# ## 1) Liquidity context by moneyness: volume by $\Delta$
 
 # %%
 plot_avg_volume_by_delta(df_long)
@@ -683,7 +819,7 @@ plot_avg_volume_by_delta(df_long)
 # Here it is obvious that deep OTM puts are much more traded than OTM calls and taht is because of hedging demand for large institutional investors and contrarian directional options invetsor who bet on a crahs to happen.
 
 # %% [markdown]
-# ## Volume/Open Interest by DTE
+# ## 2) Liquidity context by maturity: volume/open interest by DTE
 
 # %%
 plot_liquidity_by_dte(df_long)
@@ -692,7 +828,7 @@ plot_liquidity_by_dte(df_long)
 # Here short maturities are much more traded wrt the open interest (the nb of oustandijgn contartcs currently in the market) but the larger we go in the DTEs the larger the OI and the lwoer the traded volume whihc also makes sense.
 
 # %% [markdown]
-# # **Put-Call Parity checks**
+# ## 3) Put-call parity diagnostics
 #
 # **Economic context (AOA):**
 # In frictionless markets, no-arbitrage implies a strict parity relation for
@@ -708,7 +844,7 @@ plot_liquidity_by_dte(df_long)
 # spread-aware tolerance rather than as an exact equality.
 
 # %% [markdown]
-# ## American parity check used in this QC
+# ### American parity check used in this QC
 #
 # SPY options are American, so we use bounds (not equality):
 #
@@ -753,7 +889,7 @@ qc_top_buckets(pcp_checks_cols[0])
 qc_top_buckets(pcp_checks_cols[1])
 
 # %% [markdown]
-# # **Arbitrage bounds for call & put prices**
+# ## 4) Price-bounds diagnostics (calls and puts)
 #
 # Price-bound diagnostics from summary keys.
 
@@ -781,7 +917,7 @@ if bounds_global_put is not None:
     qc_top_buckets(bounds_global_put).head(10)
 
 # %% [markdown]
-# ## Strike & maturity monotonicity checks
+# ## 5) Strike and maturity monotonicity diagnostics
 #
 # Use SOFT monotonicity checks from qc summary.
 
