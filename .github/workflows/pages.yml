@@ -34,12 +34,16 @@ jobs:
       - name: Build HTML reports
         run: |
           mkdir -p site
-          jupyter nbconvert --to html --output-dir site \
-            notebooks/greeks.ipynb \
-            notebooks/iv_surface_modelling.ipynb \
-            notebooks/rv_forecasting.ipynb \
-            notebooks/skew_trading.ipynb \
-            notebooks/vrp_harvesting.ipynb
+          jupyter nbconvert --to html --output greeks --output-dir site \
+            notebooks/greeks/notebook.ipynb
+          jupyter nbconvert --to html --output iv_surface_modelling --output-dir site \
+            notebooks/iv_surface_modelling/notebook.ipynb
+          jupyter nbconvert --to html --output rv_forecasting --output-dir site \
+            notebooks/rv_forecasting/notebook.ipynb
+          jupyter nbconvert --to html --output skew_trading --output-dir site \
+            notebooks/skew_trading/notebook.ipynb
+          jupyter nbconvert --to html --output vrp_harvesting --output-dir site \
+            notebooks/vrp_harvesting/notebook.ipynb
 
       - name: Add index page
         run: |

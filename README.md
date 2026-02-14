@@ -162,14 +162,14 @@ All metrics are computed on **log 21D RV**, using an expanding walk-forward with
 - The **Random Forest** does **not** improve on HAR-RV-VIX in the validation period and is therefore **not carried forward** to the final walk-forward evaluation.
 - All modelling choices (features, models, hyper-parameters) were fixed on **2010–2020**; the **2021–2025** walk-forward backtest is run **once** to avoid backtest-tuning bias.
 
-[Full notebook](notebooks/rv_forecasting.ipynb)
+[Full notebook](notebooks/rv_forecasting/notebook.ipynb)
 
 
 ## **Implied Volatility Surface Modelling (Parametric vs Non-Parametric)**
 
 ![Iv surface](plots/iv_surface_grid.png)
 
-[Full notebook](notebooks/iv_surface_modelling.ipynb)
+[Full notebook](notebooks/iv_surface_modelling/notebook.ipynb)
 
 
 ## **Skew Volatility Trading (30 DTE / 25 Δ)**
@@ -220,7 +220,7 @@ We run a walk-forward backtest on daily SPX options (2016 – 2023), starting wi
   - **Stop-Loss & Take-Profit:** SL at 100% of notional, TP at 70% of notional
   - **Holding Period Cap:** 3 business days (skip negative theta trades on Fridays if 2-day θ decay > 200)
 
-[Full notebook](notebooks/skew_trading.ipynb)
+[Full notebook](notebooks/skew_trading/notebook.ipynb)
 
 ---
 

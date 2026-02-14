@@ -183,6 +183,55 @@ def info_stats_metric(info_name: str, metric: str) -> pd.DataFrame:
 len(qc_summary), qc_summary[3]
 
 # %% [markdown]
+# # **GLOBAL vs ROI Interpretation Policy**
+#
+# We use this interpretation policy throughout the notebook for every QC family.
+#
+# - **GLOBAL**: the full options universe after broad filters.
+# - **ROI**: our practical trading region of interest, roughly:
+#   - moneyness around **10-90 delta**,
+#   - maturity around **10-60 DTE**.
+#
+# Why this split matters:
+#
+# - Violations in far wings or extreme maturities can be real but less relevant
+#   to tradable workflows.
+# - Persistent violations inside ROI are more likely to affect execution quality,
+#   strategy risk sizing, and signal reliability.
+#
+# Severity policy used in sections below:
+#
+# 1. **HARD** checks: structural invalid data (drop-candidate rows).
+# 2. **SOFT** checks: investigate rate + location first (GLOBAL vs ROI).
+# 3. **INFO** diagnostics: descriptive metrics, not pass/fail by themselves.
+
+# %% [markdown]
+# ## Liquidity Context for ROI vs GLOBAL
+#
+# We visualise liquidity before detailed QC interpretation so ROI-vs-GLOBAL
+# weighting is grounded in observable market depth.
+
+# %% [markdown]
+# ## 1) Liquidity by moneyness: volume by $\Delta$
+
+# %%
+plot_avg_volume_by_delta(df_long)
+
+# %% [markdown]
+# Deep OTM puts are usually much more traded than symmetric OTM calls, largely
+# reflecting structural hedging demand.
+
+# %% [markdown]
+# ## 2) Liquidity by maturity: volume/open interest by DTE
+
+# %%
+plot_liquidity_by_dte(df_long)
+
+# %% [markdown]
+# Short maturities often carry higher traded volume relative to open interest,
+# while longer maturities tend to accumulate open interest with lower turnover.
+
+# %% [markdown]
 # # **Basic Checks**
 #
 # Hard structural checks + calendar-level dataset checks from the QC summary.
@@ -654,7 +703,53 @@ plot_term_structures_by_delta(df, picked_dates=picked_dates, event_labels=event_
 # - long-dated IV (1Y) embeds **structural / long-run expectations**
 
 # %%
-daily_features.loc[:, ["iv_10d", "iv_30d", "iv_90d","iv_1y"]].plot(figsize=(12, 6))
+iv_ts = daily_features.loc[:, ["iv_10d", "iv_30d", "iv_90d", "iv_1y"]].dropna()
+
+fig, (ax_top, ax_bottom) = plt.subplots(
+    2,
+    1,
+    figsize=(13, 7),
+    sharex=True,
+    gridspec_kw={"height_ratios": [3, 1]},
+)
+
+series_style = {
+    "iv_10d": ("IV 10D", "#d62728", 1.4),
+    "iv_30d": ("IV 30D", "#1f77b4", 1.4),
+    "iv_90d": ("IV 90D", "#2ca02c", 1.4),
+    "iv_1y": ("IV 1Y", "#9467bd", 1.6),
+}
+
+for column, (label, color, linewidth) in series_style.items():
+    ax_top.plot(iv_ts.index, iv_ts[column], label=label, color=color, linewidth=linewidth)
+
+for event_day in event_labels:
+    ax_top.axvline(event_day, color="gray", alpha=0.15, linewidth=0.8)
+
+ax_top.set_title("Smoothed IV term snapshots over time (10D, 30D, 90D, 1Y)")
+ax_top.set_ylabel("Implied volatility")
+ax_top.grid(alpha=0.25)
+ax_top.legend(ncol=4, frameon=False, loc="upper left")
+
+iv_slope_10d_1y = iv_ts["iv_10d"] - iv_ts["iv_1y"]
+ax_bottom.plot(
+    iv_ts.index,
+    iv_slope_10d_1y,
+    color="#111111",
+    linewidth=1.2,
+    label="10D - 1Y",
+)
+ax_bottom.axhline(0.0, color="black", linestyle="--", linewidth=0.9, alpha=0.7)
+for event_day in event_labels:
+    ax_bottom.axvline(event_day, color="gray", alpha=0.15, linewidth=0.8)
+
+ax_bottom.set_ylabel("Slope")
+ax_bottom.set_xlabel("Trade date")
+ax_bottom.grid(alpha=0.25)
+ax_bottom.legend(frameon=False, loc="upper left")
+
+fig.tight_layout()
+plt.show()
 
 # %% [markdown]
 # Short-dated IV is more reactive than longer maturities, especially during crises,
@@ -662,6 +757,10 @@ daily_features.loc[:, ["iv_10d", "iv_30d", "iv_90d","iv_1y"]].plot(figsize=(12, 
 #
 # Longer maturities (e.g., 1Y) also rise but more smoothly since they embed
 # expectations over a full year, including the anticipated post-shock recovery.
+#
+# The lower panel (`10D - 1Y`) is a compact slope diagnostic:
+# - positive values indicate short-dated stress dominance (backwardation),
+# - negative values indicate a more normal contango-like term shape.
 
 # %% [markdown]
 # # **Greeks Sanity Checks**
@@ -783,52 +882,11 @@ plt.show()
 # %% [markdown]
 # # **Model-driven / arbitrage checks**
 #
-# Before looking at theoretical arbitrage violations, it is important to
-# remember that **not all of the option chain is realistically tradable for us**.
-#
-# - In practice we care mainly about:
-#   - **ATM options** (both calls and puts),
-#   - **OTM calls and puts**, and
-#   - some **deep OTM puts** (typically not below ~10-delta).
-# - Deep ITM options (|Δ| ≈ 1) are usually **not attractive for vol trading**:
-#   they behave almost like the underlying (delta ≈ ±1, other Greeks ≈ 0),
-#   so it is often cleaner to trade the underlying directly.
-#
-# On the maturity side:
-#
-# - Our horizon of interest is roughly **10–60 days to expiry**:
-#   - very short maturities (< 10 DTE) suffer from extreme time decay,
-#   - very long maturities (> 60 DTE) often have low VRP and liquidity is thinner.
-#
-# Therefore:
-#
-# - **Violations in far wings (very small or very large delta) and very short/long DTE
-#   are much less relevant** than violations inside our core tradable region
-#   (e.g. 10–90Δ, 10–60 DTE).
-#
-# To make this concrete, we first visualise how **liquidity (volume / open interest)**
-# is distributed across moneyness and maturity.
+# This section follows the GLOBAL-vs-ROI interpretation policy defined above.
+# We interpret arbitrage diagnostics with higher weight on ROI behavior.
 
 # %% [markdown]
-# ## 1) Liquidity context by moneyness: volume by $\Delta$
-
-# %%
-plot_avg_volume_by_delta(df_long)
-
-# %% [markdown]
-# Here it is obvious that deep OTM puts are much more traded than OTM calls and taht is because of hedging demand for large institutional investors and contrarian directional options invetsor who bet on a crahs to happen.
-
-# %% [markdown]
-# ## 2) Liquidity context by maturity: volume/open interest by DTE
-
-# %%
-plot_liquidity_by_dte(df_long)
-
-# %% [markdown]
-# Here short maturities are much more traded wrt the open interest (the nb of oustandijgn contartcs currently in the market) but the larger we go in the DTEs the larger the OI and the lwoer the traded volume whihc also makes sense.
-
-# %% [markdown]
-# ## 3) Put-call parity diagnostics
+# ## 1) Put-call parity diagnostics
 #
 # **Economic context (AOA):**
 # In frictionless markets, no-arbitrage implies a strict parity relation for
@@ -889,7 +947,7 @@ qc_top_buckets(pcp_checks_cols[0])
 qc_top_buckets(pcp_checks_cols[1])
 
 # %% [markdown]
-# ## 4) Price-bounds diagnostics (calls and puts)
+# ## 2) Price-bounds diagnostics (calls and puts)
 #
 # Price-bound diagnostics from summary keys.
 
@@ -917,7 +975,7 @@ if bounds_global_put is not None:
     qc_top_buckets(bounds_global_put).head(10)
 
 # %% [markdown]
-# ## 5) Strike and maturity monotonicity diagnostics
+# ## 3) Strike and maturity monotonicity diagnostics
 #
 # Use SOFT monotonicity checks from qc summary.
 

@@ -1,6 +1,6 @@
 .PHONY: help lint format check typecheck test test-unit test-integration ci sync-nb sync-nb-all
 
-NOTEBOOK ?= notebooks/orats_spy_qc_eda.ipynb
+NOTEBOOK ?= notebooks/qc_eda/notebook.ipynb
 
 help:
 	@echo "Targets:"
@@ -47,4 +47,4 @@ sync-nb:
 	jupytext --sync $(NOTEBOOK)
 
 sync-nb-all:
-	jupytext --sync notebooks/*.ipynb
+	find notebooks -name '*.ipynb' -print0 | xargs -0 -n1 jupytext --sync

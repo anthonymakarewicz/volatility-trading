@@ -1,6 +1,9 @@
 ## Notebooks
 - Finish the SPY ORATS validation notebook
 
+## Source code
+- Make part of the public API the plotting and helpers used across the notebooks.
+
 ## Quality Checks:
 - Fix the thresholds for eahc checks (widen them)
 - Fix the summarizer by bucket (DELTA bucket (-inf, 0])

@@ -36,10 +36,10 @@ In the repository settings:
 
 The Pages workflow currently exports this set:
 
-- `notebooks/greeks.ipynb`
-- `notebooks/iv_surface_modelling.ipynb`
-- `notebooks/rv_forecasting.ipynb`
-- `notebooks/skew_trading.ipynb`
-- `notebooks/vrp_harvesting.ipynb`
+- `notebooks/greeks/notebook.ipynb`
+- `notebooks/iv_surface_modelling/notebook.ipynb`
+- `notebooks/rv_forecasting/notebook.ipynb`
+- `notebooks/skew_trading/notebook.ipynb`
+- `notebooks/vrp_harvesting/notebook.ipynb`
 
 Update `.github/workflows/pages.yml` when adding/removing published notebooks.

@@ -22,9 +22,9 @@ def plot_smiles_by_delta(
     df_long: pl.DataFrame,
     picked_dates: Sequence[date],
     targets: Sequence[tuple[int, str]] = (
-        (10, "≈10D"),
-        (30, "≈30D"),
-        (60, "≈60D"),
+        (10, "10D"),
+        (30, "30D"),
+        (60, "60D"),
     ),
     *,
     nrows: int = 3,
@@ -101,6 +101,8 @@ def plot_smiles_by_delta(
     for k in range(len(picked_dates), len(axes)):
         axes[k].set_axis_off()
 
+    labels = ", ".join(lbl for _, lbl in targets)
+    fig.suptitle(f"Smoothed IV Smiles by |Delta| ({labels})", y=1.01, fontsize=16)
     fig.tight_layout()
     plt.show()
 
@@ -109,7 +111,7 @@ def plot_term_structures_by_delta(
     df: pl.DataFrame,
     picked_dates: Sequence[date],
     delta_targets: Sequence[tuple[float, str]] = (
-        (0.50, "ATM (Δ≈0.5)"),
+        (0.50, "ATM"),
         (0.25, "25Δ Call"),
         (0.75, "25Δ Put"),
     ),
@@ -176,6 +178,8 @@ def plot_term_structures_by_delta(
     for k in range(len(picked_dates), len(axes)):
         axes[k].set_axis_off()
 
+    labels = ", ".join(lbl for _, lbl in delta_targets)
+    fig.suptitle(f"IV Term Structures by Delta Bucket ({labels})", y=1.01, fontsize=16)
     fig.tight_layout()
     plt.show()
 
