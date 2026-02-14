@@ -2,6 +2,11 @@
 
 This project uses `pytest`.
 
+For detailed docs:
+
+- `docs/testing_guide.md` (layout, conventions, run commands)
+- `docs/test_authoring.md` (how to write high-quality tests)
+
 ## Quick Start
 
 1. Install dev test deps:

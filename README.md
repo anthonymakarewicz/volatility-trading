@@ -81,7 +81,7 @@ Run integration tests:
 pytest -q -m integration
 ```
 
-See [Test structure](docs/test_structure.md) for layout and conventions.
+See [Testing guide](docs/testing_guide.md) for layout and conventions.
 
 ## **Continuous Integration (CI)**
 
@@ -124,7 +124,7 @@ See:
 - [Configs](docs/configs.md) for YAML schema and config reference
 - [Data pipeline](docs/data_pipeline.md) for the end-to-end pipeline flow
 - [Troubleshooting](docs/troubleshooting.md) for common errors and fixes
-- [Test structure](docs/test_structure.md) for tests and how to run them
+- [Testing guide](docs/testing_guide.md) for tests and how to run them
 - [Jupytext workflow](docs/jupytext.md) for notebook pairing, sync, and reproducible execution
 - [Notebook catalog](docs/notebooks.md) for notebook summaries and report links
 - [Publishing](docs/publishing.md) for GitHub Pages build and deploy workflow
