@@ -120,6 +120,8 @@ Notebook HTML reports are built in GitHub Actions and published to GitHub Pages.
 
 See:
 - [Development guide](docs/development.md) for local dev workflow, pre-commit, and dependency updates
+- [Coding guide](docs/coding_guide.md) for code authoring and refactoring rules
+- [Docstrings](docs/docstrings.md) for docstring policy
 - [Entrypoints](docs/entrypoints.md) for CLI entrypoints and flags
 - [Configs](docs/configs.md) for YAML schema and config reference
 - [Data pipeline](docs/data_pipeline.md) for the end-to-end pipeline flow

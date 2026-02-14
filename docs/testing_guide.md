@@ -4,7 +4,7 @@ This project uses `pytest` for unit and integration tests. Tests live under
 `tests/` and follow the same high-level domain layout as `src/volatility_trading/`.
 
 For test-writing standards (fixtures, edge cases, parametrization, determinism),
-see `docs/test_authoring.md`.
+see [Test Authoring Guide](test_authoring.md).
 
 ## Layout
 

@@ -104,6 +104,8 @@ Never invent formulas, parameter values, feature names, or results.
 
 After notebook edits:
 
+See [Jupytext Workflow](jupytext.md) for conflict recovery and sync details.
+
 1. sync pair (`jupytext --sync notebooks/<name>.ipynb`),
 2. keep `.ipynb` and `.py` consistent and committed together.
 

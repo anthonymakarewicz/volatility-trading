@@ -2,7 +2,7 @@
 
 Use this guide when adding or refactoring tests under `tests/`.
 
-For test layout and run commands, see `docs/testing_guide.md`.
+For test layout and run commands, see [Testing Guide](testing_guide.md).
 
 ## Principles
 
