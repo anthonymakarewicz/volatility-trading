@@ -64,6 +64,14 @@ Current hooks include:
 
 Notebook usage is standardized with Jupytext pairing (`.ipynb` + `.py:percent`).
 
+- Optional but recommended: register the project venv as a Jupyter kernel:
+
+```bash
+python -m ipykernel install --user --name volatility_trading --display-name "Python (.venv) volatility_trading"
+```
+
+This makes the venv available in Jupyter kernel selection with a stable name.
+
 - Single notebook sync:
   - `make sync-nb NOTEBOOK=notebooks/foo.ipynb`
 - Sync all notebooks:

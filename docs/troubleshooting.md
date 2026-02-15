@@ -47,6 +47,18 @@ For ORATS pipeline/app-specific failures, see
 - Related docs:
   - [Jupytext Workflow](contributing/jupytext.md)
 
+## Venv Kernel Missing in Jupyter
+
+- Symptom: `.venv` Python exists in interpreter selection, but not in Jupyter kernel list.
+- Likely cause: kernel spec was not registered for the venv.
+- Fix:
+  - activate venv (`source .venv/bin/activate`)
+  - register kernel:
+    - `python -m ipykernel install --user --name volatility_trading --display-name "Python (.venv) volatility_trading"`
+  - restart VS Code/Jupyter kernel picker if needed
+- Related docs:
+  - [Development Guide](contributing/development.md)
+
 ## Pytest Import or Discovery Errors
 
 - Symptom: `ModuleNotFoundError` for `volatility_trading...` or import mismatch.
