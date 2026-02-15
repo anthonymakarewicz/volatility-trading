@@ -41,6 +41,15 @@ DAILY_FEATURES_CORE_COLUMNS: tuple[str, ...] = (
     "hv_intra_100d",
     "hv_intra_120d",
     "hv_intra_252d",
+    "hv_close_5d",
+    "hv_close_10d",
+    "hv_close_20d",
+    "hv_close_30d",
+    "hv_close_60d",
+    "hv_close_90d",
+    "hv_close_100d",
+    "hv_close_120d",
+    "hv_close_252d",
 )
 
 
@@ -87,6 +96,15 @@ DAILY_FEATURES_ENDPOINT_COLUMNS: dict[str, tuple[str, ...]] = {
         "hv_intra_100d",
         "hv_intra_120d",
         "hv_intra_252d",
+        "hv_close_5d",
+        "hv_close_10d",
+        "hv_close_20d",
+        "hv_close_30d",
+        "hv_close_60d",
+        "hv_close_90d",
+        "hv_close_100d",
+        "hv_close_120d",
+        "hv_close_252d",
     ),
 }
 
@@ -107,7 +125,7 @@ DAILY_FEATURES_ENDPOINT_UNIT_MULTIPLIERS: dict[str, dict[str, float]] = {
 # Uses fnmatch-style globs: hv_intra_* , risk_free_rate_* , etc.
 DAILY_FEATURES_ENDPOINT_UNIT_MULTIPLIERS_GLOB: dict[str, list[tuple[str, float]]] = {
     "hvs": [
-        ("hv_intra_*", 0.01),  # ORATS HVS is like 12.5 meaning 12.5% -> 0.125
+        ("hv_*", 0.01),  # ORATS HVS is like 12.5 meaning 12.5% -> 0.125
     ],
 }
 
