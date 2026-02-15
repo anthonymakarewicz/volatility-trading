@@ -330,6 +330,8 @@ pure-eval==0.2.3
     # via stack-data
 py7zr==1.1.0
     # via -r requirements.in
+pyarrow==23.0.0
+    # via -r requirements.in
 pybcj==1.0.7
     # via py7zr
 pycparser==3.0

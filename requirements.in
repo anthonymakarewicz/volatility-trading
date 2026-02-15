@@ -6,6 +6,7 @@ matplotlib
 numpy
 pandas
 polars
+pyarrow
 python-dotenv
 py7zr
 pyyaml
