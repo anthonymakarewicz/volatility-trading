@@ -18,9 +18,30 @@
 # %% [markdown]
 # # **ORATS SPY Options Chain EDA**
 #
-# This notebook keeps the original EDA intent while sourcing QC diagnostics from
-# the pipeline artifact `qc_summary.json` instead of re-implementing manual checks
-# in notebook cells.
+# This notebook aims to provide additional context on the quality checks implemented in the library, beyond what is covered in the docstrings and code structure.
+#
+# We load the `qc_summary.json` generated after running the QC pipeline and complement it with exploratory analysis (EDA) to provide a clearer, visual understanding of the results and their practical implications.
+#
+# The notebook is structured as follows:
+#
+# 1. [Read SPY Options data](#1-read-spy-options-data)
+# 2. [Load QC summary artifact](#2-load-qc-summary-artifact)
+# 3. [GLOBAL vs ROI Interpretation Policy](#3-global-vs-roi-interpretation-policy)
+# 4. [Basic Checks](#4-basic-checks)
+# 5. [Days-to-expiry check](#5-days-to-expiry-check)
+# 6. [Quote sanity checks](#6-quote-sanity-checks)
+# 7. [Volume & Open Interest Checks](#7-volume--open-interest-checks)
+# 8. [Spot price sanity checks](#8-spot-price-sanity-checks)
+# 9. [Dividend Yield checks](#9-dividend-yield-checks)
+# 10.  [Risk-free Rate checks](#10-risk-free-rate-checks)
+# 11.  [Implied Volatility Quality Checks](#11-implied-volatility-quality-checks)
+# 12.  [Greeks Sanity Checks](#12-greeks-sanity-checks)
+# 13.  [Put-call parity diagnostics](#13-put-call-parity-diagnostics)
+# 14.  [Price-bounds diagnostics (calls and puts)](#14-price-bounds-diagnostics-calls-and-puts)
+# 15. [Monotonicity diagnostics](#15-monotonicity-diagnostics)
+#    - 15.1. [Vertical spread arbitrage (strike monotonicity)](#151-vertical-spread-arbitrage-strike-monotonicity)
+#    - 15.2. [Calendar arbitrage (maturity monotonicity)](#152-calendar-arbitrage-maturity-monotonicity)
+# 16. [Conclusion](#16-conclusion)
 
 # %%
 # %load_ext autoreload
@@ -67,28 +88,32 @@ except ModuleNotFoundError:
 
 
 # %% [markdown]
-# # Read SPY Options data
+# # **1. Read SPY Options data & Daily Features**
 #
-# We analyze the whole chain from `2007-01-01` to `2025-12-31` and keep contracts
-# inside a broad tradable region.
+# We analyze the full SPY options chain from `2007-01-01` to `2025-12-31`  keeping
+# contracts within a broad tradable region.
+#
+# We also import the **Daily Features** dataset, which contains complementary
+# metrics used for the analysis over the same period.
 
 # %%
 TICKER = "SPY"
 
-start = date(2007, 1, 1)
-end = date(2025, 12, 5)
+START = date(2007, 1, 1)
+END = date(2025, 12, 5)
 
-delta_min = 0.01
-delta_max = 0.99
-dte_min = 5
-dte_max = 252
+DELTA_MIN = 0.01
+DELTA_MAX = 0.99
+DTE_MIN = 5
+DTE_MAX = 252
 
+# %%
 lf = scan_options_chain(TICKER)
 lf = lf.filter(
-    pl.col("trade_date").is_between(start, end),
-    pl.col("call_delta").abs().is_between(delta_min, delta_max),
-    pl.col("put_delta").abs().is_between(delta_min, delta_max),
-    pl.col("dte").is_between(dte_min, dte_max),
+    pl.col("trade_date").is_between(START, END),
+    pl.col("call_delta").abs().is_between(DELTA_MIN, DELTA_MAX),
+    pl.col("put_delta").abs().is_between(DELTA_MIN, DELTA_MAX),
+    pl.col("dte").is_between(DTE_MIN, DTE_MAX),
 )
 
 df = lf.collect()
@@ -96,16 +121,20 @@ df_long = options_chain_wide_to_long(df).collect()
 
 df
 
+# %% [markdown]
+# We also import the Daily Features which conatisn useful metrics used for analysis from the sam period
+
 # %%
 daily_features = read_daily_features(TICKER)
 daily_features = daily_features.filter(
-    pl.col("trade_date").is_between(start, end)
+    pl.col("trade_date").is_between(START, END)
 )
 daily_features = daily_features.to_pandas().set_index("trade_date")
+
 daily_features
 
 # %% [markdown]
-# # Load QC summary artifact
+# # **2. Load QC summary results**
 #
 # The checks below are read from the quality checks summary after running `orats-api-download --config config/orats_api_download.yml`
 # ```
@@ -123,7 +152,7 @@ qc_helpers = QCSummaryHelper(qc_summary)
 len(qc_summary), qc_summary[3]
 
 # %% [markdown]
-# # **GLOBAL vs ROI Interpretation Policy**
+# # **3. GLOBAL vs ROI Interpretation Policy**
 #
 # We use this interpretation policy throughout the notebook for every QC family.
 #
@@ -146,13 +175,7 @@ len(qc_summary), qc_summary[3]
 # 3. **INFO** diagnostics: descriptive metrics, not pass/fail by themselves.
 
 # %% [markdown]
-# ## Liquidity Context for ROI vs GLOBAL
-#
-# We visualise liquidity before detailed QC interpretation so ROI-vs-GLOBAL
-# weighting is grounded in observable market depth.
-
-# %% [markdown]
-# ## 1) Liquidity by moneyness: volume by $\Delta$
+# ## Liquidity by moneyness: volume by $\Delta$
 
 # %%
 plot_avg_volume_by_delta(df_long)
@@ -162,7 +185,7 @@ plot_avg_volume_by_delta(df_long)
 # reflecting structural hedging demand.
 
 # %% [markdown]
-# ## 2) Liquidity by maturity: volume/open interest by DTE
+# ## Liquidity by maturity: volume/open interest by DTE
 
 # %%
 plot_liquidity_by_dte(df_long)
@@ -172,7 +195,7 @@ plot_liquidity_by_dte(df_long)
 # while longer maturities tend to accumulate open interest with lower turnover.
 
 # %% [markdown]
-# # **Basic Checks**
+# # **4. Basic Checks**
 #
 # Hard structural checks + calendar-level dataset checks from the QC summary.
 
@@ -180,7 +203,7 @@ plot_liquidity_by_dte(df_long)
 df.describe(percentiles=(0.25, 0.5, 0.75, 0.9))
 
 # %% [markdown]
-# ## 1) Hard key integrity checks (non-negotiable)
+# ## Hard key integrity checks (non-negotiable)
 #
 # Policy:
 # - Keys required to identify one contract observation should never be null.
@@ -198,7 +221,7 @@ basic_checks = qc_helpers.qc_table(
 basic_checks
 
 # %% [markdown]
-# ## 2) Calendar-level dataset checks (GLOBAL diagnostics)
+# ## Calendar-level dataset checks (GLOBAL diagnostics)
 #
 # Policy:
 # - Missing exchange sessions and non-trading dates are dataset-level diagnostics.
@@ -225,17 +248,16 @@ print("Sample missing sessions:", missing_sessions[:5])
 print("Sample non-trading dates:", non_trading[:5])
 
 # %% [markdown]
-# After investgiation the trading date `2018-12-05` coreesponds to George W bush memorial day where the NYSE was closed but here
-# the options market were still opened so we can assume that we can trade on this day.
+# After investgiation the trading date `2018-12-05` coreesponds to George W bush memorial day where the NYSE was closed but here the options market were still opened.
 
 # %%
 df.filter(pl.col("trade_date") == pl.date(2018, 12, 5))
 
 # %% [markdown]
-# As you can see contracts were traded that day.
+# As you can see contracts were traded that day so we keep this day in our backtest.
 
 # %% [markdown]
-# # **Days-to-expiry check**
+# # **5. Days-to-expiry check**
 #
 #
 # Here a `HARD` error will be that the current `trade_date` is larger than the exipiry
@@ -243,15 +265,12 @@ df.filter(pl.col("trade_date") == pl.date(2018, 12, 5))
 #
 # We alos check the distributuon of the `dte` column expecting dte ranging from the tradebale filters we have applied.
 
-# %% [markdown]
-# ## 1) Hard trade-date vs expiry consistency
-
 # %%
 dte_checks = qc_helpers.qc_table(["trade_date_leq_expiry_date"])
 dte_checks
 
 # %% [markdown]
-# ## 2) DTE distribution sanity (INFO diagnostics)
+# ## 5.2. DTE distribution sanity (INFO diagnostics)
 
 # %%
 global_dte_stats = qc_helpers.info_stats_metric("GLOBAL_core_numeric_stats", "dte")
@@ -259,7 +278,7 @@ print("GLOBAL DTE stats")
 display(global_dte_stats)
 
 # %% [markdown]
-# # **Quote sanity checks**
+# # **6. Quote sanity checks**
 #
 # Here we separate quote checks into 3 groups:
 #
@@ -279,11 +298,7 @@ display(global_dte_stats)
 #    In practice, we care whether they cluster outside the tradable ROI.
 
 # %% [markdown]
-# ## 1) Hard quote errors (non-negotiable)
-#
-# Policy:
-# - If these appear materially, treat affected rows as invalid candidates.
-# - Expected outcome in clean data: near-zero violation rates.
+# ## Hard quote errors (non-negotiable)
 
 # %%
 hard_quote_checks = qc_helpers.qc_table(
@@ -296,11 +311,7 @@ hard_quote_checks = qc_helpers.qc_table(
 hard_quote_checks
 
 # %% [markdown]
-# ## 2) Locked and one-sided quotes (investigate, then decide)
-#
-# Policy:
-# - Keep as soft flags first.
-# - Escalate only if rates are high in ROI (10-60 DTE, 10-90 delta).
+# ## Locked and one-sided quotes (investigate, then decide)
 
 # %%
 microstructure_quote_checks = qc_helpers.qc_table(
@@ -324,11 +335,7 @@ qc_helpers.qc_top_buckets("GLOBAL_one_sided_quotes_P")
 qc_helpers.qc_top_buckets("ROI_one_sided_quotes_P")
 
 # %% [markdown]
-# ## 3) Spread diagnostics (execution quality)
-#
-# Policy:
-# - Wide spreads are expected to be much worse in wings / short DTE.
-# - We focus on ROI behavior to assess strategy impact.
+# ## Spread diagnostics (execution quality)
 
 # %%
 spread_quote_checks = qc_helpers.qc_table(
@@ -352,7 +359,7 @@ qc_helpers.qc_top_buckets("GLOBAL_wide_spread_P")
 qc_helpers.qc_top_buckets("ROI_wide_spread_P")
 
 # %% [markdown]
-# # **Volume & Open Interest Checks**
+# # **7. Volume & Open Interest Checks**
 #
 # Here we separate volume/OI checks into 3 groups:
 #
@@ -370,14 +377,14 @@ qc_helpers.qc_top_buckets("ROI_wide_spread_P")
 #    Not a pass/fail rule; used to profile tradability and market depth.
 
 # %% [markdown]
-# ## 1) Hard volume/OI sign errors (non-negotiable)
+# ## Hard volume/OI sign errors (non-negotiable)
 
 # %%
 hard_vol_oi_checks = qc_helpers.qc_table(["negative_vol_oi"])
 hard_vol_oi_checks
 
 # %% [markdown]
-# ## 2) Soft volume/OI mismatch diagnostics
+# ## Soft volume/OI mismatch diagnostics
 
 # %%
 soft_vol_oi_checks = qc_helpers.qc_table(
@@ -395,7 +402,7 @@ soft_vol_oi_checks = qc_helpers.qc_table(
 soft_vol_oi_checks
 
 # %% [markdown]
-# ## 3) INFO liquidity metrics (GLOBAL vs ROI)
+# ## INFO liquidity metrics (GLOBAL vs ROI)
 
 # %%
 vol_oi_metrics = pd.DataFrame(
@@ -414,17 +421,18 @@ qc_helpers.qc_top_buckets("GLOBAL_zero_vol_pos_oi_P")
 qc_helpers.qc_top_buckets("GLOBAL_pos_vol_zero_oi_P")
 
 # %% [markdown]
-# # **Spot price sanity checks**
+# # **8. Spot price sanity checks**
 #
-# Spot consistency checks come from the QC summary; external price comparison
-# remains as EDA context.
+# We validate spot data in two steps:
+# 8.1. structural consistency checks from the QC summary,
+# 8.2. external cross-check versus Yahoo Finance close (EDA context).
 
 # %% [markdown]
-# ## 1) Structural spot consistency checks (QC summary)
+# ## Structural spot consistency checks (QC summary)
 #
-# Here we chekc that the spot price is the same for a given (ticker, trade_date, expiry_date, strike) bucket, namely that it is the same accros teh whole chain for a given day.
-#
-# In the case of ETF/Stock options, there is no implied froward price whihc is store din the `underlying_price` column so the `spot_price` shoudl be the same as `underlying_price`.
+# We check that `spot_price` is constant across the chain for each trading day.
+# For SPY (equity ETF options), `spot_price` is also expected to match
+# `underlying_price` at the day level.
 
 # %%
 spot_checks = qc_helpers.qc_table(
@@ -436,11 +444,11 @@ spot_checks = qc_helpers.qc_table(
 spot_checks
 
 # %% [markdown]
-# ## 2) ORATS SPY vs Yahoo Finance non-adjusted close
+# ## ORATS SPY vs Yahoo Finance non-adjusted close
 #
-# In ORATS, the options chain data provies a complete snapshot of the US equity options market 14 minutes before the close of trading each day.
-#
-# Thus we should expect it to be very close to another data source, for instance Yahoo finance data which is reliable for a highly liquid ETF liek `SPY`.
+# ORATS options snapshots are taken close to end-of-day, so ORATS spot should be
+# close to a reference close series. We use Yahoo Finance non-adjusted close as
+# a practical benchmark for SPY.
 
 # %%
 spx_yf = yf.download(TICKER, start=start, end=end, auto_adjust=False)["Close"]
@@ -472,17 +480,15 @@ display(
 plot_spot_vs_yahoo(spx)
 
 # %% [markdown]
-# The two are very close to this confirms that the spot price data form ORATS is of good quality.
+# ORATS spot and Yahoo close are very close in level and correlation, which
+# supports the quality of ORATS spot inputs for downstream diagnostics.
 
 # %% [markdown]
-# # **Dividend Yield checks**
+# # **9. Dividend Yield checks**
 #
 # Dividend yield enters several model-based diagnostics (notably parity bounds
 # through the carry term `qT`). We first inspect summary stats, then inspect the
 # cross-DTE shape on sample days.
-
-# %% [markdown]
-# ## 1) INFO summary statistics (GLOBAL and ROI)
 
 # %%
 qc_helpers.info_stats_metric("GLOBAL_core_numeric_stats", "dividend_yield")
@@ -496,7 +502,7 @@ qc_helpers.info_stats_metric("ROI_core_numeric_stats", "dividend_yield")
 # separate structural ex-dividend effects from true outlier/noise behavior.
 
 # %% [markdown]
-# ## 2) Term-structure diagnostics with ex-dividend anchors
+# ## Term-structure of dividend yield
 #
 # We overlay Yahoo Finance ex-dividend dates as dashed vertical markers in DTE
 # space for each sample day. This helps check whether sharp jumps in the
@@ -532,10 +538,17 @@ plot_term_structure_samples(
 # data corruption.
 
 # %% [markdown]
-# # **Risk free rate check**
+# # **10. Risk-free Rate checks**
+#
+# Risk-free rates drive discounting in price bounds and parity diagnostics, so we
+# validate both structural consistency and level behavior.
 
 # %% [markdown]
-# ## 1) Structural uniqueness check (per day-expiry bucket)
+# ## 10.1. Structural uniqueness check (per day-expiry bucket)
+#
+# We expect one consistent risk-free rate per `(trade_date, expiry_date)` slice.
+# In this run, the check passes with `0` violations, which supports internal
+# consistency of rate assignment.
 
 # %%
 rf_checks = qc_helpers.qc_table(
@@ -546,7 +559,16 @@ rf_checks = qc_helpers.qc_table(
 rf_checks
 
 # %% [markdown]
-# ## 2) INFO risk-free metrics (GLOBAL vs ROI)
+# ## 10.2. INFO risk-free metrics (GLOBAL vs ROI)
+#
+# The metrics indicate:
+# - no missing values (`r_null_rate = 0.0`) in both GLOBAL and ROI,
+# - plausible range (`r_min = 0.0`, `r_max = 0.0602`),
+# - similar central levels across scopes (GLOBAL mean/median around `1.97%/1.23%`,
+#   ROI around `1.85%/1.10%`).
+#
+# This suggests rates are well-covered and in a realistic magnitude range for the
+# sample horizon.
 
 # %%
 pd.DataFrame(
@@ -558,7 +580,10 @@ pd.DataFrame(
 )
 
 # %% [markdown]
-# ## 3) Term-structure sanity on sample days
+# ## Term-structure sanity on sample days
+#
+# We inspect several dates to verify that cross-DTE rate curves are smooth and
+# economically coherent across rate regimes.
 
 # %%
 sample_days = [
@@ -571,10 +596,13 @@ sample_days = [
 plot_term_structure_samples(df, sample_days=sample_days, value_col="risk_free_rate")
 
 # %% [markdown]
-# Here ORATS is using a 4-point yield curve per day, one for short maturities (less than 30 DTE) and one for int  (30 <= 90) and one for (90< dte <180) aned the last one beyond 180.
+# The step-like profile is consistent with ORATS using a small set of tenor
+# anchors (piecewise term-structure) rather than a fully free curve at every DTE.
+# Across sample days, levels shift with macro regimes while preserving coherent
+# monotone/near-monotone shape by maturity.
 
 # %% [markdown]
-# # **Implied Volatility Quality Checks**
+# # **11. Implied Volatility Quality Checks**
 #
 # We split IV diagnostics into one HARD validity check and two SOFT tail checks.
 #
@@ -588,9 +616,6 @@ plot_term_structure_samples(df, sample_days=sample_days, value_col="risk_free_ra
 #   This is much stricter and should be rare.
 #
 
-# %% [markdown]
-# ## 1) Hard and soft IV threshold checks
-
 # %%
 iv_checks = qc_helpers.qc_table(
     [
@@ -601,14 +626,11 @@ iv_checks = qc_helpers.qc_table(
 )
 iv_checks
 
-# %% [markdown]
-# ## 2) INFO IV distribution diagnostics
-
 # %%
 qc_helpers.info_stats_metric("GLOBAL_core_numeric_stats", "smoothed_iv")
 
 # %% [markdown]
-# ## 3) Smile Shapes
+# ## Smile Shapes
 #
 # We use **delta** as the moneyness measure so that calls and puts can be placed on a
 # single, continuous implied-volatility curve.
@@ -652,7 +674,7 @@ plot_smiles_by_delta(df, picked_dates=picked_dates, event_labels=event_labels)
 # https://orats.com/blog/smoothing-options-implied-volatilities-using-orats-smv-system
 
 # %% [markdown]
-# ## 4) Term-Structure Shapes
+# ## Term-Structure Shapes
 #
 # This figure plots **implied-volatility term structures** (Smoothed IV vs **DTE**) for a few **delta buckets**
 # across multiple **trade dates** (one facet per date).
@@ -666,7 +688,7 @@ plot_term_structures_by_delta(df, picked_dates=picked_dates, event_labels=event_
 # longer-dated IV above short-dated IV.
 
 # %% [markdown]
-# ## 5) Implied Volatility Time-Series
+# ## Implied Volatility Time-Series
 #
 # The figure shows the evolution of smoothed implied volatility over time for
 # multiple maturities (e.g., 10D, 30D, 90D, 1Y).
@@ -692,7 +714,7 @@ plot_iv_time_series_with_slope(daily_features, event_labels=event_labels)
 # - negative values indicate a more normal contango-like term shape.
 
 # %% [markdown]
-# # **Greeks Sanity Checks**
+# # **12. Greeks Sanity Checks**
 #
 # We split Greeks QC into HARD data errors and SOFT diagnostics.
 #
@@ -720,9 +742,6 @@ plot_iv_time_series_with_slope(daily_features, event_labels=event_labels)
 #    - deep ITM contracts with early-exercise effects,
 #    - very short-maturity edge cases and vendor-Greeks approximation noise.
 
-# %% [markdown]
-# ## 1) QC summary table (hard + soft checks)
-
 # %%
 greeks_checks_cols = [
     "gamma_non_negative",
@@ -739,14 +758,11 @@ greeks_checks_cols = [
 
 qc_helpers.qc_table(greeks_checks_cols)
 
-# %% [markdown]
-# ## 2) Soft-threshold policy view
-
 # %%
 qc_helpers.qc_thresholds(greeks_checks_cols)
 
 # %% [markdown]
-# ## 3) Greeks vs Strike
+# ## Greeks vs Strike
 #
 # Here we investigate how option Greeks vary with strike for both calls and puts,
 # highlighting the typical theoretical shapes observed around the ATM region and
@@ -773,15 +789,10 @@ plot_greeks_vs_strike(df_long, day=day, dte_target=dte_target)
 # See: [ORATS – “Option Greeks are the same for calls and puts”](https://orats.com/blog/option-greeks-are-the-same-for-calls-and-puts).
 
 # %% [markdown]
-# # **Model-driven / arbitrage checks**
+# # **13. Put-call parity diagnostics**
 #
-# This section follows the GLOBAL-vs-ROI interpretation policy defined above.
-# We interpret arbitrage diagnostics with higher weight on ROI behavior.
-
-# %% [markdown]
-# ## 1) Put-call parity diagnostics
+# ### Economic context (AOA)
 #
-# **Economic context (AOA):**
 # In frictionless markets, no-arbitrage implies a strict parity relation for
 # European options:
 #
@@ -789,7 +800,8 @@ plot_greeks_vs_strike(df_long, day=day, dte_target=dte_target)
 # C_E - P_E = S_0 e^{-qT} - K e^{-rT}.
 # $$
 #
-# **Tradable arbitrage context:**
+# ### Tradable arbitrage context
+#
 # In live markets, we cannot trade at mid and we pay bid/ask costs. So a small
 # parity gap is often non-actionable. We therefore assess parity with a
 # spread-aware tolerance rather than as an exact equality.
@@ -840,12 +852,15 @@ qc_helpers.qc_top_buckets(pcp_checks_cols[0])
 qc_helpers.qc_top_buckets(pcp_checks_cols[1])
 
 # %% [markdown]
-# Here a large propotion of the violations happen in the 0.3 0.7 delta bucket 
+# A meaningful share of parity violations appears in the `(0.3, 0.7]` delta
+# bucket, which is closer to the tradable region than far-wing-only issues.
 #
-# Investgtae dividend yield col
+# However, this parity check is highly sensitive to the dividend-yield input
+# (`q`). Because dividend-yield behavior is unstable near some expiries, parity
+# alerts should be interpreted jointly with dividend diagnostics before acting.
 
 # %% [markdown]
-# ## 2) Price-bounds diagnostics (calls and puts)
+# # **14. Price-bounds diagnostics (calls and puts)**
 #
 # We monitor two no-arbitrage envelopes and treat violations as SOFT diagnostics.
 #
@@ -905,13 +920,13 @@ qc_helpers.qc_top_buckets("ROI_price_bounds_mid_am_P")
 # Overall, **global violation metrics overstate the practical impact**: most inconsistencies arise in **far-OTM, lower-liquidity regions**, not in the **core tradable surface**.
 
 # %% [markdown]
-# ## 3) Monotonicity diagnostics
+# # **15. Monotonicity diagnostics**
 #
 # We treat monotonicity checks as SOFT diagnostics and separate them into strike-
 # based and maturity-based arbitrage interpretations.
 
 # %% [markdown]
-# ### 2.1 Vertical spread arbitrage (strike monotonicity)
+# ## 15.1. Vertical spread arbitrage (strike monotonicity)
 #
 # For fixed trade date and expiry, strike monotonicity conditions are:
 #
@@ -936,17 +951,15 @@ strike_monotonicity_checks = qc_helpers.qc_table(
 )
 strike_monotonicity_checks
 
-# %% [markdown]
-# The violation rate is low (less than 2%) across all the checks except the `GLOBAL_maturity_monotonicity_P`. Thus we inspect the location of those violations usign the **Delta x Dte buckets**
-
 # %%
 qc_helpers.qc_top_buckets("GLOBAL_strike_monotonicity_P")
 
 # %% [markdown]
-# **More than 50%** of the violations observed before are located in the very etxreme wings so we cna safely ignore them.
+# All strike-monotonicity checks show a **very small violation rate**, and most
+# violations are concentrated in the wings, which limits tradability impact.
 
 # %% [markdown]
-# ### 2.3 Calendar arbitrage (maturity monotonicity)
+# ## 15.2. Calendar arbitrage (maturity monotonicity)
 #
 # At fixed strike, maturity monotonicity is:
 #
@@ -969,5 +982,19 @@ maturity_monotonicity_checks = qc_helpers.qc_table(
 )
 maturity_monotonicity_checks
 
+# %% [markdown]
+# The violation rate is low (less than 2%) across all the checks except the `GLOBAL_maturity_monotonicity_P`. Thus we inspect the location of those violations usign the **Delta x Dte buckets**
+
 # %%
 qc_helpers.qc_top_buckets("GLOBAL_maturity_monotonicity_P").head(10)
+
+# %% [markdown]
+# More than **50%** of maturity-monotonicity violations are located in very
+# extreme wings, so practical impact on the core tradable surface is limited.
+
+# %% [markdown]
+# ## **16. Conclusion**
+#
+# Overall, the **quality checks pass satisfactorily**, with most violations concentrated in the **far-OTM wings**, where liquidity is lower and quotes are inherently noisier.
+#
+# For the **arbitrage checks**, the remaining breaches are **not treated as critical**. The ORATS option chains are generally regarded as **high-quality**, and these discrepancies are more likely attributable to **limitations in the specification of the checks for American options** (despite incorporating American put–call inequalities and theoretical bounds) rather than to genuine pricing inconsistencies.

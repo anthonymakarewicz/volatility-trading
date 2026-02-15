@@ -38,6 +38,8 @@ jobs:
             notebooks/greeks/notebook.ipynb
           jupyter nbconvert --to html --output iv_surface_modelling --output-dir site \
             notebooks/iv_surface_modelling/notebook.ipynb
+          jupyter nbconvert --to html --output qc_eda --output-dir site \
+            notebooks/qc_eda/notebook.ipynb
           jupyter nbconvert --to html --output rv_forecasting --output-dir site \
             notebooks/rv_forecasting/notebook.ipynb
           jupyter nbconvert --to html --output skew_trading --output-dir site \

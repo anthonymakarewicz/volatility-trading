@@ -125,7 +125,6 @@ Most-used pages:
 
 ## **Research Notebooks and Results**
 
-
 ## **Realized Volatility Forecasting (HAR-RV-VIX vs RF)**
 
 We build a **21-day realized variance** forecasting model on ES futures (2010–2025) and compare:

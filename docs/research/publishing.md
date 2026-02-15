@@ -24,7 +24,7 @@ Generated artifacts are not committed to the repo.
 - Keep local output folders ignored:
   - `reports/`
   - `site/`
-- Keep notebook sources (`notebooks/*.ipynb`) in git.
+- Keep notebook sources (`notebooks/**/notebook.ipynb`) in git.
 
 ## One-Time Setup In GitHub
 
@@ -38,6 +38,7 @@ The Pages workflow currently exports this set:
 
 - `notebooks/greeks/notebook.ipynb`
 - `notebooks/iv_surface_modelling/notebook.ipynb`
+- `notebooks/qc_eda/notebook.ipynb`
 - `notebooks/rv_forecasting/notebook.ipynb`
 - `notebooks/skew_trading/notebook.ipynb`
 - `notebooks/vrp_harvesting/notebook.ipynb`

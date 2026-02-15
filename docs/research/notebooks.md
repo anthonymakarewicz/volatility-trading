@@ -19,6 +19,9 @@ To activate publishing, set `Settings -> Pages -> Source` to `GitHub Actions`.
 - `iv_surface_modelling`: implied-volatility surface modelling and comparison.
   - Source: `notebooks/iv_surface_modelling/notebook.ipynb`
   - Report: `https://anthonymakarewicz.github.io/volatility-trading/iv_surface_modelling.html`
+- `qc_eda`: SPY options-chain quality diagnostics and EDA (GLOBAL vs ROI policy).
+  - Source: `notebooks/qc_eda/notebook.ipynb`
+  - Report: `https://anthonymakarewicz.github.io/volatility-trading/qc_eda.html`
 - `rv_forecasting`: realized volatility forecasting pipeline and model evaluation.
   - Source: `notebooks/rv_forecasting/notebook.ipynb`
   - Report: `https://anthonymakarewicz.github.io/volatility-trading/rv_forecasting.html`
@@ -31,4 +34,4 @@ To activate publishing, set `Settings -> Pages -> Source` to `GitHub Actions`.
 
 ## Other Notebooks (work-in-progress)
 
-- `notebooks/qc_eda/notebook.ipynb`: SPY options quality diagnostics and EDA.
+No additional WIP notebooks are currently tracked in this catalog.
