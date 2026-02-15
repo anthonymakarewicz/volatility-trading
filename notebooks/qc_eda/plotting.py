@@ -285,40 +285,87 @@ def plot_spot_vs_yahoo(spx: pd.DataFrame) -> None:
     plt.show()
 
 
-def plot_risk_free_term_structure_samples(
+def plot_term_structure_samples(
     df: pl.DataFrame,
     sample_days: Sequence[date],
     *,
+    value_col: str = "dividend_yield",
+    ex_div_dates: Sequence[date] | None = None,
+    ex_div_label: str = "Ex-Div Date",
     nrows: int = 2,
     ncols: int = 2,
 ) -> None:
-    """Plot risk-free term structure (rate vs DTE) for sample dates."""
+    """Plot a term structure (value vs DTE) for sample dates.
+
+    For each selected `trade_date`, plots `value_col` against `dte`.
+
+    Args:
+        df: Polars DataFrame with at least ["trade_date", "dte", value_col].
+        sample_days: Dates to plot (one panel per date).
+        value_col: Column to plot on the y-axis (e.g., "dividend_yield",
+            "risk_free_rate", or any numeric column).
+        ex_div_dates: Optional ex-dividend calendar dates. When provided, the
+            function overlays vertical dashed lines at matching future DTEs
+            for each sample day.
+        ex_div_label: Legend label for ex-dividend marker lines.
+        nrows: Number of subplot rows.
+        ncols: Number of subplot columns.
+
+    Raises:
+        ValueError: If required columns are missing.
+    """
+    required = {"trade_date", "dte", value_col}
+    missing = required.difference(df.columns)
+    if missing:
+        raise ValueError(f"Missing required columns: {sorted(missing)}")
+
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(10, 6))
     axes = np.asarray(axes).ravel()
 
     for ax, day in zip(axes, sample_days):
-        sub_pd = (
-            df.filter(pl.col("trade_date") == day)
-            .select("dte", "risk_free_rate")
-            .sort("dte")
-            .to_pandas()
+        sub = (
+            df.filter(pl.col("trade_date") == day).select("dte", value_col).sort("dte")
         )
-
-        if sub_pd.empty:
+        if sub.height == 0:
             ax.set_axis_off()
             continue
 
-        ax.plot(sub_pd["dte"], sub_pd["risk_free_rate"], marker="o", linestyle="-")
+        sub_pd = sub.to_pandas()
+        ax.plot(sub_pd["dte"], sub_pd[value_col], marker="o", linestyle="-")
+
+        if ex_div_dates:
+            max_dte = int(sub_pd["dte"].max())
+            future_ex_div_dtes = sorted(
+                {
+                    (ex_div_day - day).days
+                    for ex_div_day in ex_div_dates
+                    if 0 < (ex_div_day - day).days <= max_dte
+                }
+            )
+            for idx, ex_div_dte in enumerate(future_ex_div_dtes):
+                label = ex_div_label if idx == 0 else None
+                ax.axvline(
+                    ex_div_dte,
+                    linestyle="--",
+                    linewidth=1.0,
+                    color="crimson",
+                    alpha=0.35,
+                    label=label,
+                )
+
         ax.set_title(day.strftime("%Y-%m-%d"))
         ax.set_xlabel("DTE")
         ax.grid(alpha=0.3)
+        if ex_div_dates:
+            ax.legend(loc="lower right", frameon=False)
 
-    for index in range(len(sample_days), len(axes)):
-        axes[index].set_axis_off()
+    for i in range(len(sample_days), len(axes)):
+        axes[i].set_axis_off()
 
     if len(axes) > 0:
-        axes[0].set_ylabel("risk_free_rate")
-    fig.suptitle("Term-structure of ORATS risk_free_rate on sample days")
+        axes[0].set_ylabel(value_col)
+
+    fig.suptitle(f"Term-structure of {value_col} on sample days")
     fig.tight_layout()
     plt.show()
 

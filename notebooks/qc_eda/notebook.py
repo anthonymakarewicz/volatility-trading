@@ -10,7 +10,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: volatility_trading
+#     display_name: .venv
 #     language: python
 #     name: python3
 # ---
@@ -47,7 +47,7 @@ try:
         plot_greeks_vs_strike,
         plot_iv_time_series_with_slope,
         plot_liquidity_by_dte,
-        plot_risk_free_term_structure_samples,
+        plot_term_structure_samples,
         plot_smiles_by_delta,
         plot_spot_vs_yahoo,
         plot_term_structures_by_delta,
@@ -59,7 +59,7 @@ except ModuleNotFoundError:
         plot_greeks_vs_strike,
         plot_iv_time_series_with_slope,
         plot_liquidity_by_dte,
-        plot_risk_free_term_structure_samples,
+        plot_term_structure_samples,
         plot_smiles_by_delta,
         plot_spot_vs_yahoo,
         plot_term_structures_by_delta,
@@ -176,12 +176,18 @@ plot_liquidity_by_dte(df_long)
 #
 # Hard structural checks + calendar-level dataset checks from the QC summary.
 
+# %%
+df.describe(percentiles=(0.25, 0.5, 0.75, 0.9))
+
 # %% [markdown]
 # ## 1) Hard key integrity checks (non-negotiable)
 #
 # Policy:
 # - Keys required to identify one contract observation should never be null.
 # - Any material violation is a data-integrity blocker.
+
+# %%
+df.with_columns(qT = pl.col("yte") * pl.col("dividend_yield")).filter(pl.col("qT") > 0.05)
 
 # %%
 basic_checks = qc_helpers.qc_table(
@@ -469,6 +475,63 @@ plot_spot_vs_yahoo(spx)
 # The two are very close to this confirms that the spot price data form ORATS is of good quality.
 
 # %% [markdown]
+# # **Dividend Yield checks**
+#
+# Dividend yield enters several model-based diagnostics (notably parity bounds
+# through the carry term `qT`). We first inspect summary stats, then inspect the
+# cross-DTE shape on sample days.
+
+# %% [markdown]
+# ## 1) INFO summary statistics (GLOBAL and ROI)
+
+# %%
+qc_helpers.info_stats_metric("GLOBAL_core_numeric_stats", "dividend_yield")
+
+# %%
+qc_helpers.info_stats_metric("ROI_core_numeric_stats", "dividend_yield")
+
+# %% [markdown]
+# Typical levels (mean/median near ~2%) are plausible for SPY, while the upper
+# tail is large in unconditional stats. The term-structure view below is used to
+# separate structural ex-dividend effects from true outlier/noise behavior.
+
+# %% [markdown]
+# ## 2) Term-structure diagnostics with ex-dividend anchors
+#
+# We overlay Yahoo Finance ex-dividend dates as dashed vertical markers in DTE
+# space for each sample day. This helps check whether sharp jumps in the
+# `dividend_yield` curve align with upcoming ex-dividend events.
+
+# %%
+sample_days = [
+    date(2007, 1, 3),
+    date(2012, 6, 15),
+    date(2018, 12, 24),
+    date(2025, 1, 3),
+]
+
+spy_dividends = yf.Ticker(TICKER).dividends
+ex_div_dates = sorted(
+    {
+        pd.Timestamp(ts).date()
+        for ts in spy_dividends.index
+        if start <= pd.Timestamp(ts).date() <= end
+    }
+)
+
+plot_term_structure_samples(
+    df,
+    sample_days=sample_days,
+    value_col="dividend_yield",
+    ex_div_dates=ex_div_dates,
+)
+
+# %% [markdown]
+# In these sample days, the main **dividend-yield jumps** align with **ex-dividend
+# anchors**, which supports a **structural carry** interpretation rather than random
+# data corruption.
+
+# %% [markdown]
 # # **Risk free rate check**
 
 # %% [markdown]
@@ -505,7 +568,7 @@ sample_days = [
     date(2025, 1, 3),
 ]
 
-plot_risk_free_term_structure_samples(df, sample_days=sample_days)
+plot_term_structure_samples(df, sample_days=sample_days, value_col="risk_free_rate")
 
 # %% [markdown]
 # Here ORATS is using a 4-point yield curve per day, one for short maturities (less than 30 DTE) and one for int  (30 <= 90) and one for (90< dte <180) aned the last one beyond 180.
@@ -777,17 +840,46 @@ qc_helpers.qc_top_buckets(pcp_checks_cols[0])
 qc_helpers.qc_top_buckets(pcp_checks_cols[1])
 
 # %% [markdown]
+# Here a large propotion of the violations happen in the 0.3 0.7 delta bucket 
+#
+# Investgtae dividend yield col
+
+# %% [markdown]
 # ## 2) Price-bounds diagnostics (calls and puts)
 #
-# Price-bound diagnostics from summary keys.
+# We monitor two no-arbitrage envelopes and treat violations as SOFT diagnostics.
+#
+# ### American-spot bounds
+#
+# Spot-based bounds used as an additional diagnostic:
+#
+# $$
+# \max(0, S_0-K) \le C_{\text{mid}} \le S_0,
+# $$
+# $$
+# \max(0, K-S_0) \le P_{\text{mid}} \le K.
+# $$
+#
+#
+# Bounds are evaluated with spread-aware tolerance:
+#
+# $$
+# \tau=\max\!\big(\tau_0,\alpha\,|\text{ask}-\text{bid}|\big),
+# $$
+#
+# with $\alpha=1.0$ and $\tau_0=0.01$ in this pipeline.
+# A row is flagged when:
+#
+# $$
+# \text{mid} < \text{lower} - \tau \quad \text{or} \quad \text{mid} > \text{upper} + \tau.
+# $$
+#
+# Interpretation: small rates outside ROI can be microstructure noise; persistent
+# ROI violations are more concerning for tradable strategies.
 
 # %%
 bounds_checks = qc_helpers.qc_table(
     [
-        "GLOBAL_price_bounds_mid_eu_forward_C",
-        "GLOBAL_price_bounds_mid_eu_forward_P",
-        "ROI_price_bounds_mid_eu_forward_C",
-        "ROI_price_bounds_mid_eu_forward_P",
         "GLOBAL_price_bounds_mid_am_C",
         "GLOBAL_price_bounds_mid_am_P",
         "ROI_price_bounds_mid_am_C",
@@ -796,36 +888,86 @@ bounds_checks = qc_helpers.qc_table(
 )
 bounds_checks
 
+# %% [markdown]
+# A **large number of price-bound violations** is observed across calls, puts, and the tradeable ROI. To localise the issue, we analyse breaches using **DTE × delta buckets**.
+
 # %%
-bounds_global_put = qc_helpers.first_existing(
-    "GLOBAL_price_bounds_mid_eu_forward_P",
-    "GLOBAL_price_bounds_mid_am_P",
-)
-if bounds_global_put is not None:
-    qc_helpers.qc_top_buckets(bounds_global_put).head(10)
+qc_helpers.qc_top_buckets("ROI_price_bounds_mid_am_C")
+
+# %%
+qc_helpers.qc_top_buckets("ROI_price_bounds_mid_am_P")
 
 # %% [markdown]
-# ## 3) Strike and maturity monotonicity diagnostics
+# - Violations are **heavily concentrated in low-delta wings**, particularly in the **(0.1, 0.3] bucket** across short and medium maturities, where **rates exceed ~65%**.
 #
-# Use SOFT monotonicity checks from qc summary.
+# - By contrast, the **(0.3, 0.7] region (near-ATM, more tradeable)** shows **much lower violation rates** and a **smaller share of total breaches**.
+#
+# Overall, **global violation metrics overstate the practical impact**: most inconsistencies arise in **far-OTM, lower-liquidity regions**, not in the **core tradable surface**.
+
+# %% [markdown]
+# ## 3) Monotonicity diagnostics
+#
+# We treat monotonicity checks as SOFT diagnostics and separate them into strike-
+# based and maturity-based arbitrage interpretations.
+
+# %% [markdown]
+# ### 2.1 Vertical spread arbitrage (strike monotonicity)
+#
+# For fixed trade date and expiry, strike monotonicity conditions are:
+#
+# $$
+# C(K_1, T) \ge C(K_2, T) \quad \text{for } K_1 < K_2,
+# $$
+# $$
+# P(K_1, T) \le P(K_2, T) \quad \text{for } K_1 < K_2.
+# $$
+#
+# In practice (American exercise + quote noise), we treat violations as SOFT and
+# judge impact using GLOBAL vs ROI concentration.
 
 # %%
-monotonicity_checks = qc_helpers.qc_table(
+strike_monotonicity_checks = qc_helpers.qc_table(
     [
         "GLOBAL_strike_monotonicity_C",
         "GLOBAL_strike_monotonicity_P",
         "ROI_strike_monotonicity_C",
         "ROI_strike_monotonicity_P",
+    ]
+)
+strike_monotonicity_checks
+
+# %% [markdown]
+# The violation rate is low (less than 2%) across all the checks except the `GLOBAL_maturity_monotonicity_P`. Thus we inspect the location of those violations usign the **Delta x Dte buckets**
+
+# %%
+qc_helpers.qc_top_buckets("GLOBAL_strike_monotonicity_P")
+
+# %% [markdown]
+# **More than 50%** of the violations observed before are located in the very etxreme wings so we cna safely ignore them.
+
+# %% [markdown]
+# ### 2.3 Calendar arbitrage (maturity monotonicity)
+#
+# At fixed strike, maturity monotonicity is:
+#
+# $$
+# C(K, T_2) \ge C(K, T_1), \qquad P(K, T_2) \ge P(K, T_1)
+# \quad \text{for } T_2 > T_1.
+# $$
+#
+# We monitor maturity-order violations as SOFT diagnostics, with emphasis on ROI
+# where tradability impact is highest.
+
+# %%
+maturity_monotonicity_checks = qc_helpers.qc_table(
+    [
         "GLOBAL_maturity_monotonicity_C",
         "GLOBAL_maturity_monotonicity_P",
         "ROI_maturity_monotonicity_C",
         "ROI_maturity_monotonicity_P",
     ]
 )
-monotonicity_checks
-
-# %%
-qc_helpers.qc_top_buckets("GLOBAL_strike_monotonicity_P").head(10)
+maturity_monotonicity_checks
 
 # %%
 qc_helpers.qc_top_buckets("GLOBAL_maturity_monotonicity_P").head(10)

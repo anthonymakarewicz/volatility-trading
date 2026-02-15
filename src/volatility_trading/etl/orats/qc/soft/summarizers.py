@@ -18,7 +18,16 @@ def summarize_by_bucket(
     min_rows: int = 50,
     top_k: int | None = 5,
 ) -> pl.DataFrame:
-    """Summarise violations by (DTE bucket, |delta| bucket)."""
+    """
+    Summarise violations by ``(DTE bucket, |delta| bucket)``.
+
+    Derived output columns:
+    - ``viol_rate_bucket``: local violation rate in the bucket (``n_viol / n_rows``).
+    - ``viol_share``: share of all violations explained by the bucket
+      (``n_viol / total_viol``; ``0.0`` if ``total_viol == 0``).
+    - ``row_share``: share of total rows represented by the bucket
+      (``n_rows / total_rows``).
+    """
     if df.height == 0 or violation_col not in df.columns:
         return pl.DataFrame()
 
