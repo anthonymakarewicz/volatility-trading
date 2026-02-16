@@ -46,7 +46,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "monies_implied_root": INTER_ORATS_API,
         "proc_root": PROC_ORATS_OPTIONS_CHAIN,
     },
-    "tickers": ["AAPL"],
+    "tickers": ["SPY"],
     "years": None,
     "dte_min": 1,
     "dte_max": 252,

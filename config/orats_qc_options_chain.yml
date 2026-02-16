@@ -7,7 +7,7 @@ paths:
   proc_root: data/processed/orats/options_chain
 
 tickers:
-  - AAPL
+  - SPY
 
 write_json: true
 out_json: null

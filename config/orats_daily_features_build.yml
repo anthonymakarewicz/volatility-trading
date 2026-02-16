@@ -8,9 +8,10 @@ paths:
   proc_root: data/processed/orats/daily_features
 
 tickers:
-  - AAPL
+  - SPY
 
 endpoints:
+  - dailies
   - summaries
   - hvs
 

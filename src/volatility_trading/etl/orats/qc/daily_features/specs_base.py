@@ -13,5 +13,11 @@ BASE_KEYS = [
 
 IV_COLUMNS = tuple(col for col in DAILY_FEATURES_CORE_COLUMNS if col.startswith("iv_"))
 HV_COLUMNS = tuple(col for col in DAILY_FEATURES_CORE_COLUMNS if col.startswith("hv_"))
+PRICE_COLUMNS = tuple(
+    col for col in DAILY_FEATURES_CORE_COLUMNS if col.endswith("_price")
+)
+VOLUME_COLUMNS = tuple(
+    col for col in DAILY_FEATURES_CORE_COLUMNS if col.endswith("_volume")
+)
 
 INFO_COLUMNS = tuple(c for c in DAILY_FEATURES_CORE_COLUMNS if c not in BASE_KEYS)

@@ -42,7 +42,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "inter_root": INTER_ORATS_FTP,
     },
     "tickers": ["SPX"],
-    "year_whitelist": [2007],
+    "year_whitelist": list(range(2007, 2026)),
     "strict": True,
 }
 

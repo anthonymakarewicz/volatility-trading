@@ -10,6 +10,16 @@ from __future__ import annotations
 DAILY_FEATURES_CORE_COLUMNS: tuple[str, ...] = (
     "ticker",
     "trade_date",
+    "adjusted_open_price",
+    "adjusted_high_price",
+    "adjusted_low_price",
+    "adjusted_close_price",
+    "adjusted_volume",
+    "unadjusted_open_price",
+    "unadjusted_high_price",
+    "unadjusted_low_price",
+    "unadjusted_close_price",
+    "unadjusted_volume",
     "iv_10d",
     "iv_20d",
     "iv_30d",
@@ -58,6 +68,20 @@ DAILY_FEATURES_CORE_COLUMNS: tuple[str, ...] = (
 # ----------------------------------------------------------------------------
 
 DAILY_FEATURES_ENDPOINT_COLUMNS: dict[str, tuple[str, ...]] = {
+    "dailies": (
+        "ticker",
+        "trade_date",
+        "adjusted_open_price",
+        "adjusted_high_price",
+        "adjusted_low_price",
+        "adjusted_close_price",
+        "adjusted_volume",
+        "unadjusted_open_price",
+        "unadjusted_high_price",
+        "unadjusted_low_price",
+        "unadjusted_close_price",
+        "unadjusted_volume",
+    ),
     "summaries": (
         "ticker",
         "trade_date",

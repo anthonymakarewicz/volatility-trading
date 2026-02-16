@@ -7,7 +7,7 @@ paths:
   proc_root: data/processed/orats/daily_features
 
 tickers:
-  - AAPL
+  - SPY
 
 write_json: true
 out_json: null

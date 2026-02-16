@@ -40,7 +40,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "paths": {
         "proc_root": PROC_ORATS_OPTIONS_CHAIN,
     },
-    "tickers": ["AAPL"],
+    "tickers": ["SPY"],
     "write_json": True,
     "out_json": None,
     "dte_bins": [0, 10, 30, 60, 180],

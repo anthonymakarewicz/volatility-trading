@@ -27,7 +27,7 @@ def build(
     inter_api_root: Path | str,
     proc_root: Path | str,
     ticker: str,
-    endpoints: Sequence[str] = ("summaries", "hvs"),
+    endpoints: Sequence[str] = ("dailies", "summaries", "hvs"),
     prefix_endpoint_cols: bool = True,
     priority_endpoints: Sequence[str] | None = None,
     collect_stats: bool = False,

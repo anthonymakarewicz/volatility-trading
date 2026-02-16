@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from ...hard.exprs import expr_bad_negative, expr_bad_null_keys
 from ...hard.spec_types import HardSpec
-from ..specs_base import BASE_KEYS, HV_COLUMNS, IV_COLUMNS
+from ..specs_base import (
+    BASE_KEYS,
+    HV_COLUMNS,
+    IV_COLUMNS,
+    PRICE_COLUMNS,
+    VOLUME_COLUMNS,
+)
 
 
 def get_hard_specs() -> list[HardSpec]:
@@ -17,7 +23,7 @@ def get_hard_specs() -> list[HardSpec]:
         ),
     ]
 
-    for col in (*IV_COLUMNS, *HV_COLUMNS):
+    for col in (*IV_COLUMNS, *HV_COLUMNS, *PRICE_COLUMNS, *VOLUME_COLUMNS):
         specs.append(
             HardSpec(
                 name=f"{col}_non_negative",

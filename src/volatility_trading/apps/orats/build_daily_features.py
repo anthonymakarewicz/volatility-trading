@@ -3,7 +3,7 @@
 
 Typical usage:
     python -m volatility_trading.apps.orats.build_daily_features --config config/orats_daily_features_build.yml
-    python -m volatility_trading.apps.orats.build_daily_features --tickers SPX --endpoints summaries hvs
+    python -m volatility_trading.apps.orats.build_daily_features --tickers SPX --endpoints dailies summaries hvs
     orats-build-daily-features --config config/orats_daily_features_build.yml
 
 Config precedence: CLI > YAML > defaults.
@@ -44,8 +44,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "inter_root": INTER_ORATS_API,
         "proc_root": PROC_ORATS_DAILY_FEATURES,
     },
-    "tickers": ["AAPL"],
-    "endpoints": ["summaries", "hvs"],
+    "tickers": ["SPY"],
+    "endpoints": ["dailies", "summaries", "hvs"],
     "prefix_endpoint_cols": True,
     "priority_endpoints": None,
     "collect_stats": True,

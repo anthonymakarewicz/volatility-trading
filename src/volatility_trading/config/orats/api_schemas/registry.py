@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Final
 
 from ..schema_spec import OratsSchemaSpec
+from .dailies import DAILIES_SCHEMA
 from .hvs import HVS_SCHEMA_SPEC
 from .monies_implied import MONIES_IMPLIED_SCHEMA
 from .summaries import SUMMARIES_SCHEMA
@@ -30,6 +31,7 @@ API_SCHEMAS: Final[dict[str, OratsSchemaSpec]] = {
     "monies_implied": MONIES_IMPLIED_SCHEMA,
     "summaries": SUMMARIES_SCHEMA,
     "hvs": HVS_SCHEMA_SPEC,
+    "dailies": DAILIES_SCHEMA,
 }
 
 
