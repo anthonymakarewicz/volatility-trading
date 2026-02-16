@@ -56,3 +56,10 @@ This file defines mandatory, high-level workflow rules for this repository.
 
 - For a new chat notebook-writing bootstrap prompt, use the template in:
   - [Notebook Authoring Guide](docs/contributing/notebook_authoring.md) (`Prompt Template for New Chat`).
+
+## Commit Message Suggestion
+
+- Whenever proposing or implementing code/docs/notebook/test changes, always provide:
+  - 1 recommended commit message using Conventional Commit format
+    (`<type>(scope): <summary>`), and
+  - 1 optional shorter alternative.

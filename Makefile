@@ -1,6 +1,6 @@
 .PHONY: help lint format check typecheck test test-unit test-integration ci sync-nb sync-nb-all
 
-NOTEBOOK ?= notebooks/qc_eda/notebook.ipynb
+NOTEBOOK ?= notebooks/vrp_harvesting/notebook.ipynb
 
 help:
 	@echo "Targets:"

@@ -60,6 +60,26 @@ Current hooks include:
 - Ruff lint and format for `src/`, `tests/`, and notebook helper modules (`notebooks/**/*.py`, excluding `notebooks/**/notebook.py`)
 - Jupytext sync for paired notebook scripts (`notebooks/**/notebook.py`)
 
+## Commit Messages
+
+Use Conventional Commits:
+
+`<type>(scope): <summary>`
+
+Types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`.
+
+Preferred scopes: `orats`, `etl`, `qc`, `cli`, `notebooks`, `docs`, `ci`.
+
+Examples:
+- `feat(orats): add qc summary report generation`
+- `fix(qc): handle empty bucket without crash`
+- `docs(notebooks): clarify jupytext sync workflow`
+
+Notes:
+- Use imperative mood (`add`, `fix`, `remove`).
+- Keep the summary <= 72 characters.
+- If pre-commit modifies files during `git commit`, run `git add -A` and commit again.
+
 ## Notebook Workflow
 
 Notebook usage is standardized with Jupytext pairing (`.ipynb` + `.py:percent`).
