@@ -10,7 +10,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: volatility_trading
+#     display_name: .venv
 #     language: python
 #     name: python3
 # ---
@@ -50,17 +50,22 @@
 # %load_ext autoreload
 # %autoreload 2
 
+from datetime import date
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yfinance as yf
+import polars as pl
 
-import volatility_trading.rv_forecasting.vol_estimators as rvvol
 import volatility_trading.strategies.vrp_harvesting.plotting as ph
-from volatility_trading.config.paths import DATA_INTER, PROC_OPTIONSDX
 from volatility_trading.options.greeks import bs_greeks, bs_price
-from volatility_trading.rv_forecasting.data_loading import load_intraday_prices
 
+from volatility_trading.datasets import (
+    options_chain_wide_to_long,
+    scan_daily_features,
+    scan_options_chain,
+)
 np.random.seed(42)
 
 # %matplotlib inline
@@ -74,32 +79,22 @@ plt.style.use('seaborn-v0_8-darkgrid')
 # `2021` to `2023` for the Really Out-of-Sample test.
 
 # %%
-start = "2010-01-01"
-end = "2020-12-31"
+TICKER = "SPY"
+
+START = date(2010, 1, 1)
+END = date(2020, 12, 31)
+
+DTE_MIN = 5
+DTE_MAX = 60
 
 # %%
-file = PROC_OPTIONSDX / "full_spx_options_2010_2020.parquet"
+lf = scan_options_chain(TICKER)
+options_chain = lf.filter(
+    pl.col("trade_date").is_between(START, END),
+    pl.col("dte").is_between(DTE_MIN, DTE_MAX),
+).collect()
 
-cols = [
-    "strike", "underlying_last", 
-    "dte", "expiry",
-    "c_delta", "p_delta", 
-    "c_gamma", "p_gamma",
-    "c_vega", "p_vega",
-    "c_theta", "p_theta",
-    "c_iv", "p_iv",
-    "c_last", "p_last",
-    "c_volume", "p_volume",
-    "c_bid", "c_ask",
-    "p_bid", "p_ask"
-]
-
-options = pd.read_parquet(file, columns=cols)
-spot = options.groupby("date")["underlying_last"].first()
-
-options["T"] = options["dte"] / 365
-options["k"] = np.log(options["strike"] / options["underlying_last"])
-options
+options_chain
 
 # %% [markdown]
 # # **2. Variance Risk Premium (VRP) – Stylised Facts**
@@ -121,48 +116,51 @@ options
 # - For **short vol**, it is the structural premium that can be harvested systematically—provided regime and tail risks are controlled.
 
 # %% [markdown]
-# ### **Extract the 30-Days At-The-Money Implied Volatility**
+# ### **Read the 30D Implied Volatility & Close-to-Close Volatility**
 
 # %%
-iv_atm = pd.read_csv(PROC_OPTIONSDX / "spx_atm_iv_30d_2010_2020.csv", index_col=0, parse_dates=True)
-iv_atm *= 100
+vol_cols = ["trade_date", "iv_30d", "hv_close_30d"]
+
+vol_features = scan_daily_features(TICKER, columns=vol_cols)
+vol_features = vol_features.filter(
+    pl.col("trade_date").is_between(START, END)
+).collect()
+
+vol_features = vol_features.to_pandas().set_index("trade_date")
+vol_features *= 100
+vol_features
 
 # %% [markdown]
-# ### **Extract CBOE VIX**
-
-# %%
-vix = yf.download('^VIX', start=start, end=end)["Close"]
-vix = vix.rename(columns={"^VIX": "VIX"})
-vix = vix["VIX"].squeeze()
-
-# %% [markdown]
-# ### **Compute the 21-Day Realized Volatility**
+# ### **Compute the 30-Day Realized Volatility (RV)**
 #
-# We calculate **realized volatility** over a rolling **21-trading-day** window (which is approx 30 calendar days) represents the actual volatility observed over the past month. We prefer using the SP500 intraday 5min returns which is more efficient than daily close-to-close.
+# We calculate **realized volatility** as the histrical volaitltiy shifted backward in time as the RV is the future historical volatility. We use a horizon `H` of **21 days** as this is the number of tradign days in a **30 day calendar month**.
 
 # %%
 H = 21
+vol_features["rv_30d"] = vol_features["hv_close_30d"].shift(-H)
+vol_features
 
-es_5min = load_intraday_prices(DATA_INTER / "es-5m.csv", start=start, end=end)
-
-# Compute the daily realized variance 
-daily_rv = rvvol.rv_intraday(es_5min["close"])
-
-# Compute the 21-D annualized realized volalitiy
-rv_lag = (
-    (np.sqrt(daily_rv.rolling(H).mean() * 252)) * 100
-).rename("rv_lag")
-
-rv = rv_lag.shift(-H).rename("rv")
+# %% [markdown]
+# ### **Download CBOE VIX**
+#
+# We extract the Volatility Index from CBOE as it is going to be helpful for the vrp.
 
 # %%
-vol_df = pd.concat([iv_atm, vix, rv, rv_lag], axis=1).dropna()
+# TODO: We should have a fucntion to downlaod and process data (and or also having a fucntion to load not asset speicifc data like vix at the root of processed/ direclty or in a processed/external/)
+
+vix = yf.download('^VIX', start=START, end=END)["Close"]
+vix = vix.rename(columns={"^VIX": "VIX"})
+vix = vix["VIX"].squeeze()
+vix
+
+# %%
+vol_df = pd.concat([vol_features[["iv_30d", "rv_30d"]], vix], axis=1).dropna()
 
 # %% [markdown]
 # ### **Compute the Variance Risk Prenium (VRP)**
 
 # %%
-vol_df["vrp"] = vol_df["iv_atm"] - vol_df["rv"]
+vol_df["vrp"] = vol_df["iv_30d"] - vol_df["rv_30d"]
 
 # %% [markdown]
 # ## **2.1 Stylized facts 1: Positive VRP & Time varying**
@@ -170,7 +168,7 @@ vol_df["vrp"] = vol_df["iv_atm"] - vol_df["rv"]
 # The VRP is not constent, it eveolevs over time, however it is broadly positive.
 
 # %%
-ph.plot_vrp(vol_df["iv_atm"], vol_df["rv"], vol_df["vrp"])
+ph.plot_vrp(vol_df["iv_30d"], vol_df["rv_30d"], vol_df["vrp"])
 
 # %% [markdown]
 # During calm markets, the VRP is typically positive, whereas during crashes (e.g., the COVID-19 lockdown) realized volatility can exceed implied volatility when the market fails to anticipate the shock. It migth sugguest that a strategy consiting in selling preniums can be profitabel over the long run. 
@@ -458,9 +456,9 @@ print("Short iron fly: mean P&L =", round(np.mean(pnl_iron_short), dec),
 #
 
 # %%
-from volatility_trading.etl.optionsdx_loader import reshape_options_wide_to_long
-
-options = reshape_options_wide_to_long(options)
+options_chain_long = options_chain_wide_to_long(options_chain).collect()
+options_chain_long = options_chain_long.to_pandas().set_index("trade_date")
+options_chain_long
 
 # %%
 from volatility_trading.backtesting import BacktestConfig, to_daily_mtm
@@ -474,9 +472,9 @@ from volatility_trading.strategies import VRPHarvestingStrategy
 
 sig = ShortOnlySignal()
 strat = VRPHarvestingStrategy(signal=sig, holding_period=10)
-cfg = BacktestConfig(initial_capital=100000, commission_per_leg=0.0)
+cfg = BacktestConfig(initial_capital=20000, commission_per_leg=0.0)
 
-options_red = options.loc["2010":"2016"]
+options_red = options_chain_long.loc["2014":"2016"]
 data = {
     "options": options_red,
     "features": None,
@@ -489,12 +487,11 @@ trades, mtm = bt.run()
 daily_mtm = to_daily_mtm(mtm, cfg.initial_capital)
 
 # %%
-daily_mtm = to_daily_mtm(mtm, cfg.initial_capital)
-
-# %%
 from volatility_trading.backtesting.plotting import plot_pnl_attribution
 
-sp500 = options["underlying_last"].groupby("date").first()
+sp500 = options_chain_long["spot_price"].groupby("trade_date").first()
 print_perf_metrics(trades, daily_mtm)
 plot_full_performance(sp500, daily_mtm)
 plot_pnl_attribution(daily_mtm)
+
+# %%
