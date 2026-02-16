@@ -123,8 +123,8 @@ def options_chain_wide_to_long(wide: pl.LazyFrame | pl.DataFrame) -> pl.LazyFram
     schema = lf.collect_schema()
     cols = list(schema.names())
 
-    call_cols = [c for c in cols if c.startswith("call_")]
-    put_cols = [c for c in cols if c.startswith("put_")]
+    call_cols = sorted(c for c in cols if c.startswith("call_"))
+    put_cols = sorted(c for c in cols if c.startswith("put_"))
     base_cols = [c for c in cols if not c.startswith(("call_", "put_"))]
 
     if not call_cols and not put_cols:
@@ -145,8 +145,20 @@ def options_chain_wide_to_long(wide: pl.LazyFrame | pl.DataFrame) -> pl.LazyFram
         .with_columns(pl.lit("P").alias("option_type"))
     )
 
-    long = pl.concat([calls, puts], how="vertical")
-    return long.with_columns(pl.col("option_type").cast(pl.Categorical))
+    long = pl.concat([calls, puts], how="vertical").with_columns(
+        pl.col("option_type").cast(pl.Categorical)
+    )
+
+    # Keep rows ordered by contract key with C/P adjacent.
+    sort_cols = [
+        c
+        for c in ["trade_date", "expiry_date", "strike", "option_type"]
+        if c in set(base_cols) | {"option_type"}
+    ]
+    if sort_cols:
+        long = long.sort(sort_cols)
+
+    return long
 
 
 def options_chain_long_to_wide(
@@ -220,4 +232,12 @@ def options_chain_long_to_wide(
 
     # 3) Join calls+puts on base keys
     wide = calls.join(puts, on=base_cols_eff, how=how)
+
+    # Keep output row order deterministic by contract key.
+    preferred_order = [c for c in DEFAULT_BASE_COLS if c in base_cols_eff]
+    tail_order = [c for c in base_cols_eff if c not in preferred_order]
+    sort_cols = preferred_order + tail_order
+    if sort_cols:
+        wide = wide.sort(sort_cols)
+
     return wide
