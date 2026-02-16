@@ -10,6 +10,8 @@ This project uses a staged ORATS pipeline:
 For pipeline-specific failure modes and fixes, see
 [ORATS Troubleshooting](orats_troubleshooting.md).
 For general tooling/dev issues, see [Troubleshooting](../troubleshooting.md).
+For adding new daily-features columns or endpoints, see
+[Daily Features Onboarding](../contributing/daily_features_onboarding.md).
 
 ## Full Runbook (All Steps)
 

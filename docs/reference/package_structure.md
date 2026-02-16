@@ -35,6 +35,7 @@ src/volatility_trading
 │   │   ├── __init__.py
 │   │   ├── api_schemas
 │   │   │   ├── __init__.py
+│   │   │   ├── dailies.py
 │   │   │   ├── hvs.py
 │   │   │   ├── monies_implied.py
 │   │   │   ├── registry.py

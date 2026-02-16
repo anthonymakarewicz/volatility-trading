@@ -96,12 +96,16 @@ Key fields:
 
 File: `config/orats_daily_features_build.yml`
 
+If you are adding new columns/endpoints to processed daily features, follow
+[Daily Features Onboarding](../contributing/daily_features_onboarding.md).
+
 Key fields:
 
 - `paths.inter_root`
 - `paths.proc_root`
 - `tickers`
 - `endpoints`
+  Typical default: `dailies`, `summaries`, `hvs`
 - `prefix_endpoint_cols`
 - `priority_endpoints`
 - `collect_stats`

@@ -11,6 +11,7 @@ Use this page as the canonical entrypoint for repository documentation.
 
 - [Coding Guide](contributing/coding_guide.md): code authoring and refactoring rules.
 - [Docstring Guidelines](contributing/docstrings.md): module/function/class docstring policy.
+- [Daily Features Onboarding](contributing/daily_features_onboarding.md): checklist for adding new daily-features columns/endpoints.
 
 ## Data and Pipeline
 
