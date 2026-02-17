@@ -1,11 +1,13 @@
 """Option pricing models, engines, and shared types."""
 
 from .engines import (
+    BinomialTreePricer,
     BlackScholesPricer,
     GreekApproxPricer,
     GreeksModel,
     PriceModel,
 )
+from .models import binomial_tree_price
 from .models.black_scholes import (
     bs_d1_d2,
     bs_delta,
@@ -27,8 +29,10 @@ __all__ = [
     "PricingResult",
     "PriceModel",
     "GreeksModel",
+    "BinomialTreePricer",
     "BlackScholesPricer",
     "GreekApproxPricer",
+    "binomial_tree_price",
     "bs_d1_d2",
     "bs_price",
     "bs_delta",

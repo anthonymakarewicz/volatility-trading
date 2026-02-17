@@ -1,5 +1,6 @@
 """Analytical option-pricing models."""
 
+from .binomial_tree import binomial_tree_price
 from .black_scholes import (
     bs_d1_d2,
     bs_delta,
@@ -14,6 +15,7 @@ from .black_scholes import (
 )
 
 __all__ = [
+    "binomial_tree_price",
     "bs_d1_d2",
     "bs_price",
     "bs_delta",

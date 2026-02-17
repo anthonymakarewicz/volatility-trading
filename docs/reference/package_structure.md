@@ -211,10 +211,12 @@ src/volatility_trading
 │   ├── engines
 │   │   ├── __init__.py
 │   │   ├── base.py
+│   │   ├── binomial_tree_pricer.py
 │   │   ├── bs_pricer.py
 │   │   └── greek_approx_pricer.py
 │   ├── models
 │   │   ├── __init__.py
+│   │   ├── binomial_tree.py
 │   │   └── black_scholes.py
 │   └── types.py
 ├── rv_forecasting
