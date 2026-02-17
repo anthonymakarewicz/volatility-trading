@@ -11,39 +11,47 @@ For quick local commands, see [Tests README](../../tests/README.md).
 
 ```plaintext
 tests/
+├── README.md
 ├── integration
 │   └── apps
 │       ├── conftest.py
 │       ├── test_orats_api_download_smoke.py
 │       ├── test_orats_api_extract_smoke.py
+│       ├── test_orats_build_daily_features_smoke.py
+│       ├── test_orats_build_options_chain_smoke.py
 │       ├── test_orats_ftp_download_smoke.py
 │       ├── test_orats_ftp_extract_smoke.py
-│       ├── test_orats_build_options_chain_smoke.py
-│       ├── test_orats_build_daily_features_smoke.py
-│       ├── test_orats_qc_options_chain_smoke.py
-│       └── test_orats_qc_daily_features_smoke.py
-├── unit
-│   ├── cli
-│   │   ├── conftest.py
-│   │   ├── test_config.py
-│   │   └── test_logging.py
-│   └── etl
-│       └── orats
-│           ├── api
-│           │   ├── test_api_download.py
-│           │   └── test_api_extract.py
-│           ├── ftp
-│           │   ├── conftest.py
-│           │   ├── test_ftp_download.py
-│           │   └── test_ftp_extract.py
-│           ├── processed
-│           │   ├── conftest.py
-│           │   ├── test_build_daily_features.py
-│           │   └── test_build_options_chain.py
-│           └── qc
-│               ├── test_common_helpers.py
-│               └── test_runners.py
-└── README.md
+│       ├── test_orats_qc_daily_features_smoke.py
+│       └── test_orats_qc_options_chain_smoke.py
+└── unit
+    ├── cli
+    │   ├── conftest.py
+    │   ├── test_config.py
+    │   └── test_logging.py
+    ├── etl
+    │   └── orats
+    │       ├── api
+    │       │   ├── test_api_download.py
+    │       │   └── test_api_extract.py
+    │       ├── ftp
+    │       │   ├── conftest.py
+    │       │   ├── test_ftp_download.py
+    │       │   └── test_ftp_extract.py
+    │       ├── processed
+    │       │   ├── conftest.py
+    │       │   ├── test_build_daily_features.py
+    │       │   └── test_build_options_chain.py
+    │       └── qc
+    │           ├── test_common_helpers.py
+    │           └── test_runners.py
+    ├── options
+    │   ├── test_binomial_tree_pricer.py
+    │   ├── test_option_pricers.py
+    │   └── test_risk_modules.py
+    └── strategies
+        └── test_vrp_harvesting_strategy.py
+
+13 directories, 27 files
 ```
 
 ## Naming

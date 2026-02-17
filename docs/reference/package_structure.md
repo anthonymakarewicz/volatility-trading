@@ -218,6 +218,12 @@ src/volatility_trading
 │   │   ├── __init__.py
 │   │   ├── binomial_tree.py
 │   │   └── black_scholes.py
+│   ├── risk
+│   │   ├── __init__.py
+│   │   ├── estimators.py
+│   │   ├── scenarios.py
+│   │   ├── sizing.py
+│   │   └── types.py
 │   └── types.py
 ├── rv_forecasting
 │   ├── __init__.py

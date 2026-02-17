@@ -19,10 +19,31 @@ from .models.black_scholes import (
     bs_vega,
     solve_strike_for_delta,
 )
-from .types import MarketShock, MarketState, OptionSpec, OptionType, PricingResult
+from .risk import (
+    FixedGridScenarioGenerator,
+    OptionLeg,
+    PositionSide,
+    RiskBudgetSizer,
+    RiskEstimator,
+    ScenarioGenerator,
+    StressLossRiskEstimator,
+    StressPoint,
+    StressResult,
+    StressScenario,
+    contracts_for_risk_budget,
+)
+from .types import (
+    MarketShock,
+    MarketState,
+    OptionSpec,
+    OptionType,
+    OptionTypeInput,
+    PricingResult,
+)
 
 __all__ = [
     "OptionType",
+    "OptionTypeInput",
     "OptionSpec",
     "MarketState",
     "MarketShock",
@@ -42,4 +63,15 @@ __all__ = [
     "bs_rho",
     "bs_greeks",
     "solve_strike_for_delta",
+    "PositionSide",
+    "OptionLeg",
+    "StressScenario",
+    "StressPoint",
+    "StressResult",
+    "ScenarioGenerator",
+    "FixedGridScenarioGenerator",
+    "RiskEstimator",
+    "StressLossRiskEstimator",
+    "contracts_for_risk_budget",
+    "RiskBudgetSizer",
 ]

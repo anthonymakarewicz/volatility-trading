@@ -8,6 +8,7 @@ from volatility_trading.options import (
     MarketState,
     OptionSpec,
     OptionType,
+    OptionTypeInput,
     PriceModel,
     bs_greeks,
     bs_price,
@@ -15,7 +16,11 @@ from volatility_trading.options import (
 
 
 def test_black_scholes_pricer_matches_functional_greeks_api():
-    spec = OptionSpec(strike=100.0, time_to_expiry=30 / 365.0, option_type="call")
+    spec = OptionSpec(
+        strike=100.0,
+        time_to_expiry=30 / 365.0,
+        option_type=OptionType.CALL,
+    )
     state = MarketState(spot=101.0, volatility=0.22, rate=0.03, dividend_yield=0.015)
 
     pricer = BlackScholesPricer()
@@ -53,7 +58,11 @@ def test_protocol_split_price_model_vs_greeks_model():
 
 
 def test_greek_approx_pricer_close_to_exact_for_small_shocks():
-    spec = OptionSpec(strike=100.0, time_to_expiry=30 / 365.0, option_type="put")
+    spec = OptionSpec(
+        strike=100.0,
+        time_to_expiry=30 / 365.0,
+        option_type=OptionType.PUT,
+    )
     state = MarketState(spot=100.0, volatility=0.20, rate=0.02, dividend_yield=0.01)
     shock = MarketShock(d_spot=-0.5, d_volatility=0.002, d_rate=0.0, dt_years=1 / 365.0)
 
@@ -78,7 +87,7 @@ def test_greek_approx_pricer_close_to_exact_for_small_shocks():
     [("C", True), ("P", True), ("call", True), ("put", True)],
 )
 def test_legacy_bs_price_supports_upper_and_lower_option_types(
-    option_type: OptionType, expected_positive: bool
+    option_type: OptionTypeInput, expected_positive: bool
 ):
     price = bs_price(S=100.0, K=100.0, T=30 / 365.0, sigma=0.2, option_type=option_type)
     assert (price > 0) is expected_positive

@@ -5,17 +5,19 @@ from __future__ import annotations
 import numpy as np
 from scipy.stats import norm
 
-from volatility_trading.options.types import CanonicalOptionType, OptionType
+from volatility_trading.options.types import OptionType, OptionTypeInput
 
 
-def normalize_option_type(option_type: OptionType) -> CanonicalOptionType:
-    """Normalize option type labels to 'call'/'put'."""
-    if option_type in ("call", "put"):
-        return option_type
+def normalize_option_type(option_type: OptionTypeInput) -> OptionType:
+    """Normalize option type labels to enum members."""
+    if option_type in (OptionType.CALL, "call"):
+        return OptionType.CALL
+    if option_type in (OptionType.PUT, "put"):
+        return OptionType.PUT
     if option_type == "C":
-        return "call"
+        return OptionType.CALL
     if option_type == "P":
-        return "put"
+        return OptionType.PUT
     raise ValueError("option_type must be one of {'call', 'put', 'C', 'P'}")
 
 
@@ -42,13 +44,13 @@ def bs_price(
     sigma: float,
     r: float = 0.0,
     q: float = 0.0,
-    option_type: OptionType = "call",
+    option_type: OptionTypeInput = OptionType.CALL,
 ) -> float:
     """Black-Scholes price with continuous dividend yield."""
     opt_type = normalize_option_type(option_type)
     d1, d2 = bs_d1_d2(S, K, T, sigma, r, q)
 
-    if opt_type == "call":
+    if opt_type == OptionType.CALL:
         return float(
             S * np.exp(-q * T) * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
         )
@@ -64,7 +66,7 @@ def bs_delta(
     sigma: float,
     r: float = 0.0,
     q: float = 0.0,
-    option_type: OptionType = "call",
+    option_type: OptionTypeInput = OptionType.CALL,
 ) -> float:
     """Black-Scholes delta."""
     opt_type = normalize_option_type(option_type)
@@ -73,7 +75,7 @@ def bs_delta(
 
     d1, _ = bs_d1_d2(S, K, T, sigma, r, q)
     delta_call = np.exp(-q * T) * norm.cdf(d1)
-    if opt_type == "call":
+    if opt_type == OptionType.CALL:
         return float(delta_call)
     return float(delta_call - np.exp(-q * T))
 
@@ -115,7 +117,7 @@ def bs_theta(
     sigma: float,
     r: float = 0.0,
     q: float = 0.0,
-    option_type: OptionType = "call",
+    option_type: OptionTypeInput = OptionType.CALL,
 ) -> float:
     """Black-Scholes theta per +1.0 calendar year."""
     opt_type = normalize_option_type(option_type)
@@ -124,7 +126,7 @@ def bs_theta(
     d1, d2 = bs_d1_d2(S, K, T, sigma, r, q)
     term1 = -(S * np.exp(-q * T) * norm.pdf(d1) * sigma) / (2 * np.sqrt(T))
 
-    if opt_type == "call":
+    if opt_type == OptionType.CALL:
         term2 = q * S * np.exp(-q * T) * norm.cdf(d1)
         term3 = -r * K * np.exp(-r * T) * norm.cdf(d2)
     else:
@@ -141,14 +143,14 @@ def bs_rho(
     sigma: float,
     r: float = 0.0,
     q: float = 0.0,
-    option_type: OptionType = "call",
+    option_type: OptionTypeInput = OptionType.CALL,
 ) -> float:
     """Black-Scholes rho per +1.0 rate."""
     opt_type = normalize_option_type(option_type)
     if sigma <= 0 or T <= 0:
         return 0.0
     _, d2 = bs_d1_d2(S, K, T, sigma, r, q)
-    if opt_type == "call":
+    if opt_type == OptionType.CALL:
         return float(K * T * np.exp(-r * T) * norm.cdf(d2))
     return float(-K * T * np.exp(-r * T) * norm.cdf(-d2))
 
@@ -160,7 +162,7 @@ def bs_greeks(
     sigma: float,
     r: float = 0.0,
     q: float = 0.0,
-    option_type: OptionType = "call",
+    option_type: OptionTypeInput = OptionType.CALL,
 ) -> dict[str, float]:
     """Return Black-Scholes price and Greeks for one option."""
     return {
@@ -178,7 +180,7 @@ def solve_strike_for_delta(
     S: float,
     T: float,
     sigma: float,
-    option_type: OptionType,
+    option_type: OptionTypeInput,
     r: float = 0.0,
     q: float = 0.0,
     K_min_factor: float = 0.2,

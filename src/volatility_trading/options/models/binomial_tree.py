@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from volatility_trading.options.models.black_scholes import normalize_option_type
-from volatility_trading.options.types import OptionType
+from volatility_trading.options.types import OptionType, OptionTypeInput
 
 # TODO(options/dividends): Replace flat continuous-yield treatment with
 # discrete cash dividends. Prefer `nextDiv` from the ORATS core endpoint;
@@ -14,9 +14,9 @@ from volatility_trading.options.types import OptionType
 
 
 def _intrinsic_value(
-    spot: np.ndarray | float, strike: float, option_type: str
+    spot: np.ndarray | float, strike: float, option_type: OptionType
 ) -> np.ndarray:
-    if option_type == "call":
+    if option_type == OptionType.CALL:
         return np.maximum(np.asarray(spot, dtype=float) - strike, 0.0)
     return np.maximum(strike - np.asarray(spot, dtype=float), 0.0)
 
@@ -28,7 +28,7 @@ def binomial_tree_price(
     sigma: float,
     r: float = 0.0,
     q: float = 0.0,
-    option_type: OptionType = "call",
+    option_type: OptionTypeInput = OptionType.CALL,
     steps: int = 200,
     american: bool = True,
 ) -> float:

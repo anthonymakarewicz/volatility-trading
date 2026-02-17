@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Literal, TypeAlias
 
-OptionType: TypeAlias = Literal["call", "put", "C", "P"]
-CanonicalOptionType: TypeAlias = Literal["call", "put"]
+
+class OptionType(StrEnum):
+    """Canonical option side labels used across pricing code."""
+
+    CALL = "call"
+    PUT = "put"
+
+
+# Tolerant input type accepted at system boundaries (vendor data/tests).
+OptionTypeInput: TypeAlias = OptionType | Literal["call", "put", "C", "P"]
 
 
 @dataclass(frozen=True)
@@ -15,7 +24,7 @@ class OptionSpec:
 
     strike: float
     time_to_expiry: float
-    option_type: OptionType
+    option_type: OptionTypeInput
 
 
 @dataclass(frozen=True)
