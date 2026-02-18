@@ -2,18 +2,11 @@
 
 from __future__ import annotations
 
-import math
-
-import numpy as np
 import pandas as pd
 
+from volatility_trading.backtesting.performance import compute_performance_metrics
+
 from .schemas import SummaryMetrics
-
-
-def _as_optional_float(value: float) -> float | None:
-    if not math.isfinite(value):
-        return None
-    return float(value)
 
 
 def build_summary_metrics(
@@ -23,67 +16,21 @@ def build_summary_metrics(
     risk_free_rate: float = 0.0,
 ) -> SummaryMetrics:
     """Build headline metrics from trades and daily MTM."""
-    total_trades = int(len(trades))
-    if "equity" not in mtm_daily.columns or mtm_daily.empty:
-        return SummaryMetrics(
-            total_return=None,
-            cagr=None,
-            annualized_volatility=None,
-            sharpe=None,
-            max_drawdown=None,
-            total_trades=total_trades,
-            win_rate=None,
-            profit_factor=None,
-        )
-
-    equity = mtm_daily["equity"].astype(float)
-    start_val = float(equity.iloc[0])
-    end_val = float(equity.iloc[-1])
-    total_return = (end_val / start_val - 1.0) if start_val > 0 else np.nan
-
-    num_days = (equity.index[-1] - equity.index[0]).days
-    num_years = num_days / 365.25 if num_days > 0 else np.nan
-    cagr = (
-        (end_val / start_val) ** (1.0 / num_years) - 1.0
-        if start_val > 0 and num_years and np.isfinite(num_years) and num_years > 0
-        else np.nan
+    metrics = compute_performance_metrics(
+        trades=trades,
+        mtm_daily=mtm_daily,
+        risk_free_rate=risk_free_rate,
     )
-
-    daily_returns = equity.pct_change().dropna()
-    annualized_vol = (
-        float(daily_returns.std() * np.sqrt(252.0))
-        if not daily_returns.empty
-        else np.nan
-    )
-    sharpe = np.nan
-    if not daily_returns.empty and daily_returns.std() > 0:
-        sharpe = float(
-            ((daily_returns.mean() - risk_free_rate / 252.0) / daily_returns.std())
-            * np.sqrt(252.0)
-        )
-
-    drawdown = (equity - equity.cummax()) / equity.cummax()
-    max_drawdown = float(drawdown.min()) if not drawdown.empty else np.nan
-
-    win_rate = np.nan
-    profit_factor = np.nan
-    if total_trades > 0 and "pnl" in trades.columns:
-        pnl = trades["pnl"].astype(float)
-        win_rate = float((pnl > 0).mean())
-        gross_gain = float(pnl[pnl > 0].sum())
-        gross_loss = float(-pnl[pnl <= 0].sum())
-        if gross_loss > 0:
-            profit_factor = gross_gain / gross_loss
 
     return SummaryMetrics(
-        total_return=_as_optional_float(float(total_return)),
-        cagr=_as_optional_float(float(cagr)),
-        annualized_volatility=_as_optional_float(float(annualized_vol)),
-        sharpe=_as_optional_float(float(sharpe)),
-        max_drawdown=_as_optional_float(float(max_drawdown)),
-        total_trades=total_trades,
-        win_rate=_as_optional_float(float(win_rate)),
-        profit_factor=_as_optional_float(float(profit_factor)),
+        total_return=metrics.returns.total_return,
+        cagr=metrics.returns.cagr,
+        annualized_volatility=metrics.returns.annualized_volatility,
+        sharpe=metrics.returns.sharpe,
+        max_drawdown=metrics.drawdown.max_drawdown,
+        total_trades=metrics.trades.total_trades,
+        win_rate=metrics.trades.win_rate,
+        profit_factor=metrics.trades.profit_factor,
     )
 
 
