@@ -3,6 +3,20 @@ import pandas as pd
 
 from volatility_trading.backtesting import BacktestConfig, SliceContext
 from volatility_trading.filters import Filter
+from volatility_trading.options import (
+    BlackScholesPricer,
+    FixedGridScenarioGenerator,
+    MarketState,
+    OptionLeg,
+    OptionSpec,
+    OptionType,
+    PositionSide,
+    PriceModel,
+    RiskBudgetSizer,
+    RiskEstimator,
+    ScenarioGenerator,
+    StressLossRiskEstimator,
+)
 from volatility_trading.signals import Signal
 
 from ..base_strategy import Strategy
@@ -16,18 +30,35 @@ class VRPHarvestingStrategy(Strategy):
         holding_period: int = 5,
         target_dte: int = 30,
         max_dte_diff: int = 7,
+        pricer: PriceModel | None = None,
+        scenario_generator: ScenarioGenerator | None = None,
+        risk_estimator: RiskEstimator | None = None,
+        risk_budget_pct: float | None = None,
+        min_contracts: int = 1,
+        max_contracts: int | None = None,
     ):
         """
         Baseline VRP harvesting strategy:
         - short ATM straddle when signal is ON
         - 30D target maturity (by dte)
-        - simple SL/TP in units of a stress-based risk per contract
+        - optional stress-based contract sizing via option pricer + risk modules
         - no delta-hedge (for now)
         """
         super().__init__(signal=signal, filters=filters)
         self.holding_period = holding_period
         self.target_dte = target_dte
         self.max_dte_diff = max_dte_diff
+        self.pricer = pricer or BlackScholesPricer()
+        self.scenario_generator = scenario_generator or FixedGridScenarioGenerator()
+        self.risk_estimator = risk_estimator or StressLossRiskEstimator()
+        if risk_budget_pct is not None:
+            self.risk_sizer = RiskBudgetSizer(
+                risk_budget_pct=risk_budget_pct,
+                min_contracts=min_contracts,
+                max_contracts=max_contracts,
+            )
+        else:
+            self.risk_sizer = None
 
     # --------- Helpers ---------
 
@@ -61,6 +92,108 @@ class VRPHarvestingStrategy(Strategy):
         vega = (put_side * put_q["vega"] + call_side * call_q["vega"]) * lot_size
         theta = (put_side * put_q["theta"] + call_side * call_q["theta"]) * lot_size
         return delta, gamma, vega, theta
+
+    @staticmethod
+    def _time_to_expiry_years(
+        *,
+        entry_date: pd.Timestamp,
+        expiry_date: pd.Timestamp,
+        quote_yte: float | int | None,
+        quote_dte: float | int | None,
+    ) -> float:
+        def _positive_or_none(value: float | int | None) -> float | None:
+            if value is None or pd.isna(value):
+                return None
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                return None
+            if not np.isfinite(numeric) or numeric <= 0:
+                return None
+            return numeric
+
+        yte = _positive_or_none(quote_yte)
+        if yte is not None:
+            return yte
+
+        dte = _positive_or_none(quote_dte)
+        if dte is not None:
+            return max(dte / 365.0, 1e-8)
+
+        days = (pd.Timestamp(expiry_date) - pd.Timestamp(entry_date)).days
+        return max(days / 365.0, 1e-8)
+
+    def _size_contracts(
+        self,
+        *,
+        entry_date: pd.Timestamp,
+        expiry_date: pd.Timestamp,
+        put_q: pd.Series,
+        call_q: pd.Series,
+        put_entry: float,
+        call_entry: float,
+        lot_size: int,
+        spot: float,
+        volatility: float,
+        equity: float,
+    ) -> tuple[int, float | None, str | None]:
+        """Compute number of contracts from stress risk, or fallback to 1-lot."""
+        if self.risk_sizer is None:
+            return 1, None, None
+        if not np.isfinite(spot) or spot <= 0:
+            return self.risk_sizer.min_contracts, None, None
+        if not np.isfinite(volatility) or volatility <= 0:
+            return self.risk_sizer.min_contracts, None, None
+
+        put_spec = OptionSpec(
+            strike=float(put_q["strike"]),
+            time_to_expiry=self._time_to_expiry_years(
+                entry_date=entry_date,
+                expiry_date=expiry_date,
+                quote_yte=put_q.get("yte"),
+                quote_dte=put_q.get("dte"),
+            ),
+            option_type=OptionType.PUT,
+        )
+        call_spec = OptionSpec(
+            strike=float(call_q["strike"]),
+            time_to_expiry=self._time_to_expiry_years(
+                entry_date=entry_date,
+                expiry_date=expiry_date,
+                quote_yte=call_q.get("yte"),
+                quote_dte=call_q.get("dte"),
+            ),
+            option_type=OptionType.CALL,
+        )
+        state = MarketState(spot=float(spot), volatility=float(volatility))
+        scenarios = self.scenario_generator.generate(spec=call_spec, state=state)
+        if not scenarios:
+            return self.risk_sizer.min_contracts, None, None
+
+        result = self.risk_estimator.estimate_risk_per_contract(
+            legs=(
+                OptionLeg(
+                    spec=put_spec,
+                    entry_price=float(put_entry),
+                    side=PositionSide.SHORT,
+                    contract_multiplier=float(lot_size),
+                ),
+                OptionLeg(
+                    spec=call_spec,
+                    entry_price=float(call_entry),
+                    side=PositionSide.SHORT,
+                    contract_multiplier=float(lot_size),
+                ),
+            ),
+            state=state,
+            scenarios=scenarios,
+            pricer=self.pricer,
+        )
+        contracts = self.risk_sizer.size(
+            equity=equity,
+            risk_per_contract=result.worst_loss,
+        )
+        return contracts, result.worst_loss, result.worst_scenario.name
 
     @staticmethod
     def choose_vrp_expiry(
@@ -132,13 +265,14 @@ class VRPHarvestingStrategy(Strategy):
     ):
         """
         Baseline backtest:
-        - Short 1 ATM straddle when signal is ON.
+        - Short ATM straddle when signal is ON.
         - No hedging.
-        - SL / TP / holding-period exits.
+        - Holding-period exits.
+        - Contract count optionally sized by stress risk.
         """
 
         lot_size = cfg.lot_size
-        roundtrip_comm = 2 * cfg.commission_per_leg
+        roundtrip_comm_pc = 2 * cfg.commission_per_leg
 
         # --- Normalize signals to a DataFrame with at least 'on' column ---
         if isinstance(signals, pd.Series):
@@ -166,9 +300,6 @@ class VRPHarvestingStrategy(Strategy):
         trades = []
         mtm_records = []
         block_until = None
-
-        # We use 1 contract for now (no capital-based sizing)
-        contracts = 1
 
         for entry_date, row in sig_df.iterrows():
             if not row["on"]:
@@ -227,6 +358,24 @@ class VRPHarvestingStrategy(Strategy):
             else:
                 iv_entry = np.nan
 
+            current_equity = capital + sum(
+                rec["delta_pnl"] for rec in mtm_records
+            )  # TODO: maybe calculate it after each trade
+            contracts, risk_pc, risk_scenario = self._size_contracts(
+                entry_date=entry_date,
+                expiry_date=expiry_date,
+                put_q=put_q,
+                call_q=call_q,
+                put_entry=float(put_entry),
+                call_entry=float(call_entry),
+                lot_size=lot_size,
+                spot=float(S_entry),
+                volatility=float(iv_entry),
+                equity=float(current_equity),
+            )
+            if contracts <= 0:
+                continue
+
             # net entry value with sign convention (short)
             net_entry = (
                 (put_side * put_entry + call_side * call_entry) * lot_size * contracts
@@ -248,7 +397,7 @@ class VRPHarvestingStrategy(Strategy):
                     "date": entry_date,
                     "S": S_entry,
                     "iv": iv_entry,
-                    "delta_pnl": -roundtrip_comm,  # pay comm at entry
+                    "delta_pnl": -(roundtrip_comm_pc * contracts),  # pay entry comm
                     "delta": delta,
                     "net_delta": net_delta,
                     "gamma": gamma,
@@ -375,7 +524,7 @@ class VRPHarvestingStrategy(Strategy):
                     prev_mtm = pnl_mtm
                     continue
 
-                pnl_net = real_pnl - roundtrip_comm
+                pnl_net = real_pnl - (roundtrip_comm_pc * contracts)
                 exit_delta_pnl = pnl_net - prev_mtm_before
 
                 trades.append(
@@ -392,6 +541,8 @@ class VRPHarvestingStrategy(Strategy):
                         "put_exit": put_exit,
                         "call_exit": call_exit,
                         "pnl": pnl_net,
+                        "risk_per_contract": risk_pc,
+                        "risk_worst_scenario": risk_scenario,
                         "exit_type": exit_type,
                     }
                 )
