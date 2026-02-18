@@ -18,10 +18,17 @@ src/volatility_trading
 │       └── qc_options_chain.py
 ├── backtesting
 │   ├── __init__.py
-│   ├── engine_prototype.py
 │   ├── engine.py
 │   ├── metrics.py
 │   ├── plotting.py
+│   ├── reporting
+│   │   ├── __init__.py
+│   │   ├── builders.py
+│   │   ├── constants.py
+│   │   ├── plots.py
+│   │   ├── schemas.py
+│   │   ├── service.py
+│   │   └── writers.py
 │   └── types.py
 ├── cli
 │   ├── __init__.py

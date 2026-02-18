@@ -24,6 +24,10 @@ tests/
 │       ├── test_orats_qc_daily_features_smoke.py
 │       └── test_orats_qc_options_chain_smoke.py
 └── unit
+    ├── backtesting
+    │   ├── test_reporting_builders.py
+    │   ├── test_reporting_plots.py
+    │   └── test_reporting_service_and_writers.py
     ├── cli
     │   ├── conftest.py
     │   ├── test_config.py
@@ -51,7 +55,7 @@ tests/
     └── strategies
         └── test_vrp_harvesting_strategy.py
 
-13 directories, 27 files
+14 directories, 30 files
 ```
 
 ## Naming
