@@ -20,6 +20,12 @@ src/volatility_trading
 │   ├── __init__.py
 │   ├── engine.py
 │   ├── metrics.py
+│   ├── performance
+│   │   ├── __init__.py
+│   │   ├── calculators.py
+│   │   ├── console.py
+│   │   ├── schemas.py
+│   │   └── tables.py
 │   ├── plotting.py
 │   ├── reporting
 │   │   ├── __init__.py

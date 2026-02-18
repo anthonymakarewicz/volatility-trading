@@ -25,6 +25,8 @@ tests/
 │       └── test_orats_qc_options_chain_smoke.py
 └── unit
     ├── backtesting
+    │   ├── test_performance_calculators.py
+    │   ├── test_performance_console.py
     │   ├── test_reporting_builders.py
     │   ├── test_reporting_plots.py
     │   └── test_reporting_service_and_writers.py
@@ -55,7 +57,7 @@ tests/
     └── strategies
         └── test_vrp_harvesting_strategy.py
 
-14 directories, 30 files
+14 directories, 32 files
 ```
 
 ## Naming
