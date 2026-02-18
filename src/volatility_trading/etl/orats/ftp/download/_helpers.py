@@ -13,6 +13,9 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+# TODO(IO): - Put atomic writting in a share module that is used for all download/extract
+
+
 @dataclass(frozen=True)
 class YearDownloadResult:
     """Per-year download summary used by the top-level FTP downloader."""

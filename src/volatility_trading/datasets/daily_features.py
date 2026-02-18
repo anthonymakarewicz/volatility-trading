@@ -24,6 +24,9 @@ DEFAULT_BASE_COLS = [
     "trade_date",
 ]
 
+# TODO(API): rename path helper functions to use `get_*` prefix
+# for consistency across options_chain and daily_features modules.
+
 
 def daily_features_path(proc_root: Path | str, ticker: str) -> Path:
     """Build the processed daily-features parquet path for one ticker.

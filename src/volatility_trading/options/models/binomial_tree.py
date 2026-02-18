@@ -7,7 +7,7 @@ import numpy as np
 from volatility_trading.options.models.black_scholes import normalize_option_type
 from volatility_trading.options.types import OptionType, OptionTypeInput
 
-# TODO(options/dividends): Replace flat continuous-yield treatment with
+# TODO(dividends): Replace flat continuous-yield treatment with
 # discrete cash dividends. Prefer `nextDiv` from the ORATS core endpoint;
 # infer ex-div date from ORATS fields when possible, otherwise fall back to
 # external ex-div calendars (e.g., yfinance) for schedule alignment.

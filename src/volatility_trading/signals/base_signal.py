@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-# TODO: Fix the z-score code smell
+# TODO: Fix the z-score attribute
 
 
 class Signal(ABC):

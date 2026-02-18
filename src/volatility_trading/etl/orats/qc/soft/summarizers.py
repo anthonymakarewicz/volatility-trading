@@ -6,6 +6,9 @@ from collections.abc import Sequence
 
 import polars as pl
 
+# FIXME(QC): delta-bucket summarizer incorrectly handles (-inf, 0] range.
+# Investigate binning logic and boundary conditions for put-side deltas.
+
 
 def summarize_by_bucket(
     df: pl.DataFrame,

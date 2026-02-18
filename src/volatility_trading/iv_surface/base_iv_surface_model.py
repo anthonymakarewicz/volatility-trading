@@ -5,8 +5,11 @@ import numpy as np
 import pandas as pd
 from matplotlib.colors import Normalize
 
-# TODO: Handle the _last_market attribute
-# TODO: Handle how to warm_fit params based on yesterday's fitted params
+# TODO(MODEL): implement handling of `_last_market` state
+# (persist/load previous market snapshot for continuity in calibration).
+
+# TODO(MODEL): implement warm-start fitting using previous day’s calibrated params
+# to improve stability and convergence speed.
 
 
 class IVSurfaceModel(ABC):

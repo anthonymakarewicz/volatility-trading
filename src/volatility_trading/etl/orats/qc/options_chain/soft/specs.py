@@ -74,6 +74,8 @@ PCP_WIDE_QUOTE_COLS = [
     "put_ask_price",
 ]
 
+# TODO(QC): review and widen validation thresholds for QC checks where false positives are frequent.
+
 
 def _get_base_soft_specs() -> list[SoftSpec]:
     return [

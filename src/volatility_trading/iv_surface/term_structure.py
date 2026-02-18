@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-# TODO:
-# - add term-structure helpers here once we refactor them out of the skew trading notebook:
+# TODO: add term-structure helpers here once we refactor them out of the skew trading notebook:
 #   * pick_quote_row(...)
 #   * interp_iv(...)
 #   * find_viable_dtes(...)

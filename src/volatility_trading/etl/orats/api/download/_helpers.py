@@ -23,6 +23,8 @@ MAX_PER_CALL: int = 10
 LOG_EVERY_N_DATES: int = 25
 LOG_EVERY_N_TICKERS: int = 10
 
+# TODO(Config): Move constants above constants into a shared config for download and extract
+
 
 def unique_preserve_order(items: list[str]) -> list[str]:
     """Return unique items while preserving first-seen order."""

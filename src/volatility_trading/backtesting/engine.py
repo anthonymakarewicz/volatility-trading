@@ -2,8 +2,6 @@ from volatility_trading.strategies import Strategy
 
 from .types import BacktestConfig, DataMapping, ParamGrid, SliceContext
 
-# TODO: Use the adjusted closing price for the buy and hold performance benchmark
-
 
 class Backtester:
     def __init__(

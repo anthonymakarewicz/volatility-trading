@@ -2,7 +2,8 @@ import pandas as pd
 
 from .base_signal import Signal
 
-# TODO: Shift the rolling mean and std for z score computation
+# FIXME(STATS): rolling-window features currently include the current day (t), causing leakage.
+# Compute rolling mean/std on [t-window, t-1] by shifting inputs (or outputs) by 1 day.
 
 
 class ZScoreSignal(Signal):
