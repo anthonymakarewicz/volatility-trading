@@ -59,13 +59,23 @@ import yfinance as yf
 import polars as pl
 
 import volatility_trading.strategies.vrp_harvesting.plotting as ph
-from volatility_trading.options.greeks import bs_greeks, bs_price
 
+from volatility_trading.backtesting import BacktestConfig, to_daily_mtm
+from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting.reporting import (
+    plot_performance_dashboard,
+    plot_pnl_attribution,
+)
+from volatility_trading.backtesting.performance import print_performance_report
 from volatility_trading.datasets import (
     options_chain_wide_to_long,
     scan_daily_features,
     scan_options_chain,
 )
+from volatility_trading.options import bs_greeks, bs_price
+from volatility_trading.signals import ShortOnlySignal
+from volatility_trading.strategies import VRPHarvestingStrategy
+
 np.random.seed(42)
 
 # %matplotlib inline
@@ -458,23 +468,20 @@ print("Short iron fly: mean P&L =", round(np.mean(pnl_iron_short), dec),
 # %%
 options_chain_long = options_chain_wide_to_long(options_chain).collect()
 options_chain_long = options_chain_long.to_pandas().set_index("trade_date")
-options_chain_long
+options_chain_long.head()
 
 # %%
-from volatility_trading.backtesting import BacktestConfig, to_daily_mtm
-from volatility_trading.backtesting.engine import Backtester
-from volatility_trading.backtesting.plotting import (
-    plot_full_performance,
-    print_perf_metrics,
-)
-from volatility_trading.signals import ShortOnlySignal
-from volatility_trading.strategies import VRPHarvestingStrategy
+HOLDING_PERIOD = 10
+RISK_BUDGET_PCT = 1.0
+INIT_CAPITAL = 50_000
+START_BACKTEST = "2012"
+END_BACKTEST = "2013"
 
 sig = ShortOnlySignal()
-strat = VRPHarvestingStrategy(signal=sig, holding_period=10)
-cfg = BacktestConfig(initial_capital=20000, commission_per_leg=0.0)
+strat = VRPHarvestingStrategy(signal=sig, holding_period=HOLDING_PERIOD, risk_budget_pct=RISK_BUDGET_PCT)
+cfg = BacktestConfig(initial_capital=INIT_CAPITAL, commission_per_leg=0.0)
 
-options_red = options_chain_long.loc["2014":"2016"]
+options_red = options_chain_long.loc[START_BACKTEST:END_BACKTEST]
 data = {
     "options": options_red,
     "features": None,
@@ -487,11 +494,25 @@ trades, mtm = bt.run()
 daily_mtm = to_daily_mtm(mtm, cfg.initial_capital)
 
 # %%
-from volatility_trading.backtesting.plotting import plot_pnl_attribution
+BENCHMARK_TICKER = "^SP500TR"
+name = BENCHMARK_TICKER.lstrip("^")
 
-sp500 = options_chain_long["spot_price"].groupby("trade_date").first()
-print_perf_metrics(trades, daily_mtm)
-plot_full_performance(sp500, daily_mtm)
-plot_pnl_attribution(daily_mtm)
+sp500_tr = (
+    yf.download(BENCHMARK_TICKER, start=START, end=END, auto_adjust=False)["Close"]
+    .squeeze()
+    .rename(name)
+)
+
+sp500_tr
 
 # %%
+print_performance_report(trades=trades, mtm_daily=daily_mtm)
+fig = plot_performance_dashboard(
+    benchmark=sp500_tr,          # pd.Series
+    mtm_daily=daily_mtm,         # pd.DataFrame
+    strategy_name="VRP Harvesting",
+    benchmark_name="S&P 500 TR",
+)
+plt.show()
+fig = plot_pnl_attribution(daily_mtm)
+plt.show()
