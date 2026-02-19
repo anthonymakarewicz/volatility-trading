@@ -234,22 +234,6 @@ def plot_performance_dashboard(
     return fig
 
 
-def plot_full_performance(
-    benchmark: pd.Series | None,
-    mtm_daily: pd.DataFrame,
-    *,
-    strategy_name: str = "Strategy",
-    benchmark_name: str = "Benchmark",
-) -> Figure:
-    """Return the combined performance dashboard figure."""
-    return plot_performance_dashboard(
-        benchmark=benchmark,
-        mtm_daily=mtm_daily,
-        strategy_name=strategy_name,
-        benchmark_name=benchmark_name,
-    )
-
-
 def plot_pnl_attribution(daily_mtm: pd.DataFrame) -> Figure:
     """Return cumulative total and Greek-attribution PnL figure."""
     equity = _require_equity(daily_mtm)

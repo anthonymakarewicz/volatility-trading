@@ -4,7 +4,6 @@ import pandas as pd
 from volatility_trading.backtesting.reporting.plots import (
     plot_drawdown,
     plot_equity_vs_benchmark,
-    plot_full_performance,
     plot_greeks_exposure,
     plot_performance_dashboard,
     plot_pnl_attribution,
@@ -65,14 +64,9 @@ def test_component_plot_builders_return_figures():
     assert len(fig_gr.axes) == 4
 
 
-def test_legacy_performance_and_attribution_plots_return_figures():
+def test_plot_pnl_attribution_returns_figure():
     mtm_daily = _sample_mtm_daily()
-    benchmark = _sample_benchmark(mtm_daily.index)
-
-    fig_perf = plot_full_performance(benchmark=benchmark, mtm_daily=mtm_daily)
     fig_attr = plot_pnl_attribution(daily_mtm=mtm_daily)
-
-    assert len(fig_perf.axes) == 6
     assert len(fig_attr.axes) == 1
 
 

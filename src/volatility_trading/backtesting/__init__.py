@@ -12,7 +12,6 @@ from .reporting import (
     save_backtest_report_bundle,
 )
 from .reporting.plots import (
-    plot_full_performance,
     plot_pnl_attribution,
     plot_stressed_pnl,
 )
@@ -28,7 +27,6 @@ __all__ = [
     "format_stressed_risk_report",
     "print_performance_report",
     "print_stressed_risk_metrics",
-    "plot_full_performance",
     "plot_pnl_attribution",
     "plot_stressed_pnl",
     "build_backtest_report_bundle",
