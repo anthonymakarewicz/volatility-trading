@@ -1,14 +1,18 @@
-"""Canonical filesystem paths used across data pipelines."""
+"""Canonical filesystem paths used across the project."""
 
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 # ----- Base data roots -----
-DATA_ROOT = ROOT / "data"
+DATA_ROOT = PROJECT_ROOT / "data"
 DATA_RAW = DATA_ROOT / "raw"
 DATA_INTER = DATA_ROOT / "intermediate"
 DATA_PROC = DATA_ROOT / "processed"
+
+# ----- Reports roots -----
+REPORTS_ROOT = PROJECT_ROOT / "reports"
+BACKTEST_REPORTS_ROOT = REPORTS_ROOT / "backtests"
 
 # ----- Options – raw -----
 RAW_ORATS = DATA_RAW / "orats"  # provider root

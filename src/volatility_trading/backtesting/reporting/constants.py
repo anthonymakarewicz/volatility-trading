@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from volatility_trading.config.paths import BACKTEST_REPORTS_ROOT
 
 REPORT_VERSION = "1.0.0"
-DEFAULT_REPORT_ROOT = Path("reports/backtests")
+
+DEFAULT_REPORT_ROOT = BACKTEST_REPORTS_ROOT
+EXPERIMENT_REPORT_ROOT = DEFAULT_REPORT_ROOT / "experiments"
+OOS_REPORT_ROOT = DEFAULT_REPORT_ROOT / "oos"
 
 RUN_CONFIG_FILENAME = "run_config.json"
 SUMMARY_METRICS_FILENAME = "summary_metrics.json"

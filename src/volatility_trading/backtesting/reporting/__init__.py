@@ -1,5 +1,10 @@
 """Public API for high-level backtest reporting services."""
 
+from .constants import (
+    DEFAULT_REPORT_ROOT,
+    EXPERIMENT_REPORT_ROOT,
+    OOS_REPORT_ROOT,
+)
 from .plots import (
     plot_drawdown,
     plot_equity_vs_benchmark,
@@ -19,6 +24,9 @@ __all__ = [
     "ReportMetadata",
     "SummaryMetrics",
     "BacktestReportBundle",
+    "DEFAULT_REPORT_ROOT",
+    "EXPERIMENT_REPORT_ROOT",
+    "OOS_REPORT_ROOT",
     "create_run_id",
     "build_backtest_report_bundle",
     "save_backtest_report_bundle",
