@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from .calculators import compute_performance_metrics
@@ -82,4 +83,64 @@ def print_performance_report(
     )
     by_contracts = summarize_by_contracts(trades)
     print(format_performance_report(metrics, by_contracts=by_contracts))
+    return metrics
+
+
+def format_stressed_risk_report(
+    *,
+    alpha: float,
+    base_var: float | None,
+    base_cvar: float | None,
+    stress_var: float | None,
+    stress_cvar: float | None,
+) -> str:
+    """Format stressed VaR/CVaR diagnostics for console output."""
+    alpha_pct = int((1.0 - alpha) * 100)
+    lines = [
+        f"Base VaR ({alpha_pct}%)     : {_fmt_pct(base_var)}",
+        f"Base CVaR ({alpha_pct}%)    : {_fmt_pct(base_cvar)}",
+        f"Stress VaR ({alpha_pct}%)   : {_fmt_pct(stress_var)}",
+        f"Stress CVaR ({alpha_pct}%)  : {_fmt_pct(stress_cvar)}",
+    ]
+    return "\n".join(lines)
+
+
+def print_stressed_risk_metrics(
+    *,
+    stressed_mtm: pd.DataFrame,
+    mtm_daily: pd.DataFrame,
+    alpha: float = 0.01,
+) -> dict[str, float | None]:
+    """Print stressed and unstressed historical VaR/CVaR diagnostics."""
+    if not 0 < alpha < 1:
+        raise ValueError("alpha must be in (0, 1)")
+    if "equity" not in mtm_daily.columns:
+        raise ValueError("mtm_daily must contain an 'equity' column")
+    if stressed_mtm.empty:
+        raise ValueError("stressed_mtm must not be empty")
+
+    equity = mtm_daily["equity"].astype(float)
+    returns = equity.pct_change().fillna(0.0)
+
+    shock_pct = (
+        stressed_mtm.reindex(equity.index).astype(float).div(equity.shift(1), axis=0)
+    )
+    shock_pct = shock_pct.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    total_returns = shock_pct.add(returns, axis=0)
+    worst_stressed_returns = total_returns.min(axis=1)
+
+    base_var_raw = returns.quantile(alpha)
+    base_cvar_raw = returns.loc[returns <= base_var_raw].mean()
+    stress_var_raw = worst_stressed_returns.quantile(alpha)
+    stress_cvar_raw = worst_stressed_returns.loc[
+        worst_stressed_returns <= stress_var_raw
+    ].mean()
+
+    metrics = {
+        "base_var": float(base_var_raw) if pd.notna(base_var_raw) else None,
+        "base_cvar": float(base_cvar_raw) if pd.notna(base_cvar_raw) else None,
+        "stress_var": float(stress_var_raw) if pd.notna(stress_var_raw) else None,
+        "stress_cvar": float(stress_cvar_raw) if pd.notna(stress_cvar_raw) else None,
+    }
+    print(format_stressed_risk_report(alpha=alpha, **metrics))
     return metrics

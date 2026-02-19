@@ -3,6 +3,7 @@ import pandas as pd
 from volatility_trading.backtesting.performance import (
     format_performance_report,
     print_performance_report,
+    print_stressed_risk_metrics,
 )
 from volatility_trading.backtesting.performance.calculators import (
     compute_performance_metrics,
@@ -41,3 +42,22 @@ def test_print_performance_report_prints_and_returns_metrics(capsys):
 
     assert metrics.trades.total_trades == 2
     assert "Performance by Contract Size" in captured
+
+
+def test_print_stressed_risk_metrics_prints_and_returns_metrics(capsys):
+    _, mtm_daily = _sample_inputs()
+    stressed_mtm = pd.DataFrame(
+        {"PnL_down_5": [0.0, -2.0, -1.0], "PnL_up_5": [0.0, 1.5, 0.8]},
+        index=mtm_daily.index,
+    )
+
+    metrics = print_stressed_risk_metrics(
+        stressed_mtm=stressed_mtm,
+        mtm_daily=mtm_daily,
+    )
+    captured = capsys.readouterr().out
+
+    assert "Base VaR" in captured
+    assert "Stress CVaR" in captured
+    assert metrics["base_var"] is not None
+    assert metrics["stress_var"] is not None

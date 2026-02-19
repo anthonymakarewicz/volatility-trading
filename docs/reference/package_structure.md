@@ -19,14 +19,13 @@ src/volatility_trading
 ├── backtesting
 │   ├── __init__.py
 │   ├── engine.py
-│   ├── metrics.py
+│   ├── attribution.py
 │   ├── performance
 │   │   ├── __init__.py
 │   │   ├── calculators.py
 │   │   ├── console.py
 │   │   ├── schemas.py
 │   │   └── tables.py
-│   ├── plotting.py
 │   ├── reporting
 │   │   ├── __init__.py
 │   │   ├── builders.py

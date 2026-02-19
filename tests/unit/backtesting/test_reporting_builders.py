@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting.reporting import (
+from volatility_trading.backtesting.reporting.builders import (
     build_equity_and_drawdown_table,
     build_exposures_daily_table,
     build_summary_metrics,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
@@ -229,4 +231,108 @@ def plot_performance_dashboard(
         show_xlabel_on_last_row=True,
     )
 
+    return fig
+
+
+def plot_full_performance(
+    benchmark: pd.Series | None,
+    mtm_daily: pd.DataFrame,
+    *,
+    strategy_name: str = "Strategy",
+    benchmark_name: str = "Benchmark",
+) -> Figure:
+    """Return the combined performance dashboard figure."""
+    return plot_performance_dashboard(
+        benchmark=benchmark,
+        mtm_daily=mtm_daily,
+        strategy_name=strategy_name,
+        benchmark_name=benchmark_name,
+    )
+
+
+def plot_pnl_attribution(daily_mtm: pd.DataFrame) -> Figure:
+    """Return cumulative total and Greek-attribution PnL figure."""
+    equity = _require_equity(daily_mtm)
+    cumulative = pd.DataFrame(index=daily_mtm.index)
+    cumulative["Total P&L"] = equity - float(equity.iloc[0])
+
+    greek_columns = ["Delta_PnL", "Gamma_PnL", "Vega_PnL", "Theta_PnL", "Other_PnL"]
+    for column in greek_columns:
+        if column in daily_mtm.columns:
+            cumulative[column] = daily_mtm[column].astype(float).cumsum()
+        else:
+            cumulative[column] = 0.0
+
+    colors = {
+        "Total P&L": "purple",
+        "Delta_PnL": "red",
+        "Gamma_PnL": "orange",
+        "Vega_PnL": "green",
+        "Theta_PnL": "blue",
+        "Other_PnL": "brown",
+    }
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.plot(
+        cumulative.index,
+        cumulative["Total P&L"],
+        label="Total P&L",
+        color=colors["Total P&L"],
+    )
+    for column in greek_columns:
+        ax.plot(
+            cumulative.index,
+            cumulative[column],
+            label=column,
+            color=colors[column],
+        )
+
+    ax.set_title("Cumulative P&L Attribution: Total vs Greek Contributions")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Cumulative P&L (USD)")
+    ax.legend()
+    fig.tight_layout()
+    return fig
+
+
+def _resolve_stress_columns(
+    stressed_mtm: pd.DataFrame,
+    scenarios: Mapping[str, object] | Sequence[str],
+) -> list[str]:
+    scenario_names = (
+        list(scenarios.keys()) if isinstance(scenarios, Mapping) else list(scenarios)
+    )
+    columns: list[str] = []
+    for name in scenario_names:
+        if name in stressed_mtm.columns:
+            columns.append(name)
+            continue
+        prefixed = f"PnL_{name}"
+        if prefixed in stressed_mtm.columns:
+            columns.append(prefixed)
+    return columns
+
+
+def plot_stressed_pnl(
+    stressed_mtm: pd.DataFrame,
+    daily_mtm: pd.DataFrame,
+    scenarios: Mapping[str, object] | Sequence[str],
+) -> Figure:
+    """Return actual and scenario-stressed equity curves."""
+    equity = _require_equity(daily_mtm)
+    stress_columns = _resolve_stress_columns(stressed_mtm, scenarios)
+    if not stress_columns:
+        raise ValueError("No matching stress scenario columns found in stressed_mtm")
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.plot(equity.index, equity, label="Actual Equity")
+    for column in stress_columns:
+        shocked = stressed_mtm[column].reindex(equity.index).fillna(0.0).cumsum()
+        ax.plot(equity.index, equity + shocked, label=column)
+
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Cumulative P&L (USD)")
+    ax.set_title("Equity Curve vs. Stressed Equity Curves")
+    ax.legend()
+    fig.tight_layout()
     return fig
