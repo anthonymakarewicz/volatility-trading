@@ -6,20 +6,26 @@ from volatility_trading.filters import Filter
 from volatility_trading.options import (
     BlackScholesPricer,
     FixedGridScenarioGenerator,
+    MarginModel,
     MarketState,
     OptionLeg,
     OptionSpec,
     OptionType,
     PositionSide,
     PriceModel,
+    RegTMarginModel,
     RiskBudgetSizer,
     RiskEstimator,
     ScenarioGenerator,
     StressLossRiskEstimator,
+    contracts_for_risk_budget,
 )
 from volatility_trading.signals import Signal
 
 from ..base_strategy import Strategy
+
+# TODO(feature): Trading account with monye invetsed into both the startegy and the one used
+# putnin the cash account
 
 
 class VRPHarvestingStrategy(Strategy):
@@ -34,6 +40,8 @@ class VRPHarvestingStrategy(Strategy):
         scenario_generator: ScenarioGenerator | None = None,
         risk_estimator: RiskEstimator | None = None,
         risk_budget_pct: float | None = None,
+        margin_model: MarginModel | None = None,
+        margin_budget_pct: float | None = None,
         min_contracts: int = 1,
         max_contracts: int | None = None,
     ):
@@ -41,7 +49,7 @@ class VRPHarvestingStrategy(Strategy):
         Baseline VRP harvesting strategy:
         - short ATM straddle when signal is ON
         - 30D target maturity (by dte)
-        - optional stress-based contract sizing via option pricer + risk modules
+        - optional stress-based risk sizing and margin-based capacity limits
         - no delta-hedge (for now)
         """
         super().__init__(signal=signal, filters=filters)
@@ -59,6 +67,18 @@ class VRPHarvestingStrategy(Strategy):
             )
         else:
             self.risk_sizer = None
+        self.min_contracts = min_contracts
+        self.max_contracts = max_contracts
+
+        self.margin_model = margin_model
+        if self.margin_model is None and margin_budget_pct is not None:
+            self.margin_model = RegTMarginModel()
+
+        self.margin_budget_pct = margin_budget_pct
+        if self.margin_model is not None and self.margin_budget_pct is None:
+            self.margin_budget_pct = 1.0
+        if self.margin_budget_pct is not None and not 0 <= self.margin_budget_pct <= 1:
+            raise ValueError("margin_budget_pct must be in [0, 1]")
 
     # --------- Helpers ---------
 
@@ -136,14 +156,17 @@ class VRPHarvestingStrategy(Strategy):
         spot: float,
         volatility: float,
         equity: float,
-    ) -> tuple[int, float | None, str | None]:
-        """Compute number of contracts from stress risk, or fallback to 1-lot."""
-        if self.risk_sizer is None:
-            return 1, None, None
-        if not np.isfinite(spot) or spot <= 0:
-            return self.risk_sizer.min_contracts, None, None
-        if not np.isfinite(volatility) or volatility <= 0:
-            return self.risk_sizer.min_contracts, None, None
+    ) -> tuple[int, float | None, str | None, float | None]:
+        """Compute contracts from risk budget and optional margin-capacity budget."""
+        invalid_market = (
+            not np.isfinite(spot)
+            or spot <= 0
+            or not np.isfinite(volatility)
+            or volatility <= 0
+        )
+        if invalid_market:
+            fallback = self.risk_sizer.min_contracts if self.risk_sizer else 1
+            return fallback, None, None, None
 
         put_spec = OptionSpec(
             strike=float(put_q["strike"]),
@@ -165,35 +188,72 @@ class VRPHarvestingStrategy(Strategy):
             ),
             option_type=OptionType.CALL,
         )
-        state = MarketState(spot=float(spot), volatility=float(volatility))
-        scenarios = self.scenario_generator.generate(spec=call_spec, state=state)
-        if not scenarios:
-            return self.risk_sizer.min_contracts, None, None
-
-        result = self.risk_estimator.estimate_risk_per_contract(
-            legs=(
-                OptionLeg(
-                    spec=put_spec,
-                    entry_price=float(put_entry),
-                    side=PositionSide.SHORT,
-                    contract_multiplier=float(lot_size),
-                ),
-                OptionLeg(
-                    spec=call_spec,
-                    entry_price=float(call_entry),
-                    side=PositionSide.SHORT,
-                    contract_multiplier=float(lot_size),
-                ),
+        legs = (
+            OptionLeg(
+                spec=put_spec,
+                entry_price=float(put_entry),
+                side=PositionSide.SHORT,
+                contract_multiplier=float(lot_size),
             ),
-            state=state,
-            scenarios=scenarios,
-            pricer=self.pricer,
+            OptionLeg(
+                spec=call_spec,
+                entry_price=float(call_entry),
+                side=PositionSide.SHORT,
+                contract_multiplier=float(lot_size),
+            ),
         )
-        contracts = self.risk_sizer.size(
-            equity=equity,
-            risk_per_contract=result.worst_loss,
-        )
-        return contracts, result.worst_loss, result.worst_scenario.name
+        state = MarketState(spot=float(spot), volatility=float(volatility))
+        risk_contracts: int | None = None
+        risk_per_contract: float | None = None
+        risk_scenario: str | None = None
+
+        if self.risk_sizer is not None:
+            scenarios = self.scenario_generator.generate(spec=call_spec, state=state)
+            if not scenarios:
+                risk_contracts = self.risk_sizer.min_contracts
+            else:
+                risk_result = self.risk_estimator.estimate_risk_per_contract(
+                    legs=legs,
+                    state=state,
+                    scenarios=scenarios,
+                    pricer=self.pricer,
+                )
+                risk_contracts = self.risk_sizer.size(
+                    equity=equity,
+                    risk_per_contract=risk_result.worst_loss,
+                )
+                risk_per_contract = risk_result.worst_loss
+                risk_scenario = risk_result.worst_scenario.name
+
+        margin_contracts: int | None = None
+        margin_per_contract: float | None = None
+        if self.margin_model is not None:
+            margin_per_contract = self.margin_model.initial_margin_requirement(
+                legs=legs,
+                state=state,
+                pricer=self.pricer,
+            )
+            margin_budget_pct = self.margin_budget_pct or 1.0
+            margin_contracts = contracts_for_risk_budget(
+                equity=equity,
+                risk_budget_pct=margin_budget_pct,
+                risk_per_contract=margin_per_contract,
+                min_contracts=0,
+                max_contracts=self.max_contracts,
+            )
+
+        if risk_contracts is not None and margin_contracts is not None:
+            contracts = min(risk_contracts, margin_contracts)
+        elif risk_contracts is not None:
+            contracts = risk_contracts
+        elif margin_contracts is not None:
+            contracts = margin_contracts
+        else:
+            contracts = max(self.min_contracts, 1)
+            if self.max_contracts is not None:
+                contracts = min(contracts, self.max_contracts)
+
+        return contracts, risk_per_contract, risk_scenario, margin_per_contract
 
     @staticmethod
     def choose_vrp_expiry(
@@ -361,7 +421,7 @@ class VRPHarvestingStrategy(Strategy):
             current_equity = capital + sum(
                 rec["delta_pnl"] for rec in mtm_records
             )  # TODO: maybe calculate it after each trade
-            contracts, risk_pc, risk_scenario = self._size_contracts(
+            contracts, risk_pc, risk_scenario, margin_pc = self._size_contracts(
                 entry_date=entry_date,
                 expiry_date=expiry_date,
                 put_q=put_q,
@@ -543,6 +603,7 @@ class VRPHarvestingStrategy(Strategy):
                         "pnl": pnl_net,
                         "risk_per_contract": risk_pc,
                         "risk_worst_scenario": risk_scenario,
+                        "margin_per_contract": margin_pc,
                         "exit_type": exit_type,
                     }
                 )
