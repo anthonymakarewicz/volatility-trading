@@ -4,16 +4,21 @@ import pytest
 
 from volatility_trading.options import (
     FixedGridScenarioGenerator,
+    MarginModel,
     MarketShock,
     MarketState,
     OptionLeg,
     OptionSpec,
     OptionType,
+    PortfolioMarginProxyModel,
     PositionSide,
+    RegTMarginModel,
     RiskBudgetSizer,
     RiskEstimator,
     ScenarioGenerator,
     StressLossRiskEstimator,
+    StressPoint,
+    StressResult,
     StressScenario,
     contracts_for_risk_budget,
 )
@@ -47,6 +52,11 @@ def test_fixed_grid_generator_builds_cartesian_grid():
 def test_scenario_and_risk_estimators_are_protocol_compatible():
     assert isinstance(FixedGridScenarioGenerator(), ScenarioGenerator)
     assert isinstance(StressLossRiskEstimator(), RiskEstimator)
+
+
+def test_margin_models_are_protocol_compatible():
+    assert isinstance(RegTMarginModel(), MarginModel)
+    assert isinstance(PortfolioMarginProxyModel(), MarginModel)
 
 
 def test_worst_loss_estimator_for_short_straddle():
@@ -92,6 +102,100 @@ def test_worst_loss_estimator_for_short_straddle():
 
     assert result.worst_loss == pytest.approx(10.0)
     assert result.worst_scenario.name in {"up", "down"}
+
+
+def test_reg_t_margin_model_short_straddle_requirement():
+    class ConstantPricer:
+        def price(self, spec: OptionSpec, state: MarketState) -> float:
+            _ = (spec, state)
+            return 5.0
+
+    state = MarketState(spot=100.0, volatility=0.2)
+    legs = (
+        OptionLeg(
+            spec=OptionSpec(
+                strike=100.0,
+                time_to_expiry=30 / 365.0,
+                option_type=OptionType.CALL,
+            ),
+            entry_price=5.0,
+            side=PositionSide.SHORT,
+            contract_multiplier=100.0,
+        ),
+        OptionLeg(
+            spec=OptionSpec(
+                strike=100.0,
+                time_to_expiry=30 / 365.0,
+                option_type=OptionType.PUT,
+            ),
+            entry_price=5.0,
+            side=PositionSide.SHORT,
+            contract_multiplier=100.0,
+        ),
+    )
+
+    margin = RegTMarginModel().initial_margin_requirement(
+        legs=legs,
+        state=state,
+        pricer=ConstantPricer(),
+    )
+
+    # For ATM straddle with constant option value:
+    # short-side requirement = 500 + max(2000, 1000) = 2500
+    # pair requirement       = greater_side + other_option_value = 2500 + 500
+    assert margin == pytest.approx(3000.0)
+
+
+def test_pm_proxy_margin_model_uses_stress_loss_and_house_overlay():
+    class ConstantPricer:
+        def price(self, spec: OptionSpec, state: MarketState) -> float:
+            _ = (spec, state)
+            return 2.0
+
+    class OneScenarioGenerator:
+        def generate(self, *, spec: OptionSpec, state: MarketState):
+            _ = (spec, state)
+            return (StressScenario(name="base", shock=MarketShock()),)
+
+    class ConstantRiskEstimator:
+        def estimate_risk_per_contract(self, *, legs, state, scenarios, pricer):
+            _ = (legs, state, scenarios, pricer)
+            base = StressScenario(name="base", shock=MarketShock())
+            return StressResult(
+                worst_loss=1000.0,
+                worst_scenario=base,
+                points=(StressPoint(scenario=base, pnl=-1000.0),),
+            )
+
+    model = PortfolioMarginProxyModel(
+        scenario_generator=cast(ScenarioGenerator, OneScenarioGenerator()),
+        risk_estimator=cast(RiskEstimator, ConstantRiskEstimator()),
+        stress_multiplier=1.2,
+        minimum_margin=800.0,
+        house_multiplier=1.1,
+        house_floor=500.0,
+    )
+
+    legs = (
+        OptionLeg(
+            spec=OptionSpec(
+                strike=100.0,
+                time_to_expiry=30 / 365.0,
+                option_type=OptionType.CALL,
+            ),
+            entry_price=2.0,
+            side=PositionSide.SHORT,
+            contract_multiplier=100.0,
+        ),
+    )
+
+    margin = model.initial_margin_requirement(
+        legs=legs,
+        state=MarketState(spot=100.0, volatility=0.2),
+        pricer=ConstantPricer(),
+    )
+
+    assert margin == pytest.approx(1320.0)
 
 
 def test_risk_estimator_clamps_invalid_shocked_inputs():

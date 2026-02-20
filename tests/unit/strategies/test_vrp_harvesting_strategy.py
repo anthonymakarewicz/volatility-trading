@@ -353,6 +353,112 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
     assert mtm["delta_pnl"].sum() == pytest.approx(trades["pnl"].sum())
 
 
+def test_margin_budget_caps_contracts_below_risk_budget():
+    class OneScenarioGenerator:
+        def generate(self, *, spec, state):
+            _ = (spec, state)
+            return (StressScenario(name="base", shock=MarketShock()),)
+
+    class ConstantRiskEstimator:
+        def estimate_risk_per_contract(self, *, legs, state, scenarios, pricer):
+            _ = (legs, state, scenarios, pricer)
+            base = StressScenario(name="base", shock=MarketShock())
+            return StressResult(
+                worst_loss=250.0,
+                worst_scenario=base,
+                points=(StressPoint(scenario=base, pnl=-250.0),),
+            )
+
+    class ConstantMarginModel:
+        def initial_margin_requirement(self, *, legs, state, pricer):
+            _ = (legs, state, pricer)
+            return 500.0
+
+    options = _make_options(
+        [
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-03",
+                "expiry_date": "2020-01-31",
+                "dte": 28,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 6.2,
+                "ask_price": 6.5,
+                "spot_price": 102.0,
+                "smoothed_iv": 0.23,
+            },
+            {
+                "trade_date": "2020-01-03",
+                "expiry_date": "2020-01-31",
+                "dte": 28,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 6.2,
+                "ask_price": 6.5,
+                "spot_price": 102.0,
+                "smoothed_iv": 0.23,
+            },
+        ]
+    )
+
+    trades, mtm = _run_backtest(
+        options,
+        holding_period=2,
+        strategy_kwargs={
+            "risk_budget_pct": 0.10,
+            "margin_budget_pct": 0.05,
+            "min_contracts": 0,
+            "scenario_generator": OneScenarioGenerator(),
+            "risk_estimator": ConstantRiskEstimator(),
+            "margin_model": ConstantMarginModel(),
+        },
+    )
+
+    assert len(trades) == 1
+    assert trades.iloc[0]["contracts"] == 1
+    assert trades.iloc[0]["risk_per_contract"] == pytest.approx(250.0)
+    assert trades.iloc[0]["margin_per_contract"] == pytest.approx(500.0)
+    assert mtm["delta_pnl"].sum() == pytest.approx(trades["pnl"].sum())
+
+
 def test_time_to_expiry_prefers_yte_then_dte_then_calendar():
     entry = pd.Timestamp("2020-01-01")
     expiry = pd.Timestamp("2020-01-31")
