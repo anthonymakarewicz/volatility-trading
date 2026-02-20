@@ -1,4 +1,7 @@
-"""Scenario generators used by option risk estimators."""
+"""Scenario generators used by option risk estimators.
+
+Generators define shocked market states by emitting `StressScenario` objects.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +20,7 @@ class ScenarioGenerator(Protocol):
     def generate(
         self, *, spec: OptionSpec, state: MarketState
     ) -> tuple[StressScenario, ...]:
-        """Return the stress scenarios to evaluate for one option setup."""
+        """Return stress scenarios to evaluate for one option setup."""
         ...
 
 
@@ -26,8 +29,10 @@ class FixedGridScenarioGenerator:
     """Generate a Cartesian grid of spot/vol/rate/time shocks.
 
     Notes:
-        `spot_shocks_pct` values are converted to absolute spot shocks using
-        `state.spot * spot_shock_pct`.
+        - `spot_shocks_pct` values are converted to absolute spot shocks via
+          `state.spot * spot_shock_pct`.
+        - scenario count is the Cartesian product size:
+          `len(spot) * len(vol) * len(rate) * len(time)`.
     """
 
     spot_shocks_pct: tuple[float, ...] = (-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15)
@@ -49,6 +54,7 @@ class FixedGridScenarioGenerator:
     def generate(
         self, *, spec: OptionSpec, state: MarketState
     ) -> tuple[StressScenario, ...]:
+        """Build stress scenarios from the configured fixed shock grid."""
         # `spec` is intentionally part of the interface for generators that may
         # depend on moneyness or time-to-expiry; fixed-grid does not need it.
         _ = spec

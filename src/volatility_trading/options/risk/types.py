@@ -17,7 +17,11 @@ class PositionSide(IntEnum):
 
 @dataclass(frozen=True)
 class OptionLeg:
-    """One option leg with entry economics for stress revaluation."""
+    """One option leg with entry economics for stress revaluation.
+
+    `contract_multiplier` is the lot-size cash scalar (e.g., 100 for US equity
+    options).
+    """
 
     spec: OptionSpec
     entry_price: float
@@ -49,7 +53,10 @@ class StressPoint:
 
 @dataclass(frozen=True)
 class StressResult:
-    """Aggregate stressed PnL output for risk sizing."""
+    """Aggregate stressed PnL output for risk sizing.
+
+    `worst_loss` is stored as a non-negative magnitude.
+    """
 
     worst_loss: float
     worst_scenario: StressScenario

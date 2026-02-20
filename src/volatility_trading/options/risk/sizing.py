@@ -18,6 +18,10 @@ def contracts_for_risk_budget(
 
     Sizing rule:
     `contracts = floor((equity * risk_budget_pct) / risk_per_contract)`.
+
+    Notes:
+        - If `risk_per_contract <= 0`, returns `min_contracts`.
+        - `max_contracts` is applied after floor/min logic.
     """
     if equity < 0:
         raise ValueError("equity must be non-negative")
@@ -40,14 +44,14 @@ def contracts_for_risk_budget(
 
 @dataclass(frozen=True)
 class RiskBudgetSizer:
-    """Stateful wrapper around risk-budget contract sizing."""
+    """Configured wrapper around risk-budget contract sizing."""
 
     risk_budget_pct: float
     min_contracts: int = 0
     max_contracts: int | None = None
 
     def size(self, *, equity: float, risk_per_contract: float) -> int:
-        """Return contracts allowed by the configured risk budget."""
+        """Return contract count allowed by the configured risk budget."""
         return contracts_for_risk_budget(
             equity=equity,
             risk_budget_pct=self.risk_budget_pct,

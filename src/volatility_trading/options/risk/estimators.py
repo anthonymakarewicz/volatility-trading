@@ -1,4 +1,8 @@
-"""Risk estimators for option positions under stress scenarios."""
+"""Stress-risk estimators for option positions.
+
+These estimators convert scenario-level shocked repricing into a scalar
+`risk_per_contract` used by sizing and margin proxies.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +26,7 @@ def _apply_state_shock(
     min_spot: float,
     min_volatility: float,
 ) -> MarketState:
-    """Return a shocked market state with simple numeric floors."""
+    """Apply scenario shocks to market state while enforcing numeric floors."""
     shock = scenario.shock
     return MarketState(
         spot=max(state.spot + shock.d_spot, min_spot),
@@ -35,7 +39,7 @@ def _apply_state_shock(
 def _apply_time_shock(
     spec: OptionSpec, scenario: StressScenario, *, min_time_to_expiry: float
 ) -> OptionSpec:
-    """Return a shocked option spec after rolling time forward."""
+    """Roll time forward by scenario `dt_years` with a minimum expiry floor."""
     return OptionSpec(
         strike=spec.strike,
         time_to_expiry=max(
@@ -57,13 +61,18 @@ class RiskEstimator(Protocol):
         scenarios: Sequence[StressScenario],
         pricer: PriceModel,
     ) -> StressResult:
-        """Return risk summary based on stressed PnL across scenarios."""
+        """Return stressed-PnL summary and worst-loss statistic."""
         ...
 
 
 @dataclass(frozen=True)
 class StressLossRiskEstimator:
-    """Estimate risk per contract as worst-case loss across stress scenarios."""
+    """Estimate risk as worst-case loss across provided stress scenarios.
+
+    For each scenario, legs are repriced on shocked state/spec and aggregated as:
+    `pnl = sum(side * (shocked_price - entry_price) * contract_multiplier)`.
+    Final risk metric is `worst_loss = max(-min(pnl), 0)`.
+    """
 
     min_spot: float = 1e-8
     min_volatility: float = 1e-8
@@ -77,6 +86,7 @@ class StressLossRiskEstimator:
         scenarios: Sequence[StressScenario],
         pricer: PriceModel,
     ) -> StressResult:
+        """Compute scenario PnL points and return the worst-loss summary."""
         if not legs:
             raise ValueError("legs must not be empty")
         if not scenarios:
@@ -108,6 +118,7 @@ class StressLossRiskEstimator:
 
             points.append(StressPoint(scenario=scenario, pnl=pnl))
 
+        # Most negative PnL determines the risk statistic used for sizing.
         worst_point = min(points, key=lambda point: point.pnl)
         worst_loss = max(-worst_point.pnl, 0.0)
         return StressResult(

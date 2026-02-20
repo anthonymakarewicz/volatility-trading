@@ -1,4 +1,22 @@
-"""Margin model contracts and implementations for options position sizing."""
+"""Position-level margin requirement models for option risk sizing.
+
+This module estimates *initial* margin per position unit and is intended for
+entry sizing / capacity checks, not full account lifecycle simulation.
+
+Scope:
+- estimate initial margin for a given set of option legs at a market state
+- provide deterministic Reg-T style approximation
+- provide scenario-based Portfolio Margin proxy
+
+Out of scope:
+- maintenance margin progression through time
+- margin-call day counting and liquidation workflow
+- financing carry and cash/borrow account mechanics
+
+Use :class:`PortfolioMarginProxyModel` when your account behaves like Portfolio
+Margin and you want stress-based sizing that better reflects concentration and
+scenario risk than formula-style Reg-T approximations.
+"""
 
 from __future__ import annotations
 
@@ -20,7 +38,11 @@ from volatility_trading.options.types import MarketState, OptionType
 
 @runtime_checkable
 class MarginModel(Protocol):
-    """Contract for account-style margin requirement estimation."""
+    """Contract for position-level initial margin estimation.
+
+    Implementations return the margin requirement for one position unit
+    (typically one strategy unit that may contain multiple legs).
+    """
 
     def initial_margin_requirement(
         self,
@@ -43,6 +65,16 @@ class RegTMarginModel:
         - House overlays are modeled via `house_multiplier` and `house_floor`.
         - For two-leg short call+put structures, this model applies a
           "greater side + other option value" simplification.
+
+    Attributes:
+        broad_index: If True, uses a lower base short-option percent intended
+            for broad index products.
+        minimum_underlying_pct: Floor for short-call requirement as percent of
+            spot notional.
+        minimum_put_pct: Floor for short-put requirement as percent of strike
+            notional.
+        house_multiplier: Broker house overlay multiplier (>= 1).
+        house_floor: Absolute broker house floor.
     """
 
     broad_index: bool = False
@@ -73,6 +105,13 @@ class RegTMarginModel:
         state: MarketState,
         pricer: PriceModel,
     ) -> float:
+        """Compute Reg-T style initial margin for one position unit.
+
+        The implementation handles:
+        - generic sum of per-leg requirements
+        - short call+put pair shortcut via "greater side + other option value"
+          approximation.
+        """
         if not legs:
             raise ValueError("legs must not be empty")
 
@@ -176,7 +215,25 @@ class RegTMarginModel:
 
 @dataclass(frozen=True)
 class PortfolioMarginProxyModel:
-    """Scenario-based proxy for securities portfolio margin."""
+    """Scenario-based proxy for securities Portfolio Margin.
+
+    This is generally the better choice when you expect PM-like behavior in live
+    trading and want more realistic stress-based sizing than fixed Reg-T
+    formulas.
+
+    Process:
+    1) Generate stress scenarios.
+    2) Compute worst stressed loss for the provided legs.
+    3) Convert worst loss to margin via multiplier/floor overlays.
+
+    Attributes:
+        scenario_generator: Produces stress scenarios for revaluation.
+        risk_estimator: Computes worst-loss across provided scenarios.
+        stress_multiplier: Multiplier on worst loss (>= 1 is conservative).
+        minimum_margin: Absolute minimum requirement before house overlays.
+        house_multiplier: Broker house overlay multiplier (>= 1).
+        house_floor: Absolute broker house floor.
+    """
 
     scenario_generator: ScenarioGenerator = FixedGridScenarioGenerator()
     risk_estimator: RiskEstimator = StressLossRiskEstimator()
@@ -202,6 +259,11 @@ class PortfolioMarginProxyModel:
         state: MarketState,
         pricer: PriceModel,
     ) -> float:
+        """Compute scenario-based initial margin requirement.
+
+        Returns:
+            Margin requirement for one position unit derived from stressed PnL.
+        """
         if not legs:
             raise ValueError("legs must not be empty")
 
