@@ -1,0 +1,186 @@
+"""Margin lifecycle primitives for backtesting account simulations."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from math import floor
+from typing import Literal
+
+
+@dataclass(frozen=True)
+class MarginPolicy:
+    """Rules governing maintenance checks, calls, liquidation, and financing."""
+
+    maintenance_margin_ratio: float = 0.75
+    margin_call_grace_days: int = 1
+    liquidation_mode: Literal["full", "target"] = "full"
+    liquidation_buffer_ratio: float = 0.0
+    apply_financing: bool = False
+    cash_rate_annual: float = 0.0
+    borrow_rate_annual: float = 0.0
+    trading_days_per_year: int = 252
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.maintenance_margin_ratio <= 1:
+            raise ValueError("maintenance_margin_ratio must be in [0, 1]")
+        if self.margin_call_grace_days < 0:
+            raise ValueError("margin_call_grace_days must be >= 0")
+        if self.liquidation_mode not in {"full", "target"}:
+            raise ValueError("liquidation_mode must be 'full' or 'target'")
+        if self.liquidation_buffer_ratio < 0:
+            raise ValueError("liquidation_buffer_ratio must be >= 0")
+        if self.cash_rate_annual < 0:
+            raise ValueError("cash_rate_annual must be >= 0")
+        if self.borrow_rate_annual < 0:
+            raise ValueError("borrow_rate_annual must be >= 0")
+        if self.trading_days_per_year <= 0:
+            raise ValueError("trading_days_per_year must be > 0")
+
+
+@dataclass(frozen=True)
+class MarginStatus:
+    """Daily account margin state returned by :class:`MarginAccount`."""
+
+    initial_margin_requirement: float
+    maintenance_margin_requirement: float
+    margin_excess: float
+    margin_deficit: float
+    in_margin_call: bool
+    margin_call_days: int
+    forced_liquidation: bool
+    contracts_to_liquidate: int
+    contracts_after_liquidation: int
+    cash_balance: float
+    borrowed_balance: float
+    financing_pnl: float
+
+
+class MarginAccount:
+    """Stateful evaluator for margin calls and liquidation decisions."""
+
+    def __init__(self, policy: MarginPolicy):
+        self.policy = policy
+        self._margin_call_days = 0
+
+    @property
+    def margin_call_days(self) -> int:
+        return self._margin_call_days
+
+    def evaluate(
+        self,
+        *,
+        equity: float,
+        initial_margin_requirement: float,
+        open_contracts: int,
+        maintenance_margin_per_contract: float | None = None,
+    ) -> MarginStatus:
+        """Evaluate one daily margin step and return account status."""
+        if open_contracts < 0:
+            raise ValueError("open_contracts must be >= 0")
+
+        initial_requirement = max(float(initial_margin_requirement), 0.0)
+        equity_value = float(equity)
+        maintenance_per_contract = self._maintenance_per_contract(
+            initial_requirement=initial_requirement,
+            open_contracts=open_contracts,
+            maintenance_margin_per_contract=maintenance_margin_per_contract,
+        )
+        maintenance_requirement = maintenance_per_contract * open_contracts
+        margin_excess = equity_value - maintenance_requirement
+        margin_deficit = max(-margin_excess, 0.0)
+        in_margin_call = open_contracts > 0 and margin_deficit > 0.0
+
+        if in_margin_call:
+            self._margin_call_days += 1
+        else:
+            self._margin_call_days = 0
+
+        forced_liquidation = in_margin_call and (
+            self._margin_call_days > self.policy.margin_call_grace_days
+        )
+        contracts_after = open_contracts
+        contracts_to_liquidate = 0
+        if forced_liquidation:
+            contracts_after = self._contracts_after_liquidation(
+                equity=equity_value,
+                maintenance_margin_per_contract=maintenance_per_contract,
+                open_contracts=open_contracts,
+            )
+            contracts_to_liquidate = max(open_contracts - contracts_after, 0)
+
+        cash_balance, borrowed_balance, financing_pnl = self._financing_terms(
+            equity=equity_value,
+            initial_margin_requirement=initial_requirement,
+            open_contracts=open_contracts,
+        )
+
+        return MarginStatus(
+            initial_margin_requirement=initial_requirement,
+            maintenance_margin_requirement=maintenance_requirement,
+            margin_excess=margin_excess,
+            margin_deficit=margin_deficit,
+            in_margin_call=in_margin_call,
+            margin_call_days=self._margin_call_days,
+            forced_liquidation=forced_liquidation,
+            contracts_to_liquidate=contracts_to_liquidate,
+            contracts_after_liquidation=contracts_after,
+            cash_balance=cash_balance,
+            borrowed_balance=borrowed_balance,
+            financing_pnl=financing_pnl,
+        )
+
+    def _maintenance_per_contract(
+        self,
+        *,
+        initial_requirement: float,
+        open_contracts: int,
+        maintenance_margin_per_contract: float | None,
+    ) -> float:
+        if open_contracts <= 0:
+            return 0.0
+        if maintenance_margin_per_contract is not None:
+            return max(float(maintenance_margin_per_contract), 0.0)
+        if initial_requirement <= 0:
+            return 0.0
+        return (
+            initial_requirement / open_contracts
+        ) * self.policy.maintenance_margin_ratio
+
+    def _contracts_after_liquidation(
+        self,
+        *,
+        equity: float,
+        maintenance_margin_per_contract: float,
+        open_contracts: int,
+    ) -> int:
+        if open_contracts <= 0:
+            return 0
+        if self.policy.liquidation_mode == "full":
+            return 0
+
+        per_contract = max(float(maintenance_margin_per_contract), 0.0)
+        if per_contract <= 0:
+            return 0
+
+        denominator = per_contract * (1.0 + self.policy.liquidation_buffer_ratio)
+        target = floor(max(float(equity), 0.0) / denominator)
+        return max(min(target, open_contracts), 0)
+
+    def _financing_terms(
+        self,
+        *,
+        equity: float,
+        initial_margin_requirement: float,
+        open_contracts: int,
+    ) -> tuple[float, float, float]:
+        if not self.policy.apply_financing or open_contracts <= 0:
+            return 0.0, 0.0, 0.0
+
+        cash_balance = max(equity - initial_margin_requirement, 0.0)
+        borrowed_balance = max(initial_margin_requirement - equity, 0.0)
+        day_count = float(self.policy.trading_days_per_year)
+        financing_pnl = (
+            cash_balance * self.policy.cash_rate_annual / day_count
+            - borrowed_balance * self.policy.borrow_rate_annual / day_count
+        )
+        return cash_balance, borrowed_balance, financing_pnl

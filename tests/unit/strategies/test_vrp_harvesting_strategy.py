@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting import BacktestConfig
+from volatility_trading.backtesting import BacktestConfig, MarginPolicy
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.options import (
     MarketShock,
@@ -456,6 +456,94 @@ def test_margin_budget_caps_contracts_below_risk_budget():
     assert trades.iloc[0]["contracts"] == 1
     assert trades.iloc[0]["risk_per_contract"] == pytest.approx(250.0)
     assert trades.iloc[0]["margin_per_contract"] == pytest.approx(500.0)
+    assert mtm["delta_pnl"].sum() == pytest.approx(trades["pnl"].sum())
+
+
+def test_margin_call_liquidation_exits_before_holding_period():
+    class ConstantMarginModel:
+        def initial_margin_requirement(self, *, legs, state, pricer):
+            _ = (legs, pricer)
+            return 1_000.0 if state.spot <= 105 else 20_000.0
+
+    options = _make_options(
+        [
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-02",
+                "expiry_date": "2020-01-31",
+                "dte": 29,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 8.0,
+                "ask_price": 8.2,
+                "spot_price": 118.0,
+                "smoothed_iv": 0.32,
+            },
+            {
+                "trade_date": "2020-01-02",
+                "expiry_date": "2020-01-31",
+                "dte": 29,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 8.0,
+                "ask_price": 8.2,
+                "spot_price": 118.0,
+                "smoothed_iv": 0.32,
+            },
+        ]
+    )
+
+    trades, mtm = _run_backtest(
+        options,
+        holding_period=10,
+        strategy_kwargs={
+            "margin_model": ConstantMarginModel(),
+            "margin_policy": MarginPolicy(margin_call_grace_days=0),
+        },
+    )
+
+    assert len(trades) == 1
+    assert trades.iloc[0]["exit_type"] == "Margin Call Liquidation"
+    assert trades.iloc[0]["contracts"] > 0
+    assert mtm.iloc[-1]["open_contracts"] == pytest.approx(0.0)
+    assert mtm.iloc[-1]["forced_liquidation"] == pytest.approx(1.0)
     assert mtm["delta_pnl"].sum() == pytest.approx(trades["pnl"].sum())
 
 

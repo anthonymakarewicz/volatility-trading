@@ -1,4 +1,5 @@
 from .attribution import to_daily_mtm
+from .margin import MarginAccount, MarginPolicy, MarginStatus
 from .performance import (
     compute_performance_metrics,
     format_performance_report,
@@ -21,6 +22,9 @@ __all__ = [
     "BacktestConfig",
     "SliceContext",
     "to_daily_mtm",
+    "MarginPolicy",
+    "MarginStatus",
+    "MarginAccount",
     "compute_performance_metrics",
     "summarize_by_contracts",
     "format_performance_report",
