@@ -1,4 +1,20 @@
-"""Margin lifecycle primitives for backtesting account simulations."""
+"""Account-level margin lifecycle primitives for backtesting.
+
+This module models path-dependent account behavior and intentionally lives in
+`backtesting/` rather than `options/`.
+
+Separation of concerns:
+- `options/risk/margin.py`: position-level initial margin formulas (Reg-T/PM proxy)
+- `backtesting/margin.py`: daily account lifecycle (maintenance, calls, liquidation,
+  financing carry)
+
+Lifecycle used by :class:`MarginAccount`:
+1) consume an initial margin requirement for current open contracts
+2) derive maintenance requirement (explicit per-contract input or policy ratio)
+3) flag deficit when equity drops below maintenance requirement
+4) count consecutive call days and trigger liquidation after grace period
+5) compute optional financing carry for idle cash or borrowed balance
+"""
 
 from __future__ import annotations
 
@@ -9,7 +25,25 @@ from typing import Literal
 
 @dataclass(frozen=True)
 class MarginPolicy:
-    """Rules governing maintenance checks, calls, liquidation, and financing."""
+    """Rules governing maintenance checks, calls, liquidation, and financing.
+
+    Attributes:
+        maintenance_margin_ratio: Fraction of initial margin used as maintenance
+            when explicit maintenance input is not provided.
+        margin_call_grace_days: Number of consecutive deficit days tolerated before
+            forced liquidation can trigger.
+        liquidation_mode: Liquidation behavior once grace is exceeded.
+            `"full"` closes all open contracts. `"target"` only reduces contracts to
+            a compliant level implied by equity.
+        liquidation_buffer_ratio: Extra cushion used in target liquidation sizing.
+            `0.10` means liquidate toward a 10% maintenance buffer.
+        apply_financing: If True, apply daily financing carry on free cash and
+            borrowed balances.
+        cash_rate_annual: Annualized rate earned on free cash.
+        borrow_rate_annual: Annualized rate paid on borrowed amount.
+        trading_days_per_year: Day-count basis used to convert annual rates to
+            daily carry.
+    """
 
     maintenance_margin_ratio: float = 0.75
     margin_call_grace_days: int = 1
@@ -39,7 +73,24 @@ class MarginPolicy:
 
 @dataclass(frozen=True)
 class MarginStatus:
-    """Daily account margin state returned by :class:`MarginAccount`."""
+    """One-day account margin snapshot returned by :class:`MarginAccount`.
+
+    Attributes:
+        initial_margin_requirement: Initial margin requirement for current open
+            contracts.
+        maintenance_margin_requirement: Maintenance requirement used for call checks.
+        margin_excess: `equity - maintenance_margin_requirement`.
+        margin_deficit: Positive deficit amount when maintenance is breached.
+        in_margin_call: True when the account is below maintenance.
+        margin_call_days: Current consecutive call-day count.
+        forced_liquidation: True when liquidation rule is triggered this step.
+        contracts_to_liquidate: Number of contracts to close immediately.
+        contracts_after_liquidation: Remaining open contracts after forced action.
+        cash_balance: Positive idle cash used for financing accrual.
+        borrowed_balance: Positive borrowed amount used for financing accrual.
+        financing_pnl: Daily financing carry (positive from cash, negative from
+            borrow).
+    """
 
     initial_margin_requirement: float
     maintenance_margin_requirement: float
@@ -56,7 +107,11 @@ class MarginStatus:
 
 
 class MarginAccount:
-    """Stateful evaluator for margin calls and liquidation decisions."""
+    """Stateful evaluator for margin calls and liquidation decisions.
+
+    The object is stateful because margin-call logic depends on consecutive
+    breach days (`margin_call_days`), not only on today's inputs.
+    """
 
     def __init__(self, policy: MarginPolicy):
         self.policy = policy
@@ -74,7 +129,20 @@ class MarginAccount:
         open_contracts: int,
         maintenance_margin_per_contract: float | None = None,
     ) -> MarginStatus:
-        """Evaluate one daily margin step and return account status."""
+        """Evaluate one daily account-margin step.
+
+        Args:
+            equity: Current account equity after market PnL for the step.
+            initial_margin_requirement: Current initial margin requirement for all
+                open contracts.
+            open_contracts: Number of open contracts before any forced liquidation.
+            maintenance_margin_per_contract: Optional explicit maintenance amount per
+                contract. If omitted, this is derived from policy.
+
+        Returns:
+            MarginStatus with maintenance/call state, liquidation decision, and
+            optional financing carry.
+        """
         if open_contracts < 0:
             raise ValueError("open_contracts must be >= 0")
 
@@ -90,11 +158,13 @@ class MarginAccount:
         margin_deficit = max(-margin_excess, 0.0)
         in_margin_call = open_contracts > 0 and margin_deficit > 0.0
 
+        # Margin-call state is path-dependent: only consecutive breach days count.
         if in_margin_call:
             self._margin_call_days += 1
         else:
             self._margin_call_days = 0
 
+        # Liquidation triggers only after grace window is exceeded.
         forced_liquidation = in_margin_call and (
             self._margin_call_days > self.policy.margin_call_grace_days
         )
@@ -136,6 +206,7 @@ class MarginAccount:
         open_contracts: int,
         maintenance_margin_per_contract: float | None,
     ) -> float:
+        """Return maintenance margin per contract for the current step."""
         if open_contracts <= 0:
             return 0.0
         if maintenance_margin_per_contract is not None:
@@ -153,6 +224,12 @@ class MarginAccount:
         maintenance_margin_per_contract: float,
         open_contracts: int,
     ) -> int:
+        """Return remaining contracts after forced liquidation.
+
+        - `"full"` mode closes everything.
+        - `"target"` mode keeps as many contracts as equity can support after
+          applying the liquidation buffer.
+        """
         if open_contracts <= 0:
             return 0
         if self.policy.liquidation_mode == "full":
@@ -173,6 +250,10 @@ class MarginAccount:
         initial_margin_requirement: float,
         open_contracts: int,
     ) -> tuple[float, float, float]:
+        """Compute financing balances and daily carry contribution.
+
+        Positive carry comes from free cash. Negative carry comes from borrow.
+        """
         if not self.policy.apply_financing or open_contracts <= 0:
             return 0.0, 0.0, 0.0
 
