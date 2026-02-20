@@ -18,8 +18,8 @@ src/volatility_trading
 │       └── qc_options_chain.py
 ├── backtesting
 │   ├── __init__.py
-│   ├── engine.py
 │   ├── attribution.py
+│   ├── engine.py
 │   ├── performance
 │   │   ├── __init__.py
 │   │   ├── calculators.py
@@ -95,7 +95,6 @@ src/volatility_trading
 │       │   │   ├── _helpers.py
 │       │   │   └── run.py
 │       │   └── types.py
-│       ├── orats_io.py
 │       ├── processed
 │       │   ├── __init__.py
 │       │   ├── daily_features
@@ -178,7 +177,6 @@ src/volatility_trading
 │           │   └── soft
 │           │       ├── __init__.py
 │           │       └── specs.py
-│           ├── plotting.py
 │           ├── reporting.py
 │           ├── runners.py
 │           ├── serialization.py
@@ -233,6 +231,7 @@ src/volatility_trading
 │   ├── risk
 │   │   ├── __init__.py
 │   │   ├── estimators.py
+│   │   ├── margin.py
 │   │   ├── scenarios.py
 │   │   ├── sizing.py
 │   │   └── types.py
@@ -274,5 +273,5 @@ src/volatility_trading
     ├── __init__.py
     └── logging_config.py
 
-47 directories, 196 files
+52 directories, 220 files
 ```

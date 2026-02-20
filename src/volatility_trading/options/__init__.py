@@ -21,8 +21,11 @@ from .models.black_scholes import (
 )
 from .risk import (
     FixedGridScenarioGenerator,
+    MarginModel,
     OptionLeg,
+    PortfolioMarginProxyModel,
     PositionSide,
+    RegTMarginModel,
     RiskBudgetSizer,
     RiskEstimator,
     ScenarioGenerator,
@@ -72,6 +75,9 @@ __all__ = [
     "FixedGridScenarioGenerator",
     "RiskEstimator",
     "StressLossRiskEstimator",
+    "MarginModel",
+    "RegTMarginModel",
+    "PortfolioMarginProxyModel",
     "contracts_for_risk_budget",
     "RiskBudgetSizer",
 ]
