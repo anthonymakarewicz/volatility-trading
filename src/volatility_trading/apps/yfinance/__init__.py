@@ -1,0 +1,1 @@
+"""YFinance app entrypoints."""

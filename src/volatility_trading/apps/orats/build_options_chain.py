@@ -2,9 +2,9 @@
 """Build processed options-chain panels from intermediate data.
 
 Typical usage:
-    python -m volatility_trading.apps.orats.build_options_chain --config config/orats_options_chain_build.yml
+    python -m volatility_trading.apps.orats.build_options_chain --config config/orats/options_chain_build.yml
     python -m volatility_trading.apps.orats.build_options_chain --tickers SPX SPY --years 2019 2020
-    orats-build-options-chain --config config/orats_options_chain_build.yml
+    orats-build-options-chain --config config/orats/options_chain_build.yml
 
 Config precedence: CLI > YAML > defaults.
 """

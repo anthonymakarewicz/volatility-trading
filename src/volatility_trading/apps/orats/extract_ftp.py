@@ -2,9 +2,9 @@
 """Extract selected underlyings from raw ORATS FTP ZIP files to Parquet.
 
 Typical usage:
-    python -m volatility_trading.apps.orats.extract_ftp --config config/orats_ftp_extract.yml
+    python -m volatility_trading.apps.orats.extract_ftp --config config/orats/ftp_extract.yml
     python -m volatility_trading.apps.orats.extract_ftp --tickers SPX SPY --years 2019 2020
-    orats-ftp-extract --config config/orats_ftp_extract.yml
+    orats-ftp-extract --config config/orats/ftp_extract.yml
 
 Config precedence: CLI > YAML > defaults.
 """

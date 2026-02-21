@@ -2,9 +2,9 @@
 """Run QC on processed ORATS daily-features panels.
 
 Typical usage:
-    python -m volatility_trading.apps.orats.qc_daily_features --config config/orats_qc_daily_features.yml
+    python -m volatility_trading.apps.orats.qc_daily_features --config config/orats/qc_daily_features.yml
     python -m volatility_trading.apps.orats.qc_daily_features --tickers SPX AAPL
-    orats-qc-daily-features --config config/orats_qc_daily_features.yml
+    orats-qc-daily-features --config config/orats/qc_daily_features.yml
 
 Config precedence: CLI > YAML > defaults.
 """

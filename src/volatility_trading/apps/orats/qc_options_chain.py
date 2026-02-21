@@ -2,9 +2,9 @@
 """Run QC on processed ORATS options-chain panels.
 
 Typical usage:
-    python -m volatility_trading.apps.orats.qc_options_chain --config config/orats_qc_options_chain.yml
+    python -m volatility_trading.apps.orats.qc_options_chain --config config/orats/qc_options_chain.yml
     python -m volatility_trading.apps.orats.qc_options_chain --tickers SPX AAPL
-    orats-qc-options-chain --config config/orats_qc_options_chain.yml
+    orats-qc-options-chain --config config/orats/qc_options_chain.yml
 
 Config precedence: CLI > YAML > defaults.
 """

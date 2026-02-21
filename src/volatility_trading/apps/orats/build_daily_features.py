@@ -2,9 +2,9 @@
 """Build processed daily-features panels from intermediate ORATS API data.
 
 Typical usage:
-    python -m volatility_trading.apps.orats.build_daily_features --config config/orats_daily_features_build.yml
+    python -m volatility_trading.apps.orats.build_daily_features --config config/orats/daily_features_build.yml
     python -m volatility_trading.apps.orats.build_daily_features --tickers SPX --endpoints dailies summaries hvs
-    orats-build-daily-features --config config/orats_daily_features_build.yml
+    orats-build-daily-features --config config/orats/daily_features_build.yml
 
 Config precedence: CLI > YAML > defaults.
 """

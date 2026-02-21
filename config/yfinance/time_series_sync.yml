@@ -1,0 +1,22 @@
+# yfinance time-series sync config (CLI overrides YAML)
+logging:
+  level: INFO
+  color: true
+
+paths:
+  raw_root: data/raw/yfinance/time_series
+  proc_root: data/processed/yfinance/time_series
+
+tickers:
+  - SPY
+  - QQQ
+  - IWM
+  - ^VIX
+  - ^SP500TR
+
+start: "2005-01-01"
+end: null
+interval: "1d"
+auto_adjust: false
+actions: false
+overwrite: false

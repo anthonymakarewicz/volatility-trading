@@ -1,0 +1,1 @@
+"""FRED app entrypoints."""

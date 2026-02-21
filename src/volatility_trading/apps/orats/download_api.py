@@ -2,9 +2,9 @@
 """Download ORATS API endpoint data to disk (raw).
 
 Typical usage:
-    python -m volatility_trading.apps.orats.download_api --config config/orats_api_download.yml
+    python -m volatility_trading.apps.orats.download_api --config config/orats/api_download.yml
     python -m volatility_trading.apps.orats.download_api --endpoint ivrank --tickers SPX NDX
-    orats-api-download --config config/orats_api_download.yml
+    orats-api-download --config config/orats/api_download.yml
 
 Notes:
 - Reads ORATS token from env var ORATS_API_KEY by default.

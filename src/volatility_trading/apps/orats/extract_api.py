@@ -3,9 +3,9 @@
 
 Typical usage
 -------------
-    python -m volatility_trading.apps.orats.extract_api --config config/orats_api_extract.yml
+    python -m volatility_trading.apps.orats.extract_api --config config/orats/api_extract.yml
     python -m volatility_trading.apps.orats.extract_api --endpoint hvs --tickers SPX NDX
-    orats-api-extract --config config/orats_api_extract.yml
+    orats-api-extract --config config/orats/api_extract.yml
 
 Config precedence: CLI > YAML > defaults.
 """

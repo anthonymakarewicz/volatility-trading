@@ -2,9 +2,9 @@
 """Download ORATS HostedFTP SMV Strikes ZIP files to disk (raw).
 
 Typical usage:
-    python -m volatility_trading.apps.orats.download_ftp --config config/orats_ftp_download.yml
+    python -m volatility_trading.apps.orats.download_ftp --config config/orats/ftp_download.yml
     python -m volatility_trading.apps.orats.download_ftp --years 2020 2021 --max-workers 4
-    orats-ftp-download --config config/orats_ftp_download.yml
+    orats-ftp-download --config config/orats/ftp_download.yml
 
 Notes
 -----

@@ -1,0 +1,28 @@
+# FRED sync config (CLI overrides YAML)
+logging:
+  level: INFO
+  color: true
+
+paths:
+  raw_root: data/raw/fred
+  proc_root: data/processed/fred
+
+fred:
+  token_env: FRED_API_KEY
+  token: null
+
+domains:
+  rates:
+    dgs3mo: DGS3MO
+    dgs2: DGS2
+    dgs10: DGS10
+  market:
+    vixcls: VIXCLS
+
+# Optional subset. Null means all domain keys above.
+domain_names: null
+
+start: "2005-01-01"
+end: null
+asfreq_business_days: true
+overwrite: false
