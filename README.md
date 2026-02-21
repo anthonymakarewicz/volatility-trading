@@ -62,7 +62,7 @@ Pipeline steps:
 Use `--dry-run` to validate config, paths, and credentials before running writes/network.
 
 ```bash
-orats-api-download --config config/orats_api_download.yml --dry-run
+orats-api-download --config config/orats/api_download.yml --dry-run
 ```
 
 For the full command sequence, see [Data pipeline](docs/reference/data_pipeline.md).

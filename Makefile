@@ -1,6 +1,8 @@
-.PHONY: help lint format check typecheck test test-unit test-integration ci sync-nb sync-nb-all
+.PHONY: help lint format check typecheck test test-unit test-integration ci sync-nb sync-nb-all fred-sync yfinance-sync market-sync
 
 NOTEBOOK ?= notebooks/vrp_harvesting/notebook.ipynb
+FRED_CONFIG ?= config/fred/sync.yml
+YFINANCE_CONFIG ?= config/yfinance/time_series_sync.yml
 
 help:
 	@echo "Targets:"
@@ -13,6 +15,9 @@ help:
 	@echo "  make test-integration   Run integration tests only"
 	@echo "  make sync-nb            Sync one paired notebook (set NOTEBOOK=path)"
 	@echo "  make sync-nb-all        Sync all notebooks under notebooks/"
+	@echo "  make fred-sync          Sync FRED raw+processed datasets"
+	@echo "  make yfinance-sync      Sync yfinance raw+processed datasets"
+	@echo "  make market-sync        Run fred-sync then yfinance-sync"
 	@echo "  make ci                 Run lint + format check + typecheck + unit tests"
 
 lint:
@@ -48,3 +53,9 @@ sync-nb:
 
 sync-nb-all:
 	find notebooks -name '*.ipynb' -print0 | xargs -0 -n1 jupytext --sync
+
+fred-sync:
+	fred-sync --config $(FRED_CONFIG)
+
+yfinance-sync:
+	yfinance-sync --config $(YFINANCE_CONFIG)

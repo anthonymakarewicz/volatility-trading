@@ -8,18 +8,30 @@ pip install -e .
 ## ORATS
 
 Commands:
-- `orats-api-download` (config: `config/orats_api_download.yml`)
-- `orats-api-extract` (config: `config/orats_api_extract.yml`)
-- `orats-ftp-download` (config: `config/orats_ftp_download.yml`)
-- `orats-ftp-extract` (config: `config/orats_ftp_extract.yml`)
-- `orats-build-options-chain` (config: `config/orats_options_chain_build.yml`)
-- `orats-build-daily-features` (config: `config/orats_daily_features_build.yml`)
-- `orats-qc-daily-features` (config: `config/orats_qc_daily_features.yml`)
-- `orats-qc-options-chain` (config: `config/orats_qc_options_chain.yml`)
+- `orats-api-download` (config: `config/orats/api_download.yml`)
+- `orats-api-extract` (config: `config/orats/api_extract.yml`)
+- `orats-ftp-download` (config: `config/orats/ftp_download.yml`)
+- `orats-ftp-extract` (config: `config/orats/ftp_extract.yml`)
+- `orats-build-options-chain` (config: `config/orats/options_chain_build.yml`)
+- `orats-build-daily-features` (config: `config/orats/daily_features_build.yml`)
+- `orats-qc-daily-features` (config: `config/orats/qc_daily_features.yml`)
+- `orats-qc-options-chain` (config: `config/orats/qc_options_chain.yml`)
 
 Example:
 ```bash
-orats-api-download --config config/orats_api_download.yml
+orats-api-download --config config/orats/api_download.yml
+```
+
+## Market Feeds
+
+Commands:
+- `fred-sync` (config: `config/fred/sync.yml`)
+- `yfinance-sync` (config: `config/yfinance/time_series_sync.yml`)
+
+Examples:
+```bash
+fred-sync --config config/fred/sync.yml
+yfinance-sync --config config/yfinance/time_series_sync.yml
 ```
 
 ## Common Flags

@@ -1,6 +1,18 @@
 # Data Pipeline
 
-This project uses a staged ORATS pipeline:
+This project uses two pipeline patterns:
+
+1. **ORATS staged pipeline** (raw -> intermediate -> processed -> QC)
+2. **External market feed lightweight pipeline** (raw -> processed)
+
+Runtime YAML configs are grouped by source under `config/`:
+- `config/orats/`
+- `config/fred/`
+- `config/yfinance/`
+
+## ORATS Staged Pipeline
+
+The ORATS pipeline is staged as:
 
 1. **Raw** downloads (API + FTP ZIPs)
 2. **Intermediate** extracts (parquet partitions)
@@ -13,67 +25,67 @@ For general tooling/dev issues, see [Troubleshooting](../troubleshooting.md).
 For adding new daily-features columns or endpoints, see
 [Daily Features Onboarding](../contributing/daily_features_onboarding.md).
 
-## Full Runbook (All Steps)
+### Full Runbook (All Steps)
 
 Run in this order:
 
 ### 1) API download (raw JSON)
 
 ```bash
-orats-api-download --config config/orats_api_download.yml --dry-run
-orats-api-download --config config/orats_api_download.yml
+orats-api-download --config config/orats/api_download.yml --dry-run
+orats-api-download --config config/orats/api_download.yml
 ```
 
 ### 2) API extract (intermediate parquet)
 
 ```bash
-orats-api-extract --config config/orats_api_extract.yml --dry-run
-orats-api-extract --config config/orats_api_extract.yml
+orats-api-extract --config config/orats/api_extract.yml --dry-run
+orats-api-extract --config config/orats/api_extract.yml
 ```
 
 ### 3) FTP download (raw ZIP)
 
 ```bash
-orats-ftp-download --config config/orats_ftp_download.yml --dry-run
-orats-ftp-download --config config/orats_ftp_download.yml
+orats-ftp-download --config config/orats/ftp_download.yml --dry-run
+orats-ftp-download --config config/orats/ftp_download.yml
 ```
 
 ### 4) FTP extract (intermediate parquet)
 
 ```bash
-orats-ftp-extract --config config/orats_ftp_extract.yml --dry-run
-orats-ftp-extract --config config/orats_ftp_extract.yml
+orats-ftp-extract --config config/orats/ftp_extract.yml --dry-run
+orats-ftp-extract --config config/orats/ftp_extract.yml
 ```
 
 ### 5) Build processed options chain
 
 ```bash
-orats-build-options-chain --config config/orats_options_chain_build.yml --dry-run
-orats-build-options-chain --config config/orats_options_chain_build.yml
+orats-build-options-chain --config config/orats/options_chain_build.yml --dry-run
+orats-build-options-chain --config config/orats/options_chain_build.yml
 ```
 
 ### 6) Build processed daily features
 
 ```bash
-orats-build-daily-features --config config/orats_daily_features_build.yml --dry-run
-orats-build-daily-features --config config/orats_daily_features_build.yml
+orats-build-daily-features --config config/orats/daily_features_build.yml --dry-run
+orats-build-daily-features --config config/orats/daily_features_build.yml
 ```
 
 ### 7) QC options chain
 
 ```bash
-orats-qc-options-chain --config config/orats_qc_options_chain.yml --dry-run
-orats-qc-options-chain --config config/orats_qc_options_chain.yml
+orats-qc-options-chain --config config/orats/qc_options_chain.yml --dry-run
+orats-qc-options-chain --config config/orats/qc_options_chain.yml
 ```
 
 ### 8) QC daily features
 
 ```bash
-orats-qc-daily-features --config config/orats_qc_daily_features.yml --dry-run
-orats-qc-daily-features --config config/orats_qc_daily_features.yml
+orats-qc-daily-features --config config/orats/qc_daily_features.yml --dry-run
+orats-qc-daily-features --config config/orats/qc_daily_features.yml
 ```
 
-## High-Level Flow
+### High-Level Flow
 
 ```text
 ORATS API (raw JSON)
@@ -93,7 +105,7 @@ Quality Control
     └─ orats-qc-daily-features
 ```
 
-## Directory Layout (by stage)
+### Directory Layout (by stage)
 
 ```
 data/
@@ -110,6 +122,53 @@ data/
       options_chain/
       daily_features/
 ```
+
+## External Market Feed Lightweight Pipeline
+
+For stable API sources like FRED and yfinance, keep a lightweight pattern:
+
+1. **Raw** source snapshots by domain
+2. **Processed** analysis-ready parquet tables
+
+Current CLI entrypoints:
+
+```bash
+fred-sync --config config/fred/sync.yml --dry-run
+fred-sync --config config/fred/sync.yml
+
+yfinance-sync --config config/yfinance/time_series_sync.yml --dry-run
+yfinance-sync --config config/yfinance/time_series_sync.yml
+```
+
+Optional orchestration target:
+
+```bash
+make market-sync
+```
+
+Directory layout:
+
+```text
+data/
+  raw/
+    fred/
+      rates/
+      market/
+    yfinance/
+      time_series/
+  processed/
+    fred/
+      rates/
+      market/
+    yfinance/
+      time_series/
+```
+
+Design notes:
+- Read from `processed/` by default in backtests/research.
+- Use `raw/` for lineage/debug/rebuild workflows.
+- Keep external feeds in `raw -> processed` unless complexity justifies an
+  explicit intermediate stage.
 
 ## Tips
 

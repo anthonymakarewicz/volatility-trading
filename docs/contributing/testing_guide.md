@@ -15,14 +15,19 @@ tests/
 ├── integration
 │   └── apps
 │       ├── conftest.py
-│       ├── test_orats_api_download_smoke.py
-│       ├── test_orats_api_extract_smoke.py
-│       ├── test_orats_build_daily_features_smoke.py
-│       ├── test_orats_build_options_chain_smoke.py
-│       ├── test_orats_ftp_download_smoke.py
-│       ├── test_orats_ftp_extract_smoke.py
-│       ├── test_orats_qc_daily_features_smoke.py
-│       └── test_orats_qc_options_chain_smoke.py
+│       ├── fred
+│       │   └── test_fred_sync_smoke.py
+│       ├── orats
+│       │   ├── test_orats_api_download_smoke.py
+│       │   ├── test_orats_api_extract_smoke.py
+│       │   ├── test_orats_build_daily_features_smoke.py
+│       │   ├── test_orats_build_options_chain_smoke.py
+│       │   ├── test_orats_ftp_download_smoke.py
+│       │   ├── test_orats_ftp_extract_smoke.py
+│       │   ├── test_orats_qc_daily_features_smoke.py
+│       │   └── test_orats_qc_options_chain_smoke.py
+│       └── yfinance
+│           └── test_yfinance_sync_smoke.py
 └── unit
     ├── backtesting
     │   ├── test_performance_calculators.py
@@ -57,7 +62,6 @@ tests/
     └── strategies
         └── test_vrp_harvesting_strategy.py
 
-14 directories, 32 files
 ```
 
 ## Naming
@@ -80,6 +84,9 @@ tests/
 pytest  # unit tests only (integration excluded by default)
 pytest tests/unit/etl/orats/ftp -q
 pytest tests/integration/apps -q
+pytest tests/integration/apps/orats -q
+pytest tests/integration/apps/fred -q
+pytest tests/integration/apps/yfinance -q
 pytest -m integration -q
 pytest -k extract -q
 ```

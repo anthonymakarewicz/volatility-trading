@@ -9,6 +9,14 @@ CLI overrides > YAML > defaults
 Use `--print-config` to see the final JSON config and `--dry-run` to validate
 inputs without executing.
 
+## Runtime Config Layout
+
+Configs are partitioned by data source:
+
+- `config/orats/*.yml`
+- `config/fred/*.yml`
+- `config/yfinance/*.yml`
+
 ## Common Path Keys
 
 All configs use a consistent paths schema:
@@ -20,7 +28,7 @@ All configs use a consistent paths schema:
 
 ## ORATS API Download
 
-File: `config/orats_api_download.yml`
+File: `config/orats/api_download.yml`
 
 Key fields:
 
@@ -35,7 +43,7 @@ Key fields:
 
 ## ORATS API Extract
 
-File: `config/orats_api_extract.yml`
+File: `config/orats/api_extract.yml`
 
 Key fields:
 
@@ -51,7 +59,7 @@ Key fields:
 
 ## ORATS FTP Download
 
-File: `config/orats_ftp_download.yml`
+File: `config/orats/ftp_download.yml`
 
 Key fields:
 
@@ -66,7 +74,7 @@ Key fields:
 
 ## ORATS FTP Extract
 
-File: `config/orats_ftp_extract.yml`
+File: `config/orats/ftp_extract.yml`
 
 Key fields:
 
@@ -78,7 +86,7 @@ Key fields:
 
 ## Options Chain Build
 
-File: `config/orats_options_chain_build.yml`
+File: `config/orats/options_chain_build.yml`
 
 Key fields:
 
@@ -94,7 +102,7 @@ Key fields:
 
 ## Daily Features Build
 
-File: `config/orats_daily_features_build.yml`
+File: `config/orats/daily_features_build.yml`
 
 If you are adding new columns/endpoints to processed daily features, follow
 [Daily Features Onboarding](../contributing/daily_features_onboarding.md).
@@ -115,8 +123,8 @@ Key fields:
 
 Files:
 
-- `config/orats_qc_options_chain.yml`
-- `config/orats_qc_daily_features.yml`
+- `config/orats/qc_options_chain.yml`
+- `config/orats/qc_daily_features.yml`
 
 Key fields:
 
@@ -131,3 +139,33 @@ Options-chain QC also includes:
 - `roi_dte_min`, `roi_dte_max`
 - `roi_delta_min`, `roi_delta_max`
 - `top_k_buckets`
+
+## FRED Sync
+
+File: `config/fred/sync.yml`
+
+Key fields:
+
+- `paths.raw_root`
+- `paths.proc_root`
+- `fred.token_env` / `fred.token`
+- `domains` (mapping of domain -> alias -> FRED series id)
+- `domain_names` (optional subset)
+- `start`, `end`
+- `asfreq_business_days`
+- `overwrite`
+
+## yfinance Sync
+
+File: `config/yfinance/time_series_sync.yml`
+
+Key fields:
+
+- `paths.raw_root`
+- `paths.proc_root`
+- `tickers`
+- `start`, `end`
+- `interval`
+- `auto_adjust`
+- `actions`
+- `overwrite`

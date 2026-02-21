@@ -6,7 +6,10 @@ src/volatility_trading
 ├── apps
 │   ├── __init__.py
 │   ├── _cli.py
-│   └── orats
+│   ├── fred
+│   │   ├── __init__.py
+│   │   └── sync.py
+│   ├── orats
 │       ├── __init__.py
 │       ├── build_daily_features.py
 │       ├── build_options_chain.py
@@ -16,10 +19,14 @@ src/volatility_trading
 │       ├── extract_ftp.py
 │       ├── qc_daily_features.py
 │       └── qc_options_chain.py
+│   └── yfinance
+│       ├── __init__.py
+│       └── sync.py
 ├── backtesting
 │   ├── __init__.py
 │   ├── attribution.py
 │   ├── engine.py
+│   ├── margin.py
 │   ├── performance
 │   │   ├── __init__.py
 │   │   ├── calculators.py
@@ -62,8 +69,11 @@ src/volatility_trading
 │   └── options_chain.py
 ├── etl
 │   ├── __init__.py
+│   ├── fred
+│   │   ├── __init__.py
+│   │   └── sync.py
 │   ├── optionsdx_loader.py
-│   └── orats
+│   ├── orats
 │       ├── __init__.py
 │       ├── api
 │       │   ├── __init__.py
@@ -201,6 +211,9 @@ src/volatility_trading
 │           │   ├── summarizers.py
 │           │   └── utils.py
 │           └── types.py
+│   └── yfinance
+│       ├── __init__.py
+│       └── sync.py
 ├── filters
 │   ├── __init__.py
 │   ├── base_filter.py
@@ -273,5 +286,5 @@ src/volatility_trading
     ├── __init__.py
     └── logging_config.py
 
-52 directories, 220 files
+56 directories, 228 files
 ```

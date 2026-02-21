@@ -49,7 +49,7 @@ already exist in intermediate parquet.
 3. If needed, update default endpoint list for daily-features build.
    - `src/volatility_trading/etl/orats/processed/daily_features/api.py`
    - `src/volatility_trading/apps/orats/build_daily_features.py`
-   - `config/orats_daily_features_build.yml`
+   - `config/orats/daily_features_build.yml`
 4. Add/update QC coverage.
    - Start with non-negativity checks in
      `src/volatility_trading/etl/orats/qc/daily_features/hard/specs.py`.
@@ -121,9 +121,9 @@ A daily-features column onboarding is complete when:
 ## Suggested Verification Commands
 
 ```bash
-orats-api-extract --config config/orats_api_extract.yml --endpoint <endpoint> --dry-run
-orats-build-daily-features --config config/orats_daily_features_build.yml --dry-run
-orats-qc-daily-features --config config/orats_qc_daily_features.yml --dry-run
+orats-api-extract --config config/orats/api_extract.yml --endpoint <endpoint> --dry-run
+orats-build-daily-features --config config/orats/daily_features_build.yml --dry-run
+orats-qc-daily-features --config config/orats/qc_daily_features.yml --dry-run
 
 pytest -q tests/unit/etl/orats/api
 pytest -q tests/unit/etl/orats/processed
