@@ -20,6 +20,14 @@ pip install -e .
 `requirements-dev.txt` includes the runtime dependency set, so installing only
 `requirements-dev.txt` is sufficient for local development.
 
+If you add or change console scripts in `setup.cfg` (`options.entry_points`),
+rerun editable install so new commands are created in `.venv/bin`:
+
+```bash
+python -m pip install -e . --no-build-isolation --no-deps
+rehash  # zsh: refresh command lookup
+```
+
 ## Core Workflow
 
 Use the `Makefile` targets:

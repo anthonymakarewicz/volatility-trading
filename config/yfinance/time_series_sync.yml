@@ -13,10 +13,11 @@ tickers:
   - IWM
   - VIX
   - SP500TR
+  - VIXY
 
-start: "2005-01-01"
+start: "2007-01-01"
 end: null
 interval: "1d"
 auto_adjust: false
 actions: false
-overwrite: false
+overwrite: true

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import pandas as pd
 import yfinance as yf
@@ -20,6 +21,45 @@ INTERNAL_DOWNLOAD_TICKER_MAP = {
     "SP500TR": "^SP500TR",
     "VIX": "^VIX",
 }
+
+
+def _xs_columns_as_frame(frame: pd.DataFrame, *, key: str, level: int) -> pd.DataFrame:
+    """Select one column level and always return a DataFrame."""
+    selected = frame.xs(key, axis=1, level=level, drop_level=True)
+    if isinstance(selected, pd.Series):
+        return selected.to_frame()
+    return selected
+
+
+def _normalize_download_columns(frame: pd.DataFrame, *, ticker: str) -> pd.DataFrame:
+    """Normalize yfinance output to single-level columns for one symbol."""
+    if not isinstance(frame.columns, pd.MultiIndex):
+        return frame
+
+    out = frame.copy()
+    cols = out.columns
+
+    if cols.nlevels == 2:
+        level0 = cols.get_level_values(0)
+        level1 = cols.get_level_values(1)
+
+        if level1.nunique() == 1:
+            out.columns = level0
+            return out
+        if level0.nunique() == 1:
+            out.columns = level1
+            return out
+        if ticker in set(level1):
+            return _xs_columns_as_frame(out, key=ticker, level=1)
+        if ticker in set(level0):
+            return _xs_columns_as_frame(out, key=ticker, level=0)
+
+    multi_columns = cast(pd.MultiIndex, out.columns)
+    out.columns = [
+        "_".join(str(part) for part in col if str(part))
+        for col in multi_columns.to_flat_index()
+    ]
+    return out
 
 
 def _normalize_input_ticker(ticker: str) -> str:
@@ -85,7 +125,9 @@ def _download_ticker(
         return pd.DataFrame()
     if frame.empty:
         return frame
-    output = frame.rename(columns=PRICE_COLUMNS)
+    output = _normalize_download_columns(frame, ticker=ticker)
+    output.columns = [str(col) for col in output.columns]
+    output = output.rename(columns=PRICE_COLUMNS)
     output.index = pd.to_datetime(output.index).tz_localize(None)
     return output.sort_index()
 
@@ -127,7 +169,7 @@ def sync_yfinance_time_series(
         with_ticker = frame.copy()
         with_ticker["ticker"] = storage_ticker
         with_ticker = with_ticker.reset_index()
-        first_col = str(with_ticker.columns[0])
+        first_col = with_ticker.columns[0]
         with_ticker = with_ticker.rename(columns={first_col: "date"})
         combined_frames.append(with_ticker)
 

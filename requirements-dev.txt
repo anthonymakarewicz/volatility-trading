@@ -84,6 +84,8 @@ fonttools==4.61.1
     # via matplotlib
 fqdn==1.5.1
     # via jsonschema
+fredapi==0.5.2
+    # via -r requirements.in
 frozendict==2.4.7
     # via yfinance
 h11==0.16.0

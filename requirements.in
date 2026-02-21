@@ -1,6 +1,8 @@
 # Requires Python >= 3.12
 
+altair
 exchange-calendars
+fredapi
 joblib
 matplotlib
 numpy

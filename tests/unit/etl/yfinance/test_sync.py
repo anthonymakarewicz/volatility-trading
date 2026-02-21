@@ -80,3 +80,39 @@ def test_sync_rejects_ambiguous_storage_mapping(tmp_path: Path) -> None:
             proc_root=tmp_path / "processed",
             overwrite=True,
         )
+
+
+def test_download_ticker_normalizes_single_symbol_multiindex(monkeypatch) -> None:
+    import volatility_trading.etl.yfinance.sync as sync_mod
+
+    index = pd.to_datetime(["2024-01-02", "2024-01-03"])
+    columns = pd.MultiIndex.from_tuples(
+        [
+            ("Close", "^VIX"),
+            ("High", "^VIX"),
+            ("Low", "^VIX"),
+            ("Open", "^VIX"),
+            ("Volume", "^VIX"),
+        ],
+        names=["Price", "Ticker"],
+    )
+    frame = pd.DataFrame(
+        [
+            [20.04, 21.68, 19.50, 20.20, 1000],
+            [19.35, 20.13, 18.90, 19.40, 1100],
+        ],
+        index=index,
+        columns=columns,
+    )
+
+    monkeypatch.setattr(sync_mod.yf, "download", lambda *args, **kwargs: frame)
+    out = sync_mod._download_ticker(
+        ticker="^VIX",
+        start="2024-01-01",
+        end="2024-01-10",
+        interval="1d",
+        auto_adjust=False,
+        actions=False,
+    )
+
+    assert list(out.columns) == ["close", "high", "low", "open", "volume"]

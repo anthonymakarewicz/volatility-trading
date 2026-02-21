@@ -5,6 +5,14 @@ This project exposes console scripts after installation. Run:
 pip install -e .
 ```
 
+If you add or change `options.entry_points` in `setup.cfg`, reinstall to
+regenerate console scripts:
+
+```bash
+python -m pip install -e . --no-build-isolation --no-deps
+rehash  # zsh: refresh command lookup
+```
+
 ## ORATS
 
 Commands:

@@ -26,6 +26,8 @@ exchange-calendars==4.13.1
     # via -r requirements.in
 fonttools==4.60.1
     # via matplotlib
+fredapi==0.5.2
+    # via -r requirements.in
 frozendict==2.4.6
     # via yfinance
 idna==3.11
