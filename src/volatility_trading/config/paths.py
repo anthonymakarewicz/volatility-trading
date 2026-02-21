@@ -21,9 +21,15 @@ RAW_ORATS_API = RAW_ORATS / "api"
 
 RAW_OPTIONSDX = DATA_RAW / "optionsdx"
 
+RAW_YFINANCE = DATA_RAW / "yfinance"
+RAW_YFINANCE_TIME_SERIES = RAW_YFINANCE / "time_series"
+
+RAW_FRED = DATA_RAW / "fred"
+RAW_FRED_RATES = RAW_FRED / "rates"
+RAW_FRED_MARKET = RAW_FRED / "market"
+
 # ----- Options – intermediate -----
 INTER_ORATS = DATA_INTER / "orats"  # provider root
-
 INTER_ORATS_FTP = INTER_ORATS / "ftp" / "strikes"
 INTER_ORATS_API = INTER_ORATS / "api"
 
@@ -37,3 +43,10 @@ PROC_ORATS_DAILY_FEATURES = PROC_ORATS / "daily_features"
 PROC_OPTIONSDX = DATA_PROC / "optionsdx"
 PROC_OPTIONSDX_OPTIONS_CHAIN = PROC_OPTIONSDX / "options_chain"
 PROC_OPTIONSDX_DAILY_FEATURES = PROC_OPTIONSDX / "daily_features"
+
+PROC_YFINANCE = DATA_PROC / "yfinance"
+PROC_YFINANCE_TIME_SERIES = PROC_YFINANCE / "time_series"
+
+PROC_FRED = DATA_PROC / "fred"
+PROC_FRED_RATES = PROC_FRED / "rates"
+PROC_FRED_MARKET = PROC_FRED / "market"
