@@ -41,5 +41,8 @@ make typecheck
 pytest tests/unit/etl/orats/qc -q
 pytest tests/unit/etl/orats/api -q
 pytest tests/integration/apps -q
+pytest tests/integration/apps/orats -q
+pytest tests/integration/apps/fred -q
+pytest tests/integration/apps/yfinance -q
 pytest -k extract -q
 ```
