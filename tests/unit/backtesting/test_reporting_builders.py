@@ -37,6 +37,20 @@ def test_build_summary_metrics_returns_expected_core_values():
     assert summary.profit_factor == pytest.approx(2.0)
 
 
+def test_build_summary_metrics_accepts_series_risk_free_rate():
+    trades = pd.DataFrame({"pnl": [10.0, -5.0]})
+    mtm_daily = _sample_mtm_daily()
+    rf_series = pd.Series([0.01, 0.01, 0.02], index=mtm_daily.index)
+
+    summary = build_summary_metrics(
+        trades=trades,
+        mtm_daily=mtm_daily,
+        risk_free_rate=rf_series,
+    )
+
+    assert summary.sharpe is not None
+
+
 def test_build_equity_and_drawdown_table_includes_benchmark_columns():
     mtm_daily = _sample_mtm_daily()
     benchmark = pd.Series(

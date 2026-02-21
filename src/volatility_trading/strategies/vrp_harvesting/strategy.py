@@ -29,9 +29,6 @@ from volatility_trading.signals import Signal
 
 from ..base_strategy import Strategy
 
-# TODO(feature): Trading account with monye invetsed into both the startegy and the one used
-# putnin the cash account
-
 
 class VRPHarvestingStrategy(Strategy):
     def __init__(
@@ -488,9 +485,7 @@ class VRPHarvestingStrategy(Strategy):
             else:
                 iv_entry = np.nan
 
-            current_equity = capital + sum(
-                rec["delta_pnl"] for rec in mtm_records
-            )  # TODO: maybe calculate it after each trade
+            current_equity = capital + sum(rec["delta_pnl"] for rec in mtm_records)
             contracts, risk_pc, risk_scenario, margin_pc = self._size_contracts(
                 entry_date=entry_date,
                 expiry_date=expiry_date,
@@ -544,6 +539,7 @@ class VRPHarvestingStrategy(Strategy):
                     equity=equity_running + entry_delta_pnl,
                     initial_margin_requirement=initial_margin_req,
                     open_contracts=contracts_open,
+                    as_of=entry_date,
                 )
                 entry_financing = margin_status.financing_pnl
                 entry_delta_pnl += entry_financing
@@ -691,10 +687,12 @@ class VRPHarvestingStrategy(Strategy):
                 contracts_liquidated = 0
                 margin_status = None
                 if margin_account is not None:
+                    # Evaluate maintenance/call state on mark-to-market equity.
                     margin_status = margin_account.evaluate(
                         equity=equity_running + delta_pnl_market,
                         initial_margin_requirement=initial_margin_req,
                         open_contracts=contracts_open,
+                        as_of=curr_date,
                     )
                     financing_pnl = margin_status.financing_pnl
                     maintenance_margin_req = (
@@ -784,6 +782,8 @@ class VRPHarvestingStrategy(Strategy):
                     )
 
                     if contracts_after == 0:
+                        # Full liquidation: replace today's MTM increment with realized
+                        # closeout PnL to avoid double counting.
                         forced_delta_pnl = (
                             pnl_net_closed - prev_mtm_before
                         ) + financing_pnl
@@ -812,6 +812,8 @@ class VRPHarvestingStrategy(Strategy):
                         exited = True
                         break
 
+                    # Partial liquidation: split today's MTM into realized closed
+                    # piece plus remaining open-position MTM path.
                     ratio_remaining = contracts_after / contracts_open
                     pnl_mtm_remaining = pnl_mtm * ratio_remaining
                     forced_delta_pnl = (

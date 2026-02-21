@@ -22,6 +22,10 @@ from dataclasses import dataclass
 from math import floor
 from typing import Literal
 
+import pandas as pd
+
+from .rates import RateInput, coerce_rate_model
+
 
 @dataclass(frozen=True)
 class MarginPolicy:
@@ -39,8 +43,10 @@ class MarginPolicy:
             `0.10` means liquidate toward a 10% maintenance buffer.
         apply_financing: If True, apply daily financing carry on free cash and
             borrowed balances.
-        cash_rate_annual: Annualized rate earned on free cash.
-        borrow_rate_annual: Annualized rate paid on borrowed amount.
+        cash_rate_annual: Financing rate input for free cash (constant, series,
+            or model). Used only when `apply_financing=True`.
+        borrow_rate_annual: Financing rate input for borrowed balance (constant,
+            series, or model). Used only when `apply_financing=True`.
         trading_days_per_year: Day-count basis used to convert annual rates to
             daily carry.
     """
@@ -50,8 +56,8 @@ class MarginPolicy:
     liquidation_mode: Literal["full", "target"] = "full"
     liquidation_buffer_ratio: float = 0.0
     apply_financing: bool = False
-    cash_rate_annual: float = 0.0
-    borrow_rate_annual: float = 0.0
+    cash_rate_annual: RateInput = 0.0
+    borrow_rate_annual: RateInput = 0.0
     trading_days_per_year: int = 252
 
     def __post_init__(self) -> None:
@@ -63,10 +69,9 @@ class MarginPolicy:
             raise ValueError("liquidation_mode must be 'full' or 'target'")
         if self.liquidation_buffer_ratio < 0:
             raise ValueError("liquidation_buffer_ratio must be >= 0")
-        if self.cash_rate_annual < 0:
-            raise ValueError("cash_rate_annual must be >= 0")
-        if self.borrow_rate_annual < 0:
-            raise ValueError("borrow_rate_annual must be >= 0")
+        # Validate rate inputs early so misconfigured policies fail fast.
+        coerce_rate_model(self.cash_rate_annual)
+        coerce_rate_model(self.borrow_rate_annual)
         if self.trading_days_per_year <= 0:
             raise ValueError("trading_days_per_year must be > 0")
 
@@ -116,6 +121,8 @@ class MarginAccount:
     def __init__(self, policy: MarginPolicy):
         self.policy = policy
         self._margin_call_days = 0
+        self._cash_rate_model = coerce_rate_model(policy.cash_rate_annual)
+        self._borrow_rate_model = coerce_rate_model(policy.borrow_rate_annual)
 
     @property
     def margin_call_days(self) -> int:
@@ -128,6 +135,7 @@ class MarginAccount:
         initial_margin_requirement: float,
         open_contracts: int,
         maintenance_margin_per_contract: float | None = None,
+        as_of: pd.Timestamp | None = None,
     ) -> MarginStatus:
         """Evaluate one daily account-margin step.
 
@@ -138,6 +146,7 @@ class MarginAccount:
             open_contracts: Number of open contracts before any forced liquidation.
             maintenance_margin_per_contract: Optional explicit maintenance amount per
                 contract. If omitted, this is derived from policy.
+            as_of: Current valuation date used for date-dependent financing rates.
 
         Returns:
             MarginStatus with maintenance/call state, liquidation decision, and
@@ -182,6 +191,7 @@ class MarginAccount:
             equity=equity_value,
             initial_margin_requirement=initial_requirement,
             open_contracts=open_contracts,
+            as_of=as_of,
         )
 
         return MarginStatus(
@@ -249,6 +259,7 @@ class MarginAccount:
         equity: float,
         initial_margin_requirement: float,
         open_contracts: int,
+        as_of: pd.Timestamp | None,
     ) -> tuple[float, float, float]:
         """Compute financing balances and daily carry contribution.
 
@@ -260,8 +271,10 @@ class MarginAccount:
         cash_balance = max(equity - initial_margin_requirement, 0.0)
         borrowed_balance = max(initial_margin_requirement - equity, 0.0)
         day_count = float(self.policy.trading_days_per_year)
+        cash_rate_annual = self._cash_rate_model.annual_rate(as_of=as_of)
+        borrow_rate_annual = self._borrow_rate_model.annual_rate(as_of=as_of)
         financing_pnl = (
-            cash_balance * self.policy.cash_rate_annual / day_count
-            - borrowed_balance * self.policy.borrow_rate_annual / day_count
+            cash_balance * cash_rate_annual / day_count
+            - borrowed_balance * borrow_rate_annual / day_count
         )
         return cash_balance, borrowed_balance, financing_pnl

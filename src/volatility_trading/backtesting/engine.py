@@ -2,6 +2,8 @@ from volatility_trading.strategies import Strategy
 
 from .types import BacktestConfig, DataMapping, ParamGrid, SliceContext
 
+# TODO: Fix circular import in init to put Backtester in init
+
 
 class Backtester:
     def __init__(

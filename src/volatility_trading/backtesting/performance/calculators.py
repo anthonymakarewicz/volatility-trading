@@ -7,6 +7,8 @@ import math
 import numpy as np
 import pandas as pd
 
+from volatility_trading.backtesting.rates import RateInput, coerce_rate_model
+
 from .schemas import (
     DrawdownMetrics,
     PerformanceMetricsBundle,
@@ -49,14 +51,27 @@ def _safe_sum(series: pd.Series) -> float | None:
     return _finite_or_none(float(series.sum()))
 
 
+def _to_timestamp_or_none(value: object) -> pd.Timestamp | None:
+    if isinstance(value, pd.Timestamp):
+        return value
+    try:
+        return pd.Timestamp(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def compute_performance_metrics(
     *,
     trades: pd.DataFrame,
     mtm_daily: pd.DataFrame,
-    risk_free_rate: float = 0.0,
+    risk_free_rate: RateInput = 0.0,
     alpha: float = 0.01,
 ) -> PerformanceMetricsBundle:
-    """Compute portfolio, drawdown, tail, and trade metrics from backtest outputs."""
+    """Compute portfolio, drawdown, tail, and trade metrics from backtest outputs.
+
+    `risk_free_rate` accepts a constant annualized rate, a date-indexed annualized
+    rate series, or a custom `RateModel`.
+    """
     if not 0 < alpha < 1:
         raise ValueError("alpha must be in (0, 1)")
 
@@ -135,11 +150,18 @@ def compute_performance_metrics(
     )
     sharpe = None
     if not daily_returns.empty and float(daily_returns.std()) > 0:
+        rf_model = coerce_rate_model(risk_free_rate)
+        rf_daily = pd.Series(
+            (
+                rf_model.annual_rate(as_of=_to_timestamp_or_none(idx)) / 252.0
+                for idx in daily_returns.index
+            ),
+            index=daily_returns.index,
+            dtype=float,
+        )
+        excess_daily_returns = daily_returns - rf_daily
         sharpe = _finite_or_none(
-            float(
-                ((daily_returns.mean() - risk_free_rate / 252.0) / daily_returns.std())
-                * np.sqrt(252.0)
-            )
+            float((excess_daily_returns.mean() / daily_returns.std()) * np.sqrt(252.0))
         )
 
     drawdown = (equity - equity.cummax()) / equity.cummax()

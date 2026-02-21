@@ -8,6 +8,12 @@ from .performance import (
     print_stressed_risk_metrics,
     summarize_by_contracts,
 )
+from .rates import (
+    ConstantRateModel,
+    RateModel,
+    SeriesRateModel,
+    coerce_rate_model,
+)
 from .reporting import (
     build_backtest_report_bundle,
     save_backtest_report_bundle,
@@ -25,6 +31,10 @@ __all__ = [
     "MarginPolicy",
     "MarginStatus",
     "MarginAccount",
+    "RateModel",
+    "ConstantRateModel",
+    "SeriesRateModel",
+    "coerce_rate_model",
     "compute_performance_metrics",
     "summarize_by_contracts",
     "format_performance_report",

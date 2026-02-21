@@ -10,6 +10,15 @@ import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
 
+# TODO: Add plot for margin account, plot for the broker/margin account
+# add also plot for rollign sharpe, historgram of P&L returns
+
+#
+# brekaodwn performance by month and year (1 row for 1 year 1 col for 1 month)
+#
+# Add regime dependent plots like rollign sharpe, vol, returns, hit ratio
+# Add performance plots by vix buckets
+
 
 def _require_equity(mtm_daily: pd.DataFrame) -> pd.Series:
     if mtm_daily.empty or "equity" not in mtm_daily.columns:
@@ -177,12 +186,14 @@ def plot_performance_dashboard(
     benchmark_name: str = "Benchmark",
     title: str | None = None,
     subtitle: str | None = None,
+    figsize: tuple | None = None,
 ) -> Figure:
     """Build a dashboard figure with equity, drawdown, and Greek exposures."""
     equity = _require_equity(mtm_daily)
     bm_rebase = _rebased_benchmark(benchmark, equity)
 
-    fig = plt.figure(figsize=(14, 14), constrained_layout=False)
+    figsize = figsize if figsize is not None else (14, 14)
+    fig = plt.figure(figsize=figsize, constrained_layout=False)
     grid = gridspec.GridSpec(4, 2, height_ratios=[2, 1, 1, 1], hspace=0.4, wspace=0.3)
     fig.subplots_adjust(top=0.90)
 
@@ -234,7 +245,9 @@ def plot_performance_dashboard(
     return fig
 
 
-def plot_pnl_attribution(daily_mtm: pd.DataFrame) -> Figure:
+def plot_pnl_attribution(
+    daily_mtm: pd.DataFrame, figsize: tuple | None = None
+) -> Figure:
     """Return cumulative total and Greek-attribution PnL figure."""
     equity = _require_equity(daily_mtm)
     cumulative = pd.DataFrame(index=daily_mtm.index)
@@ -247,6 +260,7 @@ def plot_pnl_attribution(daily_mtm: pd.DataFrame) -> Figure:
         else:
             cumulative[column] = 0.0
 
+    figsize = figsize if figsize is not None else (12, 5)
     colors = {
         "Total P&L": "purple",
         "Delta_PnL": "red",
@@ -255,8 +269,7 @@ def plot_pnl_attribution(daily_mtm: pd.DataFrame) -> Figure:
         "Theta_PnL": "blue",
         "Other_PnL": "brown",
     }
-
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=figsize)
     ax.plot(
         cumulative.index,
         cumulative["Total P&L"],
@@ -301,6 +314,7 @@ def plot_stressed_pnl(
     stressed_mtm: pd.DataFrame,
     daily_mtm: pd.DataFrame,
     scenarios: Mapping[str, object] | Sequence[str],
+    figsize: tuple | None = None,
 ) -> Figure:
     """Return actual and scenario-stressed equity curves."""
     equity = _require_equity(daily_mtm)
@@ -308,6 +322,7 @@ def plot_stressed_pnl(
     if not stress_columns:
         raise ValueError("No matching stress scenario columns found in stressed_mtm")
 
+    figsize = figsize if figsize is not None else (12, 5)
     fig, ax = plt.subplots(figsize=(12, 5))
     ax.plot(equity.index, equity, label="Actual Equity")
     for column in stress_columns:

@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from volatility_trading.backtesting.rates import RateInput
+
 from .calculators import compute_performance_metrics
 from .schemas import PerformanceMetricsBundle
 from .tables import summarize_by_contracts
@@ -71,10 +73,13 @@ def print_performance_report(
     *,
     trades: pd.DataFrame,
     mtm_daily: pd.DataFrame,
-    risk_free_rate: float = 0.0,
+    risk_free_rate: RateInput = 0.0,
     alpha: float = 0.01,
 ) -> PerformanceMetricsBundle:
-    """Compute and print a performance report; return metrics for reuse."""
+    """Compute and print a performance report; return metrics for reuse.
+
+    `risk_free_rate` accepts a constant annualized value or a dated series/model.
+    """
     metrics = compute_performance_metrics(
         trades=trades,
         mtm_daily=mtm_daily,

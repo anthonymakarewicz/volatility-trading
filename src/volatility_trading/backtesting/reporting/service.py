@@ -8,6 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from volatility_trading.backtesting.rates import RateInput
+
 from .builders import (
     build_equity_and_drawdown_table,
     build_exposures_daily_table,
@@ -47,9 +49,12 @@ def build_backtest_report_bundle(
     run_id: str | None = None,
     include_dashboard_plot: bool = True,
     include_component_plots: bool = False,
-    risk_free_rate: float = 0.0,
+    risk_free_rate: RateInput = 0.0,
 ) -> BacktestReportBundle:
-    """Build a complete in-memory report bundle for one backtest run."""
+    """Build a complete in-memory report bundle for one backtest run.
+
+    `risk_free_rate` supports constants and date-indexed series/models.
+    """
     if mtm_daily.empty:
         raise ValueError("mtm_daily must not be empty")
 

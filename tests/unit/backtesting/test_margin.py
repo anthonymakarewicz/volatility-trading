@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from volatility_trading.backtesting import MarginAccount, MarginPolicy
@@ -93,3 +94,32 @@ def test_margin_account_financing_terms_for_cash_and_borrow():
     assert borrow_status.financing_pnl == pytest.approx(-(2_000.0 * 0.06 / 252.0))
     assert cash_status.cash_balance == pytest.approx(2_000.0)
     assert cash_status.financing_pnl == pytest.approx(2_000.0 * 0.02 / 252.0)
+
+
+def test_margin_account_financing_supports_date_indexed_rate_series():
+    idx = pd.to_datetime(["2020-01-01", "2020-01-02"])
+    cash_rates = pd.Series([0.01, 0.03], index=idx)
+    borrow_rates = pd.Series([0.04, 0.08], index=idx)
+    policy = MarginPolicy(
+        apply_financing=True,
+        cash_rate_annual=cash_rates,
+        borrow_rate_annual=borrow_rates,
+        trading_days_per_year=252,
+    )
+    account = MarginAccount(policy)
+
+    borrow_day1 = account.evaluate(
+        equity=8_000.0,
+        initial_margin_requirement=10_000.0,
+        open_contracts=1,
+        as_of=idx[0],
+    )
+    borrow_day2 = account.evaluate(
+        equity=8_000.0,
+        initial_margin_requirement=10_000.0,
+        open_contracts=1,
+        as_of=idx[1],
+    )
+
+    assert borrow_day1.financing_pnl == pytest.approx(-(2_000.0 * 0.04 / 252.0))
+    assert borrow_day2.financing_pnl == pytest.approx(-(2_000.0 * 0.08 / 252.0))

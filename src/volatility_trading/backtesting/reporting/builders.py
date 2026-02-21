@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 
 from volatility_trading.backtesting.performance import compute_performance_metrics
+from volatility_trading.backtesting.rates import RateInput
 
 from .schemas import SummaryMetrics
 
@@ -13,9 +14,12 @@ def build_summary_metrics(
     trades: pd.DataFrame,
     mtm_daily: pd.DataFrame,
     *,
-    risk_free_rate: float = 0.0,
+    risk_free_rate: RateInput = 0.0,
 ) -> SummaryMetrics:
-    """Build headline metrics from trades and daily MTM."""
+    """Build headline metrics from trades and daily MTM.
+
+    `risk_free_rate` can be a constant annualized value or a dated series/model.
+    """
     metrics = compute_performance_metrics(
         trades=trades,
         mtm_daily=mtm_daily,

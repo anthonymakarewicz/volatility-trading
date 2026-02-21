@@ -39,3 +39,26 @@ def test_compute_performance_metrics_handles_missing_equity():
     assert metrics.returns.total_return is None
     assert metrics.drawdown.max_drawdown is None
     assert metrics.trades.total_trades == 2
+
+
+def test_compute_performance_metrics_accepts_series_risk_free_rate():
+    trades, mtm_daily = _sample_inputs()
+    rf_series = pd.Series(
+        [0.01, 0.02, 0.03],
+        index=mtm_daily.index,
+    )
+
+    metrics_series = compute_performance_metrics(
+        trades=trades,
+        mtm_daily=mtm_daily,
+        risk_free_rate=rf_series,
+    )
+    metrics_const = compute_performance_metrics(
+        trades=trades,
+        mtm_daily=mtm_daily,
+        risk_free_rate=0.0,
+    )
+
+    assert metrics_series.returns.sharpe is not None
+    assert metrics_const.returns.sharpe is not None
+    assert metrics_series.returns.sharpe < metrics_const.returns.sharpe
