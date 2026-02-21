@@ -130,6 +130,10 @@ For stable API sources like FRED and yfinance, keep a lightweight pattern:
 1. **Raw** source snapshots by domain
 2. **Processed** analysis-ready parquet tables
 
+For yfinance index-like symbols, use clean ticker names in config
+(`SP500TR`, `VIX`). The sync step maps to caret-prefixed Yahoo symbols
+internally when required and stores caret-free tickers in outputs.
+
 Current CLI entrypoints:
 
 ```bash
@@ -138,12 +142,6 @@ fred-sync --config config/fred/sync.yml
 
 yfinance-sync --config config/yfinance/time_series_sync.yml --dry-run
 yfinance-sync --config config/yfinance/time_series_sync.yml
-```
-
-Optional orchestration target:
-
-```bash
-make market-sync
 ```
 
 Directory layout:

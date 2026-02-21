@@ -169,3 +169,9 @@ Key fields:
 - `auto_adjust`
 - `actions`
 - `overwrite`
+
+Notes:
+- Use clean symbols in `tickers` (for example `SP500TR`, `VIX`).
+- The sync layer resolves known index aliases to Yahoo download symbols
+  internally (for example `SP500TR -> ^SP500TR`, `VIX -> ^VIX`).
+- Stored raw filenames and processed `ticker` values are caret-free.

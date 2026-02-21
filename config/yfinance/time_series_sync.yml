@@ -11,8 +11,8 @@ tickers:
   - SPY
   - QQQ
   - IWM
-  - ^VIX
-  - ^SP500TR
+  - VIX
+  - SP500TR
 
 start: "2005-01-01"
 end: null

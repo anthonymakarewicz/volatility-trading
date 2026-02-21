@@ -16,6 +16,52 @@ PRICE_COLUMNS = {
     "Volume": "volume",
 }
 
+INTERNAL_DOWNLOAD_TICKER_MAP = {
+    "SP500TR": "^SP500TR",
+    "VIX": "^VIX",
+}
+
+
+def _normalize_input_ticker(ticker: str) -> str:
+    normalized = str(ticker).strip().upper()
+    if not normalized:
+        raise ValueError("tickers must contain non-empty symbols")
+    return normalized
+
+
+def _resolve_download_ticker(user_ticker: str) -> str:
+    if user_ticker.startswith("^"):
+        return user_ticker
+    return INTERNAL_DOWNLOAD_TICKER_MAP.get(user_ticker, user_ticker)
+
+
+def _storage_ticker_from_download_ticker(download_ticker: str) -> str:
+    storage_ticker = download_ticker.removeprefix("^")
+    if not storage_ticker:
+        raise ValueError("ticker resolved to empty storage symbol")
+    return storage_ticker
+
+
+def _build_ticker_plan(tickers: list[str]) -> list[tuple[str, str]]:
+    """Return ordered unique `(download_ticker, storage_ticker)` pairs."""
+    storage_to_download: dict[str, str] = {}
+    for ticker in tickers:
+        user_ticker = _normalize_input_ticker(ticker)
+        download_ticker = _resolve_download_ticker(user_ticker)
+        storage_ticker = _storage_ticker_from_download_ticker(download_ticker)
+
+        existing_download = storage_to_download.get(storage_ticker)
+        if existing_download is None:
+            storage_to_download[storage_ticker] = download_ticker
+            continue
+        if existing_download != download_ticker:
+            raise ValueError(
+                "Ambiguous ticker mapping for storage symbol "
+                f"'{storage_ticker}': '{existing_download}' vs '{download_ticker}'."
+            )
+
+    return [(download, storage) for storage, download in storage_to_download.items()]
+
 
 def _download_ticker(
     *,
@@ -59,11 +105,12 @@ def sync_yfinance_time_series(
     """Sync yfinance OHLCV data and return processed parquet path."""
     raw_root.mkdir(parents=True, exist_ok=True)
     proc_root.mkdir(parents=True, exist_ok=True)
+    ticker_plan = _build_ticker_plan(tickers)
 
     combined_frames: list[pd.DataFrame] = []
-    for ticker in tickers:
+    for download_ticker, storage_ticker in ticker_plan:
         frame = _download_ticker(
-            ticker=ticker,
+            ticker=download_ticker,
             start=start,
             end=end,
             interval=interval,
@@ -73,12 +120,12 @@ def sync_yfinance_time_series(
         if frame.empty:
             continue
 
-        raw_path = raw_root / f"{ticker.upper()}.parquet"
+        raw_path = raw_root / f"{storage_ticker}.parquet"
         if overwrite or not raw_path.exists():
             frame.to_parquet(raw_path, index=True)
 
         with_ticker = frame.copy()
-        with_ticker["ticker"] = ticker.upper()
+        with_ticker["ticker"] = storage_ticker
         with_ticker = with_ticker.reset_index()
         first_col = str(with_ticker.columns[0])
         with_ticker = with_ticker.rename(columns={first_col: "date"})
