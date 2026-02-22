@@ -4,6 +4,8 @@ from volatility_trading.backtesting.types import SliceContext
 from volatility_trading.filters import Filter
 from volatility_trading.signals import Signal
 
+# TODO: Maybe make Signal as compulsory instead of optional here (list of filetrs keep optional)
+
 
 class Strategy(ABC):
     def __init__(
@@ -23,6 +25,9 @@ class Strategy(ABC):
         - strategy__*   -> self.*
         - signal__*     -> self.signal.set_params(...)
         - <filter>__*   -> filt.set_params(...)
+
+        This fucntion will be used by the optmizer in Backtesting to find the best
+        strategy parameters.
         """
         # Strategy-level params
         strat_params = {

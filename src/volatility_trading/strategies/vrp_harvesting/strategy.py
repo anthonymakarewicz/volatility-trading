@@ -14,22 +14,23 @@ from volatility_trading.options import (
     BlackScholesPricer,
     FixedGridScenarioGenerator,
     MarginModel,
-    MarketState,
-    OptionLeg,
-    OptionSpec,
-    OptionType,
-    PositionSide,
     PriceModel,
     RegTMarginModel,
     RiskBudgetSizer,
     RiskEstimator,
     ScenarioGenerator,
     StressLossRiskEstimator,
-    contracts_for_risk_budget,
 )
 from volatility_trading.signals import Signal
 
 from ..base_strategy import Strategy
+from ..options_core import (
+    choose_expiry_by_target_dte,
+    estimate_short_straddle_margin_per_contract,
+    pick_quote_by_delta,
+    size_short_straddle_contracts,
+    time_to_expiry_years,
+)
 
 
 @dataclass(frozen=True)
@@ -173,12 +174,11 @@ class VRPHarvestingStrategy(Strategy):
         Pick the quote whose delta is closest to `tgt` within `delta_tolerance`.
         Used here to approximate ATM (tgt ≈ +0.5 for calls, -0.5 for puts).
         """
-        df2 = df_leg.copy()
-        df2["d_err"] = (df2["delta"] - tgt).abs()
-        df2 = df2[df2["d_err"] <= delta_tolerance]
-        if df2.empty:
-            return None
-        return df2.iloc[df2["d_err"].values.argmin()]
+        return pick_quote_by_delta(
+            df_leg,
+            target_delta=tgt,
+            delta_tolerance=delta_tolerance,
+        )
 
     @staticmethod
     def _compute_greeks_per_contract(
@@ -206,27 +206,12 @@ class VRPHarvestingStrategy(Strategy):
         quote_yte: float | int | None,
         quote_dte: float | int | None,
     ) -> float:
-        def _positive_or_none(value: float | int | None) -> float | None:
-            if value is None or pd.isna(value):
-                return None
-            try:
-                numeric = float(value)
-            except (TypeError, ValueError):
-                return None
-            if not np.isfinite(numeric) or numeric <= 0:
-                return None
-            return numeric
-
-        yte = _positive_or_none(quote_yte)
-        if yte is not None:
-            return yte
-
-        dte = _positive_or_none(quote_dte)
-        if dte is not None:
-            return max(dte / 365.0, 1e-8)
-
-        days = (pd.Timestamp(expiry_date) - pd.Timestamp(entry_date)).days
-        return max(days / 365.0, 1e-8)
+        return time_to_expiry_years(
+            entry_date=entry_date,
+            expiry_date=expiry_date,
+            quote_yte=quote_yte,
+            quote_dte=quote_dte,
+        )
 
     def _estimate_margin_per_contract(
         self,
@@ -242,51 +227,17 @@ class VRPHarvestingStrategy(Strategy):
         volatility: float,
     ) -> float | None:
         """Estimate current margin requirement for one straddle contract set."""
-        if self.margin_model is None:
-            return None
-        if not np.isfinite(spot) or spot <= 0:
-            return None
-        if not np.isfinite(volatility) or volatility <= 0:
-            return None
-
-        put_spec = OptionSpec(
-            strike=float(put_quote["strike"]),
-            time_to_expiry=self._time_to_expiry_years(
-                entry_date=as_of_date,
-                expiry_date=expiry_date,
-                quote_yte=put_quote.get("yte"),
-                quote_dte=put_quote.get("dte"),
-            ),
-            option_type=OptionType.PUT,
-        )
-        call_spec = OptionSpec(
-            strike=float(call_quote["strike"]),
-            time_to_expiry=self._time_to_expiry_years(
-                entry_date=as_of_date,
-                expiry_date=expiry_date,
-                quote_yte=call_quote.get("yte"),
-                quote_dte=call_quote.get("dte"),
-            ),
-            option_type=OptionType.CALL,
-        )
-        legs = (
-            OptionLeg(
-                spec=put_spec,
-                entry_price=float(put_entry),
-                side=PositionSide.SHORT,
-                contract_multiplier=float(lot_size),
-            ),
-            OptionLeg(
-                spec=call_spec,
-                entry_price=float(call_entry),
-                side=PositionSide.SHORT,
-                contract_multiplier=float(lot_size),
-            ),
-        )
-        state = MarketState(spot=float(spot), volatility=float(volatility))
-        return self.margin_model.initial_margin_requirement(
-            legs=legs,
-            state=state,
+        return estimate_short_straddle_margin_per_contract(
+            as_of_date=as_of_date,
+            expiry_date=expiry_date,
+            put_quote=put_quote,
+            call_quote=call_quote,
+            put_entry=put_entry,
+            call_entry=call_entry,
+            lot_size=lot_size,
+            spot=spot,
+            volatility=volatility,
+            margin_model=self.margin_model,
             pricer=self.pricer,
         )
 
@@ -305,102 +256,26 @@ class VRPHarvestingStrategy(Strategy):
         equity: float,
     ) -> tuple[int, float | None, str | None, float | None]:
         """Compute contracts from risk budget and optional margin-capacity budget."""
-        invalid_market = (
-            not np.isfinite(spot)
-            or spot <= 0
-            or not np.isfinite(volatility)
-            or volatility <= 0
+        return size_short_straddle_contracts(
+            entry_date=entry_date,
+            expiry_date=expiry_date,
+            put_quote=put_q,
+            call_quote=call_q,
+            put_entry=put_entry,
+            call_entry=call_entry,
+            lot_size=lot_size,
+            spot=spot,
+            volatility=volatility,
+            equity=equity,
+            pricer=self.pricer,
+            scenario_generator=self.scenario_generator,
+            risk_estimator=self.risk_estimator,
+            risk_sizer=self.risk_sizer,
+            margin_model=self.margin_model,
+            margin_budget_pct=self.margin_budget_pct,
+            min_contracts=self.min_contracts,
+            max_contracts=self.max_contracts,
         )
-        if invalid_market:
-            fallback = self.risk_sizer.min_contracts if self.risk_sizer else 1
-            return fallback, None, None, None
-
-        put_spec = OptionSpec(
-            strike=float(put_q["strike"]),
-            time_to_expiry=self._time_to_expiry_years(
-                entry_date=entry_date,
-                expiry_date=expiry_date,
-                quote_yte=put_q.get("yte"),
-                quote_dte=put_q.get("dte"),
-            ),
-            option_type=OptionType.PUT,
-        )
-        call_spec = OptionSpec(
-            strike=float(call_q["strike"]),
-            time_to_expiry=self._time_to_expiry_years(
-                entry_date=entry_date,
-                expiry_date=expiry_date,
-                quote_yte=call_q.get("yte"),
-                quote_dte=call_q.get("dte"),
-            ),
-            option_type=OptionType.CALL,
-        )
-        legs = (
-            OptionLeg(
-                spec=put_spec,
-                entry_price=float(put_entry),
-                side=PositionSide.SHORT,
-                contract_multiplier=float(lot_size),
-            ),
-            OptionLeg(
-                spec=call_spec,
-                entry_price=float(call_entry),
-                side=PositionSide.SHORT,
-                contract_multiplier=float(lot_size),
-            ),
-        )
-        state = MarketState(spot=float(spot), volatility=float(volatility))
-        risk_contracts: int | None = None
-        risk_per_contract: float | None = None
-        risk_scenario: str | None = None
-
-        if self.risk_sizer is not None:
-            scenarios = self.scenario_generator.generate(spec=call_spec, state=state)
-            if not scenarios:
-                risk_contracts = self.risk_sizer.min_contracts
-            else:
-                risk_result = self.risk_estimator.estimate_risk_per_contract(
-                    legs=legs,
-                    state=state,
-                    scenarios=scenarios,
-                    pricer=self.pricer,
-                )
-                risk_contracts = self.risk_sizer.size(
-                    equity=equity,
-                    risk_per_contract=risk_result.worst_loss,
-                )
-                risk_per_contract = risk_result.worst_loss
-                risk_scenario = risk_result.worst_scenario.name
-
-        margin_contracts: int | None = None
-        margin_per_contract: float | None = None
-        if self.margin_model is not None:
-            margin_per_contract = self.margin_model.initial_margin_requirement(
-                legs=legs,
-                state=state,
-                pricer=self.pricer,
-            )
-            margin_budget_pct = self.margin_budget_pct or 1.0
-            margin_contracts = contracts_for_risk_budget(
-                equity=equity,
-                risk_budget_pct=margin_budget_pct,
-                risk_per_contract=margin_per_contract,
-                min_contracts=0,
-                max_contracts=self.max_contracts,
-            )
-
-        if risk_contracts is not None and margin_contracts is not None:
-            contracts = min(risk_contracts, margin_contracts)
-        elif risk_contracts is not None:
-            contracts = risk_contracts
-        elif margin_contracts is not None:
-            contracts = margin_contracts
-        else:
-            contracts = max(self.min_contracts, 1)
-            if self.max_contracts is not None:
-                contracts = min(contracts, self.max_contracts)
-
-        return contracts, risk_per_contract, risk_scenario, margin_per_contract
 
     @staticmethod
     def choose_vrp_expiry(
@@ -414,25 +289,12 @@ class VRPHarvestingStrategy(Strategy):
         - nearest to target_dte within ±max_dte_diff
         - with at least `min_atm_quotes` quotes near ATM.
         """
-        exps = chain["dte"].dropna().unique()
-        exps = [d for d in exps if abs(d - target_dte) <= max_dte_diff]
-        if not exps:
-            return None
-
-        def is_viable(dte):
-            sub = chain[chain["dte"] == dte]
-            # very simple ATM band example: |S/K - 1| <= 2%
-            # assumes you have 'S' or 'spot_price'
-            S = sub["spot_price"].iloc[0]
-            atm_band = (sub["strike"] / S).between(0.98, 1.02)
-            atm_quotes = sub[atm_band]
-            return len(atm_quotes) >= min_atm_quotes
-
-        viable = [d for d in exps if is_viable(d)]
-        if not viable:
-            return None
-
-        return min(viable, key=lambda d: abs(d - target_dte))
+        return choose_expiry_by_target_dte(
+            chain=chain,
+            target_dte=target_dte,
+            max_dte_diff=max_dte_diff,
+            min_atm_quotes=min_atm_quotes,
+        )
 
     # TODO: Probably would have a choose contract that woudl consider
     # both T and delta for teh choice of the contract (e.g. takign the best contarct
