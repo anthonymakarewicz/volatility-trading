@@ -439,14 +439,14 @@ class VRPHarvestingStrategy(Strategy):
         trading_dates = sorted(options.index.unique())
         active_signal_dates = set(sig_df.index[sig_df["on"]])
         hooks = SinglePositionRunnerHooks[OpenPosition, PositionEntrySetup](
-            mark_open_position=lambda position,
-            curr_date,
-            equity_running: self._mark_open_position(
-                position=position,
-                curr_date=curr_date,
-                options=options,
-                cfg=cfg,
-                equity_running=equity_running,
+            mark_open_position=lambda position, curr_date, equity_running: (
+                self._mark_open_position(
+                    position=position,
+                    curr_date=curr_date,
+                    options=options,
+                    cfg=cfg,
+                    equity_running=equity_running,
+                )
             ),
             prepare_entry=lambda entry_date, equity_running: self._prepare_entry_setup(
                 entry_date=entry_date,
