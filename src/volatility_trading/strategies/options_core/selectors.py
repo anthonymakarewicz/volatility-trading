@@ -20,6 +20,11 @@ def pick_quote_by_delta(
     return df2.iloc[df2["d_err"].values.argmin()]
 
 
+# TODO: Probably would have a choose contract that woudl consider
+# both T and delta for teh choice of the contract (e.g. takign the best contarct
+# within [dte_min, dte_max] X [delta_min, delta_max])
+
+
 def choose_expiry_by_target_dte(
     chain: pd.DataFrame,
     *,

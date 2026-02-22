@@ -12,6 +12,7 @@ from .lifecycle import (
     ShortStraddleEntrySetup,
     ShortStraddleLifecycleEngine,
 )
+from .runner import SinglePositionRunnerHooks, run_single_position_date_loop
 from .selectors import choose_expiry_by_target_dte, pick_quote_by_delta
 from .sizing import (
     estimate_short_straddle_margin_per_contract,
@@ -36,4 +37,6 @@ __all__ = [
     "ShortStraddleEntrySetup",
     "OpenShortStraddlePosition",
     "ShortStraddleLifecycleEngine",
+    "SinglePositionRunnerHooks",
+    "run_single_position_date_loop",
 ]

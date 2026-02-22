@@ -24,9 +24,11 @@ from ..options_core import (
     OpenShortStraddlePosition,
     ShortStraddleEntrySetup,
     ShortStraddleLifecycleEngine,
+    SinglePositionRunnerHooks,
     choose_expiry_by_target_dte,
     estimate_short_straddle_margin_per_contract,
     pick_quote_by_delta,
+    run_single_position_date_loop,
     size_short_straddle_contracts,
     time_to_expiry_years,
 )
@@ -236,10 +238,6 @@ class VRPHarvestingStrategy(Strategy):
             max_dte_diff=max_dte_diff,
             min_atm_quotes=min_atm_quotes,
         )
-
-    # TODO: Probably would have a choose contract that woudl consider
-    # both T and delta for teh choice of the contract (e.g. takign the best contarct
-    # within [dte_min, dte_max] X [delta_min, delta_max])
 
     # --------- Main entry point ---------
 
@@ -462,50 +460,38 @@ class VRPHarvestingStrategy(Strategy):
         options = options.sort_index()
         trading_dates = sorted(options.index.unique())
         active_signal_dates = set(sig_df.index[sig_df["on"]])
-
-        trades: list[dict] = []
-        mtm_records: list[dict] = []
-        equity_running = float(capital)
-        open_position: OpenShortStraddlePosition | None = None
-
-        for curr_date in trading_dates:
-            if open_position is not None:
-                open_position, mtm_record, trade_rows = self._mark_open_position(
-                    position=open_position,
-                    curr_date=curr_date,
-                    options=options,
-                    cfg=cfg,
-                    equity_running=equity_running,
-                )
-                mtm_records.append(mtm_record)
-                trades.extend(trade_rows)
-                equity_running += float(mtm_record["delta_pnl"])
-
-                if open_position is not None:
-                    continue
-                if not self._can_reenter_same_day(trade_rows):
-                    continue
-
-            if curr_date not in active_signal_dates:
-                continue
-
-            setup = self._prepare_entry_setup(
-                entry_date=curr_date,
+        hooks = SinglePositionRunnerHooks[
+            OpenShortStraddlePosition, ShortStraddleEntrySetup
+        ](
+            mark_open_position=lambda position,
+            curr_date,
+            equity_running: self._mark_open_position(
+                position=position,
+                curr_date=curr_date,
+                options=options,
+                cfg=cfg,
+                equity_running=equity_running,
+            ),
+            prepare_entry=lambda entry_date, equity_running: self._prepare_entry_setup(
+                entry_date=entry_date,
                 options=options,
                 features=features,
                 equity_running=equity_running,
                 cfg=cfg,
-            )
-            if setup is None:
-                continue
-
-            open_position, entry_record = self._open_position(
+            ),
+            open_position=lambda setup, equity_running: self._open_position(
                 setup=setup,
                 cfg=cfg,
                 equity_running=equity_running,
-            )
-            mtm_records.append(entry_record)
-            equity_running += float(entry_record["delta_pnl"])
+            ),
+            can_reenter_same_day=self._can_reenter_same_day,
+        )
+        trades, mtm_records = run_single_position_date_loop(
+            trading_dates=trading_dates,
+            active_signal_dates=active_signal_dates,
+            initial_equity=capital,
+            hooks=hooks,
+        )
 
         if not mtm_records:
             return pd.DataFrame(trades), pd.DataFrame()
