@@ -676,12 +676,18 @@ def test_same_day_reentry_can_be_enabled_for_rebalance_rolls():
     trades_allow, _ = _run_backtest(
         options,
         rebalance_period=1,
-        strategy_kwargs={"allow_same_day_reentry": True},
+        strategy_kwargs={
+            "allow_same_day_reentry_on_rebalance": True,
+            "allow_same_day_reentry_on_max_holding": False,
+        },
     )
     trades_block, _ = _run_backtest(
         options,
         rebalance_period=1,
-        strategy_kwargs={"allow_same_day_reentry": False},
+        strategy_kwargs={
+            "allow_same_day_reentry_on_rebalance": False,
+            "allow_same_day_reentry_on_max_holding": False,
+        },
     )
 
     assert len(trades_allow) == 2
@@ -762,7 +768,8 @@ def test_rebalance_period_and_max_holding_period_can_be_set_separately():
         rebalance_period=1,
         max_holding_period=10,
         strategy_kwargs={
-            "allow_same_day_reentry": False,
+            "allow_same_day_reentry_on_rebalance": False,
+            "allow_same_day_reentry_on_max_holding": False,
         },
     )
 

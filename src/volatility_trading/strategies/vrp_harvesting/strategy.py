@@ -97,7 +97,8 @@ class VRPHarvestingStrategy(Strategy):
         filters: list[Filter] | None = None,
         rebalance_period: int | None = 5,
         max_holding_period: int | None = None,
-        allow_same_day_reentry: bool = True,
+        allow_same_day_reentry_on_rebalance: bool = True,
+        allow_same_day_reentry_on_max_holding: bool = False,
         target_dte: int = 30,
         max_dte_diff: int = 7,
         pricer: PriceModel | None = None,
@@ -133,7 +134,10 @@ class VRPHarvestingStrategy(Strategy):
                 "At least one of rebalance_period or max_holding_period must be set."
             )
 
-        self.allow_same_day_reentry = allow_same_day_reentry
+        self.allow_same_day_reentry_on_rebalance = allow_same_day_reentry_on_rebalance
+        self.allow_same_day_reentry_on_max_holding = (
+            allow_same_day_reentry_on_max_holding
+        )
         self.target_dte = target_dte
         self.max_dte_diff = max_dte_diff
         self.pricer = pricer or BlackScholesPricer()
@@ -1069,6 +1073,21 @@ class VRPHarvestingStrategy(Strategy):
         )
         return None, mtm_record, trade_rows
 
+    def _can_reenter_same_day(self, trade_rows: list[dict]) -> bool:
+        """Allow same-day reentry according to exit-specific policy."""
+        for row in trade_rows:
+            exit_type = row.get("exit_type")
+            if exit_type == "Rebalance Period":
+                return self.allow_same_day_reentry_on_rebalance
+            if exit_type == "Max Holding Period":
+                return self.allow_same_day_reentry_on_max_holding
+            if exit_type == "Rebalance/Max Holding Period":
+                return (
+                    self.allow_same_day_reentry_on_rebalance
+                    or self.allow_same_day_reentry_on_max_holding
+                )
+        return False
+
     def _simulate_short_straddles(
         self,
         options: pd.DataFrame,
@@ -1106,21 +1125,7 @@ class VRPHarvestingStrategy(Strategy):
 
                 if open_position is not None:
                     continue
-                if not self.allow_same_day_reentry:
-                    continue
-
-                # Same-day reentry is reserved for scheduled roll/age exits, not
-                # for forced-liquidation events.
-                can_reenter_same_day = any(
-                    row.get("exit_type")
-                    in {
-                        "Rebalance Period",
-                        "Max Holding Period",
-                        "Rebalance/Max Holding Period",
-                    }
-                    for row in trade_rows
-                )
-                if not can_reenter_same_day:
+                if not self._can_reenter_same_day(trade_rows):
                     continue
 
             if curr_date not in active_signal_dates:
