@@ -10,6 +10,7 @@ from volatility_trading.options import (
     BlackScholesPricer,
     FixedGridScenarioGenerator,
     MarginModel,
+    OptionType,
     PriceModel,
     RegTMarginModel,
     RiskBudgetSizer,
@@ -21,17 +22,20 @@ from volatility_trading.signals import Signal
 
 from ..base_strategy import Strategy
 from ..options_core import (
+    EntryIntent,
     ExitRuleSet,
-    OpenShortStraddlePosition,
+    LegSelection,
+    LegSpec,
+    OpenPosition,
+    PositionEntrySetup,
+    PositionLifecycleEngine,
     SameDayReentryPolicy,
-    ShortStraddleEntrySetup,
-    ShortStraddleLifecycleEngine,
     SinglePositionRunnerHooks,
+    StructureSpec,
     choose_expiry_by_target_dte,
-    estimate_short_straddle_margin_per_contract,
     pick_quote_by_delta,
     run_single_position_date_loop,
-    size_short_straddle_contracts,
+    size_entry_intent_contracts,
     time_to_expiry_years,
 )
 
@@ -93,6 +97,15 @@ class VRPHarvestingStrategy(Strategy):
         self.exit_rule_set = exit_rule_set or ExitRuleSet.period_rules()
         self.target_dte = target_dte
         self.max_dte_diff = max_dte_diff
+        self.structure_spec = StructureSpec(
+            name="short_atm_straddle",
+            dte_target=target_dte,
+            dte_tolerance=max_dte_diff,
+            legs=(
+                LegSpec(option_type=OptionType.PUT, delta_target=-0.5),
+                LegSpec(option_type=OptionType.CALL, delta_target=0.5),
+            ),
+        )
         self.pricer = pricer or BlackScholesPricer()
         self.scenario_generator = scenario_generator or FixedGridScenarioGenerator()
         self.risk_estimator = risk_estimator or StressLossRiskEstimator()
@@ -165,56 +178,18 @@ class VRPHarvestingStrategy(Strategy):
             quote_dte=quote_dte,
         )
 
-    def _estimate_margin_per_contract(
+    def _size_entry_intent(
         self,
         *,
-        as_of_date: pd.Timestamp,
-        expiry_date: pd.Timestamp,
-        put_quote: pd.Series,
-        call_quote: pd.Series,
-        put_entry: float,
-        call_entry: float,
-        lot_size: int,
-        spot: float,
-        volatility: float,
-    ) -> float | None:
-        """Estimate current margin requirement for one straddle contract set."""
-        return estimate_short_straddle_margin_per_contract(
-            as_of_date=as_of_date,
-            expiry_date=expiry_date,
-            put_quote=put_quote,
-            call_quote=call_quote,
-            put_entry=put_entry,
-            call_entry=call_entry,
-            lot_size=lot_size,
-            spot=spot,
-            volatility=volatility,
-            margin_model=self.margin_model,
-            pricer=self.pricer,
-        )
-
-    def _size_contracts(
-        self,
-        *,
-        entry_date: pd.Timestamp,
-        expiry_date: pd.Timestamp,
-        put_q: pd.Series,
-        call_q: pd.Series,
-        put_entry: float,
-        call_entry: float,
+        intent: EntryIntent,
         lot_size: int,
         spot: float,
         volatility: float,
         equity: float,
     ) -> tuple[int, float | None, str | None, float | None]:
         """Compute contracts from risk budget and optional margin-capacity budget."""
-        return size_short_straddle_contracts(
-            entry_date=entry_date,
-            expiry_date=expiry_date,
-            put_quote=put_q,
-            call_quote=call_q,
-            put_entry=put_entry,
-            call_entry=call_entry,
+        return size_entry_intent_contracts(
+            intent=intent,
             lot_size=lot_size,
             spot=spot,
             volatility=volatility,
@@ -309,6 +284,11 @@ class VRPHarvestingStrategy(Strategy):
                 )
         return sig_df.sort_index()
 
+    # TODO: WHy not alos make it part of PositionLifecycleEngine ? Or maybe jsut put in base Strategy ?
+    # because like prepare the onyl seems to be generic if given a StructureSpec (by lettign the user
+    # cretae its own option strcutrue with own constrains, target delta and dte
+    # So that inetrnally when preparing the tarde jsut use this Structure obejct
+
     def _prepare_entry_setup(
         self,
         *,
@@ -317,7 +297,7 @@ class VRPHarvestingStrategy(Strategy):
         features: pd.DataFrame | None,
         equity_running: float,
         cfg: BacktestConfig,
-    ) -> ShortStraddleEntrySetup | None:
+    ) -> PositionEntrySetup | None:
         """Build an entry setup when all leg-selection and sizing constraints pass."""
         chain = self._chain_for_date(options, entry_date)
 
@@ -331,25 +311,35 @@ class VRPHarvestingStrategy(Strategy):
 
         chain = chain[chain["dte"] == chosen_dte]
         expiry_date = pd.Timestamp(chain["expiry_date"].iloc[0])
-
-        puts = chain[chain["option_type"] == "P"]
-        calls = chain[chain["option_type"] == "C"]
-        put_q = self._pick_quote(puts, tgt=-0.5, delta_tolerance=0.10)
-        call_q = self._pick_quote(calls, tgt=+0.5, delta_tolerance=0.10)
-        if put_q is None or call_q is None:
-            return None
-
-        put_side = -1
-        call_side = -1
-        put_entry = float(put_q["bid_price"] - cfg.slip_bid)
-        call_entry = float(call_q["bid_price"] - cfg.slip_bid)
-        delta_pc, gamma_pc, vega_pc, theta_pc = self._compute_greeks_per_contract(
-            put_q, call_q, put_side, call_side, cfg.lot_size
-        )
+        selected_legs: list[LegSelection] = []
+        for leg_spec in self.structure_spec.legs:
+            leg_type = "P" if leg_spec.option_type == OptionType.PUT else "C"
+            leg_quotes = chain[chain["option_type"] == leg_type]
+            leg_q = self._pick_quote(
+                leg_quotes,
+                tgt=leg_spec.delta_target,
+                delta_tolerance=leg_spec.delta_tolerance,
+            )
+            if leg_q is None:
+                return None
+            entry_price = float(leg_q["bid_price"] - cfg.slip_bid)
+            selected_legs.append(
+                LegSelection(
+                    spec=leg_spec,
+                    quote=leg_q,
+                    side=-1,  # VRP baseline: always short volatility structure.
+                    entry_price=entry_price,
+                )
+            )
 
         spot_entry = float(chain["spot_price"].iloc[0])
-        if "smoothed_iv" in put_q.index and "smoothed_iv" in call_q.index:
-            iv_entry = float(0.5 * (put_q["smoothed_iv"] + call_q["smoothed_iv"]))
+        if selected_legs and all(
+            "smoothed_iv" in leg.quote.index for leg in selected_legs
+        ):
+            iv_entry = float(
+                sum(float(leg.quote["smoothed_iv"]) for leg in selected_legs)
+                / len(selected_legs)
+            )
         elif (
             features is not None
             and entry_date in features.index
@@ -359,13 +349,16 @@ class VRPHarvestingStrategy(Strategy):
         else:
             iv_entry = float("nan")
 
-        contracts, risk_pc, risk_scenario, margin_pc = self._size_contracts(
+        intent = EntryIntent(
             entry_date=entry_date,
             expiry_date=expiry_date,
-            put_q=put_q,
-            call_q=call_q,
-            put_entry=put_entry,
-            call_entry=call_entry,
+            chosen_dte=int(chosen_dte),
+            legs=tuple(selected_legs),
+            spot=spot_entry,
+            volatility=iv_entry,
+        )
+        contracts, risk_pc, risk_scenario, margin_pc = self._size_entry_intent(
+            intent=intent,
             lot_size=cfg.lot_size,
             spot=spot_entry,
             volatility=iv_entry,
@@ -374,22 +367,8 @@ class VRPHarvestingStrategy(Strategy):
         if contracts <= 0:
             return None
 
-        return ShortStraddleEntrySetup(
-            entry_date=entry_date,
-            expiry_date=expiry_date,
-            chosen_dte=int(chosen_dte),
-            put_q=put_q,
-            call_q=call_q,
-            put_side=put_side,
-            call_side=call_side,
-            put_entry=put_entry,
-            call_entry=call_entry,
-            spot_entry=spot_entry,
-            iv_entry=iv_entry,
-            delta_per_contract=float(delta_pc),
-            gamma_per_contract=float(gamma_pc),
-            vega_per_contract=float(vega_pc),
-            theta_per_contract=float(theta_pc),
+        return PositionEntrySetup(
+            intent=intent,
             contracts=int(contracts),
             risk_per_contract=risk_pc,
             risk_worst_scenario=risk_scenario,
@@ -399,10 +378,10 @@ class VRPHarvestingStrategy(Strategy):
     def _open_position(
         self,
         *,
-        setup: ShortStraddleEntrySetup,
+        setup: PositionEntrySetup,
         cfg: BacktestConfig,
         equity_running: float,
-    ) -> tuple[OpenShortStraddlePosition, dict]:
+    ) -> tuple[OpenPosition, dict]:
         """Create one open-position state and its entry-day MTM record."""
         return self._build_lifecycle_engine().open_position(
             setup=setup,
@@ -413,12 +392,12 @@ class VRPHarvestingStrategy(Strategy):
     def _mark_open_position(
         self,
         *,
-        position: OpenShortStraddlePosition,
+        position: OpenPosition,
         curr_date: pd.Timestamp,
         options: pd.DataFrame,
         cfg: BacktestConfig,
         equity_running: float,
-    ) -> tuple[OpenShortStraddlePosition | None, dict, list[dict]]:
+    ) -> tuple[OpenPosition | None, dict, list[dict]]:
         """Revalue one open position on one date and apply exits/liquidations."""
         return self._build_lifecycle_engine().mark_position(
             position=position,
@@ -428,9 +407,9 @@ class VRPHarvestingStrategy(Strategy):
             equity_running=equity_running,
         )
 
-    def _build_lifecycle_engine(self) -> ShortStraddleLifecycleEngine:
+    def _build_lifecycle_engine(self) -> PositionLifecycleEngine:
         """Build lifecycle engine using current strategy parameters."""
-        return ShortStraddleLifecycleEngine(
+        return PositionLifecycleEngine(
             rebalance_period=self.rebalance_period,
             max_holding_period=self.max_holding_period,
             exit_rule_set=self.exit_rule_set,
@@ -459,9 +438,7 @@ class VRPHarvestingStrategy(Strategy):
         options = options.sort_index()
         trading_dates = sorted(options.index.unique())
         active_signal_dates = set(sig_df.index[sig_df["on"]])
-        hooks = SinglePositionRunnerHooks[
-            OpenShortStraddlePosition, ShortStraddleEntrySetup
-        ](
+        hooks = SinglePositionRunnerHooks[OpenPosition, PositionEntrySetup](
             mark_open_position=lambda position,
             curr_date,
             equity_running: self._mark_open_position(

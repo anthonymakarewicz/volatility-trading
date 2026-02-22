@@ -1,8 +1,9 @@
-"""Shared open/mark/close lifecycle engine for short-straddle positions."""
+"""Shared open/mark/close lifecycle engine for arbitrary option structures."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -12,31 +13,30 @@ from volatility_trading.backtesting import (
     MarginAccount,
     MarginPolicy,
 )
-from volatility_trading.options import MarginModel, PriceModel
+from volatility_trading.options import MarginModel, OptionType, PriceModel
 
+from .adapters import option_type_to_chain_label
 from .exit_rules import ExitRuleSet
-from .sizing import estimate_short_straddle_margin_per_contract
+from .sizing import estimate_entry_intent_margin_per_contract
+from .types import EntryIntent, LegSelection
+
+
+def _effective_leg_side(leg: LegSelection) -> int:
+    """Return signed side after applying potential negative leg weights."""
+    weight_sign = 1 if leg.spec.weight >= 0 else -1
+    return int(leg.side) * weight_sign
+
+
+def _leg_units(leg: LegSelection) -> int:
+    """Return absolute leg ratio multiplier for PnL/Greek aggregation."""
+    return abs(int(leg.spec.weight))
 
 
 @dataclass(frozen=True)
-class ShortStraddleEntrySetup:
-    """Snapshot of all entry-time decisions needed to open one position."""
+class PositionEntrySetup:
+    """Entry payload consumed by the generic lifecycle engine."""
 
-    entry_date: pd.Timestamp
-    expiry_date: pd.Timestamp
-    chosen_dte: int
-    put_q: pd.Series
-    call_q: pd.Series
-    put_side: int
-    call_side: int
-    put_entry: float
-    call_entry: float
-    spot_entry: float
-    iv_entry: float
-    delta_per_contract: float
-    gamma_per_contract: float
-    vega_per_contract: float
-    theta_per_contract: float
+    intent: EntryIntent
     contracts: int
     risk_per_contract: float | None
     risk_worst_scenario: str | None
@@ -44,7 +44,7 @@ class ShortStraddleEntrySetup:
 
 
 @dataclass
-class OpenShortStraddlePosition:
+class OpenPosition:
     """Mutable open-position state updated once per trading date."""
 
     entry_date: pd.Timestamp
@@ -52,12 +52,7 @@ class OpenShortStraddlePosition:
     chosen_dte: int
     rebalance_date: pd.Timestamp | None
     max_hold_date: pd.Timestamp | None
-    put_q: pd.Series
-    call_q: pd.Series
-    put_side: int
-    call_side: int
-    put_entry: float
-    call_entry: float
+    intent: EntryIntent
     contracts_open: int
     risk_per_contract: float | None
     risk_worst_scenario: str | None
@@ -77,7 +72,7 @@ class OpenShortStraddlePosition:
 
 
 @dataclass(frozen=True)
-class ShortStraddleLifecycleEngine:
+class PositionLifecycleEngine:
     """Shared position lifecycle logic: open, mark, and close."""
 
     rebalance_period: int | None
@@ -98,41 +93,197 @@ class ShortStraddleLifecycleEngine:
         return chain
 
     @staticmethod
-    def _compute_greeks_per_contract(
-        put_q: pd.Series,
-        call_q: pd.Series,
-        put_side: int,
-        call_side: int,
+    def _exit_leg_price(quote: pd.Series, *, side: int, cfg: BacktestConfig) -> float:
+        """Return executable exit price for one leg given effective side."""
+        if side == -1:
+            return float(quote["ask_price"] + cfg.slip_ask)
+        if side == 1:
+            return float(quote["bid_price"] - cfg.slip_bid)
+        raise ValueError("side must be -1 or +1")
+
+    @staticmethod
+    def _match_leg_quote(
+        *,
+        chain: pd.DataFrame,
+        leg: LegSelection,
+    ) -> pd.Series | None:
+        """Return the row matching one leg strike/type for `chain` date slice."""
+        strike = leg.quote["strike"]
+        canonical_label = option_type_to_chain_label(leg.spec.option_type)
+        candidates = chain[
+            (chain["option_type"] == canonical_label) & (chain["strike"] == strike)
+        ]
+        if candidates.empty:
+            # Fallback for datasets using vendor labels already present in the leg row.
+            vendor_label = leg.quote.get("option_type")
+            candidates = chain[
+                (chain["option_type"] == vendor_label) & (chain["strike"] == strike)
+            ]
+        if candidates.empty:
+            return None
+        return candidates.iloc[0]
+
+    @staticmethod
+    def _greeks_per_contract(
+        *,
+        leg_quotes: Sequence[tuple[LegSelection, pd.Series]],
         lot_size: int,
     ) -> tuple[float, float, float, float]:
-        """Aggregate Greeks per contract for a 1-lot straddle."""
-        delta = (put_side * put_q["delta"] + call_side * call_q["delta"]) * lot_size
-        gamma = (put_side * put_q["gamma"] + call_side * call_q["gamma"]) * lot_size
-        vega = (put_side * put_q["vega"] + call_side * call_q["vega"]) * lot_size
-        theta = (put_side * put_q["theta"] + call_side * call_q["theta"]) * lot_size
-        return float(delta), float(gamma), float(vega), float(theta)
+        """Aggregate structure Greeks for one strategy contract unit."""
+        delta = 0.0
+        gamma = 0.0
+        vega = 0.0
+        theta = 0.0
+        for leg, quote in leg_quotes:
+            side = _effective_leg_side(leg)
+            units = _leg_units(leg)
+            delta += side * float(quote["delta"]) * units * lot_size
+            gamma += side * float(quote["gamma"]) * units * lot_size
+            vega += side * float(quote["vega"]) * units * lot_size
+            theta += side * float(quote["theta"]) * units * lot_size
+        return delta, gamma, vega, theta
+
+    @staticmethod
+    def _mark_to_mid(
+        *,
+        legs: Sequence[LegSelection],
+        leg_quotes: Sequence[pd.Series],
+        lot_size: int,
+        contracts_open: int,
+        net_entry: float,
+    ) -> float:
+        """Return cumulative MTM PnL from current mids versus entry notional."""
+        current_value = 0.0
+        for leg, quote in zip(legs, leg_quotes, strict=True):
+            mid = 0.5 * (float(quote["bid_price"]) + float(quote["ask_price"]))
+            current_value += _effective_leg_side(leg) * mid * _leg_units(leg)
+        return current_value * lot_size * contracts_open - net_entry
+
+    @staticmethod
+    def _pnl_per_contract_from_exit_prices(
+        *,
+        legs: Sequence[LegSelection],
+        exit_prices: Sequence[float],
+        lot_size: int,
+    ) -> float:
+        """Return realized PnL for one strategy contract at given exit prices."""
+        pnl_pc = 0.0
+        for leg, exit_price in zip(legs, exit_prices, strict=True):
+            pnl_pc += (
+                _effective_leg_side(leg)
+                * (float(exit_price) - float(leg.entry_price))
+                * _leg_units(leg)
+                * lot_size
+            )
+        return pnl_pc
+
+    @staticmethod
+    def _entry_net_notional(
+        *,
+        legs: Sequence[LegSelection],
+        lot_size: int,
+        contracts: int,
+    ) -> float:
+        """Return signed entry premium of the full opened structure."""
+        return sum(
+            _effective_leg_side(leg)
+            * float(leg.entry_price)
+            * _leg_units(leg)
+            * lot_size
+            * contracts
+            for leg in legs
+        )
+
+    @staticmethod
+    def _compat_put_call_fields(
+        *,
+        legs: Sequence[LegSelection],
+        exit_prices: Sequence[float] | None,
+    ) -> dict:
+        """Build legacy put/call trade fields when structure contains one put+call."""
+        put_idx = next(
+            (i for i, leg in enumerate(legs) if leg.spec.option_type == OptionType.PUT),
+            None,
+        )
+        call_idx = next(
+            (
+                i
+                for i, leg in enumerate(legs)
+                if leg.spec.option_type == OptionType.CALL
+            ),
+            None,
+        )
+        out = {
+            "put_strike": np.nan,
+            "call_strike": np.nan,
+            "put_entry": np.nan,
+            "call_entry": np.nan,
+            "put_exit": np.nan,
+            "call_exit": np.nan,
+        }
+        if put_idx is not None:
+            out["put_strike"] = float(legs[put_idx].quote["strike"])
+            out["put_entry"] = float(legs[put_idx].entry_price)
+            if exit_prices is not None:
+                out["put_exit"] = float(exit_prices[put_idx])
+        if call_idx is not None:
+            out["call_strike"] = float(legs[call_idx].quote["strike"])
+            out["call_entry"] = float(legs[call_idx].entry_price)
+            if exit_prices is not None:
+                out["call_exit"] = float(exit_prices[call_idx])
+        return out
+
+    @staticmethod
+    def _intent_with_updated_quotes(
+        *,
+        intent: EntryIntent,
+        leg_quotes: Sequence[pd.Series],
+    ) -> EntryIntent:
+        """Clone intent replacing quote snapshots with current-date rows."""
+        legs = tuple(
+            LegSelection(
+                spec=leg.spec,
+                quote=quote,
+                side=leg.side,
+                entry_price=leg.entry_price,
+            )
+            for leg, quote in zip(intent.legs, leg_quotes, strict=True)
+        )
+        return EntryIntent(
+            entry_date=intent.entry_date,
+            expiry_date=intent.expiry_date,
+            chosen_dte=intent.chosen_dte,
+            legs=legs,
+            spot=intent.spot,
+            volatility=intent.volatility,
+        )
 
     def open_position(
         self,
         *,
-        setup: ShortStraddleEntrySetup,
+        setup: PositionEntrySetup,
         cfg: BacktestConfig,
         equity_running: float,
-    ) -> tuple[OpenShortStraddlePosition, dict]:
+    ) -> tuple[OpenPosition, dict]:
         """Create one open-position state and its entry-day MTM record."""
         contracts_open = int(setup.contracts)
         lot_size = cfg.lot_size
         roundtrip_comm_pc = 2 * cfg.commission_per_leg
-
-        net_entry = (
-            (setup.put_side * setup.put_entry + setup.call_side * setup.call_entry)
-            * lot_size
-            * contracts_open
+        net_entry = self._entry_net_notional(
+            legs=setup.intent.legs,
+            lot_size=lot_size,
+            contracts=contracts_open,
         )
-        delta = setup.delta_per_contract * contracts_open
-        gamma = setup.gamma_per_contract * contracts_open
-        vega = setup.vega_per_contract * contracts_open
-        theta = setup.theta_per_contract * contracts_open
+        delta_pc, gamma_pc, vega_pc, theta_pc = self._greeks_per_contract(
+            leg_quotes=tuple(
+                (leg, leg.quote) for leg in setup.intent.legs
+            ),  # TODO: Why not passing lsit of legs direclty ?
+            lot_size=lot_size,
+        )
+        delta = delta_pc * contracts_open
+        gamma = gamma_pc * contracts_open
+        vega = vega_pc * contracts_open
+        theta = theta_pc * contracts_open
         net_delta = delta
 
         margin_account = (
@@ -155,7 +306,7 @@ class ShortStraddleLifecycleEngine:
                 equity=equity_running + entry_delta_pnl,
                 initial_margin_requirement=initial_margin_req,
                 open_contracts=contracts_open,
-                as_of=setup.entry_date,
+                as_of=setup.intent.entry_date,
             )
             entry_financing = margin_status.financing_pnl
             entry_delta_pnl += entry_financing
@@ -168,9 +319,9 @@ class ShortStraddleLifecycleEngine:
             contracts_liquidated = margin_status.contracts_to_liquidate
 
         entry_record = {
-            "date": setup.entry_date,
-            "S": setup.spot_entry,
-            "iv": setup.iv_entry,
+            "date": setup.intent.entry_date,
+            "S": setup.intent.spot,
+            "iv": setup.intent.volatility,
             "delta_pnl": entry_delta_pnl,
             "delta": delta,
             "net_delta": net_delta,
@@ -194,28 +345,23 @@ class ShortStraddleLifecycleEngine:
         }
 
         rebalance_date = (
-            setup.entry_date + pd.Timedelta(days=self.rebalance_period)
+            setup.intent.entry_date + pd.Timedelta(days=self.rebalance_period)
             if self.rebalance_period is not None
             else None
         )
         max_hold_date = (
-            setup.entry_date + pd.Timedelta(days=self.max_holding_period)
+            setup.intent.entry_date + pd.Timedelta(days=self.max_holding_period)
             if self.max_holding_period is not None
             else None
         )
 
-        position = OpenShortStraddlePosition(
-            entry_date=setup.entry_date,
-            expiry_date=setup.expiry_date,
-            chosen_dte=setup.chosen_dte,
+        position = OpenPosition(
+            entry_date=setup.intent.entry_date,
+            expiry_date=setup.intent.expiry_date,
+            chosen_dte=setup.intent.chosen_dte,
             rebalance_date=rebalance_date,
             max_hold_date=max_hold_date,
-            put_q=setup.put_q,
-            call_q=setup.call_q,
-            put_side=setup.put_side,
-            call_side=setup.call_side,
-            put_entry=setup.put_entry,
-            call_entry=setup.call_entry,
+            intent=setup.intent,
             contracts_open=contracts_open,
             risk_per_contract=setup.risk_per_contract,
             risk_worst_scenario=setup.risk_worst_scenario,
@@ -225,8 +371,8 @@ class ShortStraddleLifecycleEngine:
             prev_mtm=0.0,
             hedge_qty=0.0,
             hedge_price_entry=np.nan,
-            last_spot=setup.spot_entry,
-            last_iv=setup.iv_entry,
+            last_spot=float(setup.intent.spot or np.nan),
+            last_iv=float(setup.intent.volatility or np.nan),
             last_delta=delta,
             last_gamma=gamma,
             last_vega=vega,
@@ -238,60 +384,53 @@ class ShortStraddleLifecycleEngine:
     def mark_position(
         self,
         *,
-        position: OpenShortStraddlePosition,
+        position: OpenPosition,
         curr_date: pd.Timestamp,
         options: pd.DataFrame,
         cfg: BacktestConfig,
         equity_running: float,
-    ) -> tuple[OpenShortStraddlePosition | None, dict, list[dict]]:
+    ) -> tuple[OpenPosition | None, dict, list[dict]]:
         """Revalue one open position for one date and apply lifecycle exits."""
         lot_size = cfg.lot_size
         roundtrip_comm_pc = 2 * cfg.commission_per_leg
 
         chain_all = self._chain_for_date(options, curr_date)
         today_chain = chain_all[chain_all["expiry_date"] == position.expiry_date]
-        put_today = today_chain[
-            (today_chain["option_type"] == "P")
-            & (today_chain["strike"] == position.put_q["strike"])
-        ]
-        call_today = today_chain[
-            (today_chain["option_type"] == "C")
-            & (today_chain["strike"] == position.call_q["strike"])
-        ]
+        leg_quotes = tuple(
+            self._match_leg_quote(chain=today_chain, leg=leg)
+            for leg in position.intent.legs
+        )
 
         prev_mtm_before = position.prev_mtm
-        if put_today.empty or call_today.empty:
+        has_missing_quote = any(quote is None for quote in leg_quotes)
+        if has_missing_quote:
             pnl_mtm = prev_mtm_before
             delta = position.last_delta
             gamma = position.last_gamma
             vega = position.last_vega
             theta = position.last_theta
-            pt = None
-            ct = None
+            complete_leg_quotes: tuple[pd.Series, ...] | None = None
         else:
-            pt = put_today.iloc[0]
-            ct = call_today.iloc[0]
-            put_mid_t = 0.5 * (pt["bid_price"] + pt["ask_price"])
-            call_mid_t = 0.5 * (ct["bid_price"] + ct["ask_price"])
-            pe_mid = position.put_side * put_mid_t
-            ce_mid = position.call_side * call_mid_t
-            pnl_mtm = (
-                pe_mid + ce_mid
-            ) * lot_size * position.contracts_open - position.net_entry
-
-            delta_pc_t, gamma_pc_t, vega_pc_t, theta_pc_t = (
-                self._compute_greeks_per_contract(
-                    pt,
-                    ct,
-                    position.put_side,
-                    position.call_side,
-                    lot_size,
-                )
+            complete_leg_quotes = tuple(
+                quote for quote in leg_quotes if quote is not None
             )
-            delta = delta_pc_t * position.contracts_open
-            gamma = gamma_pc_t * position.contracts_open
-            vega = vega_pc_t * position.contracts_open
-            theta = theta_pc_t * position.contracts_open
+            pnl_mtm = self._mark_to_mid(
+                legs=position.intent.legs,
+                leg_quotes=complete_leg_quotes,
+                lot_size=lot_size,
+                contracts_open=position.contracts_open,
+                net_entry=position.net_entry,
+            )
+            delta_pc, gamma_pc, vega_pc, theta_pc = self._greeks_per_contract(
+                leg_quotes=tuple(
+                    zip(position.intent.legs, complete_leg_quotes, strict=True)
+                ),
+                lot_size=lot_size,
+            )
+            delta = delta_pc * position.contracts_open
+            gamma = gamma_pc * position.contracts_open
+            vega = vega_pc * position.contracts_open
+            theta = theta_pc * position.contracts_open
 
         S_curr = position.last_spot
         if "spot_price" in chain_all.columns and not chain_all.empty:
@@ -299,16 +438,12 @@ class ShortStraddleLifecycleEngine:
 
         iv_curr = position.last_iv
         if (
-            "smoothed_iv" in today_chain.columns
-            and not put_today.empty
-            and not call_today.empty
+            complete_leg_quotes is not None
+            and "smoothed_iv" in today_chain.columns
+            and len(complete_leg_quotes) > 0
         ):
             iv_curr = float(
-                0.5
-                * (
-                    float(put_today.iloc[0]["smoothed_iv"])
-                    + float(call_today.iloc[0]["smoothed_iv"])
-                )
+                np.mean([float(quote["smoothed_iv"]) for quote in complete_leg_quotes])
             )
 
         hedge_pnl = 0.0
@@ -317,18 +452,17 @@ class ShortStraddleLifecycleEngine:
 
         if (
             self.margin_model is not None
-            and pt is not None
-            and ct is not None
+            and complete_leg_quotes is not None
             and np.isfinite(iv_curr)
             and iv_curr > 0
         ):
-            margin_pc_curr = estimate_short_straddle_margin_per_contract(
+            current_intent = self._intent_with_updated_quotes(
+                intent=position.intent,
+                leg_quotes=complete_leg_quotes,
+            )
+            margin_pc_curr = estimate_entry_intent_margin_per_contract(
+                intent=current_intent,
                 as_of_date=curr_date,
-                expiry_date=position.expiry_date,
-                put_quote=pt,
-                call_quote=ct,
-                put_entry=float(position.put_entry),
-                call_entry=float(position.call_entry),
                 lot_size=lot_size,
                 spot=float(S_curr),
                 volatility=float(iv_curr),
@@ -398,44 +532,51 @@ class ShortStraddleLifecycleEngine:
             margin_status is not None
             and margin_status.forced_liquidation
             and margin_status.contracts_to_liquidate > 0
-            and pt is not None
-            and ct is not None
+            and complete_leg_quotes is not None
         ):
-            put_exit = float(pt["ask_price"] + cfg.slip_ask)
-            call_exit = float(ct["ask_price"] + cfg.slip_ask)
+            exit_prices = tuple(
+                self._exit_leg_price(
+                    quote,
+                    side=_effective_leg_side(leg),
+                    cfg=cfg,
+                )
+                for leg, quote in zip(
+                    position.intent.legs, complete_leg_quotes, strict=True
+                )
+            )
             contracts_to_close = margin_status.contracts_to_liquidate
             contracts_after = position.contracts_open - contracts_to_close
-            pnl_per_contract = (
-                position.put_side * (put_exit - position.put_entry)
-                + position.call_side * (call_exit - position.call_entry)
-            ) * lot_size
+            pnl_per_contract = self._pnl_per_contract_from_exit_prices(
+                legs=position.intent.legs,
+                exit_prices=exit_prices,
+                lot_size=lot_size,
+            )
             real_pnl_closed = pnl_per_contract * contracts_to_close + hedge_pnl
             pnl_net_closed = real_pnl_closed - (roundtrip_comm_pc * contracts_to_close)
 
-            trade_rows.append(
-                {
-                    "entry_date": position.entry_date,
-                    "exit_date": curr_date,
-                    "entry_dte": position.chosen_dte,
-                    "expiry_date": position.expiry_date,
-                    "contracts": contracts_to_close,
-                    "put_strike": position.put_q["strike"],
-                    "call_strike": position.call_q["strike"],
-                    "put_entry": position.put_entry,
-                    "call_entry": position.call_entry,
-                    "put_exit": put_exit,
-                    "call_exit": call_exit,
-                    "pnl": pnl_net_closed,
-                    "risk_per_contract": position.risk_per_contract,
-                    "risk_worst_scenario": position.risk_worst_scenario,
-                    "margin_per_contract": position.latest_margin_per_contract,
-                    "exit_type": (
-                        "Margin Call Liquidation"
-                        if contracts_after == 0
-                        else "Margin Call Partial Liquidation"
-                    ),
-                }
+            trade_row = {
+                "entry_date": position.entry_date,
+                "exit_date": curr_date,
+                "entry_dte": position.chosen_dte,
+                "expiry_date": position.expiry_date,
+                "contracts": contracts_to_close,
+                "pnl": pnl_net_closed,
+                "risk_per_contract": position.risk_per_contract,
+                "risk_worst_scenario": position.risk_worst_scenario,
+                "margin_per_contract": position.latest_margin_per_contract,
+                "exit_type": (
+                    "Margin Call Liquidation"
+                    if contracts_after == 0
+                    else "Margin Call Partial Liquidation"
+                ),
+            }
+            trade_row.update(
+                self._compat_put_call_fields(
+                    legs=position.intent.legs,
+                    exit_prices=exit_prices,
+                )
             )
+            trade_rows.append(trade_row)
 
             if contracts_after == 0:
                 forced_delta_pnl = (pnl_net_closed - prev_mtm_before) + financing_pnl
@@ -502,7 +643,7 @@ class ShortStraddleLifecycleEngine:
             position.last_theta = float(mtm_record["theta"])
             return position, mtm_record, trade_rows
 
-        if put_today.empty or call_today.empty:
+        if has_missing_quote:
             position.prev_mtm = pnl_mtm
             position.last_spot = S_curr
             position.last_iv = iv_curr
@@ -525,39 +666,47 @@ class ShortStraddleLifecycleEngine:
             position.last_theta = float(mtm_record["theta"])
             return position, mtm_record, trade_rows
 
-        pt_exit = put_today.iloc[0]
-        ct_exit = call_today.iloc[0]
-        put_exit = float(pt_exit["ask_price"] + cfg.slip_ask)
-        call_exit = float(ct_exit["ask_price"] + cfg.slip_ask)
-        pnl_per_contract = (
-            position.put_side * (put_exit - position.put_entry)
-            + position.call_side * (call_exit - position.call_entry)
-        ) * lot_size
+        assert complete_leg_quotes is not None  # nosec B101
+        exit_prices = tuple(
+            self._exit_leg_price(
+                quote,
+                side=_effective_leg_side(leg),
+                cfg=cfg,
+            )
+            for leg, quote in zip(
+                position.intent.legs, complete_leg_quotes, strict=True
+            )
+        )
+        pnl_per_contract = self._pnl_per_contract_from_exit_prices(
+            legs=position.intent.legs,
+            exit_prices=exit_prices,
+            lot_size=lot_size,
+        )
         real_pnl = pnl_per_contract * position.contracts_open + hedge_pnl
         pnl_net = real_pnl - (roundtrip_comm_pc * position.contracts_open)
         exit_delta_pnl = (pnl_net - prev_mtm_before) + financing_pnl
         equity_after = equity_running + exit_delta_pnl
 
-        trade_rows.append(
-            {
-                "entry_date": position.entry_date,
-                "exit_date": curr_date,
-                "entry_dte": position.chosen_dte,
-                "expiry_date": position.expiry_date,
-                "contracts": position.contracts_open,
-                "put_strike": position.put_q["strike"],
-                "call_strike": position.call_q["strike"],
-                "put_entry": position.put_entry,
-                "call_entry": position.call_entry,
-                "put_exit": put_exit,
-                "call_exit": call_exit,
-                "pnl": pnl_net,
-                "risk_per_contract": position.risk_per_contract,
-                "risk_worst_scenario": position.risk_worst_scenario,
-                "margin_per_contract": position.latest_margin_per_contract,
-                "exit_type": exit_type,
-            }
+        trade_row = {
+            "entry_date": position.entry_date,
+            "exit_date": curr_date,
+            "entry_dte": position.chosen_dte,
+            "expiry_date": position.expiry_date,
+            "contracts": position.contracts_open,
+            "pnl": pnl_net,
+            "risk_per_contract": position.risk_per_contract,
+            "risk_worst_scenario": position.risk_worst_scenario,
+            "margin_per_contract": position.latest_margin_per_contract,
+            "exit_type": exit_type,
+        }
+        trade_row.update(
+            self._compat_put_call_fields(
+                legs=position.intent.legs,
+                exit_prices=exit_prices,
+            )
         )
+        trade_rows.append(trade_row)
+
         mtm_record.update(
             {
                 "delta_pnl": exit_delta_pnl,
@@ -576,3 +725,9 @@ class ShortStraddleLifecycleEngine:
             }
         )
         return None, mtm_record, trade_rows
+
+
+# Transitional aliases kept for parity while strategies migrate names.
+ShortStraddleEntrySetup = PositionEntrySetup
+OpenShortStraddlePosition = OpenPosition
+ShortStraddleLifecycleEngine = PositionLifecycleEngine

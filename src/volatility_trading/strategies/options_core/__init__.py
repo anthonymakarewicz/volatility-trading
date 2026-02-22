@@ -15,15 +15,22 @@ from .exit_rules import (
     SameDayReentryPolicy,
 )
 from .lifecycle import (
+    OpenPosition,
     OpenShortStraddlePosition,
+    PositionEntrySetup,
+    PositionLifecycleEngine,
     ShortStraddleEntrySetup,
     ShortStraddleLifecycleEngine,
 )
 from .runner import SinglePositionRunnerHooks, run_single_position_date_loop
 from .selectors import choose_expiry_by_target_dte, pick_quote_by_delta
 from .sizing import (
+    estimate_entry_intent_margin_per_contract,
     estimate_short_straddle_margin_per_contract,
+    estimate_structure_margin_per_contract,
+    size_entry_intent_contracts,
     size_short_straddle_contracts,
+    size_structure_contracts,
 )
 from .types import EntryIntent, LegSelection, LegSpec, StructureSpec
 
@@ -46,6 +53,13 @@ __all__ = [
     "choose_expiry_by_target_dte",
     "estimate_short_straddle_margin_per_contract",
     "size_short_straddle_contracts",
+    "estimate_structure_margin_per_contract",
+    "size_structure_contracts",
+    "estimate_entry_intent_margin_per_contract",
+    "size_entry_intent_contracts",
+    "PositionEntrySetup",
+    "OpenPosition",
+    "PositionLifecycleEngine",
     "ShortStraddleEntrySetup",
     "OpenShortStraddlePosition",
     "ShortStraddleLifecycleEngine",

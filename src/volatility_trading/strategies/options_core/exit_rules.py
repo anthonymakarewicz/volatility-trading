@@ -7,6 +7,8 @@ from typing import Protocol, runtime_checkable
 
 import pandas as pd
 
+# TODO: Add Stop Loss and TP Exit (maybe for liquidated positon because of unsufficient margin balance ? )
+
 
 @runtime_checkable
 class HasPeriodicExitDates(Protocol):

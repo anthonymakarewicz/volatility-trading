@@ -61,6 +61,9 @@ class StructureSpec:
             raise ValueError("all_or_none requires min_fill_ratio=1.0")
 
 
+# TODO: Since it is a rela contratc, why not using OptionLeg which has the same args and is not
+# specific to strategy only it is global to pricing and risk too sicn ethey work all with
+# a real option contract ?
 @dataclass(frozen=True)
 class LegSelection:
     """Concrete quote selected for one leg at entry."""
@@ -83,7 +86,7 @@ class EntryIntent:
     expiry_date: pd.Timestamp
     chosen_dte: int
     legs: tuple[LegSelection, ...]
-    spot: float | None = None
+    spot: float | None = None  # TODO: Why not a MarketState instead ?
     volatility: float | None = None
 
     def __post_init__(self) -> None:
