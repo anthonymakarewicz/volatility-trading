@@ -64,8 +64,8 @@ class _OpenShortStraddlePosition:
     entry_date: pd.Timestamp
     expiry_date: pd.Timestamp
     chosen_dte: int
-    hold_date: pd.Timestamp
-    block_until: pd.Timestamp
+    rebalance_date: pd.Timestamp | None
+    max_hold_date: pd.Timestamp | None
     put_q: pd.Series
     call_q: pd.Series
     put_side: int
@@ -95,7 +95,9 @@ class VRPHarvestingStrategy(Strategy):
         self,
         signal: Signal,
         filters: list[Filter] | None = None,
-        holding_period: int = 5,
+        rebalance_period: int | None = 5,
+        max_holding_period: int | None = None,
+        allow_same_day_reentry: bool = True,
         target_dte: int = 30,
         max_dte_diff: int = 7,
         pricer: PriceModel | None = None,
@@ -112,11 +114,26 @@ class VRPHarvestingStrategy(Strategy):
         Baseline VRP harvesting strategy:
         - short ATM straddle when signal is ON
         - 30D target maturity (by dte)
+        - optional rebalance cadence and max holding-age exit
         - optional stress-based risk sizing and margin-based capacity limits
         - no delta-hedge (for now)
         """
         super().__init__(signal=signal, filters=filters)
-        self.holding_period = holding_period
+        for name, period in (
+            ("rebalance_period", rebalance_period),
+            ("max_holding_period", max_holding_period),
+        ):
+            if period is not None and period <= 0:
+                raise ValueError(f"{name} must be > 0 when provided")
+
+        self.rebalance_period = rebalance_period
+        self.max_holding_period = max_holding_period
+        if self.rebalance_period is None and self.max_holding_period is None:
+            raise ValueError(
+                "At least one of rebalance_period or max_holding_period must be set."
+            )
+
+        self.allow_same_day_reentry = allow_same_day_reentry
         self.target_dte = target_dte
         self.max_dte_diff = max_dte_diff
         self.pricer = pricer or BlackScholesPricer()
@@ -648,12 +665,23 @@ class VRPHarvestingStrategy(Strategy):
             "financing_pnl": entry_financing,
         }
 
+        rebalance_date = (
+            setup.entry_date + pd.Timedelta(days=self.rebalance_period)
+            if self.rebalance_period is not None
+            else None
+        )
+        max_hold_date = (
+            setup.entry_date + pd.Timedelta(days=self.max_holding_period)
+            if self.max_holding_period is not None
+            else None
+        )
+
         position = _OpenShortStraddlePosition(
             entry_date=setup.entry_date,
             expiry_date=setup.expiry_date,
             chosen_dte=setup.chosen_dte,
-            hold_date=setup.entry_date + pd.Timedelta(days=self.holding_period),
-            block_until=setup.entry_date + pd.Timedelta(days=self.holding_period),
+            rebalance_date=rebalance_date,
+            max_hold_date=max_hold_date,
             put_q=setup.put_q,
             call_q=setup.call_q,
             put_side=setup.put_side,
@@ -965,7 +993,13 @@ class VRPHarvestingStrategy(Strategy):
             # For the ones where thre is a quote update the MTM accoridngly for the others
             # assume no changes
 
-        if curr_date < position.hold_date:
+        rebalance_due = (
+            position.rebalance_date is not None and curr_date >= position.rebalance_date
+        )
+        max_holding_due = (
+            position.max_hold_date is not None and curr_date >= position.max_hold_date
+        )
+        if not rebalance_due and not max_holding_due:
             position.prev_mtm = pnl_mtm
             position.last_spot = S_curr
             position.last_iv = iv_curr
@@ -975,6 +1009,13 @@ class VRPHarvestingStrategy(Strategy):
             position.last_vega = float(mtm_record["vega"])
             position.last_theta = float(mtm_record["theta"])
             return position, mtm_record, trade_rows
+
+        if rebalance_due and max_holding_due:
+            exit_type = "Rebalance/Max Holding Period"
+        elif rebalance_due:
+            exit_type = "Rebalance Period"
+        else:
+            exit_type = "Max Holding Period"
 
         pt_exit = put_today.iloc[0]
         ct_exit = call_today.iloc[0]
@@ -1006,7 +1047,7 @@ class VRPHarvestingStrategy(Strategy):
                 "risk_per_contract": position.risk_per_contract,
                 "risk_worst_scenario": position.risk_worst_scenario,
                 "margin_per_contract": position.latest_margin_per_contract,
-                "exit_type": "Holding Period",
+                "exit_type": exit_type,
             }
         )
         mtm_record.update(
@@ -1048,7 +1089,6 @@ class VRPHarvestingStrategy(Strategy):
         trades: list[dict] = []
         mtm_records: list[dict] = []
         equity_running = float(capital)
-        block_until: pd.Timestamp | None = None
         open_position: _OpenShortStraddlePosition | None = None
 
         for curr_date in trading_dates:
@@ -1064,13 +1104,26 @@ class VRPHarvestingStrategy(Strategy):
                 trades.extend(trade_rows)
                 equity_running += float(mtm_record["delta_pnl"])
 
-                # Preserve historical behavior: never reopen on the same date as a
-                # closeout/mark for an already-open position.
-                continue
+                if open_position is not None:
+                    continue
+                if not self.allow_same_day_reentry:
+                    continue
+
+                # Same-day reentry is reserved for scheduled roll/age exits, not
+                # for forced-liquidation events.
+                can_reenter_same_day = any(
+                    row.get("exit_type")
+                    in {
+                        "Rebalance Period",
+                        "Max Holding Period",
+                        "Rebalance/Max Holding Period",
+                    }
+                    for row in trade_rows
+                )
+                if not can_reenter_same_day:
+                    continue
 
             if curr_date not in active_signal_dates:
-                continue
-            if block_until is not None and curr_date < block_until:
                 continue
 
             setup = self._prepare_entry_setup(
@@ -1088,7 +1141,6 @@ class VRPHarvestingStrategy(Strategy):
                 cfg=cfg,
                 equity_running=equity_running,
             )
-            block_until = open_position.block_until
             mtm_records.append(entry_record)
             equity_running += float(entry_record["delta_pnl"])
 

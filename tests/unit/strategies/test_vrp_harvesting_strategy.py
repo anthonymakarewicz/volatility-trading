@@ -16,7 +16,8 @@ from volatility_trading.strategies import VRPHarvestingStrategy
 def _run_backtest(
     options: pd.DataFrame,
     *,
-    holding_period: int,
+    rebalance_period: int | None = 5,
+    max_holding_period: int | None = None,
     strategy_kwargs: dict | None = None,
 ):
     cfg = BacktestConfig(
@@ -28,7 +29,8 @@ def _run_backtest(
     )
     strat = VRPHarvestingStrategy(
         signal=ShortOnlySignal(),
-        holding_period=holding_period,
+        rebalance_period=rebalance_period,
+        max_holding_period=max_holding_period,
         **(strategy_kwargs or {}),
     )
     bt = Backtester(
@@ -142,7 +144,7 @@ def test_mtm_delta_pnl_matches_trade_pnl_on_holding_period_exit():
         ]
     )
 
-    trades, mtm = _run_backtest(options, holding_period=2)
+    trades, mtm = _run_backtest(options, rebalance_period=2)
 
     assert len(trades) == 1
     assert trades["pnl"].sum() == pytest.approx(-3.0)
@@ -246,7 +248,7 @@ def test_unresolved_trade_keeps_mtm_path_instead_of_being_dropped():
         ]
     )
 
-    trades, mtm = _run_backtest(options, holding_period=2)
+    trades, mtm = _run_backtest(options, rebalance_period=2)
 
     assert trades.empty
     assert not mtm.empty
@@ -337,7 +339,7 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
 
     trades, mtm = _run_backtest(
         options,
-        holding_period=2,
+        rebalance_period=2,
         strategy_kwargs={
             "risk_budget_pct": 0.10,
             "min_contracts": 0,
@@ -441,7 +443,7 @@ def test_margin_budget_caps_contracts_below_risk_budget():
 
     trades, mtm = _run_backtest(
         options,
-        holding_period=2,
+        rebalance_period=2,
         strategy_kwargs={
             "risk_budget_pct": 0.10,
             "margin_budget_pct": 0.05,
@@ -532,7 +534,7 @@ def test_margin_call_liquidation_exits_before_holding_period():
 
     trades, mtm = _run_backtest(
         options,
-        holding_period=10,
+        rebalance_period=10,
         strategy_kwargs={
             "margin_model": ConstantMarginModel(),
             "margin_policy": MarginPolicy(margin_call_grace_days=0),
@@ -573,3 +575,196 @@ def test_time_to_expiry_prefers_yte_then_dte_then_calendar():
     assert yte_first == pytest.approx(0.123)
     assert dte_fallback == pytest.approx(30 / 365.0)
     assert calendar_fallback == pytest.approx(30 / 365.0)
+
+
+def test_same_day_reentry_can_be_enabled_for_rebalance_rolls():
+    options = _make_options(
+        [
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-02",
+                "expiry_date": "2020-01-31",
+                "dte": 29,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.8,
+                "ask_price": 6.0,
+                "spot_price": 101.0,
+                "smoothed_iv": 0.21,
+            },
+            {
+                "trade_date": "2020-01-02",
+                "expiry_date": "2020-01-31",
+                "dte": 29,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.8,
+                "ask_price": 6.0,
+                "spot_price": 101.0,
+                "smoothed_iv": 0.21,
+            },
+            {
+                "trade_date": "2020-01-03",
+                "expiry_date": "2020-01-31",
+                "dte": 28,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 6.2,
+                "ask_price": 6.4,
+                "spot_price": 102.0,
+                "smoothed_iv": 0.22,
+            },
+            {
+                "trade_date": "2020-01-03",
+                "expiry_date": "2020-01-31",
+                "dte": 28,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 6.2,
+                "ask_price": 6.4,
+                "spot_price": 102.0,
+                "smoothed_iv": 0.22,
+            },
+        ]
+    )
+
+    trades_allow, _ = _run_backtest(
+        options,
+        rebalance_period=1,
+        strategy_kwargs={"allow_same_day_reentry": True},
+    )
+    trades_block, _ = _run_backtest(
+        options,
+        rebalance_period=1,
+        strategy_kwargs={"allow_same_day_reentry": False},
+    )
+
+    assert len(trades_allow) == 2
+    assert pd.Timestamp(trades_allow.iloc[1]["entry_date"]) == pd.Timestamp(
+        "2020-01-02"
+    )
+    assert len(trades_block) == 1
+
+
+def test_rebalance_period_and_max_holding_period_can_be_set_separately():
+    options = _make_options(
+        [
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-02",
+                "expiry_date": "2020-01-31",
+                "dte": 29,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.8,
+                "ask_price": 6.0,
+                "spot_price": 101.0,
+                "smoothed_iv": 0.21,
+            },
+            {
+                "trade_date": "2020-01-02",
+                "expiry_date": "2020-01-31",
+                "dte": 29,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.8,
+                "ask_price": 6.0,
+                "spot_price": 101.0,
+                "smoothed_iv": 0.21,
+            },
+        ]
+    )
+
+    trades, _ = _run_backtest(
+        options,
+        rebalance_period=1,
+        max_holding_period=10,
+        strategy_kwargs={
+            "allow_same_day_reentry": False,
+        },
+    )
+
+    assert len(trades) == 1
+    assert trades.iloc[0]["exit_type"] == "Rebalance Period"
