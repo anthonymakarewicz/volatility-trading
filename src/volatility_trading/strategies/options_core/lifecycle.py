@@ -14,6 +14,7 @@ from volatility_trading.backtesting import (
 )
 from volatility_trading.options import MarginModel, PriceModel
 
+from .exit_rules import ExitRuleSet
 from .sizing import estimate_short_straddle_margin_per_contract
 
 
@@ -81,6 +82,7 @@ class ShortStraddleLifecycleEngine:
 
     rebalance_period: int | None
     max_holding_period: int | None
+    exit_rule_set: ExitRuleSet
     margin_policy: MarginPolicy | None
     margin_model: MarginModel | None
     pricer: PriceModel
@@ -511,13 +513,8 @@ class ShortStraddleLifecycleEngine:
             position.last_theta = float(mtm_record["theta"])
             return position, mtm_record, trade_rows
 
-        rebalance_due = (
-            position.rebalance_date is not None and curr_date >= position.rebalance_date
-        )
-        max_holding_due = (
-            position.max_hold_date is not None and curr_date >= position.max_hold_date
-        )
-        if not rebalance_due and not max_holding_due:
+        exit_type = self.exit_rule_set.evaluate(curr_date=curr_date, position=position)
+        if exit_type is None:
             position.prev_mtm = pnl_mtm
             position.last_spot = S_curr
             position.last_iv = iv_curr
@@ -527,13 +524,6 @@ class ShortStraddleLifecycleEngine:
             position.last_vega = float(mtm_record["vega"])
             position.last_theta = float(mtm_record["theta"])
             return position, mtm_record, trade_rows
-
-        if rebalance_due and max_holding_due:
-            exit_type = "Rebalance/Max Holding Period"
-        elif rebalance_due:
-            exit_type = "Rebalance Period"
-        else:
-            exit_type = "Max Holding Period"
 
         pt_exit = put_today.iloc[0]
         ct_exit = call_today.iloc[0]

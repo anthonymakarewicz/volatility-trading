@@ -6,6 +6,10 @@ from volatility_trading.signals import Signal
 
 # TODO: Maybe make Signal as compulsory instead of optional here (list of filetrs keep optional)
 
+# TODO: Myabe make SIgnal part of the Strategy like VRPHarvetsing only as ShortWalways, skew mispiricng
+# only the z score.
+# Or an enum of tolerated Signals for each stratgey, becasue skew can alos have a fixed threhsold instead of z score
+
 
 class Strategy(ABC):
     def __init__(

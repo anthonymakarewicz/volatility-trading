@@ -7,6 +7,13 @@ from .adapters import (
     quote_to_option_spec,
     time_to_expiry_years,
 )
+from .exit_rules import (
+    ExitRule,
+    ExitRuleSet,
+    MaxHoldingExitRule,
+    RebalanceExitRule,
+    SameDayReentryPolicy,
+)
 from .lifecycle import (
     OpenShortStraddlePosition,
     ShortStraddleEntrySetup,
@@ -30,6 +37,11 @@ __all__ = [
     "time_to_expiry_years",
     "quote_to_option_spec",
     "quote_to_option_leg",
+    "ExitRule",
+    "RebalanceExitRule",
+    "MaxHoldingExitRule",
+    "ExitRuleSet",
+    "SameDayReentryPolicy",
     "pick_quote_by_delta",
     "choose_expiry_by_target_dte",
     "estimate_short_straddle_margin_per_contract",

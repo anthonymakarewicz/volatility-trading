@@ -21,7 +21,9 @@ from volatility_trading.signals import Signal
 
 from ..base_strategy import Strategy
 from ..options_core import (
+    ExitRuleSet,
     OpenShortStraddlePosition,
+    SameDayReentryPolicy,
     ShortStraddleEntrySetup,
     ShortStraddleLifecycleEngine,
     SinglePositionRunnerHooks,
@@ -52,6 +54,8 @@ class VRPHarvestingStrategy(Strategy):
         margin_model: MarginModel | None = None,
         margin_budget_pct: float | None = None,
         margin_policy: MarginPolicy | None = None,
+        exit_rule_set: ExitRuleSet | None = None,
+        reentry_policy: SameDayReentryPolicy | None = None,
         min_contracts: int = 1,
         max_contracts: int | None = None,
     ):
@@ -82,6 +86,11 @@ class VRPHarvestingStrategy(Strategy):
         self.allow_same_day_reentry_on_max_holding = (
             allow_same_day_reentry_on_max_holding
         )
+        self.reentry_policy = reentry_policy or SameDayReentryPolicy(
+            allow_on_rebalance=allow_same_day_reentry_on_rebalance,
+            allow_on_max_holding=allow_same_day_reentry_on_max_holding,
+        )
+        self.exit_rule_set = exit_rule_set or ExitRuleSet.period_rules()
         self.target_dte = target_dte
         self.max_dte_diff = max_dte_diff
         self.pricer = pricer or BlackScholesPricer()
@@ -424,6 +433,7 @@ class VRPHarvestingStrategy(Strategy):
         return ShortStraddleLifecycleEngine(
             rebalance_period=self.rebalance_period,
             max_holding_period=self.max_holding_period,
+            exit_rule_set=self.exit_rule_set,
             margin_policy=self.margin_policy,
             margin_model=self.margin_model,
             pricer=self.pricer,
@@ -431,18 +441,7 @@ class VRPHarvestingStrategy(Strategy):
 
     def _can_reenter_same_day(self, trade_rows: list[dict]) -> bool:
         """Allow same-day reentry according to exit-specific policy."""
-        for row in trade_rows:
-            exit_type = row.get("exit_type")
-            if exit_type == "Rebalance Period":
-                return self.allow_same_day_reentry_on_rebalance
-            if exit_type == "Max Holding Period":
-                return self.allow_same_day_reentry_on_max_holding
-            if exit_type == "Rebalance/Max Holding Period":
-                return (
-                    self.allow_same_day_reentry_on_rebalance
-                    or self.allow_same_day_reentry_on_max_holding
-                )
-        return False
+        return self.reentry_policy.allow_from_trade_rows(trade_rows)
 
     def _simulate_short_straddles(
         self,
