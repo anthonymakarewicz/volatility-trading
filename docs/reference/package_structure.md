@@ -274,6 +274,10 @@ src/volatility_trading
 ├── strategies
 │   ├── __init__.py
 │   ├── base_strategy.py
+│   ├── options_core
+│   │   ├── __init__.py
+│   │   ├── adapters.py
+│   │   └── types.py
 │   ├── skew_mispricing
 │   │   ├── __init__.py
 │   │   ├── features.py
@@ -288,5 +292,5 @@ src/volatility_trading
     ├── __init__.py
     └── logging_config.py
 
-56 directories, 230 files
+57 directories, 233 files
 ```
