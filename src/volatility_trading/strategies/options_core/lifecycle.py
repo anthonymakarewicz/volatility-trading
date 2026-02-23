@@ -13,7 +13,7 @@ from volatility_trading.backtesting import (
     MarginAccount,
     MarginPolicy,
 )
-from volatility_trading.options import MarginModel, OptionType, PriceModel
+from volatility_trading.options import MarginModel, PriceModel
 
 from .adapters import option_type_to_chain_label
 from .exit_rules import ExitRuleSet
@@ -207,45 +207,6 @@ class PositionLifecycleEngine:
             * contracts
             for leg in legs
         )
-
-    @staticmethod
-    def _compat_put_call_fields(
-        *,
-        legs: Sequence[LegSelection],
-        exit_prices: Sequence[float] | None,
-    ) -> dict:
-        """Build legacy put/call trade fields when structure contains one put+call."""
-        put_idx = next(
-            (i for i, leg in enumerate(legs) if leg.spec.option_type == OptionType.PUT),
-            None,
-        )
-        call_idx = next(
-            (
-                i
-                for i, leg in enumerate(legs)
-                if leg.spec.option_type == OptionType.CALL
-            ),
-            None,
-        )
-        out = {
-            "put_strike": np.nan,
-            "call_strike": np.nan,
-            "put_entry": np.nan,
-            "call_entry": np.nan,
-            "put_exit": np.nan,
-            "call_exit": np.nan,
-        }
-        if put_idx is not None:
-            out["put_strike"] = float(legs[put_idx].quote["strike"])
-            out["put_entry"] = float(legs[put_idx].entry_price)
-            if exit_prices is not None:
-                out["put_exit"] = float(exit_prices[put_idx])
-        if call_idx is not None:
-            out["call_strike"] = float(legs[call_idx].quote["strike"])
-            out["call_entry"] = float(legs[call_idx].entry_price)
-            if exit_prices is not None:
-                out["call_exit"] = float(exit_prices[call_idx])
-        return out
 
     @staticmethod
     def _intent_with_updated_quotes(
@@ -583,12 +544,6 @@ class PositionLifecycleEngine:
                     else "Margin Call Partial Liquidation"
                 ),
             }
-            trade_row.update(
-                self._compat_put_call_fields(
-                    legs=position.intent.legs,
-                    exit_prices=exit_prices,
-                )
-            )
             trade_rows.append(trade_row)
 
             if contracts_after == 0:
@@ -712,12 +667,6 @@ class PositionLifecycleEngine:
             "margin_per_contract": position.latest_margin_per_contract,
             "exit_type": exit_type,
         }
-        trade_row.update(
-            self._compat_put_call_fields(
-                legs=position.intent.legs,
-                exit_prices=exit_prices,
-            )
-        )
         trade_rows.append(trade_row)
 
         mtm_record.update(

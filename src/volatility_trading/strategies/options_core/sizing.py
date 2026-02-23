@@ -1,9 +1,4 @@
-"""Shared risk/margin sizing helpers for arbitrary option structures.
-
-The primary APIs in this module are structure-agnostic and operate on
-`LegSelection` / `EntryIntent` payloads. Legacy short-straddle wrappers are
-kept to preserve existing behavior while strategies migrate.
-"""
+"""Shared risk/margin sizing helpers for arbitrary option structures."""
 
 from __future__ import annotations
 
@@ -15,7 +10,6 @@ import pandas as pd
 from volatility_trading.options import (
     MarginModel,
     MarketState,
-    OptionType,
     PriceModel,
     RiskBudgetSizer,
     RiskEstimator,
@@ -24,7 +18,7 @@ from volatility_trading.options import (
 )
 
 from .adapters import quote_to_option_leg
-from .types import EntryIntent, LegSelection, LegSpec
+from .types import EntryIntent, LegSelection
 
 
 def _effective_leg_side(leg: LegSelection) -> int:
@@ -228,123 +222,6 @@ def size_entry_intent_contracts(
         entry_date=intent.entry_date,
         expiry_date=intent.expiry_date,
         legs=intent.legs,
-        lot_size=lot_size,
-        spot=spot,
-        volatility=volatility,
-        equity=equity,
-        pricer=pricer,
-        scenario_generator=scenario_generator,
-        risk_estimator=risk_estimator,
-        risk_sizer=risk_sizer,
-        margin_model=margin_model,
-        margin_budget_pct=margin_budget_pct,
-        min_contracts=min_contracts,
-        max_contracts=max_contracts,
-    )
-
-
-def _short_straddle_intent(
-    *,
-    entry_date: pd.Timestamp,
-    expiry_date: pd.Timestamp,
-    put_quote: pd.Series,
-    call_quote: pd.Series,
-    put_entry: float,
-    call_entry: float,
-) -> EntryIntent:
-    chosen_dte = int(
-        put_quote.get("dte")
-        if pd.notna(put_quote.get("dte"))
-        else call_quote.get("dte")
-        if pd.notna(call_quote.get("dte"))
-        else max((pd.Timestamp(expiry_date) - pd.Timestamp(entry_date)).days, 1)
-    )
-    put_leg = LegSelection(
-        spec=LegSpec(option_type=OptionType.PUT, delta_target=-0.5),
-        quote=put_quote,
-        side=-1,
-        entry_price=float(put_entry),
-    )
-    call_leg = LegSelection(
-        spec=LegSpec(option_type=OptionType.CALL, delta_target=0.5),
-        quote=call_quote,
-        side=-1,
-        entry_price=float(call_entry),
-    )
-    return EntryIntent(
-        entry_date=entry_date,
-        expiry_date=expiry_date,
-        chosen_dte=chosen_dte,
-        legs=(put_leg, call_leg),
-    )
-
-
-def estimate_short_straddle_margin_per_contract(
-    *,
-    as_of_date: pd.Timestamp,
-    expiry_date: pd.Timestamp,
-    put_quote: pd.Series,
-    call_quote: pd.Series,
-    put_entry: float,
-    call_entry: float,
-    lot_size: int,
-    spot: float,
-    volatility: float,
-    margin_model: MarginModel | None,
-    pricer: PriceModel,
-) -> float | None:
-    """Backward-compatible wrapper for short-straddle margin estimation."""
-    intent = _short_straddle_intent(
-        entry_date=as_of_date,
-        expiry_date=expiry_date,
-        put_quote=put_quote,
-        call_quote=call_quote,
-        put_entry=put_entry,
-        call_entry=call_entry,
-    )
-    return estimate_entry_intent_margin_per_contract(
-        intent=intent,
-        as_of_date=as_of_date,
-        lot_size=lot_size,
-        spot=spot,
-        volatility=volatility,
-        margin_model=margin_model,
-        pricer=pricer,
-    )
-
-
-def size_short_straddle_contracts(
-    *,
-    entry_date: pd.Timestamp,
-    expiry_date: pd.Timestamp,
-    put_quote: pd.Series,
-    call_quote: pd.Series,
-    put_entry: float,
-    call_entry: float,
-    lot_size: int,
-    spot: float,
-    volatility: float,
-    equity: float,
-    pricer: PriceModel,
-    scenario_generator: ScenarioGenerator,
-    risk_estimator: RiskEstimator,
-    risk_sizer: RiskBudgetSizer | None,
-    margin_model: MarginModel | None,
-    margin_budget_pct: float | None,
-    min_contracts: int,
-    max_contracts: int | None,
-) -> tuple[int, float | None, str | None, float | None]:
-    """Backward-compatible wrapper for short-straddle sizing."""
-    intent = _short_straddle_intent(
-        entry_date=entry_date,
-        expiry_date=expiry_date,
-        put_quote=put_quote,
-        call_quote=call_quote,
-        put_entry=put_entry,
-        call_entry=call_entry,
-    )
-    return size_entry_intent_contracts(
-        intent=intent,
         lot_size=lot_size,
         spot=spot,
         volatility=volatility,

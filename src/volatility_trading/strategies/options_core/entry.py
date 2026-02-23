@@ -112,7 +112,6 @@ def build_entry_intent_from_structure(
     side_resolver: Callable[[LegSpec], int],
     features: pd.DataFrame | None = None,
     fallback_iv_feature_col: str = "iv_atm",
-    min_atm_quotes: int = 2,
 ) -> EntryIntent | None:
     """Build one `EntryIntent` from chain data and structure constraints.
 
@@ -123,8 +122,6 @@ def build_entry_intent_from_structure(
     - score feasible expiries by DTE distance plus weighted average leg score
     - apply structure-level fill policy (`all_or_none` or `min_ratio`)
     """
-    _ = min_atm_quotes
-
     chain = chain_for_date(options, entry_date)
     total_legs = len(structure_spec.legs)
     selected_by_index: dict[int, LegSelection] = {}

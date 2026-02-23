@@ -32,9 +32,7 @@ from ..options_core import (
     SinglePositionRunnerHooks,
     StructureSpec,
     build_entry_intent_from_structure,
-    choose_expiry_by_target_dte,
     normalize_signals_to_on,
-    pick_quote_by_delta,
     run_single_position_date_loop,
     size_entry_intent_contracts,
 )
@@ -133,18 +131,6 @@ class VRPHarvestingStrategy(Strategy):
 
     # --------- Helpers ---------
 
-    @staticmethod
-    def _pick_quote(df_leg: pd.DataFrame, tgt: float, delta_tolerance: float = 0.05):
-        """
-        Pick the quote whose delta is closest to `tgt` within `delta_tolerance`.
-        Used here to approximate ATM (tgt ≈ +0.5 for calls, -0.5 for puts).
-        """
-        return pick_quote_by_delta(
-            df_leg,
-            target_delta=tgt,
-            delta_tolerance=delta_tolerance,
-        )
-
     def _size_entry_intent(
         self,
         *,
@@ -169,25 +155,6 @@ class VRPHarvestingStrategy(Strategy):
             margin_budget_pct=self.margin_budget_pct,
             min_contracts=self.min_contracts,
             max_contracts=self.max_contracts,
-        )
-
-    @staticmethod
-    def choose_vrp_expiry(
-        chain: pd.DataFrame,
-        target_dte: int = 30,
-        max_dte_diff: int = 7,
-        min_atm_quotes: int = 2,
-    ) -> int | None:
-        """
-        Pick a single expiry_date for the VRP straddle:
-        - nearest to target_dte within ±max_dte_diff
-        - with at least `min_atm_quotes` quotes near ATM.
-        """
-        return choose_expiry_by_target_dte(
-            chain=chain,
-            target_dte=target_dte,
-            max_dte_diff=max_dte_diff,
-            min_atm_quotes=min_atm_quotes,
         )
 
     # --------- Main entry point ---------
@@ -218,16 +185,6 @@ class VRPHarvestingStrategy(Strategy):
         return trades, mtm
 
     # --------- Core simulator ---------
-
-    @staticmethod
-    def _chain_for_date(
-        options: pd.DataFrame, trade_date: pd.Timestamp
-    ) -> pd.DataFrame:
-        """Return a date slice as DataFrame even when a single row is returned."""
-        chain = options.loc[trade_date]
-        if isinstance(chain, pd.Series):
-            return chain.to_frame().T
-        return chain
 
     @staticmethod
     def _signals_to_on_frame(signals: pd.DataFrame | pd.Series) -> pd.DataFrame:
