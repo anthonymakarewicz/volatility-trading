@@ -110,14 +110,28 @@ class PositionLifecycleEngine:
         """Return the row matching one leg strike/type for `chain` date slice."""
         strike = leg.quote["strike"]
         canonical_label = option_type_to_chain_label(leg.spec.option_type)
-        candidates = chain[
-            (chain["option_type"] == canonical_label) & (chain["strike"] == strike)
+        candidates = chain
+        if "expiry_date" in candidates.columns and "expiry_date" in leg.quote.index:
+            leg_expiry = pd.Timestamp(leg.quote["expiry_date"])
+            candidates = candidates[
+                pd.to_datetime(candidates["expiry_date"]) == leg_expiry
+            ]
+        candidates = candidates[
+            (candidates["option_type"] == canonical_label)
+            & (candidates["strike"] == strike)
         ]
         if candidates.empty:
             # Fallback for datasets using vendor labels already present in the leg row.
             vendor_label = leg.quote.get("option_type")
-            candidates = chain[
-                (chain["option_type"] == vendor_label) & (chain["strike"] == strike)
+            candidates = chain
+            if "expiry_date" in candidates.columns and "expiry_date" in leg.quote.index:
+                leg_expiry = pd.Timestamp(leg.quote["expiry_date"])
+                candidates = candidates[
+                    pd.to_datetime(candidates["expiry_date"]) == leg_expiry
+                ]
+            candidates = candidates[
+                (candidates["option_type"] == vendor_label)
+                & (candidates["strike"] == strike)
             ]
         if candidates.empty:
             return None
@@ -395,9 +409,8 @@ class PositionLifecycleEngine:
         roundtrip_comm_pc = 2 * cfg.commission_per_leg
 
         chain_all = self._chain_for_date(options, curr_date)
-        today_chain = chain_all[chain_all["expiry_date"] == position.expiry_date]
         leg_quotes = tuple(
-            self._match_leg_quote(chain=today_chain, leg=leg)
+            self._match_leg_quote(chain=chain_all, leg=leg)
             for leg in position.intent.legs
         )
 
@@ -439,7 +452,7 @@ class PositionLifecycleEngine:
         iv_curr = position.last_iv
         if (
             complete_leg_quotes is not None
-            and "smoothed_iv" in today_chain.columns
+            and all("smoothed_iv" in quote.index for quote in complete_leg_quotes)
             and len(complete_leg_quotes) > 0
         ):
             iv_curr = float(

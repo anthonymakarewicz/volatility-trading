@@ -1,0 +1,204 @@
+import pandas as pd
+
+from volatility_trading.backtesting import BacktestConfig
+from volatility_trading.options import OptionType
+from volatility_trading.strategies.options_core import (
+    LegSpec,
+    StructureSpec,
+    build_entry_intent_from_structure,
+)
+
+
+def _base_cfg() -> BacktestConfig:
+    return BacktestConfig(
+        initial_capital=10_000.0,
+        lot_size=1,
+        slip_ask=0.0,
+        slip_bid=0.0,
+        commission_per_leg=0.0,
+    )
+
+
+def _base_chain() -> pd.DataFrame:
+    df = pd.DataFrame(
+        [
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "option_type": "C",
+                "delta": 0.50,
+                "strike": 100.0,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "open_interest": 200,
+                "volume": 300,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "option_type": "P",
+                "delta": -0.50,
+                "strike": 100.0,
+                "bid_price": 5.1,
+                "ask_price": 5.3,
+                "open_interest": 200,
+                "volume": 300,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-03-01",
+                "dte": 60,
+                "option_type": "C",
+                "delta": 0.50,
+                "strike": 100.0,
+                "bid_price": 7.0,
+                "ask_price": 7.2,
+                "open_interest": 250,
+                "volume": 350,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.22,
+            },
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-03-01",
+                "dte": 60,
+                "option_type": "P",
+                "delta": -0.50,
+                "strike": 100.0,
+                "bid_price": 7.1,
+                "ask_price": 7.3,
+                "open_interest": 250,
+                "volume": 350,
+                "spot_price": 100.0,
+                "smoothed_iv": 0.22,
+            },
+        ]
+    )
+    df["trade_date"] = pd.to_datetime(df["trade_date"])
+    df["expiry_date"] = pd.to_datetime(df["expiry_date"])
+    return df.set_index("trade_date")
+
+
+def test_build_entry_intent_supports_grouped_expiry_selection():
+    options = _base_chain()
+    structure = StructureSpec(
+        name="diag_two_groups",
+        dte_target=30,
+        dte_tolerance=7,
+        legs=(
+            LegSpec(
+                option_type=OptionType.CALL,
+                delta_target=0.50,
+                expiry_group="near",
+                dte_target=30,
+                dte_tolerance=2,
+            ),
+            LegSpec(
+                option_type=OptionType.PUT,
+                delta_target=-0.50,
+                expiry_group="far",
+                dte_target=60,
+                dte_tolerance=2,
+            ),
+        ),
+    )
+
+    intent = build_entry_intent_from_structure(
+        entry_date=pd.Timestamp("2020-01-01"),
+        options=options,
+        structure_spec=structure,
+        cfg=_base_cfg(),
+        side_resolver=lambda _leg: -1,
+    )
+
+    assert intent is not None
+    assert len(intent.legs) == 2
+    assert pd.Timestamp(intent.legs[0].quote["expiry_date"]) == pd.Timestamp(
+        "2020-01-31"
+    )
+    assert pd.Timestamp(intent.legs[1].quote["expiry_date"]) == pd.Timestamp(
+        "2020-03-01"
+    )
+
+
+def test_build_entry_intent_all_or_none_rejects_partial_fill():
+    options = _base_chain()
+    options = options[options["expiry_date"] != pd.Timestamp("2020-03-01")]
+    structure = StructureSpec(
+        name="two_groups_all_or_none",
+        dte_target=30,
+        dte_tolerance=7,
+        legs=(
+            LegSpec(
+                option_type=OptionType.CALL,
+                delta_target=0.50,
+                expiry_group="near",
+                dte_target=30,
+                dte_tolerance=2,
+            ),
+            LegSpec(
+                option_type=OptionType.PUT,
+                delta_target=-0.50,
+                expiry_group="far",
+                dte_target=60,
+                dte_tolerance=2,
+            ),
+        ),
+        fill_policy="all_or_none",
+    )
+
+    intent = build_entry_intent_from_structure(
+        entry_date=pd.Timestamp("2020-01-01"),
+        options=options,
+        structure_spec=structure,
+        cfg=_base_cfg(),
+        side_resolver=lambda _leg: -1,
+    )
+    assert intent is None
+
+
+def test_build_entry_intent_min_ratio_allows_partial_fill():
+    options = _base_chain()
+    options = options[options["expiry_date"] != pd.Timestamp("2020-03-01")]
+    structure = StructureSpec(
+        name="two_groups_partial_ok",
+        dte_target=30,
+        dte_tolerance=7,
+        legs=(
+            LegSpec(
+                option_type=OptionType.CALL,
+                delta_target=0.50,
+                expiry_group="near",
+                dte_target=30,
+                dte_tolerance=2,
+            ),
+            LegSpec(
+                option_type=OptionType.PUT,
+                delta_target=-0.50,
+                expiry_group="far",
+                dte_target=60,
+                dte_tolerance=2,
+            ),
+        ),
+        fill_policy="min_ratio",
+        min_fill_ratio=0.5,
+    )
+
+    intent = build_entry_intent_from_structure(
+        entry_date=pd.Timestamp("2020-01-01"),
+        options=options,
+        structure_spec=structure,
+        cfg=_base_cfg(),
+        side_resolver=lambda _leg: -1,
+    )
+    assert intent is not None
+    assert len(intent.legs) == 1
+    assert pd.Timestamp(intent.legs[0].quote["expiry_date"]) == pd.Timestamp(
+        "2020-01-31"
+    )

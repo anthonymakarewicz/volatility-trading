@@ -16,6 +16,7 @@ from volatility_trading.strategies.options_core import (
     choose_expiry_by_target_dte,
     estimate_entry_intent_margin_per_contract,
     pick_quote_by_delta,
+    select_best_expiry_for_leg_group,
     size_entry_intent_contracts,
     size_short_straddle_contracts,
 )
@@ -86,6 +87,46 @@ def test_choose_expiry_by_target_dte_filters_for_viable_atm_quotes():
         min_atm_quotes=2,
     )
     assert chosen == 30
+
+
+def test_select_best_expiry_for_leg_group_prefers_lower_combined_score():
+    chain = pd.DataFrame(
+        {
+            "expiry_date": pd.to_datetime(
+                [
+                    "2020-01-31",
+                    "2020-01-31",
+                    "2020-02-02",
+                    "2020-02-02",
+                ]
+            ),
+            "dte": [29, 29, 31, 31],
+            "option_type": ["P", "C", "P", "C"],
+            "delta": [-0.58, 0.58, -0.51, 0.51],
+            "strike": [100.0, 100.0, 100.0, 100.0],
+            "bid_price": [5.0, 5.0, 5.0, 5.0],
+            "ask_price": [6.4, 6.4, 5.3, 5.3],
+            "open_interest": [100, 100, 100, 100],
+            "volume": [100, 100, 100, 100],
+            "spot_price": [100.0, 100.0, 100.0, 100.0],
+        }
+    )
+
+    out = select_best_expiry_for_leg_group(
+        chain=chain,
+        group_legs=(
+            LegSpec(option_type=OptionType.PUT, delta_target=-0.5),
+            LegSpec(option_type=OptionType.CALL, delta_target=0.5),
+        ),
+        target_dte=30,
+        dte_tolerance=2,
+    )
+
+    assert out is not None
+    expiry, chosen_dte, quotes = out
+    assert expiry == pd.Timestamp("2020-02-02")
+    assert chosen_dte == 31
+    assert len(quotes) == 2
 
 
 def test_size_short_straddle_contracts_uses_risk_and_margin_caps():

@@ -4,13 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-import numpy as np
 import pandas as pd
 
 from volatility_trading.backtesting import BacktestConfig
 
-from .adapters import option_type_to_chain_label
-from .selectors import choose_expiry_by_target_dte, pick_quote_by_delta
+from .selectors import select_best_expiry_for_leg_group
 from .types import EntryIntent, LegSelection, LegSpec, StructureSpec
 
 
@@ -59,29 +57,50 @@ def _entry_price_from_side(
     raise ValueError("side must be -1 (short) or +1 (long)")
 
 
-def _apply_leg_liquidity_filters(
-    leg_quotes: pd.DataFrame, leg_spec: LegSpec
-) -> pd.DataFrame:
-    """Apply optional per-leg liquidity/spread filters from `LegSpec`."""
-    filtered = leg_quotes
+def _legs_grouped_by_expiry(
+    structure_spec: StructureSpec,
+) -> dict[str, list[tuple[int, LegSpec]]]:
+    """Group legs by expiry key while preserving original leg order."""
+    grouped: dict[str, list[tuple[int, LegSpec]]] = {}
+    for idx, leg_spec in enumerate(structure_spec.legs):
+        grouped.setdefault(leg_spec.expiry_group, []).append((idx, leg_spec))
+    return grouped
 
-    if leg_spec.min_open_interest > 0 and "open_interest" in filtered.columns:
-        filtered = filtered[filtered["open_interest"] >= leg_spec.min_open_interest]
-    if leg_spec.min_volume > 0 and "volume" in filtered.columns:
-        filtered = filtered[filtered["volume"] >= leg_spec.min_volume]
-    if (
-        leg_spec.max_relative_spread is not None
-        and "bid_price" in filtered.columns
-        and "ask_price" in filtered.columns
-    ):
-        mids = 0.5 * (filtered["bid_price"] + filtered["ask_price"])
-        rel_spread = (filtered["ask_price"] - filtered["bid_price"]) / mids.where(
-            mids > 0,
-            np.nan,
+
+def _resolve_group_dte_constraints(
+    *,
+    group_name: str,
+    group_legs: tuple[LegSpec, ...],
+    structure_spec: StructureSpec,
+) -> tuple[int, int]:
+    """Resolve group DTE settings from leg overrides or structure defaults."""
+    explicit_targets = {
+        leg.dte_target for leg in group_legs if leg.dte_target is not None
+    }
+    explicit_tolerances = {
+        leg.dte_tolerance for leg in group_legs if leg.dte_tolerance is not None
+    }
+
+    if len(explicit_targets) > 1:
+        raise ValueError(
+            f"expiry_group={group_name!r} has conflicting dte_target values"
         )
-        filtered = filtered[rel_spread <= leg_spec.max_relative_spread]
+    if len(explicit_tolerances) > 1:
+        raise ValueError(
+            f"expiry_group={group_name!r} has conflicting dte_tolerance values"
+        )
 
-    return filtered
+    target_dte = (
+        int(next(iter(explicit_targets)))
+        if explicit_targets
+        else int(structure_spec.dte_target)
+    )
+    dte_tolerance = (
+        int(next(iter(explicit_tolerances)))
+        if explicit_tolerances
+        else int(structure_spec.dte_tolerance)
+    )
+    return target_dte, dte_tolerance
 
 
 def build_entry_intent_from_structure(
@@ -98,46 +117,54 @@ def build_entry_intent_from_structure(
     """Build one `EntryIntent` from chain data and structure constraints.
 
     Selection policy:
-    - choose expiry nearest `structure_spec.dte_target` within tolerance
-    - per leg: filter by type/liquidity/spread, then pick by delta target
-    - fill policy: `all_or_none` or `min_ratio`
+    - choose one expiry per `expiry_group`
+    - enforce hard delta/liquidity filters per leg
+    - score feasible legs by delta distance then liquidity
+    - score feasible expiries by DTE distance plus weighted average leg score
+    - apply structure-level fill policy (`all_or_none` or `min_ratio`)
     """
+    _ = min_atm_quotes
+
     chain = chain_for_date(options, entry_date)
-    chosen_dte = choose_expiry_by_target_dte(
-        chain=chain,
-        target_dte=structure_spec.dte_target,
-        max_dte_diff=structure_spec.dte_tolerance,
-        min_atm_quotes=min_atm_quotes,
-    )
-    if chosen_dte is None:
-        return None
-
-    chain = chain[chain["dte"] == chosen_dte]
-    expiry_date = pd.Timestamp(chain["expiry_date"].iloc[0])
-    selected_legs: list[LegSelection] = []
     total_legs = len(structure_spec.legs)
+    selected_by_index: dict[int, LegSelection] = {}
+    group_results: dict[str, tuple[pd.Timestamp, int]] = {}
 
-    for leg_spec in structure_spec.legs:
-        option_type_label = option_type_to_chain_label(leg_spec.option_type)
-        leg_quotes = chain[chain["option_type"] == option_type_label]
-        leg_quotes = _apply_leg_liquidity_filters(leg_quotes, leg_spec)
-        leg_q = pick_quote_by_delta(
-            leg_quotes,
-            target_delta=leg_spec.delta_target,
-            delta_tolerance=leg_spec.delta_tolerance,
+    grouped_legs = _legs_grouped_by_expiry(structure_spec)
+    for group_name, indexed_group_legs in grouped_legs.items():
+        group_legs = tuple(leg_spec for _, leg_spec in indexed_group_legs)
+        target_dte, dte_tolerance = _resolve_group_dte_constraints(
+            group_name=group_name,
+            group_legs=group_legs,
+            structure_spec=structure_spec,
         )
-        if leg_q is None:
+        selected_group = select_best_expiry_for_leg_group(
+            chain=chain,
+            group_legs=group_legs,
+            target_dte=target_dte,
+            dte_tolerance=dte_tolerance,
+        )
+        if selected_group is None:
             continue
-        side = int(side_resolver(leg_spec))
-        selected_legs.append(
-            LegSelection(
-                spec=leg_spec,
-                quote=leg_q,
-                side=side,
-                entry_price=_entry_price_from_side(leg_q, side=side, cfg=cfg),
-            )
-        )
 
+        expiry_date_group, chosen_dte_group, quotes_for_group = selected_group
+        group_results[group_name] = (expiry_date_group, chosen_dte_group)
+        for (leg_idx, leg_spec), quote in zip(
+            indexed_group_legs,
+            quotes_for_group,
+            strict=True,
+        ):
+            side = int(side_resolver(leg_spec))
+            selected_by_index[leg_idx] = LegSelection(
+                spec=leg_spec,
+                quote=quote,
+                side=side,
+                entry_price=_entry_price_from_side(quote, side=side, cfg=cfg),
+            )
+
+    selected_legs = tuple(
+        selected_by_index[idx] for idx in sorted(selected_by_index.keys())
+    )
     if not selected_legs:
         return None
 
@@ -149,6 +176,9 @@ def build_entry_intent_from_structure(
         and fill_ratio < structure_spec.min_fill_ratio
     ):
         return None
+
+    primary_group = "main" if "main" in group_results else next(iter(group_results))
+    expiry_date, chosen_dte = group_results[primary_group]
 
     if "spot_price" in chain.columns and not chain.empty:
         spot_entry = float(chain["spot_price"].iloc[0])
@@ -173,7 +203,7 @@ def build_entry_intent_from_structure(
         entry_date=entry_date,
         expiry_date=expiry_date,
         chosen_dte=int(chosen_dte),
-        legs=tuple(selected_legs),
+        legs=selected_legs,
         spot=spot_entry,
         volatility=iv_entry,
     )

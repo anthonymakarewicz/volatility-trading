@@ -25,7 +25,14 @@ from .lifecycle import (
     PositionLifecycleEngine,
 )
 from .runner import SinglePositionRunnerHooks, run_single_position_date_loop
-from .selectors import choose_expiry_by_target_dte, pick_quote_by_delta
+from .selectors import (
+    apply_leg_liquidity_filters,
+    choose_expiry_by_target_dte,
+    pick_quote_by_delta,
+    score_leg_candidates,
+    select_best_expiry_for_leg_group,
+    select_best_quote_for_leg,
+)
 from .sizing import (
     estimate_entry_intent_margin_per_contract,
     estimate_short_straddle_margin_per_contract,
@@ -56,6 +63,10 @@ __all__ = [
     "SameDayReentryPolicy",
     "pick_quote_by_delta",
     "choose_expiry_by_target_dte",
+    "apply_leg_liquidity_filters",
+    "score_leg_candidates",
+    "select_best_quote_for_leg",
+    "select_best_expiry_for_leg_group",
     "estimate_short_straddle_margin_per_contract",
     "size_short_straddle_contracts",
     "estimate_structure_margin_per_contract",

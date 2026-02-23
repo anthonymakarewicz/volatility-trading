@@ -19,6 +19,9 @@ class LegSpec:
     option_type: OptionType
     delta_target: float
     delta_tolerance: float = 0.10
+    expiry_group: str = "main"
+    dte_target: int | None = None
+    dte_tolerance: int | None = None
     weight: int = 1
     min_open_interest: int = 0
     min_volume: int = 0
@@ -27,6 +30,12 @@ class LegSpec:
     def __post_init__(self) -> None:
         if self.delta_tolerance <= 0:
             raise ValueError("delta_tolerance must be > 0")
+        if not self.expiry_group:
+            raise ValueError("expiry_group must be non-empty")
+        if self.dte_target is not None and self.dte_target <= 0:
+            raise ValueError("dte_target must be > 0 when provided")
+        if self.dte_tolerance is not None and self.dte_tolerance < 0:
+            raise ValueError("dte_tolerance must be >= 0 when provided")
         if self.weight == 0:
             raise ValueError("weight must be non-zero")
         if self.min_open_interest < 0:
@@ -42,7 +51,7 @@ class StructureSpec:
     """Target structure definition resolved into concrete legs at entry time."""
 
     name: str
-    dte_target: int = 30  # TODO: maybe move them to LegSpec e.g. a calendar spread would u different DTE in its Structure
+    dte_target: int = 30
     dte_tolerance: int = 7
     legs: tuple[LegSpec, ...] = ()
     fill_policy: FillPolicy = "all_or_none"
@@ -61,9 +70,6 @@ class StructureSpec:
             raise ValueError("all_or_none requires min_fill_ratio=1.0")
 
 
-# TODO: Since it is a rela contratc, why not using OptionLeg which has the same args and is not
-# specific to strategy only it is global to pricing and risk too sicn ethey work all with
-# a real option contract ?
 @dataclass(frozen=True)
 class LegSelection:
     """Concrete quote selected for one leg at entry."""
