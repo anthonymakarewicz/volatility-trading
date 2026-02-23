@@ -695,6 +695,9 @@ def test_same_day_reentry_can_be_enabled_for_rebalance_rolls():
     assert pd.Timestamp(trades_allow.iloc[1]["entry_date"]) == pd.Timestamp(
         "2020-01-02"
     )
+    assert "trade_legs" in trades_allow.columns
+    assert isinstance(trades_allow.iloc[0]["trade_legs"], list)
+    assert len(trades_allow.iloc[0]["trade_legs"]) == 2
     assert len(trades_block) == 1
 
 

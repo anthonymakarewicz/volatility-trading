@@ -92,7 +92,7 @@ class EntryIntent:
     expiry_date: pd.Timestamp
     chosen_dte: int
     legs: tuple[LegSelection, ...]
-    spot: float | None = None  # TODO: Why not a MarketState instead ?
+    spot: float | None = None
     volatility: float | None = None
 
     def __post_init__(self) -> None:

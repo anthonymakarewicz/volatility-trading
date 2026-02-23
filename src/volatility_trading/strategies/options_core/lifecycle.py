@@ -48,8 +48,8 @@ class OpenPosition:
     """Mutable open-position state updated once per trading date."""
 
     entry_date: pd.Timestamp
-    expiry_date: pd.Timestamp
-    chosen_dte: int
+    expiry_date: pd.Timestamp | None
+    chosen_dte: int | None
     rebalance_date: pd.Timestamp | None
     max_hold_date: pd.Timestamp | None
     intent: EntryIntent
@@ -209,6 +209,76 @@ class PositionLifecycleEngine:
         )
 
     @staticmethod
+    def _summary_expiry_and_dte_from_legs(
+        *,
+        entry_date: pd.Timestamp,
+        legs: Sequence[LegSelection],
+    ) -> tuple[pd.Timestamp | None, int | None]:
+        """Return single-expiry summary fields when all legs share them."""
+        expiries: list[pd.Timestamp] = []
+        dtes: list[int] = []
+        for leg in legs:
+            if "expiry_date" in leg.quote.index and pd.notna(leg.quote["expiry_date"]):
+                expiries.append(pd.Timestamp(leg.quote["expiry_date"]))
+            if "dte" in leg.quote.index and pd.notna(leg.quote["dte"]):
+                dtes.append(int(leg.quote["dte"]))
+
+        expiry_summary: pd.Timestamp | None = None
+        if expiries and all(exp == expiries[0] for exp in expiries):
+            expiry_summary = expiries[0]
+
+        dte_summary: int | None = None
+        if dtes and all(dte == dtes[0] for dte in dtes):
+            dte_summary = dtes[0]
+        elif expiry_summary is not None:
+            dte_summary = max((expiry_summary - pd.Timestamp(entry_date)).days, 1)
+
+        return expiry_summary, dte_summary
+
+    @staticmethod
+    def _trade_legs_payload(
+        *,
+        legs: Sequence[LegSelection],
+        exit_prices: Sequence[float] | None = None,
+    ) -> list[dict]:
+        """Build per-leg trade payload for durable multi-expiry trade records."""
+        payload: list[dict] = []
+        for idx, leg in enumerate(legs):
+            expiry_date = (
+                pd.Timestamp(leg.quote["expiry_date"])
+                if "expiry_date" in leg.quote.index
+                and pd.notna(leg.quote["expiry_date"])
+                else None
+            )
+            strike = (
+                float(leg.quote["strike"])
+                if "strike" in leg.quote.index and pd.notna(leg.quote["strike"])
+                else np.nan
+            )
+            exit_price = (
+                float(exit_prices[idx])
+                if exit_prices is not None and idx < len(exit_prices)
+                else np.nan
+            )
+            payload.append(
+                {
+                    "leg_index": idx,
+                    "option_type": str(leg.spec.option_type),
+                    "strike": strike,
+                    "expiry_date": expiry_date,
+                    "weight": int(leg.spec.weight),
+                    "side": int(leg.side),
+                    "effective_side": _effective_leg_side(leg),
+                    "entry_price": float(leg.entry_price),
+                    "exit_price": exit_price,
+                    "delta_target": float(leg.spec.delta_target),
+                    "delta_tolerance": float(leg.spec.delta_tolerance),
+                    "expiry_group": leg.spec.expiry_group,
+                }
+            )
+        return payload
+
+    @staticmethod
     def _intent_with_updated_quotes(
         *,
         intent: EntryIntent,
@@ -329,11 +399,15 @@ class PositionLifecycleEngine:
             if self.max_holding_period is not None
             else None
         )
+        expiry_summary, dte_summary = self._summary_expiry_and_dte_from_legs(
+            entry_date=setup.intent.entry_date,
+            legs=setup.intent.legs,
+        )
 
         position = OpenPosition(
             entry_date=setup.intent.entry_date,
-            expiry_date=setup.intent.expiry_date,
-            chosen_dte=setup.intent.chosen_dte,
+            expiry_date=expiry_summary,
+            chosen_dte=dte_summary,
             rebalance_date=rebalance_date,
             max_hold_date=max_hold_date,
             intent=setup.intent,
@@ -543,6 +617,10 @@ class PositionLifecycleEngine:
                     if contracts_after == 0
                     else "Margin Call Partial Liquidation"
                 ),
+                "trade_legs": self._trade_legs_payload(
+                    legs=position.intent.legs,
+                    exit_prices=exit_prices,
+                ),
             }
             trade_rows.append(trade_row)
 
@@ -666,6 +744,10 @@ class PositionLifecycleEngine:
             "risk_worst_scenario": position.risk_worst_scenario,
             "margin_per_contract": position.latest_margin_per_contract,
             "exit_type": exit_type,
+            "trade_legs": self._trade_legs_payload(
+                legs=position.intent.legs,
+                exit_prices=exit_prices,
+            ),
         }
         trade_rows.append(trade_row)
 
