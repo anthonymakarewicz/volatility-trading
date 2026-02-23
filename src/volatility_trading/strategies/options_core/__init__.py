@@ -7,6 +7,11 @@ from .adapters import (
     quote_to_option_spec,
     time_to_expiry_years,
 )
+from .entry import (
+    build_entry_intent_from_structure,
+    chain_for_date,
+    normalize_signals_to_on,
+)
 from .exit_rules import (
     ExitRule,
     ExitRuleSet,
@@ -41,6 +46,9 @@ __all__ = [
     "time_to_expiry_years",
     "quote_to_option_spec",
     "quote_to_option_leg",
+    "chain_for_date",
+    "normalize_signals_to_on",
+    "build_entry_intent_from_structure",
     "ExitRule",
     "RebalanceExitRule",
     "MaxHoldingExitRule",

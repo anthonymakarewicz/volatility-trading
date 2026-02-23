@@ -24,7 +24,6 @@ from ..base_strategy import Strategy
 from ..options_core import (
     EntryIntent,
     ExitRuleSet,
-    LegSelection,
     LegSpec,
     OpenPosition,
     PositionEntrySetup,
@@ -32,7 +31,9 @@ from ..options_core import (
     SameDayReentryPolicy,
     SinglePositionRunnerHooks,
     StructureSpec,
+    build_entry_intent_from_structure,
     choose_expiry_by_target_dte,
+    normalize_signals_to_on,
     pick_quote_by_delta,
     run_single_position_date_loop,
     size_entry_intent_contracts,
@@ -230,30 +231,13 @@ class VRPHarvestingStrategy(Strategy):
 
     @staticmethod
     def _signals_to_on_frame(signals: pd.DataFrame | pd.Series) -> pd.DataFrame:
-        """Normalize signals to a sorted DataFrame with a boolean `on` column."""
-        if isinstance(signals, pd.Series):
-            sig_df = signals.to_frame("on")
-        else:
-            sig_df = signals.copy()
+        """Normalize signals using the shared options-core signal adapter."""
+        return normalize_signals_to_on(signals, strategy_name="VRPStrategy")
 
-        if "on" not in sig_df.columns:
-            if "short" in sig_df.columns:
-                sig_df["on"] = sig_df["short"].astype(bool)
-            elif "long" in sig_df.columns:
-                sig_df["on"] = sig_df["long"].astype(bool)
-            elif sig_df.shape[1] == 1:
-                sig_df["on"] = sig_df.iloc[:, 0].astype(bool)
-            else:
-                raise ValueError(
-                    "VRPStrategy expects a boolean 'on' column in signals, "
-                    "or a Series, or a DF with 'short'/'long' or a single column."
-                )
-        return sig_df.sort_index()
-
-    # TODO: WHy not alos make it part of PositionLifecycleEngine ? Or maybe jsut put in base Strategy ?
-    # because like prepare the onyl seems to be generic if given a StructureSpec (by lettign the user
-    # cretae its own option strcutrue with own constrains, target delta and dte
-    # So that inetrnally when preparing the tarde jsut use this Structure obejct
+    @staticmethod
+    def _entry_side_for_leg(_leg_spec: LegSpec) -> int:
+        """VRP baseline enters as net short-vol: short every selected leg."""
+        return -1
 
     def _prepare_entry_setup(
         self,
@@ -264,64 +248,21 @@ class VRPHarvestingStrategy(Strategy):
         equity_running: float,
         cfg: BacktestConfig,
     ) -> PositionEntrySetup | None:
-        """Build an entry setup when all leg-selection and sizing constraints pass."""
-        chain = self._chain_for_date(options, entry_date)
-
-        chosen_dte = self.choose_vrp_expiry(
-            chain=chain,
-            target_dte=self.target_dte,
-            max_dte_diff=self.max_dte_diff,
+        """Build an entry setup from `self.structure_spec` plus sizing constraints."""
+        intent = build_entry_intent_from_structure(
+            entry_date=entry_date,
+            options=options,
+            structure_spec=self.structure_spec,
+            cfg=cfg,
+            side_resolver=self._entry_side_for_leg,
+            features=features,
         )
-        if chosen_dte is None:
+        if intent is None:
             return None
 
-        chain = chain[chain["dte"] == chosen_dte]
-        expiry_date = pd.Timestamp(chain["expiry_date"].iloc[0])
-        selected_legs: list[LegSelection] = []
-        for leg_spec in self.structure_spec.legs:
-            leg_type = "P" if leg_spec.option_type == OptionType.PUT else "C"
-            leg_quotes = chain[chain["option_type"] == leg_type]
-            leg_q = self._pick_quote(
-                leg_quotes,
-                tgt=leg_spec.delta_target,
-                delta_tolerance=leg_spec.delta_tolerance,
-            )
-            if leg_q is None:
-                return None
-            entry_price = float(leg_q["bid_price"] - cfg.slip_bid)
-            selected_legs.append(
-                LegSelection(
-                    spec=leg_spec,
-                    quote=leg_q,
-                    side=-1,  # VRP baseline: always short volatility structure.
-                    entry_price=entry_price,
-                )
-            )
-
-        spot_entry = float(chain["spot_price"].iloc[0])
-        if selected_legs and all(
-            "smoothed_iv" in leg.quote.index for leg in selected_legs
-        ):
-            iv_entry = float(
-                sum(float(leg.quote["smoothed_iv"]) for leg in selected_legs)
-                / len(selected_legs)
-            )
-        elif (
-            features is not None
-            and entry_date in features.index
-            and "iv_atm" in features.columns
-        ):
-            iv_entry = float(features.loc[entry_date, "iv_atm"])
-        else:
-            iv_entry = float("nan")
-
-        intent = EntryIntent(
-            entry_date=entry_date,
-            expiry_date=expiry_date,
-            chosen_dte=int(chosen_dte),
-            legs=tuple(selected_legs),
-            spot=spot_entry,
-            volatility=iv_entry,
+        spot_entry = float(intent.spot) if intent.spot is not None else float("nan")
+        iv_entry = (
+            float(intent.volatility) if intent.volatility is not None else float("nan")
         )
         contracts, risk_pc, risk_scenario, margin_pc = self._size_entry_intent(
             intent=intent,
