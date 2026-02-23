@@ -11,6 +11,7 @@ from volatility_trading.options import (
 )
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingStrategy
+from volatility_trading.strategies.options_core import time_to_expiry_years
 
 
 def _run_backtest(
@@ -553,19 +554,19 @@ def test_time_to_expiry_prefers_yte_then_dte_then_calendar():
     entry = pd.Timestamp("2020-01-01")
     expiry = pd.Timestamp("2020-01-31")
 
-    yte_first = VRPHarvestingStrategy._time_to_expiry_years(
+    yte_first = time_to_expiry_years(
         entry_date=entry,
         expiry_date=expiry,
         quote_yte=0.123,
         quote_dte=30,
     )
-    dte_fallback = VRPHarvestingStrategy._time_to_expiry_years(
+    dte_fallback = time_to_expiry_years(
         entry_date=entry,
         expiry_date=expiry,
         quote_yte=float("nan"),
         quote_dte=30,
     )
-    calendar_fallback = VRPHarvestingStrategy._time_to_expiry_years(
+    calendar_fallback = time_to_expiry_years(
         entry_date=entry,
         expiry_date=expiry,
         quote_yte=0.0,

@@ -16,11 +16,8 @@ from .exit_rules import (
 )
 from .lifecycle import (
     OpenPosition,
-    OpenShortStraddlePosition,
     PositionEntrySetup,
     PositionLifecycleEngine,
-    ShortStraddleEntrySetup,
-    ShortStraddleLifecycleEngine,
 )
 from .runner import SinglePositionRunnerHooks, run_single_position_date_loop
 from .selectors import choose_expiry_by_target_dte, pick_quote_by_delta
@@ -60,9 +57,6 @@ __all__ = [
     "PositionEntrySetup",
     "OpenPosition",
     "PositionLifecycleEngine",
-    "ShortStraddleEntrySetup",
-    "OpenShortStraddlePosition",
-    "ShortStraddleLifecycleEngine",
     "SinglePositionRunnerHooks",
     "run_single_position_date_loop",
 ]

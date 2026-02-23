@@ -36,7 +36,6 @@ from ..options_core import (
     pick_quote_by_delta,
     run_single_position_date_loop,
     size_entry_intent_contracts,
-    time_to_expiry_years,
 )
 
 
@@ -145,39 +144,6 @@ class VRPHarvestingStrategy(Strategy):
             delta_tolerance=delta_tolerance,
         )
 
-    @staticmethod
-    def _compute_greeks_per_contract(
-        put_q: pd.Series,
-        call_q: pd.Series,
-        put_side: int,
-        call_side: int,
-        lot_size: int,
-    ):
-        """
-        Aggregate Greeks per contract for a 1-lot straddle.
-        sides: +1 for long, -1 for short (per leg).
-        """
-        delta = (put_side * put_q["delta"] + call_side * call_q["delta"]) * lot_size
-        gamma = (put_side * put_q["gamma"] + call_side * call_q["gamma"]) * lot_size
-        vega = (put_side * put_q["vega"] + call_side * call_q["vega"]) * lot_size
-        theta = (put_side * put_q["theta"] + call_side * call_q["theta"]) * lot_size
-        return delta, gamma, vega, theta
-
-    @staticmethod
-    def _time_to_expiry_years(
-        *,
-        entry_date: pd.Timestamp,
-        expiry_date: pd.Timestamp,
-        quote_yte: float | int | None,
-        quote_dte: float | int | None,
-    ) -> float:
-        return time_to_expiry_years(
-            entry_date=entry_date,
-            expiry_date=expiry_date,
-            quote_yte=quote_yte,
-            quote_dte=quote_dte,
-        )
-
     def _size_entry_intent(
         self,
         *,
@@ -240,7 +206,7 @@ class VRPHarvestingStrategy(Strategy):
 
         # TODO: Apply the filters usign a for loop to validate signals
 
-        trades, mtm = self._simulate_short_straddles(
+        trades, mtm = self._simulate_structure(
             options=options,
             signals=signals,
             features=features,
@@ -422,7 +388,7 @@ class VRPHarvestingStrategy(Strategy):
         """Allow same-day reentry according to exit-specific policy."""
         return self.reentry_policy.allow_from_trade_rows(trade_rows)
 
-    def _simulate_short_straddles(
+    def _simulate_structure(
         self,
         options: pd.DataFrame,
         signals: pd.DataFrame | pd.Series,
@@ -431,7 +397,7 @@ class VRPHarvestingStrategy(Strategy):
         capital: float,
         cfg: BacktestConfig,
     ):
-        """Run a single-position-at-a-time, date-driven short-straddle simulation."""
+        """Run a single-position-at-a-time, date-driven structure simulation."""
         _ = hedge
 
         sig_df = self._signals_to_on_frame(signals)

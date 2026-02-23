@@ -725,9 +725,3 @@ class PositionLifecycleEngine:
             }
         )
         return None, mtm_record, trade_rows
-
-
-# Transitional aliases kept for parity while strategies migrate names.
-ShortStraddleEntrySetup = PositionEntrySetup
-OpenShortStraddlePosition = OpenPosition
-ShortStraddleLifecycleEngine = PositionLifecycleEngine
