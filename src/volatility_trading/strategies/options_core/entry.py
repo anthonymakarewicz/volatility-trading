@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+import numpy as np
 import pandas as pd
 
 from volatility_trading.backtesting import BacktestConfig
@@ -25,24 +26,70 @@ def normalize_signals_to_on(
     *,
     strategy_name: str = "Strategy",
 ) -> pd.DataFrame:
-    """Normalize signals to a sorted DataFrame with a boolean `on` column."""
+    """Normalize signals to a sorted DataFrame with `on` and `entry_direction`.
+
+    `entry_direction` is normalized to {-1, 0, +1} where:
+    - `-1`: short structure entry
+    - `+1`: long structure entry
+    - `0`: no entry
+    """
     if isinstance(signals, pd.Series):
         sig_df = signals.to_frame("on")
     else:
         sig_df = signals.copy()
 
-    if "on" not in sig_df.columns:
-        if "short" in sig_df.columns:
-            sig_df["on"] = sig_df["short"].astype(bool)
-        elif "long" in sig_df.columns:
-            sig_df["on"] = sig_df["long"].astype(bool)
-        elif sig_df.shape[1] == 1:
-            sig_df["on"] = sig_df.iloc[:, 0].astype(bool)
-        else:
-            raise ValueError(
-                f"{strategy_name} expects a boolean 'on' column in signals, "
-                "or a Series, or a DF with 'short'/'long' or a single column."
-            )
+    long_on = (
+        sig_df["long"].astype(bool)
+        if "long" in sig_df.columns
+        else pd.Series(False, index=sig_df.index)
+    )
+    short_on = (
+        sig_df["short"].astype(bool)
+        if "short" in sig_df.columns
+        else pd.Series(False, index=sig_df.index)
+    )
+
+    if "on" in sig_df.columns:
+        sig_df["on"] = sig_df["on"].astype(bool)
+    elif "long" in sig_df.columns or "short" in sig_df.columns:
+        sig_df["on"] = long_on | short_on
+    elif sig_df.shape[1] == 1:
+        sig_df["on"] = sig_df.iloc[:, 0].astype(bool)
+    else:
+        raise ValueError(
+            f"{strategy_name} expects a boolean 'on' column in signals, "
+            "or a Series, or a DF with 'short'/'long' or a single column."
+        )
+
+    if "entry_direction" in sig_df.columns:
+        direction = pd.to_numeric(sig_df["entry_direction"], errors="coerce").fillna(
+            0.0
+        )
+        direction = np.sign(direction).astype(int)
+    elif "long" in sig_df.columns and "short" in sig_df.columns:
+        direction = pd.Series(0, index=sig_df.index, dtype=int)
+        direction.loc[long_on & ~short_on] = 1
+        direction.loc[short_on & ~long_on] = -1
+    elif "short" in sig_df.columns:
+        direction = pd.Series(0, index=sig_df.index, dtype=int)
+        direction.loc[short_on] = -1
+    elif "long" in sig_df.columns:
+        direction = pd.Series(0, index=sig_df.index, dtype=int)
+        direction.loc[long_on] = 1
+    else:
+        # Legacy/default behavior for `on`-only signals is short entry.
+        direction = pd.Series(0, index=sig_df.index, dtype=int)
+        direction.loc[sig_df["on"]] = -1
+
+    # Defensive normalization: never allow direction != 0 when `on` is False.
+    direction = direction.where(sig_df["on"], 0).astype(int)
+    sig_df["entry_direction"] = direction
+
+    if bool((sig_df["on"] & (sig_df["entry_direction"] == 0)).any()):
+        raise ValueError(
+            f"{strategy_name} produced `on=True` with `entry_direction=0`."
+        )
+
     return sig_df.sort_index()
 
 

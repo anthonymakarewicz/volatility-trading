@@ -35,24 +35,39 @@ def _leg_contract_multiplier(leg: LegSelection, *, lot_size: int) -> float:
 def _build_option_legs(
     *,
     entry_date: pd.Timestamp,
-    expiry_date: pd.Timestamp,
+    default_expiry_date: pd.Timestamp | None,
     legs: Sequence[LegSelection],
     lot_size: int,
 ):
     if not legs:
         raise ValueError("legs must not be empty")
 
-    return tuple(
-        quote_to_option_leg(
-            quote=leg.quote,
-            entry_date=entry_date,
-            expiry_date=expiry_date,
-            entry_price=leg.entry_price,
-            side=_effective_leg_side(leg),
-            contract_multiplier=_leg_contract_multiplier(leg, lot_size=lot_size),
+    built_legs = []
+    for leg in legs:
+        quote_expiry = leg.quote.get("expiry_date")
+        if quote_expiry is not None and not pd.isna(quote_expiry):
+            expiry_date = pd.Timestamp(quote_expiry)
+        elif default_expiry_date is not None:
+            expiry_date = pd.Timestamp(default_expiry_date)
+        else:
+            raise ValueError(
+                "Missing expiry_date on leg quote and no default_expiry_date provided."
+            )
+
+        built_legs.append(
+            quote_to_option_leg(
+                quote=leg.quote,
+                entry_date=entry_date,
+                expiry_date=expiry_date,
+                entry_price=leg.entry_price,
+                side=_effective_leg_side(leg),
+                contract_multiplier=_leg_contract_multiplier(
+                    leg,
+                    lot_size=lot_size,
+                ),
+            )
         )
-        for leg in legs
-    )
+    return tuple(built_legs)
 
 
 def estimate_structure_margin_per_contract(
@@ -76,7 +91,7 @@ def estimate_structure_margin_per_contract(
 
     option_legs = _build_option_legs(
         entry_date=as_of_date,
-        expiry_date=expiry_date,
+        default_expiry_date=expiry_date,
         legs=legs,
         lot_size=lot_size,
     )
@@ -119,7 +134,7 @@ def size_structure_contracts(
 
     option_legs = _build_option_legs(
         entry_date=entry_date,
-        expiry_date=expiry_date,
+        default_expiry_date=expiry_date,
         legs=legs,
         lot_size=lot_size,
     )

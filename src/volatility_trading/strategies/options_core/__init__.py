@@ -7,6 +7,7 @@ from .adapters import (
     quote_to_option_spec,
     time_to_expiry_years,
 )
+from .config_strategy import ConfigDrivenOptionsStrategy
 from .entry import (
     build_entry_intent_from_structure,
     chain_for_date,
@@ -37,6 +38,7 @@ from .sizing import (
     size_entry_intent_contracts,
     size_structure_contracts,
 )
+from .specs import OptionsStrategySpec
 from .types import EntryIntent, LegSelection, LegSpec, StructureSpec
 
 __all__ = [
@@ -49,6 +51,8 @@ __all__ = [
     "time_to_expiry_years",
     "quote_to_option_spec",
     "quote_to_option_leg",
+    "OptionsStrategySpec",
+    "ConfigDrivenOptionsStrategy",
     "chain_for_date",
     "normalize_signals_to_on",
     "build_entry_intent_from_structure",

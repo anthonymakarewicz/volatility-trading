@@ -70,7 +70,8 @@ def score_leg_candidates(
     else:
         rel_spread = pd.Series(0.0, index=scored.index)
 
-    rel_spread = rel_spread.replace([np.inf, -np.inf], np.nan)
+    rel_spread = pd.to_numeric(rel_spread, errors="coerce")
+    rel_spread = rel_spread.where(np.isfinite(rel_spread), np.nan)
     scored["rel_spread"] = rel_spread.fillna(np.inf)
     finite_spread = rel_spread.dropna()
     spread_scale = float(finite_spread.max()) if not finite_spread.empty else 0.0

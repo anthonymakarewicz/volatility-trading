@@ -6,6 +6,7 @@ from volatility_trading.strategies.options_core import (
     LegSpec,
     StructureSpec,
     build_entry_intent_from_structure,
+    normalize_signals_to_on,
 )
 
 
@@ -202,3 +203,28 @@ def test_build_entry_intent_min_ratio_allows_partial_fill():
     assert pd.Timestamp(intent.legs[0].quote["expiry_date"]) == pd.Timestamp(
         "2020-01-31"
     )
+
+
+def test_normalize_signals_to_on_defaults_to_short_for_on_only_inputs():
+    signals = pd.Series(
+        [True, False, True],
+        index=pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03"]),
+        name="on",
+    )
+    out = normalize_signals_to_on(signals)
+    assert list(out["on"]) == [True, False, True]
+    assert list(out["entry_direction"]) == [-1, 0, -1]
+
+
+def test_normalize_signals_to_on_builds_direction_from_long_short_columns():
+    idx = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03"])
+    signals = pd.DataFrame(
+        {
+            "long": [True, False, False],
+            "short": [False, True, False],
+        },
+        index=idx,
+    )
+    out = normalize_signals_to_on(signals)
+    assert list(out["on"]) == [True, True, False]
+    assert list(out["entry_direction"]) == [1, -1, 0]

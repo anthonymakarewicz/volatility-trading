@@ -1,10 +1,8 @@
-import pandas as pd
+"""VRP preset built on top of the generic config-driven options strategy."""
 
-from volatility_trading.backtesting import (
-    BacktestConfig,
-    MarginPolicy,
-    SliceContext,
-)
+from __future__ import annotations
+
+from volatility_trading.backtesting import MarginPolicy
 from volatility_trading.filters import Filter
 from volatility_trading.options import (
     BlackScholesPricer,
@@ -20,25 +18,28 @@ from volatility_trading.options import (
 )
 from volatility_trading.signals import Signal
 
-from ..base_strategy import Strategy
 from ..options_core import (
-    EntryIntent,
+    ConfigDrivenOptionsStrategy,
     ExitRuleSet,
     LegSpec,
-    OpenPosition,
-    PositionEntrySetup,
-    PositionLifecycleEngine,
+    OptionsStrategySpec,
     SameDayReentryPolicy,
-    SinglePositionRunnerHooks,
     StructureSpec,
-    build_entry_intent_from_structure,
-    normalize_signals_to_on,
-    run_single_position_date_loop,
-    size_entry_intent_contracts,
 )
 
 
-class VRPHarvestingStrategy(Strategy):
+class VRPHarvestingStrategy(ConfigDrivenOptionsStrategy):
+    """Baseline VRP harvesting strategy as a spec preset.
+
+    The strategy remains a short-vol implementation by default (short ATM
+    straddle), but all lifecycle plumbing is handled by
+    `ConfigDrivenOptionsStrategy`.
+    """
+
+    @staticmethod
+    def _entry_side_for_leg(_leg_spec: LegSpec, _entry_direction: int) -> int:
+        return -1
+
     def __init__(
         self,
         signal: Signal,
@@ -61,41 +62,29 @@ class VRPHarvestingStrategy(Strategy):
         min_contracts: int = 1,
         max_contracts: int | None = None,
     ):
-        """
-        Baseline VRP harvesting strategy:
-        - short ATM straddle when signal is ON
-        - 30D target maturity (by dte)
-        - optional rebalance cadence and max holding-age exit
-        - optional stress-based risk sizing and margin-based capacity limits
-        - no delta-hedge (for now)
-        """
-        super().__init__(signal=signal, filters=filters)
-        for name, period in (
-            ("rebalance_period", rebalance_period),
-            ("max_holding_period", max_holding_period),
-        ):
-            if period is not None and period <= 0:
-                raise ValueError(f"{name} must be > 0 when provided")
+        margin_model_resolved = margin_model
+        if margin_model_resolved is None and margin_budget_pct is not None:
+            margin_model_resolved = RegTMarginModel()
 
-        self.rebalance_period = rebalance_period
-        self.max_holding_period = max_holding_period
-        if self.rebalance_period is None and self.max_holding_period is None:
-            raise ValueError(
-                "At least one of rebalance_period or max_holding_period must be set."
+        margin_budget_pct_resolved = margin_budget_pct
+        if margin_model_resolved is not None and margin_budget_pct_resolved is None:
+            margin_budget_pct_resolved = 1.0
+
+        risk_sizer = (
+            RiskBudgetSizer(
+                risk_budget_pct=risk_budget_pct,
+                min_contracts=min_contracts,
+                max_contracts=max_contracts,
             )
-
-        self.allow_same_day_reentry_on_rebalance = allow_same_day_reentry_on_rebalance
-        self.allow_same_day_reentry_on_max_holding = (
-            allow_same_day_reentry_on_max_holding
+            if risk_budget_pct is not None
+            else None
         )
-        self.reentry_policy = reentry_policy or SameDayReentryPolicy(
+        exit_rules = exit_rule_set or ExitRuleSet.period_rules()
+        same_day_reentry = reentry_policy or SameDayReentryPolicy(
             allow_on_rebalance=allow_same_day_reentry_on_rebalance,
             allow_on_max_holding=allow_same_day_reentry_on_max_holding,
         )
-        self.exit_rule_set = exit_rule_set or ExitRuleSet.period_rules()
-        self.target_dte = target_dte
-        self.max_dte_diff = max_dte_diff
-        self.structure_spec = StructureSpec(
+        structure = StructureSpec(
             name="short_atm_straddle",
             dte_target=target_dte,
             dte_tolerance=max_dte_diff,
@@ -104,273 +93,32 @@ class VRPHarvestingStrategy(Strategy):
                 LegSpec(option_type=OptionType.CALL, delta_target=0.5),
             ),
         )
-        self.pricer = pricer or BlackScholesPricer()
-        self.scenario_generator = scenario_generator or FixedGridScenarioGenerator()
-        self.risk_estimator = risk_estimator or StressLossRiskEstimator()
-        if risk_budget_pct is not None:
-            self.risk_sizer = RiskBudgetSizer(
-                risk_budget_pct=risk_budget_pct,
-                min_contracts=min_contracts,
-                max_contracts=max_contracts,
-            )
-        else:
-            self.risk_sizer = None
-        self.min_contracts = min_contracts
-        self.max_contracts = max_contracts
-
-        self.margin_model = margin_model
-        if self.margin_model is None and margin_budget_pct is not None:
-            self.margin_model = RegTMarginModel()
-
-        self.margin_budget_pct = margin_budget_pct
-        if self.margin_model is not None and self.margin_budget_pct is None:
-            self.margin_budget_pct = 1.0
-        if self.margin_budget_pct is not None and not 0 <= self.margin_budget_pct <= 1:
-            raise ValueError("margin_budget_pct must be in [0, 1]")
-        self.margin_policy = margin_policy
-
-    # --------- Helpers ---------
-
-    def _size_entry_intent(
-        self,
-        *,
-        intent: EntryIntent,
-        lot_size: int,
-        spot: float,
-        volatility: float,
-        equity: float,
-    ) -> tuple[int, float | None, str | None, float | None]:
-        """Compute contracts from risk budget and optional margin-capacity budget."""
-        return size_entry_intent_contracts(
-            intent=intent,
-            lot_size=lot_size,
-            spot=spot,
-            volatility=volatility,
-            equity=equity,
-            pricer=self.pricer,
-            scenario_generator=self.scenario_generator,
-            risk_estimator=self.risk_estimator,
-            risk_sizer=self.risk_sizer,
-            margin_model=self.margin_model,
-            margin_budget_pct=self.margin_budget_pct,
-            min_contracts=self.min_contracts,
-            max_contracts=self.max_contracts,
-        )
-
-    # --------- Main entry point ---------
-
-    def run(self, ctx: SliceContext):
-        data = ctx.data
-        capital = ctx.capital
-        cfg = ctx.config
-
-        options = data["options"]
-        features = data.get("features")  # expected: DataFrame with iv_atm etc.
-        hedge = data.get("hedge")  # not used yet, but kept in signature
-
-        # For now: always-on short vol (filters will switch us OFF if needed)
-        series = pd.Series(0, index=options.index)
-        signals = self.signal.generate_signals(series)
-
-        # TODO: Apply the filters usign a for loop to validate signals
-
-        trades, mtm = self._simulate_structure(
-            options=options,
-            signals=signals,
-            features=features,
-            hedge=hedge,
-            capital=capital,
-            cfg=cfg,
-        )
-        return trades, mtm
-
-    # --------- Core simulator ---------
-
-    @staticmethod
-    def _signals_to_on_frame(signals: pd.DataFrame | pd.Series) -> pd.DataFrame:
-        """Normalize signals using the shared options-core signal adapter."""
-        return normalize_signals_to_on(signals, strategy_name="VRPStrategy")
-
-    @staticmethod
-    def _entry_side_for_leg(_leg_spec: LegSpec) -> int:
-        """VRP baseline enters as net short-vol: short every selected leg."""
-        return -1
-
-    def _prepare_entry_setup(
-        self,
-        *,
-        entry_date: pd.Timestamp,
-        options: pd.DataFrame,
-        features: pd.DataFrame | None,
-        equity_running: float,
-        cfg: BacktestConfig,
-    ) -> PositionEntrySetup | None:
-        """Build an entry setup from `self.structure_spec` plus sizing constraints."""
-        intent = build_entry_intent_from_structure(
-            entry_date=entry_date,
-            options=options,
-            structure_spec=self.structure_spec,
-            cfg=cfg,
+        spec = OptionsStrategySpec(
+            name="VRPStrategy",
+            signal=signal,
+            filters=tuple(filters or ()),
+            structure_spec=structure,
             side_resolver=self._entry_side_for_leg,
-            features=features,
+            rebalance_period=rebalance_period,
+            max_holding_period=max_holding_period,
+            exit_rule_set=exit_rules,
+            reentry_policy=same_day_reentry,
+            pricer=pricer or BlackScholesPricer(),
+            scenario_generator=scenario_generator or FixedGridScenarioGenerator(),
+            risk_estimator=risk_estimator or StressLossRiskEstimator(),
+            risk_sizer=risk_sizer,
+            margin_model=margin_model_resolved,
+            margin_budget_pct=margin_budget_pct_resolved,
+            margin_policy=margin_policy,
+            min_contracts=min_contracts,
+            max_contracts=max_contracts,
         )
-        if intent is None:
-            return None
+        super().__init__(spec)
 
-        spot_entry = float(intent.spot) if intent.spot is not None else float("nan")
-        iv_entry = (
-            float(intent.volatility) if intent.volatility is not None else float("nan")
+        # Keep strategy-level fields explicit for notebooks/reporting.
+        self.target_dte = target_dte
+        self.max_dte_diff = max_dte_diff
+        self.allow_same_day_reentry_on_rebalance = allow_same_day_reentry_on_rebalance
+        self.allow_same_day_reentry_on_max_holding = (
+            allow_same_day_reentry_on_max_holding
         )
-        contracts, risk_pc, risk_scenario, margin_pc = self._size_entry_intent(
-            intent=intent,
-            lot_size=cfg.lot_size,
-            spot=spot_entry,
-            volatility=iv_entry,
-            equity=float(equity_running),
-        )
-        if contracts <= 0:
-            return None
-
-        return PositionEntrySetup(
-            intent=intent,
-            contracts=int(contracts),
-            risk_per_contract=risk_pc,
-            risk_worst_scenario=risk_scenario,
-            margin_per_contract=margin_pc,
-        )
-
-    def _open_position(
-        self,
-        *,
-        setup: PositionEntrySetup,
-        cfg: BacktestConfig,
-        equity_running: float,
-    ) -> tuple[OpenPosition, dict]:
-        """Create one open-position state and its entry-day MTM record."""
-        return self._build_lifecycle_engine().open_position(
-            setup=setup,
-            cfg=cfg,
-            equity_running=equity_running,
-        )
-
-    def _mark_open_position(
-        self,
-        *,
-        position: OpenPosition,
-        curr_date: pd.Timestamp,
-        options: pd.DataFrame,
-        cfg: BacktestConfig,
-        equity_running: float,
-    ) -> tuple[OpenPosition | None, dict, list[dict]]:
-        """Revalue one open position on one date and apply exits/liquidations."""
-        return self._build_lifecycle_engine().mark_position(
-            position=position,
-            curr_date=curr_date,
-            options=options,
-            cfg=cfg,
-            equity_running=equity_running,
-        )
-
-    def _build_lifecycle_engine(self) -> PositionLifecycleEngine:
-        """Build lifecycle engine using current strategy parameters."""
-        return PositionLifecycleEngine(
-            rebalance_period=self.rebalance_period,
-            max_holding_period=self.max_holding_period,
-            exit_rule_set=self.exit_rule_set,
-            margin_policy=self.margin_policy,
-            margin_model=self.margin_model,
-            pricer=self.pricer,
-        )
-
-    def _can_reenter_same_day(self, trade_rows: list[dict]) -> bool:
-        """Allow same-day reentry according to exit-specific policy."""
-        return self.reentry_policy.allow_from_trade_rows(trade_rows)
-
-    def _simulate_structure(
-        self,
-        options: pd.DataFrame,
-        signals: pd.DataFrame | pd.Series,
-        features: pd.DataFrame | None,
-        hedge: pd.Series | None,
-        capital: float,
-        cfg: BacktestConfig,
-    ):
-        """Run a single-position-at-a-time, date-driven structure simulation."""
-        _ = hedge
-
-        sig_df = self._signals_to_on_frame(signals)
-        options = options.sort_index()
-        trading_dates = sorted(options.index.unique())
-        active_signal_dates = set(sig_df.index[sig_df["on"]])
-        hooks = SinglePositionRunnerHooks[OpenPosition, PositionEntrySetup](
-            mark_open_position=lambda position, curr_date, equity_running: (
-                self._mark_open_position(
-                    position=position,
-                    curr_date=curr_date,
-                    options=options,
-                    cfg=cfg,
-                    equity_running=equity_running,
-                )
-            ),
-            prepare_entry=lambda entry_date, equity_running: self._prepare_entry_setup(
-                entry_date=entry_date,
-                options=options,
-                features=features,
-                equity_running=equity_running,
-                cfg=cfg,
-            ),
-            open_position=lambda setup, equity_running: self._open_position(
-                setup=setup,
-                cfg=cfg,
-                equity_running=equity_running,
-            ),
-            can_reenter_same_day=self._can_reenter_same_day,
-        )
-        trades, mtm_records = run_single_position_date_loop(
-            trading_dates=trading_dates,
-            active_signal_dates=active_signal_dates,
-            initial_equity=capital,
-            hooks=hooks,
-        )
-
-        if not mtm_records:
-            return pd.DataFrame(trades), pd.DataFrame()
-
-        mtm_agg = pd.DataFrame(mtm_records).set_index("date").sort_index()
-        agg_map = {
-            "delta_pnl": "sum",
-            "delta": "sum",
-            "net_delta": "sum",
-            "gamma": "sum",
-            "vega": "sum",
-            "theta": "sum",
-            "hedge_pnl": "sum",
-            "S": "first",
-            "iv": "first",
-        }
-        optional_sum_cols = [
-            "open_contracts",
-            "initial_margin_requirement",
-            "maintenance_margin_requirement",
-            "contracts_liquidated",
-            "financing_pnl",
-        ]
-        optional_first_cols = [
-            "margin_per_contract",
-            "margin_excess",
-            "margin_deficit",
-        ]
-        optional_max_cols = ["in_margin_call", "margin_call_days", "forced_liquidation"]
-        for col in optional_sum_cols:
-            if col in mtm_agg.columns:
-                agg_map[col] = "sum"
-        for col in optional_first_cols:
-            if col in mtm_agg.columns:
-                agg_map[col] = "first"
-        for col in optional_max_cols:
-            if col in mtm_agg.columns:
-                agg_map[col] = "max"
-        mtm = mtm_agg.groupby("date").agg(agg_map)
-        mtm["equity"] = capital + mtm["delta_pnl"].cumsum()
-
-        return pd.DataFrame(trades), mtm

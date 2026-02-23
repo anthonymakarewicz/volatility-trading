@@ -19,18 +19,26 @@ from volatility_trading.strategies.options_core import (
 )
 
 
-def _quote(option_type: str, *, strike: float = 100.0, dte: int = 30) -> pd.Series:
-    return pd.Series(
-        {
-            "option_type": option_type,
-            "strike": strike,
-            "dte": dte,
-            "yte": dte / 365.0,
-            "delta": -0.5 if option_type == "P" else 0.5,
-            "bid_price": 5.0,
-            "ask_price": 5.2,
-        }
-    )
+def _quote(
+    option_type: str,
+    *,
+    strike: float = 100.0,
+    dte: int = 30,
+    expiry_date: str = "2020-01-31",
+    include_yte: bool = True,
+) -> pd.Series:
+    payload = {
+        "option_type": option_type,
+        "strike": strike,
+        "dte": dte,
+        "expiry_date": pd.Timestamp(expiry_date),
+        "delta": -0.5 if option_type == "P" else 0.5,
+        "bid_price": 5.0,
+        "ask_price": 5.2,
+    }
+    if include_yte:
+        payload["yte"] = dte / 365.0
+    return pd.Series(payload)
 
 
 def _short_straddle_intent() -> EntryIntent:
@@ -166,3 +174,65 @@ def test_estimate_entry_intent_margin_per_contract():
         pricer=NullPricer(),
     )
     assert margin_pc == pytest.approx(456.0)
+
+
+def test_estimate_entry_intent_margin_uses_each_leg_expiry_when_available():
+    class CapturingMarginModel:
+        def __init__(self):
+            self.time_to_expiry: list[float] = []
+
+        def initial_margin_requirement(self, *, legs, state, pricer):
+            _ = (state, pricer)
+            self.time_to_expiry = [float(leg.spec.time_to_expiry) for leg in legs]
+            return 321.0
+
+    class NullPricer:
+        def price(self, spec, state):
+            _ = (spec, state)
+            return 1.0
+
+    margin_model = CapturingMarginModel()
+    intent = EntryIntent(
+        entry_date=pd.Timestamp("2020-01-01"),
+        expiry_date=pd.Timestamp("2020-01-31"),
+        chosen_dte=30,
+        legs=(
+            LegSelection(
+                spec=LegSpec(option_type=OptionType.PUT, delta_target=-0.5),
+                quote=_quote(
+                    "P",
+                    dte=30,
+                    expiry_date="2020-01-31",
+                    include_yte=False,
+                ),
+                side=-1,
+                entry_price=5.0,
+            ),
+            LegSelection(
+                spec=LegSpec(option_type=OptionType.CALL, delta_target=0.5),
+                quote=_quote(
+                    "C",
+                    dte=90,
+                    expiry_date="2020-03-31",
+                    include_yte=False,
+                ),
+                side=-1,
+                entry_price=5.0,
+            ),
+        ),
+    )
+
+    margin_pc = estimate_entry_intent_margin_per_contract(
+        intent=intent,
+        as_of_date=pd.Timestamp("2020-01-01"),
+        lot_size=1,
+        spot=100.0,
+        volatility=0.2,
+        margin_model=margin_model,
+        pricer=NullPricer(),
+    )
+
+    assert margin_pc == pytest.approx(321.0)
+    assert len(margin_model.time_to_expiry) == 2
+    assert margin_model.time_to_expiry[0] == pytest.approx(30.0 / 365.0, rel=1e-3)
+    assert margin_model.time_to_expiry[1] == pytest.approx(90.0 / 365.0, rel=1e-3)
