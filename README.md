@@ -67,6 +67,51 @@ orats-api-download --config config/orats/api_download.yml --dry-run
 
 For the full command sequence, see [Data pipeline](docs/reference/data_pipeline.md).
 
+## **Quick VRP Backtest Example**
+
+The snippet below focuses only on running the strategy.
+Assume you already prepared:
+
+- `options`: long-format `pandas` options panel indexed by `trade_date`
+
+```python
+from volatility_trading.backtesting import (
+  BacktestConfig,
+  print_performance_report,
+  to_daily_mtm,
+)
+from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.signals import ShortOnlySignal
+from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
+
+vrp_spec = VRPHarvestingSpec(
+    signal=ShortOnlySignal(),
+    rebalance_period=10,
+    risk_budget_pct=0.03,
+    margin_budget_pct=0.4,
+)
+strategy = make_vrp_strategy(vrp_spec)
+
+cfg = BacktestConfig(initial_capital=50_000, commission_per_leg=0.0)
+
+bt = Backtester(
+    data={"options": options, "features": None, "hedge": None},
+    strategy=strategy,
+    config=cfg,
+)
+trades, mtm = bt.run()
+daily_mtm = to_daily_mtm(mtm)
+
+metrics = print_performance_report(
+    trades=trades,
+    mtm_daily=daily_mtm,
+    risk_free_rate=0.02,
+)
+```
+
+For full data-loading and report-export examples, see
+`notebooks/vrp_harvesting/notebook.py`.
+
 ## **Tests**
 
 Run unit tests (default):
