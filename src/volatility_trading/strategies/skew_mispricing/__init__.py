@@ -1,1 +1,1 @@
-"""Skew mispricing strategy package."""
+"""Skew mispricing strategy preset package."""

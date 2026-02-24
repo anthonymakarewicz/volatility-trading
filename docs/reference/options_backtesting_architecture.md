@@ -5,7 +5,7 @@ This document describes how the current options backtesting stack is wired, from
 
 ## Scope
 
-- Covered: options strategy runtime (`backtesting/` + `strategies/options_core/`)
+- Covered: options strategy runtime (`backtesting/` + `backtesting/options_engine/`)
 - Not covered: data ETL/QC pipelines and model research notebooks
 
 ## Design Intent
@@ -25,12 +25,12 @@ accounting logic across structures (single-leg or multi-leg).
 flowchart TD
     A[Notebook / Script] --> B[Backtester<br/>backtesting/engine.py]
     B --> C[StrategyRunner Protocol<br/>backtesting/types.py]
-    C -.implemented by.-> D[OptionsStrategyRunner<br/>strategies/options_core/strategy_runner.py]
+    C -.implemented by.-> D[OptionsStrategyRunner<br/>backtesting/options_engine/strategy_runner.py]
 
-    A --> E[VRPHarvestingSpec + make_vrp_strategy<br/>strategies/vrp_harvesting/strategy.py]
+    A --> E[VRPHarvestingSpec + make_vrp_strategy<br/>strategies/vrp_harvesting/specs.py]
     E --> D
 
-    D --> F[StrategySpec<br/>strategies/options_core/specs.py]
+    D --> F[StrategySpec<br/>backtesting/options_engine/specs.py]
     D --> G[entry.py<br/>build EntryIntent]
     D --> H[sizing.py<br/>risk + margin sizing]
     D --> I[lifecycle.py<br/>open/mark/close]
@@ -46,7 +46,7 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-    participant U as User Notebook
+    participant U as User Entrypoint
     participant B as Backtester
     participant S as OptionsStrategyRunner
     participant E as Entry Builder
@@ -175,6 +175,6 @@ contracts.
 ## Practical Rule of Thumb
 
 - If logic is reusable across options strategies, it belongs in
-  `strategies/options_core/`.
+  `backtesting/options_engine/`.
 - If logic is a business preset or parameter bundle, it belongs in
-  `strategies/<strategy_name>/strategy.py`.
+  `strategies/<strategy_name>/specs.py`.

@@ -12,8 +12,8 @@ class LongOnlySignal(Signal):
         # Nothing to set
         pass
 
-    def generate_signals(self, series: pd.Series) -> pd.DataFrame:
-        signals = pd.DataFrame(index=series.index)
+    def generate_signals(self, data: pd.Series | pd.DataFrame) -> pd.DataFrame:
+        signals = pd.DataFrame(index=data.index)
         signals["long"] = True
         signals["short"] = False
         signals["exit"] = False
@@ -27,8 +27,8 @@ class ShortOnlySignal(Signal):
     def set_params(self, **kwargs) -> None:
         pass
 
-    def generate_signals(self, series: pd.Series) -> pd.DataFrame:
-        signals = pd.DataFrame(index=series.index)
+    def generate_signals(self, data: pd.Series | pd.DataFrame) -> pd.DataFrame:
+        signals = pd.DataFrame(index=data.index)
         signals["long"] = False
         signals["short"] = True
         signals["exit"] = False

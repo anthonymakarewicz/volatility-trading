@@ -14,9 +14,9 @@ from collections.abc import Callable
 import numpy as np
 import pandas as pd
 
-from volatility_trading.backtesting import BacktestConfig
 from volatility_trading.options import MarketState, PositionSide
 
+from ..types import BacktestConfig
 from .selectors import select_best_expiry_for_leg_group
 from .types import EntryIntent, LegSelection, LegSpec, StructureSpec
 

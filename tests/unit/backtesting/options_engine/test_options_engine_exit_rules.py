@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from volatility_trading.strategies.options_core import (
+from volatility_trading.backtesting.options_engine import (
     ExitRuleSet,
     SameDayReentryPolicy,
 )

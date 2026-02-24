@@ -1,6 +1,14 @@
 import pandas as pd
 import pytest
 
+from volatility_trading.backtesting.options_engine import (
+    EntryIntent,
+    LegSelection,
+    LegSpec,
+    estimate_entry_intent_margin_per_contract,
+    select_best_expiry_for_leg_group,
+    size_entry_intent_contracts,
+)
 from volatility_trading.options import (
     MarketShock,
     OptionType,
@@ -8,14 +16,6 @@ from volatility_trading.options import (
     StressPoint,
     StressResult,
     StressScenario,
-)
-from volatility_trading.strategies.options_core import (
-    EntryIntent,
-    LegSelection,
-    LegSpec,
-    estimate_entry_intent_margin_per_contract,
-    select_best_expiry_for_leg_group,
-    size_entry_intent_contracts,
 )
 
 

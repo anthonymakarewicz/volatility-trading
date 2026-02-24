@@ -8,7 +8,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from volatility_trading.backtesting import MarginPolicy
+from volatility_trading.backtesting.margin import MarginPolicy
+from volatility_trading.backtesting.options_engine import (
+    ExitRuleSet,
+    LegSpec,
+    OptionsStrategyRunner,
+    SameDayReentryPolicy,
+    StrategySpec,
+    StructureSpec,
+)
 from volatility_trading.filters import Filter
 from volatility_trading.options import (
     BlackScholesPricer,
@@ -24,15 +32,6 @@ from volatility_trading.options import (
 )
 from volatility_trading.signals import Signal
 
-from ..options_core import (
-    ExitRuleSet,
-    LegSpec,
-    OptionsStrategyRunner,
-    SameDayReentryPolicy,
-    StrategySpec,
-    StructureSpec,
-)
-
 
 def _vrp_short_side(_leg_spec: LegSpec, _entry_direction: int) -> int:
     """VRP harvesting always sells structure legs."""
@@ -44,7 +43,7 @@ class VRPHarvestingSpec:
     """Configuration preset for baseline short-ATM-straddle VRP harvesting.
 
     The preset is intentionally small: it defines structure, sizing, margin, and
-    reentry defaults, then delegates execution to shared options-core components.
+    reentry defaults, then delegates execution to shared options-engine components.
     """
 
     signal: Signal

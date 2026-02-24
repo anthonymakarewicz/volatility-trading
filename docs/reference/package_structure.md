@@ -27,6 +27,18 @@ src/volatility_trading
 │   ├── attribution.py
 │   ├── engine.py
 │   ├── margin.py
+│   ├── options_engine
+│   │   ├── __init__.py
+│   │   ├── adapters.py
+│   │   ├── entry.py
+│   │   ├── exit_rules.py
+│   │   ├── lifecycle.py
+│   │   ├── runner.py
+│   │   ├── selectors.py
+│   │   ├── sizing.py
+│   │   ├── specs.py
+│   │   ├── strategy_runner.py
+│   │   └── types.py
 │   ├── performance
 │   │   ├── __init__.py
 │   │   ├── calculators.py
@@ -274,28 +286,16 @@ src/volatility_trading
 ├── strategies
 │   ├── __init__.py
 │   ├── base_strategy.py
-│   ├── options_core
-│   │   ├── __init__.py
-│   │   ├── adapters.py
-│   │   ├── entry.py
-│   │   ├── exit_rules.py
-│   │   ├── lifecycle.py
-│   │   ├── runner.py
-│   │   ├── selectors.py
-│   │   ├── sizing.py
-│   │   ├── specs.py
-│   │   ├── strategy_runner.py
-│   │   └── types.py
 │   ├── skew_mispricing
 │   │   ├── __init__.py
 │   │   ├── features.py
 │   │   ├── plotting.py
-│   │   └── strategy.py
+│   │   └── specs.py
 │   └── vrp_harvesting
 │       ├── __init__.py
 │       ├── features.py
 │       ├── plotting.py
-│       └── strategy.py
+│       └── specs.py
 └── utils
     ├── __init__.py
     └── logging_config.py

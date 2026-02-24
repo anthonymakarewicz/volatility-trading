@@ -38,6 +38,7 @@ make typecheck
 ## Common Subsets
 
 ```bash
+pytest tests/unit/backtesting/options_engine -q
 pytest tests/unit/etl/orats/qc -q
 pytest tests/unit/etl/orats/api -q
 pytest tests/integration/apps -q

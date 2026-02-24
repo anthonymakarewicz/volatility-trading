@@ -3,14 +3,14 @@ import pytest
 
 from volatility_trading.backtesting import BacktestConfig
 from volatility_trading.backtesting.engine import Backtester
-from volatility_trading.options import OptionType
-from volatility_trading.signals.base_signal import Signal
-from volatility_trading.strategies.options_core import (
+from volatility_trading.backtesting.options_engine import (
     LegSpec,
     OptionsStrategyRunner,
     StrategySpec,
     StructureSpec,
 )
+from volatility_trading.options import OptionType
+from volatility_trading.signals.base_signal import Signal
 
 
 class DirectionSignal(Signal):
@@ -20,7 +20,7 @@ class DirectionSignal(Signal):
             raise ValueError("direction must be -1 or +1")
         self.direction = direction
 
-    def generate_signals(self, data):
+    def generate_signals(self, data: pd.Series | pd.DataFrame) -> pd.DataFrame:
         idx = data.index
         if self.direction == 1:
             return pd.DataFrame({"long": True, "short": False}, index=idx)

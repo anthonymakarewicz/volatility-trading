@@ -12,14 +12,20 @@ class ZScoreSignal(Signal):
         self.entry = entry
         self.exit = exit
 
-    def get_params(self):
+    def get_params(self) -> dict:
         return {
             "strategy__window": self.window,
             "strategy__entry": self.entry,
             "strategy__exit": self.exit,
         }
 
-    def set_params(self, window=None, entry=None, exit=None, **kwargs):
+    def set_params(
+        self,
+        window: int | None = None,
+        entry: float | None = None,
+        exit: float | None = None,
+        **kwargs,
+    ) -> None:
         if window is not None:
             self.window = window
         if entry is not None:
@@ -32,8 +38,16 @@ class ZScoreSignal(Signal):
                 f"Unexpected parameters passed to ZScoreStrategy: {unexpected}"
             )
 
-    def generate_signals(self, skew_series):
-        z_score = compute_zscore(skew_series, window=self.window)
+    def generate_signals(self, data: pd.Series | pd.DataFrame) -> pd.DataFrame:
+        if isinstance(data, pd.DataFrame):
+            if data.shape[1] != 1:
+                raise ValueError(
+                    "ZScoreSignal expects a Series or a single-column DataFrame."
+                )
+            series = data.iloc[:, 0]
+        else:
+            series = data
+        z_score = compute_zscore(series, window=self.window)
         signals = pd.DataFrame(index=z_score.index)
         signals["long"] = False
         signals["short"] = False
@@ -71,5 +85,5 @@ class ZScoreSignal(Signal):
         return signals
 
 
-def compute_zscore(series, window=60):
+def compute_zscore(series: pd.Series, window: int = 60) -> pd.Series:
     return (series - series.rolling(window).mean()) / series.rolling(window).std()

@@ -3,6 +3,7 @@ import pytest
 
 from volatility_trading.backtesting import BacktestConfig, MarginPolicy
 from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting.options_engine import time_to_expiry_years
 from volatility_trading.options import (
     MarketShock,
     StressPoint,
@@ -11,8 +12,7 @@ from volatility_trading.options import (
 )
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import make_vrp_strategy
-from volatility_trading.strategies.options_core import time_to_expiry_years
-from volatility_trading.strategies.vrp_harvesting.strategy import VRPHarvestingSpec
+from volatility_trading.strategies.vrp_harvesting.specs import VRPHarvestingSpec
 
 
 def _run_backtest(

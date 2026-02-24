@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+import pandas as pd
+
 # TODO: Fix the z-score attribute
 
 
@@ -8,19 +10,19 @@ class Signal(ABC):
         self._z_score = None
 
     @abstractmethod
-    def generate_signals(self, skew_series):
-        """Returns a DataFrame of boolean columns [long, short, exit]"""
-        pass
+    def generate_signals(self, data: pd.Series | pd.DataFrame) -> pd.DataFrame:
+        """Return signal flags with boolean columns: `long`, `short`, `exit`."""
+        ...
 
     @abstractmethod
     def get_params(self) -> dict:
         """Return current hyper-parameters as {name: value}."""
-        pass
+        ...
 
     @abstractmethod
-    def set_params(self, **kwargs):
+    def set_params(self, **kwargs) -> None:
         """Update internal hyper-parameters."""
-        pass
+        ...
 
     def get_z_score(self):
         """Return the most recent zscore,

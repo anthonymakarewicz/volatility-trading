@@ -1,8 +1,7 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.options import OptionType, PositionSide
-from volatility_trading.strategies.options_core import (
+from volatility_trading.backtesting.options_engine import (
     LegSpec,
     StructureSpec,
     normalize_chain_option_type,
@@ -11,6 +10,7 @@ from volatility_trading.strategies.options_core import (
     quote_to_option_spec,
     time_to_expiry_years,
 )
+from volatility_trading.options import OptionType, PositionSide
 
 
 @pytest.mark.parametrize(

@@ -8,13 +8,10 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-from volatility_trading.backtesting import (
-    BacktestConfig,
-    MarginAccount,
-    MarginPolicy,
-)
 from volatility_trading.options import MarginModel, PriceModel
 
+from ..margin import MarginAccount, MarginPolicy
+from ..types import BacktestConfig
 from .adapters import option_type_to_chain_label
 from .exit_rules import ExitRuleSet
 from .sizing import estimate_entry_intent_margin_per_contract

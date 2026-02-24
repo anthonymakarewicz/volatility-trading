@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from volatility_trading.backtesting import BacktestConfig, SliceContext
-
+from ..types import BacktestConfig, SliceContext
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import (
     OpenPosition,

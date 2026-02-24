@@ -1,13 +1,13 @@
 import pandas as pd
 
 from volatility_trading.backtesting import BacktestConfig
-from volatility_trading.options import OptionType
-from volatility_trading.strategies.options_core import (
+from volatility_trading.backtesting.options_engine import (
     LegSpec,
     StructureSpec,
     build_entry_intent_from_structure,
     normalize_signals_to_on,
 )
+from volatility_trading.options import OptionType
 
 
 def _base_cfg() -> BacktestConfig:

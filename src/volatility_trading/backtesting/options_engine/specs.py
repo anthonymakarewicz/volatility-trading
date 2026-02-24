@@ -8,7 +8,6 @@ from typing import TypeAlias
 
 import pandas as pd
 
-from volatility_trading.backtesting import MarginPolicy
 from volatility_trading.filters import Filter
 from volatility_trading.options import (
     BlackScholesPricer,
@@ -23,6 +22,7 @@ from volatility_trading.options import (
 )
 from volatility_trading.signals import Signal
 
+from ..margin import MarginPolicy
 from .exit_rules import ExitRuleSet, SameDayReentryPolicy
 from .types import LegSpec, StructureSpec
 

@@ -1,4 +1,4 @@
-"""Shared strategy-side options contracts and adapter helpers."""
+"""Shared options backtesting runtime contracts and helpers."""
 
 from .adapters import (
     normalize_chain_option_type,

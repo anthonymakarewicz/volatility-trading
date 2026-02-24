@@ -30,6 +30,13 @@ tests/
 │           └── test_yfinance_sync_smoke.py
 └── unit
     ├── backtesting
+    │   ├── options_engine
+    │   │   ├── test_options_engine_adapters.py
+    │   │   ├── test_options_engine_entry.py
+    │   │   ├── test_options_engine_exit_rules.py
+    │   │   ├── test_options_engine_runner.py
+    │   │   ├── test_options_engine_selectors_sizing.py
+    │   │   └── test_options_engine_strategy_runner.py
     │   ├── test_performance_calculators.py
     │   ├── test_performance_console.py
     │   ├── test_reporting_builders.py
@@ -82,6 +89,7 @@ tests/
 
 ```bash
 pytest  # unit tests only (integration excluded by default)
+pytest tests/unit/backtesting/options_engine -q
 pytest tests/unit/etl/orats/ftp -q
 pytest tests/integration/apps -q
 pytest tests/integration/apps/orats -q
