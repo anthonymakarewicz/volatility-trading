@@ -6,9 +6,9 @@ from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.options import OptionType
 from volatility_trading.signals.base_signal import Signal
 from volatility_trading.strategies.options_core import (
-    ConfigDrivenOptionsStrategy,
     LegSpec,
-    OptionsStrategySpec,
+    OptionsStrategyRunner,
+    StrategySpec,
     StructureSpec,
 )
 
@@ -80,14 +80,14 @@ def _run_strategy(direction: int):
         dte_tolerance=3,
         legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
     )
-    spec = OptionsStrategySpec(
+    spec = StrategySpec(
         name="directional_test",
         signal=DirectionSignal(direction=direction),
         structure_spec=structure,
         rebalance_period=1,
         max_holding_period=None,
     )
-    strategy = ConfigDrivenOptionsStrategy(spec)
+    strategy = OptionsStrategyRunner(spec)
     cfg = BacktestConfig(
         initial_capital=10_000.0,
         lot_size=1,

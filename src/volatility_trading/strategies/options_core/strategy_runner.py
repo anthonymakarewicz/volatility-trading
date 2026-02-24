@@ -1,4 +1,4 @@
-"""Generic config-driven strategy engine for single-position options backtests."""
+"""Generic options strategy runner for single-position backtests."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import pandas as pd
 
 from volatility_trading.backtesting import BacktestConfig, SliceContext
 
-from ..base_strategy import Strategy
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import (
     OpenPosition,
@@ -15,16 +14,16 @@ from .lifecycle import (
 )
 from .runner import SinglePositionRunnerHooks, run_single_position_date_loop
 from .sizing import size_entry_intent_contracts
-from .specs import OptionsStrategySpec
-from .types import EntryIntent
+from .specs import StrategySpec
 
 
-class ConfigDrivenOptionsStrategy(Strategy):
-    """Reusable options strategy driven entirely by an `OptionsStrategySpec`."""
+class OptionsStrategyRunner:
+    """Top-level orchestrator that executes one `StrategySpec`."""
 
-    def __init__(self, spec: OptionsStrategySpec):
-        super().__init__(signal=spec.signal, filters=list(spec.filters))
+    def __init__(self, spec: StrategySpec):
         self.spec = spec
+        self.signal = spec.signal
+        self.filters = list(spec.filters)
 
         # Keep direct attributes for observability/reporting.
         self.structure_spec = spec.structure_spec
@@ -41,32 +40,6 @@ class ConfigDrivenOptionsStrategy(Strategy):
         self.margin_policy = spec.margin_policy
         self.min_contracts = spec.min_contracts
         self.max_contracts = spec.max_contracts
-
-    def _size_entry_intent(
-        self,
-        *,
-        intent: EntryIntent,
-        lot_size: int,
-        spot: float,
-        volatility: float,
-        equity: float,
-    ) -> tuple[int, float | None, str | None, float | None]:
-        """Compute contracts from risk budget and optional margin-capacity budget."""
-        return size_entry_intent_contracts(
-            intent=intent,
-            lot_size=lot_size,
-            spot=spot,
-            volatility=volatility,
-            equity=equity,
-            pricer=self.pricer,
-            scenario_generator=self.scenario_generator,
-            risk_estimator=self.risk_estimator,
-            risk_sizer=self.risk_sizer,
-            margin_model=self.margin_model,
-            margin_budget_pct=self.margin_budget_pct,
-            min_contracts=self.min_contracts,
-            max_contracts=self.max_contracts,
-        )
 
     def run(self, ctx: SliceContext):
         data = ctx.data
@@ -132,12 +105,20 @@ class ConfigDrivenOptionsStrategy(Strategy):
         iv_entry = (
             float(intent.volatility) if intent.volatility is not None else float("nan")
         )
-        contracts, risk_pc, risk_scenario, margin_pc = self._size_entry_intent(
+        contracts, risk_pc, risk_scenario, margin_pc = size_entry_intent_contracts(
             intent=intent,
             lot_size=cfg.lot_size,
             spot=spot_entry,
             volatility=iv_entry,
             equity=float(equity_running),
+            pricer=self.pricer,
+            scenario_generator=self.scenario_generator,
+            risk_estimator=self.risk_estimator,
+            risk_sizer=self.risk_sizer,
+            margin_model=self.margin_model,
+            margin_budget_pct=self.margin_budget_pct,
+            min_contracts=self.min_contracts,
+            max_contracts=self.max_contracts,
         )
         if contracts <= 0:
             return None
@@ -148,36 +129,6 @@ class ConfigDrivenOptionsStrategy(Strategy):
             risk_per_contract=risk_pc,
             risk_worst_scenario=risk_scenario,
             margin_per_contract=margin_pc,
-        )
-
-    def _open_position(
-        self,
-        *,
-        setup: PositionEntrySetup,
-        cfg: BacktestConfig,
-        equity_running: float,
-    ) -> tuple[OpenPosition, dict]:
-        return self._build_lifecycle_engine().open_position(
-            setup=setup,
-            cfg=cfg,
-            equity_running=equity_running,
-        )
-
-    def _mark_open_position(
-        self,
-        *,
-        position: OpenPosition,
-        curr_date: pd.Timestamp,
-        options: pd.DataFrame,
-        cfg: BacktestConfig,
-        equity_running: float,
-    ) -> tuple[OpenPosition | None, dict, list[dict]]:
-        return self._build_lifecycle_engine().mark_position(
-            position=position,
-            curr_date=curr_date,
-            options=options,
-            cfg=cfg,
-            equity_running=equity_running,
         )
 
     def _build_lifecycle_engine(self) -> PositionLifecycleEngine:
@@ -211,9 +162,10 @@ class ConfigDrivenOptionsStrategy(Strategy):
             sig_df["entry_direction"].groupby(level=0).last().astype(int)
         )
         active_signal_dates = set(direction_by_date[direction_by_date != 0].index)
+        lifecycle_engine = self._build_lifecycle_engine()
         hooks = SinglePositionRunnerHooks[OpenPosition, PositionEntrySetup](
             mark_open_position=lambda position, curr_date, equity_running: (
-                self._mark_open_position(
+                lifecycle_engine.mark_position(
                     position=position,
                     curr_date=curr_date,
                     options=options,
@@ -229,7 +181,7 @@ class ConfigDrivenOptionsStrategy(Strategy):
                 equity_running=equity_running,
                 cfg=cfg,
             ),
-            open_position=lambda setup, equity_running: self._open_position(
+            open_position=lambda setup, equity_running: lifecycle_engine.open_position(
                 setup=setup,
                 cfg=cfg,
                 equity_running=equity_running,

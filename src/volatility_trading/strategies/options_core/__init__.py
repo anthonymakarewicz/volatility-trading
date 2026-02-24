@@ -7,7 +7,6 @@ from .adapters import (
     quote_to_option_spec,
     time_to_expiry_years,
 )
-from .config_strategy import ConfigDrivenOptionsStrategy
 from .entry import (
     build_entry_intent_from_structure,
     chain_for_date,
@@ -34,11 +33,10 @@ from .selectors import (
 )
 from .sizing import (
     estimate_entry_intent_margin_per_contract,
-    estimate_structure_margin_per_contract,
     size_entry_intent_contracts,
-    size_structure_contracts,
 )
-from .specs import OptionsStrategySpec
+from .specs import StrategySpec
+from .strategy_runner import OptionsStrategyRunner
 from .types import EntryIntent, LegSelection, LegSpec, StructureSpec
 
 __all__ = [
@@ -51,8 +49,8 @@ __all__ = [
     "time_to_expiry_years",
     "quote_to_option_spec",
     "quote_to_option_leg",
-    "OptionsStrategySpec",
-    "ConfigDrivenOptionsStrategy",
+    "StrategySpec",
+    "OptionsStrategyRunner",
     "chain_for_date",
     "normalize_signals_to_on",
     "build_entry_intent_from_structure",
@@ -65,8 +63,6 @@ __all__ = [
     "score_leg_candidates",
     "select_best_quote_for_leg",
     "select_best_expiry_for_leg_group",
-    "estimate_structure_margin_per_contract",
-    "size_structure_contracts",
     "estimate_entry_intent_margin_per_contract",
     "size_entry_intent_contracts",
     "PositionEntrySetup",

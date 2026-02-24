@@ -1,6 +1,10 @@
-from volatility_trading.strategies import Strategy
-
-from .types import BacktestConfig, DataMapping, ParamGrid, SliceContext
+from .types import (
+    BacktestConfig,
+    DataMapping,
+    ParamGrid,
+    SliceContext,
+    StrategyRunner,
+)
 
 # TODO: Fix circular import in init to put Backtester in init
 
@@ -9,7 +13,7 @@ class Backtester:
     def __init__(
         self,
         data: DataMapping,
-        strategy: Strategy,
+        strategy: StrategyRunner,
         config: BacktestConfig,
         param_grid: ParamGrid | None = None,
     ):
@@ -39,3 +43,7 @@ class Backtester:
         trades, mtm = self.strategy.run(ctx)
 
         return trades, mtm
+
+    # Should be a global orchestrator of the backtest
+    # The startegy runs the stratgey bybreturnign tardes and mtm, and the backtester performs the optmization of
+    # the params, runs the walk forwrad by passing the current train dev and test sets to the strategy

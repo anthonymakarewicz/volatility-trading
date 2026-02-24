@@ -1,6 +1,8 @@
-"""VRP preset built on top of the generic config-driven options strategy."""
+"""VRP preset spec and runner binding."""
 
 from __future__ import annotations
+
+from dataclasses import dataclass, field
 
 from volatility_trading.backtesting import MarginPolicy
 from volatility_trading.filters import Filter
@@ -19,106 +21,100 @@ from volatility_trading.options import (
 from volatility_trading.signals import Signal
 
 from ..options_core import (
-    ConfigDrivenOptionsStrategy,
     ExitRuleSet,
     LegSpec,
-    OptionsStrategySpec,
+    OptionsStrategyRunner,
     SameDayReentryPolicy,
+    StrategySpec,
     StructureSpec,
 )
 
 
-class VRPHarvestingStrategy(ConfigDrivenOptionsStrategy):
-    """Baseline VRP harvesting strategy as a spec preset.
+def _vrp_short_side(_leg_spec: LegSpec, _entry_direction: int) -> int:
+    """VRP harvesting always sells structure legs."""
+    return -1
 
-    The strategy remains a short-vol implementation by default (short ATM
-    straddle), but all lifecycle plumbing is handled by
-    `ConfigDrivenOptionsStrategy`.
-    """
 
-    @staticmethod
-    def _entry_side_for_leg(_leg_spec: LegSpec, _entry_direction: int) -> int:
-        return -1
+@dataclass
+class VRPHarvestingSpec:
+    """Configuration preset for baseline short-ATM-straddle VRP harvesting."""
 
-    def __init__(
-        self,
-        signal: Signal,
-        filters: list[Filter] | None = None,
-        rebalance_period: int | None = 5,
-        max_holding_period: int | None = None,
-        allow_same_day_reentry_on_rebalance: bool = True,
-        allow_same_day_reentry_on_max_holding: bool = False,
-        target_dte: int = 30,
-        max_dte_diff: int = 7,
-        pricer: PriceModel | None = None,
-        scenario_generator: ScenarioGenerator | None = None,
-        risk_estimator: RiskEstimator | None = None,
-        risk_budget_pct: float | None = None,
-        margin_model: MarginModel | None = None,
-        margin_budget_pct: float | None = None,
-        margin_policy: MarginPolicy | None = None,
-        exit_rule_set: ExitRuleSet | None = None,
-        reentry_policy: SameDayReentryPolicy | None = None,
-        min_contracts: int = 1,
-        max_contracts: int | None = None,
-    ):
-        margin_model_resolved = margin_model
-        if margin_model_resolved is None and margin_budget_pct is not None:
+    signal: Signal
+    filters: tuple[Filter, ...] = ()
+    rebalance_period: int | None = 5
+    max_holding_period: int | None = None
+    allow_same_day_reentry_on_rebalance: bool = True
+    allow_same_day_reentry_on_max_holding: bool = False
+    target_dte: int = 30
+    max_dte_diff: int = 7
+    pricer: PriceModel = field(default_factory=BlackScholesPricer)
+    scenario_generator: ScenarioGenerator = field(
+        default_factory=FixedGridScenarioGenerator
+    )
+    risk_estimator: RiskEstimator = field(default_factory=StressLossRiskEstimator)
+    risk_budget_pct: float | None = None
+    margin_model: MarginModel | None = None
+    margin_budget_pct: float | None = None
+    margin_policy: MarginPolicy | None = None
+    exit_rule_set: ExitRuleSet = field(default_factory=ExitRuleSet.period_rules)
+    reentry_policy: SameDayReentryPolicy | None = None
+    min_contracts: int = 1
+    max_contracts: int | None = None
+
+    def to_strategy_spec(self) -> StrategySpec:
+        """Convert the VRP preset into the generic `StrategySpec` contract."""
+        margin_model_resolved = self.margin_model
+        if margin_model_resolved is None and self.margin_budget_pct is not None:
             margin_model_resolved = RegTMarginModel()
 
-        margin_budget_pct_resolved = margin_budget_pct
+        margin_budget_pct_resolved = self.margin_budget_pct
         if margin_model_resolved is not None and margin_budget_pct_resolved is None:
             margin_budget_pct_resolved = 1.0
 
         risk_sizer = (
             RiskBudgetSizer(
-                risk_budget_pct=risk_budget_pct,
-                min_contracts=min_contracts,
-                max_contracts=max_contracts,
+                risk_budget_pct=self.risk_budget_pct,
+                min_contracts=self.min_contracts,
+                max_contracts=self.max_contracts,
             )
-            if risk_budget_pct is not None
+            if self.risk_budget_pct is not None
             else None
         )
-        exit_rules = exit_rule_set or ExitRuleSet.period_rules()
-        same_day_reentry = reentry_policy or SameDayReentryPolicy(
-            allow_on_rebalance=allow_same_day_reentry_on_rebalance,
-            allow_on_max_holding=allow_same_day_reentry_on_max_holding,
+        reentry_policy = self.reentry_policy or SameDayReentryPolicy(
+            allow_on_rebalance=self.allow_same_day_reentry_on_rebalance,
+            allow_on_max_holding=self.allow_same_day_reentry_on_max_holding,
         )
         structure = StructureSpec(
             name="short_atm_straddle",
-            dte_target=target_dte,
-            dte_tolerance=max_dte_diff,
+            dte_target=self.target_dte,
+            dte_tolerance=self.max_dte_diff,
             legs=(
                 LegSpec(option_type=OptionType.PUT, delta_target=-0.5),
                 LegSpec(option_type=OptionType.CALL, delta_target=0.5),
             ),
         )
-        spec = OptionsStrategySpec(
-            name="VRPStrategy",
-            signal=signal,
-            filters=tuple(filters or ()),
+        return StrategySpec(
+            name="vrp_harvesting",
+            signal=self.signal,
+            filters=self.filters,
             structure_spec=structure,
-            side_resolver=self._entry_side_for_leg,
-            rebalance_period=rebalance_period,
-            max_holding_period=max_holding_period,
-            exit_rule_set=exit_rules,
-            reentry_policy=same_day_reentry,
-            pricer=pricer or BlackScholesPricer(),
-            scenario_generator=scenario_generator or FixedGridScenarioGenerator(),
-            risk_estimator=risk_estimator or StressLossRiskEstimator(),
+            side_resolver=_vrp_short_side,
+            rebalance_period=self.rebalance_period,
+            max_holding_period=self.max_holding_period,
+            exit_rule_set=self.exit_rule_set,
+            reentry_policy=reentry_policy,
+            pricer=self.pricer,
+            scenario_generator=self.scenario_generator,
+            risk_estimator=self.risk_estimator,
             risk_sizer=risk_sizer,
             margin_model=margin_model_resolved,
             margin_budget_pct=margin_budget_pct_resolved,
-            margin_policy=margin_policy,
-            min_contracts=min_contracts,
-            max_contracts=max_contracts,
+            margin_policy=self.margin_policy,
+            min_contracts=self.min_contracts,
+            max_contracts=self.max_contracts,
         )
-        super().__init__(spec)
 
-        # Keep strategy-level fields explicit for notebooks/reporting.
-        self.target_dte = target_dte
-        self.max_dte_diff = max_dte_diff
-        self.allow_same_day_reentry_on_rebalance = allow_same_day_reentry_on_rebalance
-        self.allow_same_day_reentry_on_max_holding = (
-            allow_same_day_reentry_on_max_holding
-        )
+
+def make_vrp_strategy(spec: VRPHarvestingSpec) -> OptionsStrategyRunner:
+    """Build an options runner from a VRP preset spec."""
+    return OptionsStrategyRunner(spec.to_strategy_spec())

@@ -1,10 +1,12 @@
-from .base_strategy import Strategy
-from .options_core import ConfigDrivenOptionsStrategy, OptionsStrategySpec
-from .vrp_harvesting.strategy import VRPHarvestingStrategy
+from .options_core import OptionsStrategyRunner, StrategySpec
+from .vrp_harvesting.strategy import (
+    VRPHarvestingSpec,
+    make_vrp_strategy,
+)
 
 __all__ = [
-    "Strategy",
-    "OptionsStrategySpec",
-    "ConfigDrivenOptionsStrategy",
-    "VRPHarvestingStrategy",
+    "StrategySpec",
+    "OptionsStrategyRunner",
+    "VRPHarvestingSpec",
+    "make_vrp_strategy",
 ]

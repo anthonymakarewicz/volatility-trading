@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, TypeAlias
+from typing import Any, Protocol, TypeAlias
 
 # --- Shared aliases -------------------------------------------------
 DataMapping: TypeAlias = Mapping[str, Any]
@@ -31,3 +31,10 @@ class SliceContext:
     params: dict[str, Any]
     config: BacktestConfig
     capital: float  # current capital for this run / window
+
+
+class StrategyRunner(Protocol):
+    """Minimal runtime contract for backtestable strategies."""
+
+    def run(self, ctx: SliceContext) -> tuple[Any, Any]:
+        """Execute strategy and return `(trades, mtm)` tabular outputs."""

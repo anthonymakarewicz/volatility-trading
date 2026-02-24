@@ -1,4 +1,4 @@
-"""Typed configuration objects for config-driven options strategies."""
+"""Typed configuration objects for options strategy runners."""
 
 from __future__ import annotations
 
@@ -69,8 +69,8 @@ def _default_side_resolver(_leg: LegSpec, entry_direction: int) -> int:
 
 
 @dataclass
-class OptionsStrategySpec:
-    """Full strategy specification consumed by `ConfigDrivenOptionsStrategy`."""
+class StrategySpec:
+    """Full strategy specification consumed by `OptionsStrategyRunner`."""
 
     signal: Signal
     structure_spec: StructureSpec

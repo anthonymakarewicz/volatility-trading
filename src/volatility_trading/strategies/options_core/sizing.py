@@ -70,18 +70,17 @@ def _build_option_legs(
     return tuple(built_legs)
 
 
-def estimate_structure_margin_per_contract(
+def estimate_entry_intent_margin_per_contract(
     *,
-    as_of_date: pd.Timestamp,
-    expiry_date: pd.Timestamp,
-    legs: Sequence[LegSelection],
+    intent: EntryIntent,
+    as_of_date: pd.Timestamp | None,
     lot_size: int,
     spot: float,
     volatility: float,
     margin_model: MarginModel | None,
     pricer: PriceModel,
 ) -> float | None:
-    """Estimate initial margin for one structure unit as of `as_of_date`."""
+    """Estimate initial margin for one `EntryIntent` contract unit."""
     if margin_model is None:
         return None
     if not np.isfinite(spot) or spot <= 0:
@@ -90,9 +89,9 @@ def estimate_structure_margin_per_contract(
         return None
 
     option_legs = _build_option_legs(
-        entry_date=as_of_date,
-        default_expiry_date=expiry_date,
-        legs=legs,
+        entry_date=as_of_date or intent.entry_date,
+        default_expiry_date=intent.expiry_date,
+        legs=intent.legs,
         lot_size=lot_size,
     )
     state = MarketState(spot=float(spot), volatility=float(volatility))
@@ -103,11 +102,9 @@ def estimate_structure_margin_per_contract(
     )
 
 
-def size_structure_contracts(
+def size_entry_intent_contracts(
     *,
-    entry_date: pd.Timestamp,
-    expiry_date: pd.Timestamp,
-    legs: Sequence[LegSelection],
+    intent: EntryIntent,
     lot_size: int,
     spot: float,
     volatility: float,
@@ -121,7 +118,7 @@ def size_structure_contracts(
     min_contracts: int,
     max_contracts: int | None,
 ) -> tuple[int, float | None, str | None, float | None]:
-    """Size contracts from risk and margin budgets for arbitrary structures."""
+    """Size contracts directly from an `EntryIntent` payload."""
     invalid_market = (
         not np.isfinite(spot)
         or spot <= 0
@@ -133,9 +130,9 @@ def size_structure_contracts(
         return fallback, None, None, None
 
     option_legs = _build_option_legs(
-        entry_date=entry_date,
-        default_expiry_date=expiry_date,
-        legs=legs,
+        entry_date=intent.entry_date,
+        default_expiry_date=intent.expiry_date,
+        legs=intent.legs,
         lot_size=lot_size,
     )
     state = MarketState(spot=float(spot), volatility=float(volatility))
@@ -191,62 +188,3 @@ def size_structure_contracts(
             contracts = min(contracts, max_contracts)
 
     return contracts, risk_per_contract, risk_scenario, margin_per_contract
-
-
-def estimate_entry_intent_margin_per_contract(
-    *,
-    intent: EntryIntent,
-    as_of_date: pd.Timestamp | None,
-    lot_size: int,
-    spot: float,
-    volatility: float,
-    margin_model: MarginModel | None,
-    pricer: PriceModel,
-) -> float | None:
-    """Estimate margin from one `EntryIntent` payload."""
-    return estimate_structure_margin_per_contract(
-        as_of_date=as_of_date or intent.entry_date,
-        expiry_date=intent.expiry_date,
-        legs=intent.legs,
-        lot_size=lot_size,
-        spot=spot,
-        volatility=volatility,
-        margin_model=margin_model,
-        pricer=pricer,
-    )
-
-
-def size_entry_intent_contracts(
-    *,
-    intent: EntryIntent,
-    lot_size: int,
-    spot: float,
-    volatility: float,
-    equity: float,
-    pricer: PriceModel,
-    scenario_generator: ScenarioGenerator,
-    risk_estimator: RiskEstimator,
-    risk_sizer: RiskBudgetSizer | None,
-    margin_model: MarginModel | None,
-    margin_budget_pct: float | None,
-    min_contracts: int,
-    max_contracts: int | None,
-) -> tuple[int, float | None, str | None, float | None]:
-    """Size contracts directly from an `EntryIntent` payload."""
-    return size_structure_contracts(
-        entry_date=intent.entry_date,
-        expiry_date=intent.expiry_date,
-        legs=intent.legs,
-        lot_size=lot_size,
-        spot=spot,
-        volatility=volatility,
-        equity=equity,
-        pricer=pricer,
-        scenario_generator=scenario_generator,
-        risk_estimator=risk_estimator,
-        risk_sizer=risk_sizer,
-        margin_model=margin_model,
-        margin_budget_pct=margin_budget_pct,
-        min_contracts=min_contracts,
-        max_contracts=max_contracts,
-    )

@@ -277,7 +277,6 @@ src/volatility_trading
 │   ├── options_core
 │   │   ├── __init__.py
 │   │   ├── adapters.py
-│   │   ├── config_strategy.py
 │   │   ├── entry.py
 │   │   ├── exit_rules.py
 │   │   ├── lifecycle.py
@@ -285,6 +284,7 @@ src/volatility_trading
 │   │   ├── selectors.py
 │   │   ├── sizing.py
 │   │   ├── specs.py
+│   │   ├── strategy_runner.py
 │   │   └── types.py
 │   ├── skew_mispricing
 │   │   ├── __init__.py

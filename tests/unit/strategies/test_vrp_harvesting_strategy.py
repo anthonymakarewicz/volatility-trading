@@ -12,6 +12,7 @@ from volatility_trading.options import (
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingStrategy
 from volatility_trading.strategies.options_core import time_to_expiry_years
+from volatility_trading.strategies.vrp_harvesting.strategy import VRPHarvestingSpec
 
 
 def _run_backtest(
@@ -28,12 +29,13 @@ def _run_backtest(
         slip_bid=0.0,
         commission_per_leg=0.0,
     )
-    strat = VRPHarvestingStrategy(
+    spec = VRPHarvestingSpec(
         signal=ShortOnlySignal(),
         rebalance_period=rebalance_period,
         max_holding_period=max_holding_period,
         **(strategy_kwargs or {}),
     )
+    strat = VRPHarvestingStrategy(spec)
     bt = Backtester(
         data={"options": options, "features": None, "hedge": None},
         strategy=strat,
