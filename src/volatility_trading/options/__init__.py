@@ -22,9 +22,7 @@ from .models.black_scholes import (
 from .risk import (
     FixedGridScenarioGenerator,
     MarginModel,
-    OptionLeg,
     PortfolioMarginProxyModel,
-    PositionSide,
     RegTMarginModel,
     RiskBudgetSizer,
     RiskEstimator,
@@ -38,9 +36,11 @@ from .risk import (
 from .types import (
     MarketShock,
     MarketState,
+    OptionLeg,
     OptionSpec,
     OptionType,
     OptionTypeInput,
+    PositionSide,
     PricingResult,
 )
 

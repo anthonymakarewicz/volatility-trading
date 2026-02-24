@@ -16,7 +16,7 @@ from typing import Literal, TypeAlias
 
 import pandas as pd
 
-from volatility_trading.options import OptionType
+from volatility_trading.options import MarketState, OptionType, PositionSide
 
 FillPolicy: TypeAlias = Literal["all_or_none", "min_ratio"]
 
@@ -101,9 +101,6 @@ class StructureSpec:
             raise ValueError("all_or_none requires min_fill_ratio=1.0")
 
 
-# TODO: Since it is a rela contratc, why not using OptionLeg which has the same args and is not
-# specific to strategy only it is global to pricing and risk too sicn ethey work all with
-# a real option contract ?
 @dataclass(frozen=True)
 class LegSelection:
     """Concrete quote selected for one leg at entry.
@@ -111,18 +108,25 @@ class LegSelection:
     Attributes:
         spec: Original leg template used to select the quote.
         quote: Snapshot row from the chain at entry.
-        side: Trade side (+1 long, -1 short) resolved from strategy direction.
+        side: Trade side resolved to `PositionSide`.
         entry_price: Executed entry price for that leg after slippage.
     """
 
     spec: LegSpec
     quote: pd.Series
-    side: int
+    side: PositionSide | int
     entry_price: float
 
     def __post_init__(self) -> None:
-        if self.side not in (-1, 1):
-            raise ValueError("side must be -1 (short) or +1 (long)")
+        if isinstance(self.side, PositionSide):
+            return
+        try:
+            normalized = PositionSide(int(self.side))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "side must be PositionSide.SHORT (-1) or PositionSide.LONG (+1)"
+            ) from exc
+        object.__setattr__(self, "side", normalized)
 
 
 @dataclass(frozen=True)
@@ -134,16 +138,14 @@ class EntryIntent:
         expiry_date: Summary expiry used by legacy reporting fields.
         chosen_dte: Summary DTE used by legacy reporting fields.
         legs: Concrete selected legs with quotes and execution sides.
-        spot: Spot level used for entry pricing/risk context.
-        volatility: Volatility proxy used for pricing/risk context.
+        entry_state: Market snapshot used for entry pricing/risk context.
     """
 
     entry_date: pd.Timestamp
     expiry_date: pd.Timestamp
     chosen_dte: int
     legs: tuple[LegSelection, ...]
-    spot: float | None = None
-    volatility: float | None = None
+    entry_state: MarketState | None = None
 
     def __post_init__(self) -> None:
         if self.chosen_dte <= 0:

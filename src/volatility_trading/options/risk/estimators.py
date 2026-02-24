@@ -11,12 +11,11 @@ from typing import Protocol, Sequence, runtime_checkable
 
 from volatility_trading.options.engines import PriceModel
 from volatility_trading.options.risk.types import (
-    OptionLeg,
     StressPoint,
     StressResult,
     StressScenario,
 )
-from volatility_trading.options.types import MarketState, OptionSpec
+from volatility_trading.options.types import MarketState, OptionLeg, OptionSpec
 
 
 def _apply_state_shock(

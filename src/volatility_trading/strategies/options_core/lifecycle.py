@@ -311,8 +311,7 @@ class PositionLifecycleEngine:
             expiry_date=intent.expiry_date,
             chosen_dte=intent.chosen_dte,
             legs=legs,
-            spot=intent.spot,
-            volatility=intent.volatility,
+            entry_state=intent.entry_state,
         )
 
     def open_position(
@@ -377,8 +376,16 @@ class PositionLifecycleEngine:
 
         entry_record = {
             "date": setup.intent.entry_date,
-            "S": setup.intent.spot,
-            "iv": setup.intent.volatility,
+            "S": (
+                setup.intent.entry_state.spot
+                if setup.intent.entry_state is not None
+                else np.nan
+            ),
+            "iv": (
+                setup.intent.entry_state.volatility
+                if setup.intent.entry_state is not None
+                else np.nan
+            ),
             "delta_pnl": entry_delta_pnl,
             "delta": delta,
             "net_delta": net_delta,
@@ -432,8 +439,16 @@ class PositionLifecycleEngine:
             prev_mtm=0.0,
             hedge_qty=0.0,
             hedge_price_entry=np.nan,
-            last_spot=float(setup.intent.spot or np.nan),
-            last_iv=float(setup.intent.volatility or np.nan),
+            last_spot=(
+                float(setup.intent.entry_state.spot)
+                if setup.intent.entry_state is not None
+                else float("nan")
+            ),
+            last_iv=(
+                float(setup.intent.entry_state.volatility)
+                if setup.intent.entry_state is not None
+                else float("nan")
+            ),
             last_delta=delta,
             last_gamma=gamma,
             last_vega=vega,

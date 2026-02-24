@@ -32,8 +32,16 @@ from volatility_trading.options.risk.scenarios import (
     FixedGridScenarioGenerator,
     ScenarioGenerator,
 )
-from volatility_trading.options.risk.types import OptionLeg, PositionSide
-from volatility_trading.options.types import MarketState, OptionType
+from volatility_trading.options.types import (
+    MarketState,
+    OptionLeg,
+    OptionType,
+    PositionSide,
+)
+
+# TODO: Crete a single margin module and have a model that eprform the inti margin
+# as well as mainetance margin computations for eahc model (Standard and for PortfolioMargin)
+# Like make MarginAccoutn take a model and a status
 
 
 @runtime_checkable
@@ -56,7 +64,7 @@ class MarginModel(Protocol):
 
 
 @dataclass(frozen=True)
-class RegTMarginModel:
+class RegTMarginModel:  # TODO: Mayeb rename it StandardMarginModel and isndie talk about Reg T
     """Approximate Reg-T/strategy-based margin for listed options.
 
     Notes:

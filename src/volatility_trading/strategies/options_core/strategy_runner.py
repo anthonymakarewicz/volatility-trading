@@ -107,10 +107,12 @@ class OptionsStrategyRunner:
         if intent is None:
             return None
 
-        spot_entry = float(intent.spot) if intent.spot is not None else float("nan")
-        iv_entry = (
-            float(intent.volatility) if intent.volatility is not None else float("nan")
-        )
+        if intent.entry_state is None:
+            spot_entry = float("nan")
+            iv_entry = float("nan")
+        else:
+            spot_entry = float(intent.entry_state.spot)
+            iv_entry = float(intent.entry_state.volatility)
         contracts, risk_pc, risk_scenario, margin_pc = size_entry_intent_contracts(
             intent=intent,
             lot_size=cfg.lot_size,

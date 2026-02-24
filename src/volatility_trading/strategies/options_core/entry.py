@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from volatility_trading.backtesting import BacktestConfig
+from volatility_trading.options import MarketState, PositionSide
 
 from .selectors import select_best_expiry_for_leg_group
 from .types import EntryIntent, LegSelection, LegSpec, StructureSpec
@@ -101,14 +102,14 @@ def normalize_signals_to_on(
 
 
 def _entry_price_from_side(
-    quote: pd.Series, *, side: int, cfg: BacktestConfig
+    quote: pd.Series, *, side: PositionSide, cfg: BacktestConfig
 ) -> float:
     """Return executable entry price for one leg given target side."""
-    if side == -1:
+    if side == PositionSide.SHORT:
         return float(quote["bid_price"] - cfg.slip_bid)
-    if side == 1:
+    if side == PositionSide.LONG:
         return float(quote["ask_price"] + cfg.slip_ask)
-    raise ValueError("side must be -1 (short) or +1 (long)")
+    raise ValueError("side must be PositionSide.SHORT or PositionSide.LONG")
 
 
 def _legs_grouped_by_expiry(
@@ -167,7 +168,7 @@ def build_entry_intent_from_structure(
     options: pd.DataFrame,
     structure_spec: StructureSpec,
     cfg: BacktestConfig,
-    side_resolver: Callable[[LegSpec], int],
+    side_resolver: Callable[[LegSpec], int | PositionSide],
     features: pd.DataFrame | None = None,
     fallback_iv_feature_col: str = "iv_atm",
 ) -> EntryIntent | None:
@@ -209,7 +210,17 @@ def build_entry_intent_from_structure(
             quotes_for_group,
             strict=True,
         ):
-            side = int(side_resolver(leg_spec))
+            side_raw = side_resolver(leg_spec)
+            try:
+                side = (
+                    side_raw
+                    if isinstance(side_raw, PositionSide)
+                    else PositionSide(int(side_raw))
+                )
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "side_resolver must return PositionSide.SHORT/-1 or PositionSide.LONG/+1"
+                ) from exc
             selected_by_index[leg_idx] = LegSelection(
                 spec=leg_spec,
                 quote=quote,
@@ -259,6 +270,5 @@ def build_entry_intent_from_structure(
         expiry_date=expiry_date,
         chosen_dte=int(chosen_dte),
         legs=selected_legs,
-        spot=spot_entry,
-        volatility=iv_entry,
+        entry_state=MarketState(spot=spot_entry, volatility=iv_entry),
     )

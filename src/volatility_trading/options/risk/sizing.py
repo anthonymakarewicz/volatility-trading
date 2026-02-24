@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import floor
 
+# TODO: Add vega limits
+
 
 def contracts_for_risk_budget(
     *,

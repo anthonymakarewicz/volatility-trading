@@ -109,8 +109,10 @@ metrics = print_performance_report(
 )
 ```
 
-For full data-loading and report-export examples, see
-`notebooks/vrp_harvesting/notebook.py`.
+For a full scriptable workflow (data loading + backtest run), see
+[VRP end-to-end example](examples/vrp_end_to_end.py).
+For the research-style workflow and reporting exploration, see
+[VRP notebook](notebooks/vrp_harvesting/notebook.py).
 
 ## **Tests**
 

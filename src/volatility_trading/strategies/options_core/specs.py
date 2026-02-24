@@ -14,6 +14,7 @@ from volatility_trading.options import (
     BlackScholesPricer,
     FixedGridScenarioGenerator,
     MarginModel,
+    PositionSide,
     PriceModel,
     RiskBudgetSizer,
     RiskEstimator,
@@ -35,7 +36,7 @@ FilterContextBuilder: TypeAlias = Callable[
     [pd.DataFrame, pd.DataFrame | None, pd.Series | pd.DataFrame | None],
     FilterContext,
 ]
-SideResolver: TypeAlias = Callable[[LegSpec, int], int]
+SideResolver: TypeAlias = Callable[[LegSpec, int], int | PositionSide]
 
 
 def _default_signal_input(
