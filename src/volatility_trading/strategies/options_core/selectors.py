@@ -1,4 +1,10 @@
-"""Shared quote/expiry selection helpers for option structure builders."""
+"""Quote and expiry selection helpers for structure entry construction.
+
+Selection occurs in two stages:
+1. score feasible quotes for each leg inside one expiry candidate, then
+2. score feasible expiries for each expiry-group using DTE distance and
+   aggregated leg-level scores.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +20,7 @@ def apply_leg_liquidity_filters(
     *,
     leg_spec: LegSpec,
 ) -> pd.DataFrame:
-    """Apply hard liquidity filters for one leg selection."""
+    """Apply hard liquidity constraints for one leg candidate set."""
     filtered = leg_quotes
 
     if leg_spec.min_open_interest > 0 and "open_interest" in filtered.columns:
@@ -43,7 +49,11 @@ def score_leg_candidates(
     *,
     leg_spec: LegSpec,
 ) -> pd.DataFrame:
-    """Score feasible candidates for one leg using target-delta then liquidity."""
+    """Score feasible leg quotes by delta fit then liquidity quality.
+
+    Lower ``leg_score`` is better. Quotes outside delta tolerance or failing hard
+    liquidity filters are removed before scoring.
+    """
     if leg_quotes.empty or "delta" not in leg_quotes.columns:
         return pd.DataFrame()
 
@@ -143,9 +153,9 @@ def select_best_expiry_for_leg_group(
 ) -> tuple[pd.Timestamp, int, tuple[pd.Series, ...]] | None:
     """Pick one expiry for a leg group, then best quotes for all group legs.
 
-    Candidate expiries are constrained by DTE tolerance and must be feasible for
-    all legs in the group. Feasible expiries are scored by DTE distance plus
-    weighted average of per-leg quote scores.
+    Candidate expiries must satisfy the DTE band and be feasible for every leg
+    in the group. Feasible expiries are ranked by normalized DTE distance plus
+    weighted average leg-score, where weights come from absolute leg ratios.
     """
     if not group_legs:
         return None

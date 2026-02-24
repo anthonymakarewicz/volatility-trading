@@ -43,6 +43,11 @@ def _default_signal_input(
     features: pd.DataFrame | None,
     hedge: pd.Series | pd.DataFrame | None,
 ) -> SignalInput:
+    """Build default signal input when strategy does not customize it.
+
+    The default returns a zero-valued Series indexed like the options panel.
+    Concrete signals can ignore values and rely only on index cadence.
+    """
     _ = (features, hedge)
     return pd.Series(0, index=options.index)
 
@@ -52,6 +57,7 @@ def _default_filter_context(
     features: pd.DataFrame | None,
     hedge: pd.Series | pd.DataFrame | None,
 ) -> FilterContext:
+    """Build default filter context from features and optional hedge series."""
     if features is not None:
         ctx = features.copy()
     else:
@@ -65,12 +71,18 @@ def _default_filter_context(
 
 
 def _default_side_resolver(_leg: LegSpec, entry_direction: int) -> int:
+    """Map strategy entry direction directly to each leg side."""
     return int(entry_direction)
 
 
 @dataclass
 class StrategySpec:
-    """Full strategy specification consumed by `OptionsStrategyRunner`."""
+    """Full configuration contract consumed by ``OptionsStrategyRunner``.
+
+    The spec bundles signal/filter plumbing, structure selection rules,
+    lifecycle timing, and sizing/margin dependencies so the runner can stay
+    generic and strategy-agnostic.
+    """
 
     signal: Signal
     structure_spec: StructureSpec
@@ -104,6 +116,7 @@ class StrategySpec:
     max_contracts: int | None = None
 
     def __post_init__(self) -> None:
+        """Validate timing and sizing constraints at strategy construction time."""
         for name, period in (
             ("rebalance_period", self.rebalance_period),
             ("max_holding_period", self.max_holding_period),

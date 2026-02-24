@@ -1,4 +1,8 @@
-"""VRP preset spec and runner binding."""
+"""VRP harvesting preset specification and factory.
+
+This module maps a business-level VRP configuration into the generic
+``StrategySpec`` contract consumed by ``OptionsStrategyRunner``.
+"""
 
 from __future__ import annotations
 
@@ -37,7 +41,11 @@ def _vrp_short_side(_leg_spec: LegSpec, _entry_direction: int) -> int:
 
 @dataclass
 class VRPHarvestingSpec:
-    """Configuration preset for baseline short-ATM-straddle VRP harvesting."""
+    """Configuration preset for baseline short-ATM-straddle VRP harvesting.
+
+    The preset is intentionally small: it defines structure, sizing, margin, and
+    reentry defaults, then delegates execution to shared options-core components.
+    """
 
     signal: Signal
     filters: tuple[Filter, ...] = ()
@@ -62,7 +70,7 @@ class VRPHarvestingSpec:
     max_contracts: int | None = None
 
     def to_strategy_spec(self) -> StrategySpec:
-        """Convert the VRP preset into the generic `StrategySpec` contract."""
+        """Convert this VRP preset into the generic ``StrategySpec`` contract."""
         margin_model_resolved = self.margin_model
         if margin_model_resolved is None and self.margin_budget_pct is not None:
             margin_model_resolved = RegTMarginModel()

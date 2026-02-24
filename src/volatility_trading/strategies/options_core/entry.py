@@ -1,4 +1,11 @@
-"""Generic entry-intent builders from structure specifications."""
+"""Entry-intent builders that resolve a structure spec against chain data.
+
+The module translates abstract structure templates into concrete, tradable legs:
+- normalize strategy signals into directional entry events,
+- select one expiry per expiry-group and best quotes per leg,
+- apply fill-policy constraints,
+- emit an ``EntryIntent`` consumed by sizing and lifecycle engines.
+"""
 
 from __future__ import annotations
 
@@ -120,7 +127,11 @@ def _resolve_group_dte_constraints(
     group_legs: tuple[LegSpec, ...],
     structure_spec: StructureSpec,
 ) -> tuple[int, int]:
-    """Resolve group DTE settings from leg overrides or structure defaults."""
+    """Resolve one expiry-group DTE target/tolerance from leg or structure values.
+
+    Raises:
+        ValueError: If legs in the same expiry group define conflicting DTE values.
+    """
     explicit_targets = {
         leg.dte_target for leg in group_legs if leg.dte_target is not None
     }

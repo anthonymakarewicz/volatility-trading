@@ -1,9 +1,12 @@
+"""Visualization helpers for VRP research and diagnostics notebooks."""
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 
 def plot_vrp(iv_atm, rv, vrp):
+    """Plot ATM implied vol, realized vol, and VRP time series."""
     fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
     # Plot IV and RV
@@ -27,6 +30,7 @@ def plot_vrp(iv_atm, rv, vrp):
 
 
 def plot_vrp_hist(vrp):
+    """Plot VRP distribution with mean/median and tail quantile markers."""
     plt.figure(figsize=(8, 6))
 
     # Histogram with mean
@@ -78,6 +82,8 @@ def plot_vrp_by_vix_bucket_subperiods(
     vix_labels=("VIX < 15", "15 ≤ VIX ≤ 20", "20 < VIX ≤ 30", "VIX > 30"),
     figsize=(10, 6),
 ):
+    """Plot average VRP by VIX regime across predefined calendar subperiods."""
+
     # --- 1) Period labeling function ---
     def label_period(dt):
         y = dt.year
@@ -131,6 +137,7 @@ def plot_short_straddle_payoff(
     n_points: int = 201,
     ax: plt.Axes | None = None,
 ):
+    """Plot expiry payoff profile for one short ATM straddle."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(5, 4))
 
@@ -191,6 +198,7 @@ def plot_short_iron_butterfly_payoff(
     n_points: int = 201,
     ax: plt.Axes | None = None,
 ):
+    """Plot expiry payoff profile for one short iron butterfly."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(5, 4))
 
@@ -241,6 +249,7 @@ def plot_pnl_hist(
     density: bool = True,
     show_mean: bool = True,
 ):
+    """Plot histogram of scenario or realized PnL values."""
     pnl = np.asarray(pnl)
 
     if ax is None:

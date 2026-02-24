@@ -18,9 +18,14 @@ from .specs import StrategySpec
 
 
 class OptionsStrategyRunner:
-    """Top-level orchestrator that executes one `StrategySpec`."""
+    """Top-level orchestrator that executes one ``StrategySpec``.
+
+    The runner handles signal/filter application, entry construction, position
+    lifecycle execution, and daily MTM aggregation for one options strategy spec.
+    """
 
     def __init__(self, spec: StrategySpec):
+        """Store strategy spec and expose key fields for reporting/inspection."""
         self.spec = spec
         self.signal = spec.signal
         self.filters = list(spec.filters)
@@ -42,6 +47,7 @@ class OptionsStrategyRunner:
         self.max_contracts = spec.max_contracts
 
     def run(self, ctx: SliceContext):
+        """Execute configured strategy on one backtest slice."""
         data = ctx.data
         capital = ctx.capital
         cfg = ctx.config
@@ -132,6 +138,7 @@ class OptionsStrategyRunner:
         )
 
     def _build_lifecycle_engine(self) -> PositionLifecycleEngine:
+        """Build lifecycle engine configured from this strategy spec."""
         return PositionLifecycleEngine(
             rebalance_period=self.rebalance_period,
             max_holding_period=self.max_holding_period,
@@ -142,6 +149,7 @@ class OptionsStrategyRunner:
         )
 
     def _can_reenter_same_day(self, trade_rows: list[dict]) -> bool:
+        """Delegate same-day reentry decision to configured policy."""
         return self.reentry_policy.allow_from_trade_rows(trade_rows)
 
     def _simulate_structure(
@@ -153,6 +161,7 @@ class OptionsStrategyRunner:
         capital: float,
         cfg: BacktestConfig,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Run date loop and return trade ledger plus aggregated daily MTM table."""
         _ = hedge
 
         sig_df = self._signals_to_on_frame(signals)

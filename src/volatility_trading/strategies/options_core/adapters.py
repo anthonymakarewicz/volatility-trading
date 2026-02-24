@@ -36,7 +36,13 @@ def time_to_expiry_years(
     quote_yte: float | int | None,
     quote_dte: float | int | None,
 ) -> float:
-    """Return annualized maturity, preferring quote yte then dte then calendar."""
+    """Return annualized maturity using quote fields with calendar fallback.
+
+    Priority order:
+    1. ``quote_yte`` when present and valid,
+    2. ``quote_dte / 365``,
+    3. calendar days between entry and expiry.
+    """
 
     def _positive_or_none(value: float | int | None) -> float | None:
         if value is None or pd.isna(value):
@@ -67,7 +73,7 @@ def quote_to_option_spec(
     entry_date: pd.Timestamp,
     expiry_date: pd.Timestamp,
 ) -> OptionSpec:
-    """Build OptionSpec from one selected chain row."""
+    """Build ``OptionSpec`` from one selected chain row."""
     return OptionSpec(
         strike=float(quote["strike"]),
         time_to_expiry=time_to_expiry_years(
@@ -89,7 +95,7 @@ def quote_to_option_leg(
     side: int,
     contract_multiplier: float,
 ) -> OptionLeg:
-    """Build OptionLeg from selected quote and execution terms."""
+    """Build ``OptionLeg`` from selected quote row and execution metadata."""
     if side not in (-1, 1):
         raise ValueError("side must be -1 or +1")
     return OptionLeg(

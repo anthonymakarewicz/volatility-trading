@@ -1,4 +1,8 @@
-"""Exit-rule framework and same-day reentry policy for options strategies."""
+"""Exit-rule framework and same-day reentry policy for options strategies.
+
+This module isolates lifecycle close triggers from execution mechanics so
+strategies can compose exit behavior without rewriting lifecycle code.
+"""
 
 from __future__ import annotations
 
@@ -77,7 +81,7 @@ class ExitRuleSet:
 
     @classmethod
     def period_rules(cls) -> ExitRuleSet:
-        """Default periodic exits used by current VRP behavior."""
+        """Return default periodic exit rules (rebalance + max-holding)."""
         return cls(rules=(RebalanceExitRule(), MaxHoldingExitRule()))
 
     def evaluate(
@@ -86,7 +90,7 @@ class ExitRuleSet:
         curr_date: pd.Timestamp,
         position: HasPeriodicExitDates,
     ) -> str | None:
-        """Return exit type if any rule is triggered, else None."""
+        """Return exit-type label when one or more rules are triggered."""
         triggered = tuple(
             rule.exit_type
             for rule in self.rules

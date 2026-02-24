@@ -1,3 +1,5 @@
+"""Visualization helpers for skew mispricing research notebooks."""
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -5,6 +7,7 @@ from volatility_trading.config.constants import OPTION_TYPES
 
 
 def plot_iv_smiles(iv_smiles, ticker):
+    """Plot implied-volatility smiles across selected DTE buckets."""
     plt.figure(figsize=(12, 6))
 
     for dte, iv_smile in iv_smiles.items():
@@ -21,6 +24,7 @@ def plot_iv_smiles(iv_smiles, ticker):
 
 
 def plot_volume_filter(options, log_volumes):
+    """Plot volume distribution diagnostics used for liquidity filtering."""
     plt.figure(figsize=(10, 5))
 
     for opt_type, color in zip(OPTION_TYPES, ["blue", "orange"]):
@@ -39,6 +43,7 @@ def plot_volume_filter(options, log_volumes):
 
 
 def plot_bid_ask_filter(options):
+    """Plot relative bid/ask spread diagnostics by option type."""
     plt.figure(figsize=(10, 6))
 
     for opt_type, color in zip(OPTION_TYPES, ["blue", "orange"]):
@@ -59,6 +64,7 @@ def plot_bid_ask_filter(options):
 
 
 def plot_moneyness_filter(avg_vol):
+    """Plot average traded volume by moneyness bucket and option type."""
     plt.figure(figsize=(12, 6))
 
     for option_type in OPTION_TYPES:
@@ -82,6 +88,7 @@ def plot_moneyness_filter(avg_vol):
 
 
 def plot_synthetic_ivs(synthetic_skew):
+    """Plot synthetic 30-DTE call/put/ATM implied-volatility series."""
     plt.figure(figsize=(12, 6))
     plt.plot(synthetic_skew.index, synthetic_skew["iv_put_30"], label="25Δ Put IV")
     plt.plot(synthetic_skew.index, synthetic_skew["iv_call_30"], label="25Δ Call IV")
@@ -97,6 +104,7 @@ def plot_synthetic_ivs(synthetic_skew):
 
 
 def plot_norm_abs_skew(synthetic_skew):
+    """Plot normalized and absolute skew on dual y-axes."""
     fig, ax1 = plt.subplots(figsize=(14, 5))
 
     ax1.plot(synthetic_skew["skew_norm"], color="red", label="Normalized Skew")
@@ -120,6 +128,7 @@ def plot_norm_abs_skew(synthetic_skew):
 
 
 def plot_skew_vs_spy(synthetic_skew, spy):
+    """Plot SPY against absolute and normalized skew time series."""
     fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
 
     # --- First subplot: SPY vs Absolute Skew ---
@@ -162,6 +171,7 @@ def plot_skew_vs_spy(synthetic_skew, spy):
 def plot_risk_reversal_payoff(
     spot_price=100, strike_put=95, strike_call=105, premium_put=3, premium_call=2
 ):
+    """Plot expiry payoff for a long-call/short-put risk reversal."""
     price_range = np.linspace(80, 120, 500)
 
     # Compute payoff
@@ -194,6 +204,7 @@ def plot_skew_signals(
     upper_threshold,
     title="Skew with Entry/Exit Signals",
 ):
+    """Overlay long/short/exit skew signals on raw skew levels."""
     plt.figure(figsize=(14, 5))
     plt.plot(skew, label="Skew", color="blue")
 
@@ -239,6 +250,7 @@ def plot_zscore_signals(
     exit_threshold,
     title="Skew Z-Score with Entry/Exit Signals",
 ):
+    """Overlay long/short/exit signals on skew z-score series."""
     plt.figure(figsize=(14, 5))
 
     plt.plot(z_score, label="Z-Score", color="blue")
@@ -279,6 +291,7 @@ def plot_zscore_signals(
 
 
 def plot_skew_vs_zscore(synthetic_skew):
+    """Plot absolute skew and skew z-score on dual y-axes."""
     fig, ax1 = plt.subplots(figsize=(14, 6))
 
     zscore = synthetic_skew["skew_zscore"].dropna()
@@ -304,6 +317,7 @@ def plot_skew_vs_zscore(synthetic_skew):
 
 
 def plot_boll_bands(synthetic_skew, signals):
+    """Plot skew with Bollinger-style entry/exit bands and signal markers."""
     window = 60  # e.g. 60-day rolling
     k_entry = 1.5  # entry at ±1.5σ
     k_exit = 0.5  # exit at ±0.5σ
@@ -362,6 +376,7 @@ def plot_boll_bands(synthetic_skew, signals):
 def plot_zscore_signals_with_vix(
     z_score, signals, vix, entry_threshold, exit_threshold, title, vix_filter=20
 ):
+    """Plot skew z-score signals with shaded VIX regime filter."""
     fig, ax = plt.subplots(figsize=(14, 5))
 
     z_score = z_score.copy()
@@ -451,6 +466,7 @@ def plot_zscore_signals_with_vix(
 
 
 def plot_vix(vix, vix_threshold=20):
+    """Plot VIX series with threshold-based regime shading."""
     plt.figure(figsize=(12, 6))
     plt.plot(vix, label="VIX", color="blue")
     plt.axhline(
@@ -485,6 +501,7 @@ def plot_vix(vix, vix_threshold=20):
 
 
 def plot_ivp(ivp, ivp_lower_threshold=30, ivp_higher_threshold=70):
+    """Plot IV percentile series with normal/extreme regime shading."""
     ivp = ivp.copy()
     ivp = ivp.dropna()
 
@@ -546,6 +563,7 @@ def plot_zscore_signals_with_ivp(
     ivp_lower_threshold,
     ivp_higher_threshold,
 ):
+    """Plot skew z-score signals with IVP-based regime overlays."""
     z_score = z_score.copy()
     ivp = ivp.copy()
     signals = signals.copy()
@@ -648,6 +666,7 @@ def plot_zscore_signals_with_ivp(
 
 
 def plot_skew_percentile(skew_perc, lower_threshold=20, upper_threshold=80):
+    """Plot skew percentile with lower/upper threshold regimes."""
     skew_perc = skew_perc.copy().dropna()
 
     lower_threshold /= 100
@@ -708,6 +727,7 @@ def plot_zscore_signals_with_skew_percentile(
     upper_threshold=80,
     title="Z-Score and Skew Percentile Regimes",
 ):
+    """Plot z-score signals with skew-percentile regime shading."""
     lower_threshold /= 100
     upper_threshold /= 100
 

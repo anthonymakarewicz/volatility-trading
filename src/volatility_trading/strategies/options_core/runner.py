@@ -13,7 +13,14 @@ SetupT = TypeVar("SetupT")
 
 @dataclass(frozen=True)
 class SinglePositionRunnerHooks(Generic[PositionT, SetupT]):
-    """Callbacks required by the single-position date runner."""
+    """Callback bundle required by the single-position event loop.
+
+    Attributes:
+        mark_open_position: Revalue open position and optionally close it.
+        prepare_entry: Build an entry setup for a trade date and current equity.
+        open_position: Open a new position and emit entry-day MTM record.
+        can_reenter_same_day: Decide if immediate reentry is allowed after exits.
+    """
 
     mark_open_position: Callable[
         [PositionT, pd.Timestamp, float], tuple[PositionT | None, dict, list[dict]]
@@ -30,7 +37,11 @@ def run_single_position_date_loop(
     initial_equity: float,
     hooks: SinglePositionRunnerHooks[PositionT, SetupT],
 ) -> tuple[list[dict], list[dict]]:
-    """Run shared single-position event loop and return trades + mtm records."""
+    """Run the shared single-position event loop.
+
+    Returns:
+        A tuple ``(trades, mtm_records)`` built from daily lifecycle callbacks.
+    """
     trades: list[dict] = []
     mtm_records: list[dict] = []
     equity_running = float(initial_equity)

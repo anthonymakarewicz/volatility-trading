@@ -39,6 +39,11 @@ def _build_option_legs(
     legs: Sequence[LegSelection],
     lot_size: int,
 ):
+    """Convert selected strategy legs into option-risk engine ``OptionLeg`` rows.
+
+    Raises:
+        ValueError: If no legs are provided or expiry cannot be resolved for a leg.
+    """
     if not legs:
         raise ValueError("legs must not be empty")
 
@@ -118,7 +123,11 @@ def size_entry_intent_contracts(
     min_contracts: int,
     max_contracts: int | None,
 ) -> tuple[int, float | None, str | None, float | None]:
-    """Size contracts directly from an `EntryIntent` payload."""
+    """Size contracts from risk-budget and margin-budget constraints.
+
+    Returns:
+        Tuple ``(contracts, risk_per_contract, risk_scenario, margin_per_contract)``.
+    """
     invalid_market = (
         not np.isfinite(spot)
         or spot <= 0

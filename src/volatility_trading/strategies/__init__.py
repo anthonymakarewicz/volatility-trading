@@ -1,3 +1,5 @@
+"""Public strategy exports used by backtests and notebooks."""
+
 from .options_core import OptionsStrategyRunner, StrategySpec
 from .vrp_harvesting.strategy import (
     VRPHarvestingSpec,

@@ -34,7 +34,15 @@ def _leg_units(leg: LegSelection) -> int:
 
 @dataclass(frozen=True)
 class PositionEntrySetup:
-    """Entry payload consumed by the generic lifecycle engine."""
+    """Entry payload consumed by the generic lifecycle engine.
+
+    Attributes:
+        intent: Resolved structure entry intent.
+        contracts: Number of structure contracts to open.
+        risk_per_contract: Optional worst-case risk estimate used for sizing.
+        risk_worst_scenario: Optional label for the worst risk scenario.
+        margin_per_contract: Optional initial margin estimate per contract.
+    """
 
     intent: EntryIntent
     contracts: int
@@ -45,7 +53,11 @@ class PositionEntrySetup:
 
 @dataclass
 class OpenPosition:
-    """Mutable open-position state updated once per trading date."""
+    """Mutable open-position state updated once per trading date.
+
+    This object stores lifecycle state required to mark, hedge, finance, and
+    close a position consistently across dates.
+    """
 
     entry_date: pd.Timestamp
     expiry_date: pd.Timestamp | None
@@ -73,7 +85,7 @@ class OpenPosition:
 
 @dataclass(frozen=True)
 class PositionLifecycleEngine:
-    """Shared position lifecycle logic: open, mark, and close."""
+    """Shared position lifecycle logic: open, mark, margin-manage, and close."""
 
     rebalance_period: int | None
     max_holding_period: int | None
@@ -310,7 +322,7 @@ class PositionLifecycleEngine:
         cfg: BacktestConfig,
         equity_running: float,
     ) -> tuple[OpenPosition, dict]:
-        """Create one open-position state and its entry-day MTM record."""
+        """Open one position and emit its entry-day MTM accounting record."""
         contracts_open = int(setup.contracts)
         lot_size = cfg.lot_size
         roundtrip_comm_pc = 2 * cfg.commission_per_leg
@@ -439,7 +451,11 @@ class PositionLifecycleEngine:
         cfg: BacktestConfig,
         equity_running: float,
     ) -> tuple[OpenPosition | None, dict, list[dict]]:
-        """Revalue one open position for one date and apply lifecycle exits."""
+        """Revalue one open position for one date and apply exit/liquidation rules.
+
+        Returns:
+            Tuple ``(updated_position_or_none, mtm_record, trade_rows)``.
+        """
         lot_size = cfg.lot_size
         roundtrip_comm_pc = 2 * cfg.commission_per_leg
 
