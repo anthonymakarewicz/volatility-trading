@@ -29,6 +29,12 @@ src/volatility_trading
 │   ├── margin.py
 │   ├── options_engine
 │   │   ├── __init__.py
+│   │   ├── _lifecycle
+│   │   │   ├── __init__.py
+│   │   │   ├── margining.py
+│   │   │   ├── records.py
+│   │   │   ├── state.py
+│   │   │   └── valuation.py
 │   │   ├── adapters.py
 │   │   ├── entry.py
 │   │   ├── exit_rules.py
@@ -285,7 +291,6 @@ src/volatility_trading
 │   └── z_score_signal.py
 ├── strategies
 │   ├── __init__.py
-│   ├── base_strategy.py
 │   ├── skew_mispricing
 │   │   ├── __init__.py
 │   │   ├── features.py
@@ -300,5 +305,5 @@ src/volatility_trading
     ├── __init__.py
     └── logging_config.py
 
-57 directories, 240 files
+58 directories, 245 files
 ```
