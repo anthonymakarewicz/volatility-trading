@@ -8,12 +8,13 @@ from dataclasses import replace
 import numpy as np
 import pandas as pd
 
+from volatility_trading.options.types import Greeks, MarketState
+
 from .state import (
     EntryMarginSnapshot,
     MarkMarginSnapshot,
     MarkValuationSnapshot,
     MtmMargin,
-    MtmMarket,
     MtmRecord,
     OpenPosition,
     PositionEntrySetup,
@@ -25,17 +26,14 @@ def build_entry_record(
     *,
     setup: PositionEntrySetup,
     contracts_open: int,
-    delta: float,
-    gamma: float,
-    vega: float,
-    theta: float,
+    greeks: Greeks,
     net_delta: float,
     margin: EntryMarginSnapshot,
 ) -> MtmRecord:
     """Build entry-day MTM record from entry and margin snapshots."""
     return MtmRecord(
         date=setup.intent.entry_date,
-        market=MtmMarket(
+        market=MarketState(
             spot=(
                 setup.intent.entry_state.spot
                 if setup.intent.entry_state is not None
@@ -48,11 +46,8 @@ def build_entry_record(
             ),
         ),
         delta_pnl=margin.entry_delta_pnl,
-        delta=delta,
+        greeks=greeks,
         net_delta=net_delta,
-        gamma=gamma,
-        vega=vega,
-        theta=theta,
         hedge_qty=0.0,
         hedge_price_prev=np.nan,
         hedge_pnl=0.0,
@@ -83,16 +78,10 @@ def build_mark_record(
     delta_pnl = valuation.delta_pnl_market + margin.financing_pnl
     return MtmRecord(
         date=curr_date,
-        market=MtmMarket(
-            spot=valuation.spot,
-            volatility=valuation.iv,
-        ),
+        market=valuation.market,
         delta_pnl=delta_pnl,
-        delta=valuation.delta,
+        greeks=valuation.greeks,
         net_delta=valuation.net_delta,
-        gamma=valuation.gamma,
-        vega=valuation.vega,
-        theta=valuation.theta,
         hedge_qty=position.hedge_qty,
         hedge_price_prev=position.hedge_price_entry,
         hedge_pnl=valuation.hedge_pnl,
@@ -160,11 +149,8 @@ def apply_closed_position_fields(
     return replace(
         mtm_record,
         delta_pnl=delta_pnl,
-        delta=0.0,
+        greeks=Greeks(delta=0.0, gamma=0.0, vega=0.0, theta=0.0),
         net_delta=0.0,
-        gamma=0.0,
-        vega=0.0,
-        theta=0.0,
         hedge_qty=0.0,
         open_contracts=0,
         margin=replace(

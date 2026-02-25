@@ -34,6 +34,7 @@ from .risk import (
     contracts_for_risk_budget,
 )
 from .types import (
+    Greeks,
     MarketShock,
     MarketState,
     OptionLeg,
@@ -49,6 +50,7 @@ __all__ = [
     "OptionTypeInput",
     "OptionSpec",
     "MarketState",
+    "Greeks",
     "MarketShock",
     "PricingResult",
     "PriceModel",

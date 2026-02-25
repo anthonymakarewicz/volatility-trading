@@ -36,6 +36,10 @@ def test_black_scholes_pricer_matches_functional_greeks_api():
     )
 
     assert out.price == pytest.approx(ref["price"])
+    assert out.greeks.delta == pytest.approx(ref["delta"])
+    assert out.greeks.gamma == pytest.approx(ref["gamma"])
+    assert out.greeks.vega == pytest.approx(ref["vega"])
+    assert out.greeks.theta == pytest.approx(ref["theta"])
     assert out.delta == pytest.approx(ref["delta"])
     assert out.gamma == pytest.approx(ref["gamma"])
     assert out.vega == pytest.approx(ref["vega"])

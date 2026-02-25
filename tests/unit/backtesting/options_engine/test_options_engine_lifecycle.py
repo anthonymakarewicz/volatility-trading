@@ -163,11 +163,11 @@ def test_open_position_records_entry_commission_and_greeks():
     assert position.prev_mtm == pytest.approx(0.0)
     assert entry_record.open_contracts == 3
     assert entry_record.delta_pnl == pytest.approx(-6.0)
-    assert entry_record.delta == pytest.approx(-1.5)
+    assert entry_record.greeks.delta == pytest.approx(-1.5)
     assert entry_record.net_delta == pytest.approx(-1.5)
-    assert entry_record.gamma == pytest.approx(-0.3)
-    assert entry_record.vega == pytest.approx(-0.6)
-    assert entry_record.theta == pytest.approx(0.9)
+    assert entry_record.greeks.gamma == pytest.approx(-0.3)
+    assert entry_record.greeks.vega == pytest.approx(-0.6)
+    assert entry_record.greeks.theta == pytest.approx(0.9)
 
 
 def test_mark_position_with_missing_quotes_keeps_position_open():
@@ -230,7 +230,7 @@ def test_mark_position_rebalance_exit_closes_position_and_emits_trade():
     assert trade_rows[0]["pnl"] == pytest.approx(-2.0)
     assert mtm_record.delta_pnl == pytest.approx(-2.0)
     assert mtm_record.open_contracts == 0
-    assert mtm_record.delta == pytest.approx(0.0)
+    assert mtm_record.greeks.delta == pytest.approx(0.0)
     assert mtm_record.net_delta == pytest.approx(0.0)
 
 

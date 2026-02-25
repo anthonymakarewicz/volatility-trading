@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from volatility_trading.backtesting.types import BacktestConfig
+from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label
 from ..entry import chain_for_date
@@ -250,10 +251,12 @@ def resolve_mark_valuation(
     has_missing_quote = any(quote is None for quote in leg_quotes)
     if has_missing_quote:
         pnl_mtm = prev_mtm_before
-        delta = position.last_delta
-        gamma = position.last_gamma
-        vega = position.last_vega
-        theta = position.last_theta
+        greeks = Greeks(
+            delta=position.last_delta,
+            gamma=position.last_gamma,
+            vega=position.last_vega,
+            theta=position.last_theta,
+        )
         complete_leg_quotes: tuple[pd.Series, ...] | None = None
     else:
         complete_leg_quotes = tuple(quote for quote in leg_quotes if quote is not None)
@@ -270,10 +273,12 @@ def resolve_mark_valuation(
             ),
             lot_size=lot_size,
         )
-        delta = delta_pc * position.contracts_open
-        gamma = gamma_pc * position.contracts_open
-        vega = vega_pc * position.contracts_open
-        theta = theta_pc * position.contracts_open
+        greeks = Greeks(
+            delta=delta_pc * position.contracts_open,
+            gamma=gamma_pc * position.contracts_open,
+            vega=vega_pc * position.contracts_open,
+            theta=theta_pc * position.contracts_open,
+        )
 
     spot_curr = position.last_spot
     if "spot_price" in chain_all.columns and not chain_all.empty:
@@ -290,19 +295,16 @@ def resolve_mark_valuation(
         )
 
     hedge_pnl = 0.0
-    net_delta = delta
+    net_delta = greeks.delta
     delta_pnl_market = (pnl_mtm - prev_mtm_before) + hedge_pnl
+    market = MarketState(spot=spot_curr, volatility=iv_curr)
     return MarkValuationSnapshot(
         prev_mtm_before=prev_mtm_before,
         pnl_mtm=pnl_mtm,
-        delta=delta,
-        gamma=gamma,
-        vega=vega,
-        theta=theta,
+        greeks=greeks,
         complete_leg_quotes=complete_leg_quotes,
         has_missing_quote=has_missing_quote,
-        spot=spot_curr,
-        iv=iv_curr,
+        market=market,
         hedge_pnl=hedge_pnl,
         net_delta=net_delta,
         delta_pnl_market=delta_pnl_market,

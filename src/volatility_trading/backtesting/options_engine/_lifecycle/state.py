@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from volatility_trading.backtesting.margin import MarginAccount, MarginStatus
+from volatility_trading.options.types import Greeks, MarketState
 
 from ..types import EntryIntent
 
@@ -86,17 +87,23 @@ class MarkValuationSnapshot:
 
     prev_mtm_before: float
     pnl_mtm: float
-    delta: float
-    gamma: float
-    vega: float
-    theta: float
+    greeks: Greeks
     complete_leg_quotes: tuple[pd.Series, ...] | None
     has_missing_quote: bool
-    spot: float
-    iv: float
+    market: MarketState
     hedge_pnl: float
     net_delta: float
     delta_pnl_market: float
+
+    @property
+    def spot(self) -> float:
+        """Compatibility accessor for market spot."""
+        return self.market.spot
+
+    @property
+    def iv(self) -> float:
+        """Compatibility accessor for market volatility."""
+        return self.market.volatility
 
 
 @dataclass(frozen=True)
@@ -113,14 +120,6 @@ class MarkMarginSnapshot:
     forced_liquidation: bool
     contracts_liquidated: int
     margin_status: MarginStatus | None
-
-
-@dataclass(frozen=True, slots=True)
-class MtmMarket:
-    """Market marks captured in one lifecycle MTM record."""
-
-    spot: float
-    volatility: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,13 +143,10 @@ class MtmRecord:
     """One daily lifecycle mark-to-market ledger record."""
 
     date: pd.Timestamp
-    market: MtmMarket
+    market: MarketState
     delta_pnl: float
-    delta: float
     net_delta: float
-    gamma: float
-    vega: float
-    theta: float
+    greeks: Greeks
     hedge_qty: float
     hedge_price_prev: float
     hedge_pnl: float
@@ -164,11 +160,11 @@ class MtmRecord:
             "S": self.market.spot,
             "iv": self.market.volatility,
             "delta_pnl": self.delta_pnl,
-            "delta": self.delta,
+            "delta": self.greeks.delta,
             "net_delta": self.net_delta,
-            "gamma": self.gamma,
-            "vega": self.vega,
-            "theta": self.theta,
+            "gamma": self.greeks.gamma,
+            "vega": self.greeks.vega,
+            "theta": self.greeks.theta,
             "hedge_qty": self.hedge_qty,
             "hedge_price_prev": self.hedge_price_prev,
             "hedge_pnl": self.hedge_pnl,

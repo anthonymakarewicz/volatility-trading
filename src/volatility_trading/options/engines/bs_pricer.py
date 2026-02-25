@@ -30,4 +30,4 @@ class BlackScholesPricer:
             q=state.dividend_yield,
             option_type=spec.option_type,
         )
-        return PricingResult(**out)
+        return PricingResult.from_flat(out)

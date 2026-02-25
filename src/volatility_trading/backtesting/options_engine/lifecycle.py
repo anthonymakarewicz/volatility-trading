@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 
 import pandas as pd
 
-from volatility_trading.options import MarginModel, PriceModel
+from volatility_trading.options import Greeks, MarginModel, PriceModel
 
 from ..margin import MarginPolicy
 from ..types import BacktestConfig
@@ -58,10 +58,7 @@ class PositionLifecycleEngine:
         setup: PositionEntrySetup,
         contracts_open: int,
         net_entry: float,
-        delta: float,  # TODO: Is there a cleaner way ? passing a Greeks dataclass ?
-        gamma: float,
-        vega: float,
-        theta: float,
+        greeks: Greeks,
         net_delta: float,  # TODO: Remove it, keep a single delat that is updated with hedge instr.
         margin: EntryMarginSnapshot,
     ) -> OpenPosition:
@@ -107,10 +104,10 @@ class PositionLifecycleEngine:
                 if setup.intent.entry_state is not None
                 else float("nan")
             ),
-            last_delta=delta,
-            last_gamma=gamma,
-            last_vega=vega,
-            last_theta=theta,
+            last_delta=greeks.delta,
+            last_gamma=greeks.gamma,
+            last_vega=greeks.vega,
+            last_theta=greeks.theta,
             last_net_delta=net_delta,
         )
 
@@ -195,11 +192,8 @@ class PositionLifecycleEngine:
         mtm_record = replace(
             mtm_record,
             delta_pnl=forced_delta_pnl,
-            delta=valuation.delta * ratio_remaining,
+            greeks=valuation.greeks.scaled(ratio_remaining),
             net_delta=valuation.net_delta * ratio_remaining,
-            gamma=valuation.gamma * ratio_remaining,
-            vega=valuation.vega * ratio_remaining,
-            theta=valuation.theta * ratio_remaining,
             open_contracts=contracts_after,
             margin=replace(
                 mtm_record.margin,
@@ -225,11 +219,11 @@ class PositionLifecycleEngine:
             pnl_mtm=pnl_mtm_remaining,
             spot=valuation.spot,
             iv=valuation.iv,
-            delta=float(mtm_record.delta),
+            delta=float(mtm_record.greeks.delta),
             net_delta=float(mtm_record.net_delta),
-            gamma=float(mtm_record.gamma),
-            vega=float(mtm_record.vega),
-            theta=float(mtm_record.theta),
+            gamma=float(mtm_record.greeks.gamma),
+            vega=float(mtm_record.greeks.vega),
+            theta=float(mtm_record.greeks.theta),
         )
         return position, mtm_record, trade_rows
 
@@ -302,13 +296,13 @@ class PositionLifecycleEngine:
             leg_quotes=tuple((leg, leg.quote) for leg in setup.intent.legs),
             lot_size=lot_size,
         )
-        delta = (
-            delta_pc * contracts_open
-        )  # TODO: Maybe there is a cleaner way toi compute the porftolio greeks in 1 place
-        gamma = gamma_pc * contracts_open
-        vega = vega_pc * contracts_open
-        theta = theta_pc * contracts_open
-        net_delta = delta
+        greeks = Greeks(
+            delta=delta_pc * contracts_open,
+            gamma=gamma_pc * contracts_open,
+            vega=vega_pc * contracts_open,
+            theta=theta_pc * contracts_open,
+        )
+        net_delta = greeks.delta
 
         margin = evaluate_entry_margin(
             setup=setup,
@@ -320,10 +314,7 @@ class PositionLifecycleEngine:
         entry_record = build_entry_record(
             setup=setup,
             contracts_open=contracts_open,
-            delta=delta,
-            gamma=gamma,
-            vega=vega,
-            theta=theta,
+            greeks=greeks,
             net_delta=net_delta,
             margin=margin,
         )
@@ -331,10 +322,7 @@ class PositionLifecycleEngine:
             setup=setup,
             contracts_open=contracts_open,
             net_entry=net_entry,
-            delta=delta,
-            gamma=gamma,
-            vega=vega,
-            theta=theta,
+            greeks=greeks,
             net_delta=net_delta,
             margin=margin,
         )
@@ -406,11 +394,11 @@ class PositionLifecycleEngine:
                 pnl_mtm=valuation.pnl_mtm,
                 spot=valuation.spot,
                 iv=valuation.iv,
-                delta=float(mtm_record.delta),
+                delta=float(mtm_record.greeks.delta),
                 net_delta=float(mtm_record.net_delta),
-                gamma=float(mtm_record.gamma),
-                vega=float(mtm_record.vega),
-                theta=float(mtm_record.theta),
+                gamma=float(mtm_record.greeks.gamma),
+                vega=float(mtm_record.greeks.vega),
+                theta=float(mtm_record.greeks.theta),
             )
             return position, mtm_record, []
 
@@ -421,11 +409,11 @@ class PositionLifecycleEngine:
                 pnl_mtm=valuation.pnl_mtm,
                 spot=valuation.spot,
                 iv=valuation.iv,
-                delta=float(mtm_record.delta),
+                delta=float(mtm_record.greeks.delta),
                 net_delta=float(mtm_record.net_delta),
-                gamma=float(mtm_record.gamma),
-                vega=float(mtm_record.vega),
-                theta=float(mtm_record.theta),
+                gamma=float(mtm_record.greeks.gamma),
+                vega=float(mtm_record.greeks.vega),
+                theta=float(mtm_record.greeks.theta),
             )
             return position, mtm_record, []
 

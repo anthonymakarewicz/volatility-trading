@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum
 from typing import Literal, TypeAlias
@@ -37,16 +38,62 @@ class MarketState:
     dividend_yield: float = 0.0
 
 
-@dataclass(frozen=True)
-class PricingResult:
-    """Option value and first/second-order sensitivities."""
+@dataclass(frozen=True, slots=True)
+class Greeks:
+    """First/second-order sensitivities used across pricing/backtesting."""
 
-    price: float
     delta: float
     gamma: float
     vega: float
     theta: float
+
+    def scaled(self, factor: float) -> Greeks:
+        """Return Greeks scaled by a scalar position multiplier."""
+        return Greeks(
+            delta=self.delta * factor,
+            gamma=self.gamma * factor,
+            vega=self.vega * factor,
+            theta=self.theta * factor,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PricingResult:
+    """Option value and first/second-order sensitivities."""
+
+    price: float
+    greeks: Greeks
     rho: float
+
+    @classmethod
+    def from_flat(cls, data: Mapping[str, float]) -> PricingResult:
+        """Build ``PricingResult`` from a flat mapping (price/delta/.../rho)."""
+        return cls(
+            price=float(data["price"]),
+            greeks=Greeks(
+                delta=float(data["delta"]),
+                gamma=float(data["gamma"]),
+                vega=float(data["vega"]),
+                theta=float(data["theta"]),
+            ),
+            rho=float(data["rho"]),
+        )
+
+    @property
+    def delta(self) -> float:
+        return self.greeks.delta
+
+    @property
+    def gamma(self) -> float:
+        return self.greeks.gamma
+
+    @property
+    def vega(self) -> float:
+        return self.greeks.vega
+
+    @property
+    def theta(self) -> float:
+        return self.greeks.theta
 
 
 class PositionSide(IntEnum):
