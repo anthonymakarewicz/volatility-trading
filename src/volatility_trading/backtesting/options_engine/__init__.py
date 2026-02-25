@@ -20,6 +20,7 @@ from .exit_rules import (
     SameDayReentryPolicy,
 )
 from .lifecycle import (
+    MtmRecord,
     OpenPosition,
     PositionEntrySetup,
     PositionLifecycleEngine,
@@ -66,6 +67,7 @@ __all__ = [
     "estimate_entry_intent_margin_per_contract",
     "size_entry_intent_contracts",
     "PositionEntrySetup",
+    "MtmRecord",
     "OpenPosition",
     "PositionLifecycleEngine",
     "SinglePositionRunnerHooks",

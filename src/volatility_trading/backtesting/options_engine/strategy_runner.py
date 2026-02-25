@@ -5,6 +5,8 @@ from __future__ import annotations
 import pandas as pd
 
 from ..types import BacktestConfig, SliceContext
+from ._lifecycle.records import mtm_record_to_dict
+from ._lifecycle.state import MtmRecord
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import (
     OpenPosition,
@@ -208,7 +210,14 @@ class OptionsStrategyRunner:
         if not mtm_records:
             return pd.DataFrame(trades), pd.DataFrame()
 
-        mtm_agg = pd.DataFrame(mtm_records).set_index("date").sort_index()
+        mtm_rows: list[dict] = []
+        for record in mtm_records:
+            if isinstance(record, MtmRecord):
+                mtm_rows.append(mtm_record_to_dict(record))
+            else:
+                mtm_rows.append(record)
+
+        mtm_agg = pd.DataFrame(mtm_rows).set_index("date").sort_index()
         agg_map = {
             "delta_pnl": "sum",
             "delta": "sum",

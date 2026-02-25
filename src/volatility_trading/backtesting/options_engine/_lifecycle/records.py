@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 
@@ -9,6 +12,9 @@ from .state import (
     EntryMarginSnapshot,
     MarkMarginSnapshot,
     MarkValuationSnapshot,
+    MtmMargin,
+    MtmMarket,
+    MtmRecord,
     OpenPosition,
     PositionEntrySetup,
 )
@@ -25,39 +31,45 @@ def build_entry_record(
     theta: float,
     net_delta: float,
     margin: EntryMarginSnapshot,
-) -> dict:
+) -> MtmRecord:
     """Build entry-day MTM record from entry and margin snapshots."""
-    return {
-        "date": setup.intent.entry_date,
-        "S": setup.intent.entry_state.spot
-        if setup.intent.entry_state is not None
-        else np.nan,
-        "iv": (
-            setup.intent.entry_state.volatility
-            if setup.intent.entry_state is not None
-            else np.nan
+    return MtmRecord(
+        date=setup.intent.entry_date,
+        market=MtmMarket(
+            spot=(
+                setup.intent.entry_state.spot
+                if setup.intent.entry_state is not None
+                else np.nan
+            ),
+            volatility=(
+                setup.intent.entry_state.volatility
+                if setup.intent.entry_state is not None
+                else np.nan
+            ),
         ),
-        "delta_pnl": margin.entry_delta_pnl,
-        "delta": delta,
-        "net_delta": net_delta,
-        "gamma": gamma,
-        "vega": vega,
-        "theta": theta,
-        "hedge_qty": 0.0,
-        "hedge_price_prev": np.nan,
-        "hedge_pnl": 0.0,
-        "open_contracts": contracts_open,
-        "margin_per_contract": margin.latest_margin_per_contract,
-        "initial_margin_requirement": margin.initial_margin_requirement,
-        "maintenance_margin_requirement": margin.maintenance_margin_requirement,
-        "margin_excess": margin.margin_excess,
-        "margin_deficit": margin.margin_deficit,
-        "in_margin_call": margin.in_margin_call,
-        "margin_call_days": margin.margin_call_days,
-        "forced_liquidation": margin.forced_liquidation,
-        "contracts_liquidated": margin.contracts_liquidated,
-        "financing_pnl": margin.financing_pnl,
-    }
+        delta_pnl=margin.entry_delta_pnl,
+        delta=delta,
+        net_delta=net_delta,
+        gamma=gamma,
+        vega=vega,
+        theta=theta,
+        hedge_qty=0.0,
+        hedge_price_prev=np.nan,
+        hedge_pnl=0.0,
+        open_contracts=contracts_open,
+        margin=MtmMargin(
+            per_contract=margin.latest_margin_per_contract,
+            initial_requirement=margin.initial_margin_requirement,
+            maintenance_requirement=margin.maintenance_margin_requirement,
+            excess=margin.margin_excess,
+            deficit=margin.margin_deficit,
+            in_call=margin.in_margin_call,
+            call_days=margin.margin_call_days,
+            forced_liquidation=margin.forced_liquidation,
+            contracts_liquidated=margin.contracts_liquidated,
+            financing_pnl=margin.financing_pnl,
+        ),
+    )
 
 
 def build_mark_record(
@@ -66,34 +78,48 @@ def build_mark_record(
     curr_date: pd.Timestamp,
     valuation: MarkValuationSnapshot,
     margin: MarkMarginSnapshot,
-) -> dict:
+) -> MtmRecord:
     """Build one-date MTM record before forced close or standard exits."""
     delta_pnl = valuation.delta_pnl_market + margin.financing_pnl
-    return {
-        "date": curr_date,
-        "S": valuation.spot,
-        "iv": valuation.iv,
-        "delta_pnl": delta_pnl,
-        "delta": valuation.delta,
-        "net_delta": valuation.net_delta,
-        "gamma": valuation.gamma,
-        "vega": valuation.vega,
-        "theta": valuation.theta,
-        "hedge_qty": position.hedge_qty,
-        "hedge_price_prev": position.hedge_price_entry,
-        "hedge_pnl": valuation.hedge_pnl,
-        "open_contracts": position.contracts_open,
-        "margin_per_contract": position.latest_margin_per_contract,
-        "initial_margin_requirement": margin.initial_margin_requirement,
-        "maintenance_margin_requirement": margin.maintenance_margin_requirement,
-        "margin_excess": margin.margin_excess,
-        "margin_deficit": margin.margin_deficit,
-        "in_margin_call": margin.in_margin_call,
-        "margin_call_days": margin.margin_call_days,
-        "forced_liquidation": margin.forced_liquidation,
-        "contracts_liquidated": margin.contracts_liquidated,
-        "financing_pnl": margin.financing_pnl,
-    }
+    return MtmRecord(
+        date=curr_date,
+        market=MtmMarket(
+            spot=valuation.spot,
+            volatility=valuation.iv,
+        ),
+        delta_pnl=delta_pnl,
+        delta=valuation.delta,
+        net_delta=valuation.net_delta,
+        gamma=valuation.gamma,
+        vega=valuation.vega,
+        theta=valuation.theta,
+        hedge_qty=position.hedge_qty,
+        hedge_price_prev=position.hedge_price_entry,
+        hedge_pnl=valuation.hedge_pnl,
+        open_contracts=position.contracts_open,
+        margin=MtmMargin(
+            per_contract=position.latest_margin_per_contract,
+            initial_requirement=margin.initial_margin_requirement,
+            maintenance_requirement=margin.maintenance_margin_requirement,
+            excess=margin.margin_excess,
+            deficit=margin.margin_deficit,
+            in_call=margin.in_margin_call,
+            call_days=margin.margin_call_days,
+            forced_liquidation=margin.forced_liquidation,
+            contracts_liquidated=margin.contracts_liquidated,
+            financing_pnl=margin.financing_pnl,
+        ),
+    )
+
+
+def mtm_record_to_dict(record: MtmRecord) -> dict[str, object]:
+    """Serialize a lifecycle MTM record to one tabular output row."""
+    return record.to_dict()
+
+
+def mtm_records_to_rows(records: Sequence[MtmRecord]) -> list[dict[str, object]]:
+    """Serialize multiple lifecycle MTM records to tabular output rows."""
+    return [mtm_record_to_dict(record) for record in records]
 
 
 def build_trade_row(
@@ -125,26 +151,28 @@ def build_trade_row(
 
 
 def apply_closed_position_fields(
-    mtm_record: dict,
+    mtm_record: MtmRecord,
     *,
     delta_pnl: float,
     equity_after: float,
-) -> None:
-    """Update MTM record fields for a fully closed position."""
-    mtm_record.update(
-        {
-            "delta_pnl": delta_pnl,
-            "delta": 0.0,
-            "net_delta": 0.0,
-            "gamma": 0.0,
-            "vega": 0.0,
-            "theta": 0.0,
-            "hedge_qty": 0.0,
-            "open_contracts": 0,
-            "initial_margin_requirement": 0.0,
-            "maintenance_margin_requirement": 0.0,
-            "margin_excess": equity_after,
-            "margin_deficit": 0.0,
-            "in_margin_call": False,
-        }
+) -> MtmRecord:
+    """Return MTM record with fields updated for a fully closed position."""
+    return replace(
+        mtm_record,
+        delta_pnl=delta_pnl,
+        delta=0.0,
+        net_delta=0.0,
+        gamma=0.0,
+        vega=0.0,
+        theta=0.0,
+        hedge_qty=0.0,
+        open_contracts=0,
+        margin=replace(
+            mtm_record.margin,
+            initial_requirement=0.0,
+            maintenance_requirement=0.0,
+            excess=equity_after,
+            deficit=0.0,
+            in_call=False,
+        ),
     )

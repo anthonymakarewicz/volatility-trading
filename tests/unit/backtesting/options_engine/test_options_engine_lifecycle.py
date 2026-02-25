@@ -161,13 +161,13 @@ def test_open_position_records_entry_commission_and_greeks():
 
     assert position.contracts_open == 3
     assert position.prev_mtm == pytest.approx(0.0)
-    assert entry_record["open_contracts"] == 3
-    assert entry_record["delta_pnl"] == pytest.approx(-6.0)
-    assert entry_record["delta"] == pytest.approx(-1.5)
-    assert entry_record["net_delta"] == pytest.approx(-1.5)
-    assert entry_record["gamma"] == pytest.approx(-0.3)
-    assert entry_record["vega"] == pytest.approx(-0.6)
-    assert entry_record["theta"] == pytest.approx(0.9)
+    assert entry_record.open_contracts == 3
+    assert entry_record.delta_pnl == pytest.approx(-6.0)
+    assert entry_record.delta == pytest.approx(-1.5)
+    assert entry_record.net_delta == pytest.approx(-1.5)
+    assert entry_record.gamma == pytest.approx(-0.3)
+    assert entry_record.vega == pytest.approx(-0.6)
+    assert entry_record.theta == pytest.approx(0.9)
 
 
 def test_mark_position_with_missing_quotes_keeps_position_open():
@@ -195,8 +195,8 @@ def test_mark_position_with_missing_quotes_keeps_position_open():
 
     assert updated_position is not None
     assert trade_rows == []
-    assert mtm_record["delta_pnl"] == pytest.approx(0.0)
-    assert mtm_record["open_contracts"] == 1
+    assert mtm_record.delta_pnl == pytest.approx(0.0)
+    assert mtm_record.open_contracts == 1
     assert updated_position.prev_mtm == pytest.approx(0.0)
     assert updated_position.last_delta == pytest.approx(-0.5)
 
@@ -228,10 +228,10 @@ def test_mark_position_rebalance_exit_closes_position_and_emits_trade():
     assert trade_rows[0]["exit_type"] == "Rebalance Period"
     assert trade_rows[0]["contracts"] == 2
     assert trade_rows[0]["pnl"] == pytest.approx(-2.0)
-    assert mtm_record["delta_pnl"] == pytest.approx(-2.0)
-    assert mtm_record["open_contracts"] == 0
-    assert mtm_record["delta"] == pytest.approx(0.0)
-    assert mtm_record["net_delta"] == pytest.approx(0.0)
+    assert mtm_record.delta_pnl == pytest.approx(-2.0)
+    assert mtm_record.open_contracts == 0
+    assert mtm_record.delta == pytest.approx(0.0)
+    assert mtm_record.net_delta == pytest.approx(0.0)
 
 
 def test_mark_position_forced_liquidation_full_mode_closes_all_contracts():
@@ -263,9 +263,9 @@ def test_mark_position_forced_liquidation_full_mode_closes_all_contracts():
     assert len(trade_rows) == 1
     assert trade_rows[0]["exit_type"] == "Margin Call Liquidation"
     assert trade_rows[0]["contracts"] == 3
-    assert mtm_record["open_contracts"] == 0
-    assert mtm_record["forced_liquidation"] is True
-    assert mtm_record["contracts_liquidated"] == 3
+    assert mtm_record.open_contracts == 0
+    assert mtm_record.margin.forced_liquidation is True
+    assert mtm_record.margin.contracts_liquidated == 3
 
 
 def test_mark_position_forced_liquidation_target_mode_can_be_partial():
@@ -302,6 +302,6 @@ def test_mark_position_forced_liquidation_target_mode_can_be_partial():
     assert trade_rows[0]["exit_type"] == "Margin Call Partial Liquidation"
     assert trade_rows[0]["contracts"] == 2
     assert updated_position.contracts_open == 2
-    assert mtm_record["open_contracts"] == 2
-    assert mtm_record["contracts_liquidated"] == 2
-    assert mtm_record["forced_liquidation"] is True
+    assert mtm_record.open_contracts == 2
+    assert mtm_record.margin.contracts_liquidated == 2
+    assert mtm_record.margin.forced_liquidation is True

@@ -7,6 +7,8 @@ from typing import Callable, Generic, TypeVar
 
 import pandas as pd
 
+from ._lifecycle.state import MtmRecord
+
 PositionT = TypeVar("PositionT")
 SetupT = TypeVar("SetupT")
 
@@ -25,11 +27,19 @@ class SinglePositionRunnerHooks(Generic[PositionT, SetupT]):
     """
 
     mark_open_position: Callable[
-        [PositionT, pd.Timestamp, float], tuple[PositionT | None, dict, list[dict]]
+        [PositionT, pd.Timestamp, float],
+        tuple[PositionT | None, MtmRecord | dict, list[dict]],
     ]
     prepare_entry: Callable[[pd.Timestamp, float], SetupT | None]
-    open_position: Callable[[SetupT, float], tuple[PositionT, dict]]
+    open_position: Callable[[SetupT, float], tuple[PositionT, MtmRecord | dict]]
     can_reenter_same_day: Callable[[list[dict]], bool]
+
+
+def _record_delta_pnl(record: MtmRecord | dict) -> float:
+    """Return ``delta_pnl`` from either typed MTM records or legacy row dicts."""
+    if isinstance(record, MtmRecord):
+        return float(record.delta_pnl)
+    return float(record["delta_pnl"])
 
 
 def run_single_position_date_loop(
@@ -38,14 +48,14 @@ def run_single_position_date_loop(
     active_signal_dates: set[pd.Timestamp],
     initial_equity: float,
     hooks: SinglePositionRunnerHooks[PositionT, SetupT],
-) -> tuple[list[dict], list[dict]]:
+) -> tuple[list[dict], list[MtmRecord | dict]]:
     """Run the shared single-position event loop.
 
     Returns:
         A tuple ``(trades, mtm_records)`` built from daily lifecycle callbacks.
     """
     trades: list[dict] = []
-    mtm_records: list[dict] = []
+    mtm_records: list[MtmRecord | dict] = []
     equity_running = float(initial_equity)
     open_position: PositionT | None = None
 
@@ -58,7 +68,7 @@ def run_single_position_date_loop(
             )
             mtm_records.append(mtm_record)
             trades.extend(trade_rows)
-            equity_running += float(mtm_record["delta_pnl"])
+            equity_running += _record_delta_pnl(mtm_record)
 
             if open_position is not None:
                 continue
@@ -74,6 +84,6 @@ def run_single_position_date_loop(
 
         open_position, entry_record = hooks.open_position(setup, equity_running)
         mtm_records.append(entry_record)
-        equity_running += float(entry_record["delta_pnl"])
+        equity_running += _record_delta_pnl(entry_record)
 
     return trades, mtm_records

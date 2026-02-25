@@ -113,3 +113,74 @@ class MarkMarginSnapshot:
     forced_liquidation: bool
     contracts_liquidated: int
     margin_status: MarginStatus | None
+
+
+@dataclass(frozen=True, slots=True)
+class MtmMarket:
+    """Market marks captured in one lifecycle MTM record."""
+
+    spot: float
+    volatility: float
+
+
+@dataclass(frozen=True, slots=True)
+class MtmMargin:
+    """Margin/accounting fields captured in one lifecycle MTM record."""
+
+    per_contract: float | None
+    initial_requirement: float
+    maintenance_requirement: float
+    excess: float
+    deficit: float
+    in_call: bool
+    call_days: int
+    forced_liquidation: bool
+    contracts_liquidated: int
+    financing_pnl: float
+
+
+@dataclass(frozen=True, slots=True)
+class MtmRecord:
+    """One daily lifecycle mark-to-market ledger record."""
+
+    date: pd.Timestamp
+    market: MtmMarket
+    delta_pnl: float
+    delta: float
+    net_delta: float
+    gamma: float
+    vega: float
+    theta: float
+    hedge_qty: float
+    hedge_price_prev: float
+    hedge_pnl: float
+    open_contracts: int
+    margin: MtmMargin
+
+    def to_dict(self) -> dict[str, object]:
+        """Flatten the MTM record into the canonical tabular row schema."""
+        return {
+            "date": self.date,
+            "S": self.market.spot,
+            "iv": self.market.volatility,
+            "delta_pnl": self.delta_pnl,
+            "delta": self.delta,
+            "net_delta": self.net_delta,
+            "gamma": self.gamma,
+            "vega": self.vega,
+            "theta": self.theta,
+            "hedge_qty": self.hedge_qty,
+            "hedge_price_prev": self.hedge_price_prev,
+            "hedge_pnl": self.hedge_pnl,
+            "open_contracts": self.open_contracts,
+            "margin_per_contract": self.margin.per_contract,
+            "initial_margin_requirement": self.margin.initial_requirement,
+            "maintenance_margin_requirement": self.margin.maintenance_requirement,
+            "margin_excess": self.margin.excess,
+            "margin_deficit": self.margin.deficit,
+            "in_margin_call": self.margin.in_call,
+            "margin_call_days": self.margin.call_days,
+            "forced_liquidation": self.margin.forced_liquidation,
+            "contracts_liquidated": self.margin.contracts_liquidated,
+            "financing_pnl": self.margin.financing_pnl,
+        }

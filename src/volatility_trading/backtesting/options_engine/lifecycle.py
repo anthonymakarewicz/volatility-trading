@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pandas as pd
 
@@ -25,6 +25,7 @@ from ._lifecycle.state import (
     EntryMarginSnapshot,
     MarkMarginSnapshot,
     MarkValuationSnapshot,
+    MtmRecord,
     OpenPosition,
     PositionEntrySetup,
 )
@@ -57,11 +58,11 @@ class PositionLifecycleEngine:
         setup: PositionEntrySetup,
         contracts_open: int,
         net_entry: float,
-        delta: float,
+        delta: float,  # TODO: Is there a cleaner way ? passing a Greeks dataclass ?
         gamma: float,
         vega: float,
         theta: float,
-        net_delta: float,
+        net_delta: float,  # TODO: Remove it, keep a single delat that is updated with hedge instr.
         margin: EntryMarginSnapshot,
     ) -> OpenPosition:
         """Build mutable open-position state from entry lifecycle snapshots."""
@@ -124,8 +125,8 @@ class PositionLifecycleEngine:
         equity_running: float,
         valuation: MarkValuationSnapshot,
         margin: MarkMarginSnapshot,
-        mtm_record: dict,
-    ) -> tuple[OpenPosition | None, dict, list[dict]] | None:
+        mtm_record: MtmRecord,
+    ) -> tuple[OpenPosition | None, MtmRecord, list[dict]] | None:
         """Handle forced margin liquidation and return lifecycle outcome if triggered."""
         if (
             margin.margin_status is None
@@ -171,16 +172,18 @@ class PositionLifecycleEngine:
                 pnl_net_closed - valuation.prev_mtm_before
             ) + margin.financing_pnl
             equity_after = equity_running + forced_delta_pnl
-            apply_closed_position_fields(
+            mtm_record = apply_closed_position_fields(
                 mtm_record,
                 delta_pnl=forced_delta_pnl,
                 equity_after=equity_after,
             )
-            mtm_record.update(
-                {
-                    "forced_liquidation": True,
-                    "contracts_liquidated": contracts_to_close,
-                }
+            mtm_record = replace(
+                mtm_record,
+                margin=replace(
+                    mtm_record.margin,
+                    forced_liquidation=True,
+                    contracts_liquidated=contracts_to_close,
+                ),
             )
             return None, mtm_record, trade_rows
 
@@ -189,19 +192,21 @@ class PositionLifecycleEngine:
         forced_delta_pnl = (
             pnl_net_closed + pnl_mtm_remaining - valuation.prev_mtm_before
         ) + margin.financing_pnl
-        mtm_record.update(
-            {
-                "delta_pnl": forced_delta_pnl,
-                "delta": valuation.delta * ratio_remaining,
-                "net_delta": valuation.net_delta * ratio_remaining,
-                "gamma": valuation.gamma * ratio_remaining,
-                "vega": valuation.vega * ratio_remaining,
-                "theta": valuation.theta * ratio_remaining,
-                "open_contracts": contracts_after,
-                "initial_margin_requirement": (
+        mtm_record = replace(
+            mtm_record,
+            delta_pnl=forced_delta_pnl,
+            delta=valuation.delta * ratio_remaining,
+            net_delta=valuation.net_delta * ratio_remaining,
+            gamma=valuation.gamma * ratio_remaining,
+            vega=valuation.vega * ratio_remaining,
+            theta=valuation.theta * ratio_remaining,
+            open_contracts=contracts_after,
+            margin=replace(
+                mtm_record.margin,
+                initial_requirement=(
                     (position.latest_margin_per_contract or 0.0) * contracts_after
                 ),
-                "maintenance_margin_requirement": (
+                maintenance_requirement=(
                     (position.latest_margin_per_contract or 0.0)
                     * contracts_after
                     * (
@@ -210,8 +215,8 @@ class PositionLifecycleEngine:
                         else 0.0
                     )
                 ),
-                "contracts_liquidated": contracts_to_close,
-            }
+                contracts_liquidated=contracts_to_close,
+            ),
         )
         position.contracts_open = contracts_after
         position.net_entry *= ratio_remaining
@@ -220,11 +225,11 @@ class PositionLifecycleEngine:
             pnl_mtm=pnl_mtm_remaining,
             spot=valuation.spot,
             iv=valuation.iv,
-            delta=float(mtm_record["delta"]),
-            net_delta=float(mtm_record["net_delta"]),
-            gamma=float(mtm_record["gamma"]),
-            vega=float(mtm_record["vega"]),
-            theta=float(mtm_record["theta"]),
+            delta=float(mtm_record.delta),
+            net_delta=float(mtm_record.net_delta),
+            gamma=float(mtm_record.gamma),
+            vega=float(mtm_record.vega),
+            theta=float(mtm_record.theta),
         )
         return position, mtm_record, trade_rows
 
@@ -240,8 +245,8 @@ class PositionLifecycleEngine:
         equity_running: float,
         valuation: MarkValuationSnapshot,
         margin: MarkMarginSnapshot,
-        mtm_record: dict,
-    ) -> tuple[OpenPosition | None, dict, list[dict]]:
+        mtm_record: MtmRecord,
+    ) -> tuple[OpenPosition | None, MtmRecord, list[dict]]:
         """Close a position on explicit exit rule trigger and build lifecycle outputs."""
         assert valuation.complete_leg_quotes is not None  # nosec B101
         exit_prices = exit_prices_for_position(
@@ -270,7 +275,7 @@ class PositionLifecycleEngine:
             exit_prices=exit_prices,
         )
 
-        apply_closed_position_fields(
+        mtm_record = apply_closed_position_fields(
             mtm_record,
             delta_pnl=exit_delta_pnl,
             equity_after=equity_after,
@@ -283,7 +288,7 @@ class PositionLifecycleEngine:
         setup: PositionEntrySetup,
         cfg: BacktestConfig,
         equity_running: float,
-    ) -> tuple[OpenPosition, dict]:
+    ) -> tuple[OpenPosition, MtmRecord]:
         """Open one position and emit its entry-day MTM accounting record."""
         contracts_open = int(setup.contracts)
         lot_size = cfg.lot_size
@@ -297,7 +302,9 @@ class PositionLifecycleEngine:
             leg_quotes=tuple((leg, leg.quote) for leg in setup.intent.legs),
             lot_size=lot_size,
         )
-        delta = delta_pc * contracts_open
+        delta = (
+            delta_pc * contracts_open
+        )  # TODO: Maybe there is a cleaner way toi compute the porftolio greeks in 1 place
         gamma = gamma_pc * contracts_open
         vega = vega_pc * contracts_open
         theta = theta_pc * contracts_open
@@ -341,14 +348,16 @@ class PositionLifecycleEngine:
         options: pd.DataFrame,
         cfg: BacktestConfig,
         equity_running: float,
-    ) -> tuple[OpenPosition | None, dict, list[dict]]:
+    ) -> tuple[OpenPosition | None, MtmRecord, list[dict]]:
         """Revalue one open position for one date and apply exit/liquidation rules.
 
         Returns:
             Tuple ``(updated_position_or_none, mtm_record, trade_rows)``.
         """
         lot_size = cfg.lot_size
-        roundtrip_commission_per_contract = 2 * cfg.commission_per_leg
+        roundtrip_commission_per_contract = (
+            2 * cfg.commission_per_leg
+        )  # TODO: Scale it by nb of Options leg
 
         valuation = resolve_mark_valuation(
             position=position,
@@ -397,26 +406,26 @@ class PositionLifecycleEngine:
                 pnl_mtm=valuation.pnl_mtm,
                 spot=valuation.spot,
                 iv=valuation.iv,
-                delta=float(mtm_record["delta"]),
-                net_delta=float(mtm_record["net_delta"]),
-                gamma=float(mtm_record["gamma"]),
-                vega=float(mtm_record["vega"]),
-                theta=float(mtm_record["theta"]),
+                delta=float(mtm_record.delta),
+                net_delta=float(mtm_record.net_delta),
+                gamma=float(mtm_record.gamma),
+                vega=float(mtm_record.vega),
+                theta=float(mtm_record.theta),
             )
             return position, mtm_record, []
 
         exit_type = self.exit_rule_set.evaluate(curr_date=curr_date, position=position)
         if exit_type is None:
-            update_position_mark_state(
+            update_position_mark_state(  # TODO: The call is the same as above
                 position=position,
                 pnl_mtm=valuation.pnl_mtm,
                 spot=valuation.spot,
                 iv=valuation.iv,
-                delta=float(mtm_record["delta"]),
-                net_delta=float(mtm_record["net_delta"]),
-                gamma=float(mtm_record["gamma"]),
-                vega=float(mtm_record["vega"]),
-                theta=float(mtm_record["theta"]),
+                delta=float(mtm_record.delta),
+                net_delta=float(mtm_record.net_delta),
+                gamma=float(mtm_record.gamma),
+                vega=float(mtm_record.vega),
+                theta=float(mtm_record.theta),
             )
             return position, mtm_record, []
 
