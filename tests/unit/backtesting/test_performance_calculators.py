@@ -3,6 +3,8 @@ import pytest
 
 from volatility_trading.backtesting.performance import compute_performance_metrics
 
+# TODO: Create subfolder for performance/
+
 
 def _sample_inputs() -> tuple[pd.DataFrame, pd.DataFrame]:
     index = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03"])

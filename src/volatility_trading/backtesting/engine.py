@@ -8,6 +8,9 @@ from .types import (
 
 # TODO: Fix circular import in init to put Backtester in init
 
+# TODO: Pass to it the MarginAccount, or a Broker account, and move the execution logic here
+# so as to avoid passign a Slice context to the strategy
+
 
 class Backtester:
     def __init__(

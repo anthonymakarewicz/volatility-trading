@@ -10,6 +10,8 @@ import pandas as pd
 PositionT = TypeVar("PositionT")
 SetupT = TypeVar("SetupT")
 
+# TODO: Extend to multiple positions
+
 
 @dataclass(frozen=True)
 class SinglePositionRunnerHooks(Generic[PositionT, SetupT]):

@@ -38,6 +38,11 @@ def _vrp_short_side(_leg_spec: LegSpec, _entry_direction: int) -> int:
     return -1
 
 
+# TODO: We may keep the args below only related to tehb stratgey istelf
+# Things like reentry_policy may not be aprt of the strtagye in the sense
+# thta it is somehtign we would play arround in order to make more money
+
+
 @dataclass
 class VRPHarvestingSpec:
     """Configuration preset for baseline short-ATM-straddle VRP harvesting.

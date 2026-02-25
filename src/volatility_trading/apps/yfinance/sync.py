@@ -36,13 +36,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "raw_root": RAW_YFINANCE_TIME_SERIES,
         "proc_root": PROC_YFINANCE_TIME_SERIES,
     },
-    "tickers": ["SPY", "QQQ", "IWM", "VIXY"],
-    "start": "2005-01-01",
+    "tickers": ["SPY", "QQQ", "IWM", "VIXY", "SP500TR", "VIX"],
+    "start": "2007-01-01",
     "end": None,
     "interval": "1d",
     "auto_adjust": False,
     "actions": False,
-    "overwrite": False,
+    "overwrite": True,
 }
 
 

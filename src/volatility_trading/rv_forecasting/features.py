@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from ..options.greeks import solve_strike_for_delta
+from ..options.models import solve_strike_for_delta
 from .vol_estimators import rv_intraday
 
 

@@ -52,7 +52,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "start": "2005-01-01",
     "end": None,
     "asfreq_business_days": True,
-    "overwrite": False,
+    "overwrite": True,
 }
 
 

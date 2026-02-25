@@ -12,6 +12,8 @@ from volatility_trading.backtesting.options_engine import (
 from volatility_trading.options import OptionType
 from volatility_trading.signals.base_signal import Signal
 
+# TODO: Consider create a separate unit and integration
+
 
 class DirectionSignal(Signal):
     def __init__(self, *, direction: int):

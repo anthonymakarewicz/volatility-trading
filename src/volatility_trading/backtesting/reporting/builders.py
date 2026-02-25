@@ -9,6 +9,9 @@ from volatility_trading.backtesting.rates import RateInput
 
 from .schemas import SummaryMetrics
 
+# TODO: Update report builders/writers to persist trade_legs safely (JSON string column for CSV, native list in parquet/json).
+# Add tests for multi-expiry trade rows in reporting/performance modules.
+
 
 def build_summary_metrics(
     trades: pd.DataFrame,
