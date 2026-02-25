@@ -10,7 +10,7 @@ import pandas as pd
 
 from volatility_trading.options import MarginModel, PriceModel
 
-from ..margin import MarginAccount, MarginPolicy
+from ..margin import MarginAccount, MarginPolicy, MarginStatus
 from ..types import BacktestConfig
 from .adapters import option_type_to_chain_label
 from .exit_rules import ExitRuleSet
@@ -78,6 +78,59 @@ class OpenPosition:
     last_vega: float
     last_theta: float
     last_net_delta: float
+
+
+@dataclass(frozen=True)
+class _EntryMarginSnapshot:
+    """Entry-day margin/accounting snapshot used to build records/state."""
+
+    margin_account: MarginAccount | None
+    latest_margin_per_contract: float | None
+    initial_margin_requirement: float
+    entry_delta_pnl: float
+    financing_pnl: float
+    maintenance_margin_requirement: float
+    margin_excess: float
+    margin_deficit: float
+    in_margin_call: bool
+    margin_call_days: int
+    forced_liquidation: bool
+    contracts_liquidated: int
+
+
+@dataclass(frozen=True)
+class _MarkValuationSnapshot:
+    """One-date valuation snapshot before margin and exits are applied."""
+
+    prev_mtm_before: float
+    pnl_mtm: float
+    delta: float
+    gamma: float
+    vega: float
+    theta: float
+    complete_leg_quotes: tuple[pd.Series, ...] | None
+    has_missing_quote: bool
+    spot: float
+    iv: float
+    hedge_pnl: float
+    net_delta: float
+    delta_pnl_market: float
+
+
+@dataclass(frozen=True)
+class _MarkMarginSnapshot:
+    """One-date margin/accounting state after evaluating the margin account."""
+
+    initial_margin_requirement: float
+    financing_pnl: float
+    maintenance_margin_requirement: float
+    margin_excess: float
+    margin_deficit: float
+    in_margin_call: bool
+    margin_call_days: int
+    forced_liquidation: bool
+    contracts_liquidated: int
+    margin_status: MarginStatus | None
 
 
 @dataclass(frozen=True)
@@ -311,42 +364,28 @@ class PositionLifecycleEngine:
             entry_state=intent.entry_state,
         )
 
-    def open_position(
+    def _evaluate_entry_margin(
         self,
         *,
         setup: PositionEntrySetup,
-        cfg: BacktestConfig,
         equity_running: float,
-    ) -> tuple[OpenPosition, dict]:
-        """Open one position and emit its entry-day MTM accounting record."""
-        contracts_open = int(setup.contracts)
-        lot_size = cfg.lot_size
-        roundtrip_comm_pc = 2 * cfg.commission_per_leg
-        net_entry = self._entry_net_notional(
-            legs=setup.intent.legs,
-            lot_size=lot_size,
-            contracts=contracts_open,
-        )
-        delta_pc, gamma_pc, vega_pc, theta_pc = self._greeks_per_contract(
-            leg_quotes=tuple(
-                (leg, leg.quote) for leg in setup.intent.legs
-            ),  # TODO: Why not passing lsit of legs direclty ?
-            lot_size=lot_size,
-        )
-        delta = delta_pc * contracts_open
-        gamma = gamma_pc * contracts_open
-        vega = vega_pc * contracts_open
-        theta = theta_pc * contracts_open
-        net_delta = delta
-
+        contracts_open: int,
+        roundtrip_commission_per_contract: float,
+    ) -> _EntryMarginSnapshot:
+        """Evaluate entry-day margin and financing state for one opened position."""
         margin_account = (
-            MarginAccount(self.margin_policy) if self.margin_policy else None
+            MarginAccount(self.margin_policy)
+            if self.margin_policy is not None
+            else None
         )
-        latest_margin_pc = setup.margin_per_contract
-        initial_margin_req = (latest_margin_pc or 0.0) * contracts_open
-        entry_delta_pnl = -(roundtrip_comm_pc * contracts_open)
-        entry_financing = 0.0
-        maintenance_margin_req = 0.0
+        latest_margin_per_contract = setup.margin_per_contract
+        initial_margin_requirement = (
+            latest_margin_per_contract or 0.0
+        ) * contracts_open
+        entry_delta_pnl = -(roundtrip_commission_per_contract * contracts_open)
+
+        financing_pnl = 0.0
+        maintenance_margin_requirement = 0.0
         margin_excess = np.nan
         margin_deficit = np.nan
         in_margin_call = False
@@ -357,13 +396,15 @@ class PositionLifecycleEngine:
         if margin_account is not None:
             margin_status = margin_account.evaluate(
                 equity=equity_running + entry_delta_pnl,
-                initial_margin_requirement=initial_margin_req,
+                initial_margin_requirement=initial_margin_requirement,
                 open_contracts=contracts_open,
                 as_of=setup.intent.entry_date,
             )
-            entry_financing = margin_status.financing_pnl
-            entry_delta_pnl += entry_financing
-            maintenance_margin_req = margin_status.maintenance_margin_requirement
+            financing_pnl = margin_status.financing_pnl
+            entry_delta_pnl += financing_pnl
+            maintenance_margin_requirement = (
+                margin_status.maintenance_margin_requirement
+            )
             margin_excess = margin_status.margin_excess
             margin_deficit = margin_status.margin_deficit
             in_margin_call = margin_status.in_margin_call
@@ -371,7 +412,35 @@ class PositionLifecycleEngine:
             forced_liquidation = margin_status.forced_liquidation
             contracts_liquidated = margin_status.contracts_to_liquidate
 
-        entry_record = {
+        return _EntryMarginSnapshot(
+            margin_account=margin_account,
+            latest_margin_per_contract=latest_margin_per_contract,
+            initial_margin_requirement=initial_margin_requirement,
+            entry_delta_pnl=entry_delta_pnl,
+            financing_pnl=financing_pnl,
+            maintenance_margin_requirement=maintenance_margin_requirement,
+            margin_excess=margin_excess,
+            margin_deficit=margin_deficit,
+            in_margin_call=in_margin_call,
+            margin_call_days=margin_call_days,
+            forced_liquidation=forced_liquidation,
+            contracts_liquidated=contracts_liquidated,
+        )
+
+    @staticmethod
+    def _build_entry_record(
+        *,
+        setup: PositionEntrySetup,
+        contracts_open: int,
+        delta: float,
+        gamma: float,
+        vega: float,
+        theta: float,
+        net_delta: float,
+        margin: _EntryMarginSnapshot,
+    ) -> dict:
+        """Build entry-day MTM record from entry and margin snapshots."""
+        return {
             "date": setup.intent.entry_date,
             "S": (
                 setup.intent.entry_state.spot
@@ -383,7 +452,7 @@ class PositionLifecycleEngine:
                 if setup.intent.entry_state is not None
                 else np.nan
             ),
-            "delta_pnl": entry_delta_pnl,
+            "delta_pnl": margin.entry_delta_pnl,
             "delta": delta,
             "net_delta": net_delta,
             "gamma": gamma,
@@ -393,18 +462,32 @@ class PositionLifecycleEngine:
             "hedge_price_prev": np.nan,
             "hedge_pnl": 0.0,
             "open_contracts": contracts_open,
-            "margin_per_contract": latest_margin_pc,
-            "initial_margin_requirement": initial_margin_req,
-            "maintenance_margin_requirement": maintenance_margin_req,
-            "margin_excess": margin_excess,
-            "margin_deficit": margin_deficit,
-            "in_margin_call": in_margin_call,
-            "margin_call_days": margin_call_days,
-            "forced_liquidation": forced_liquidation,
-            "contracts_liquidated": contracts_liquidated,
-            "financing_pnl": entry_financing,
+            "margin_per_contract": margin.latest_margin_per_contract,
+            "initial_margin_requirement": margin.initial_margin_requirement,
+            "maintenance_margin_requirement": margin.maintenance_margin_requirement,
+            "margin_excess": margin.margin_excess,
+            "margin_deficit": margin.margin_deficit,
+            "in_margin_call": margin.in_margin_call,
+            "margin_call_days": margin.margin_call_days,
+            "forced_liquidation": margin.forced_liquidation,
+            "contracts_liquidated": margin.contracts_liquidated,
+            "financing_pnl": margin.financing_pnl,
         }
 
+    def _build_open_position(
+        self,
+        *,
+        setup: PositionEntrySetup,
+        contracts_open: int,
+        net_entry: float,
+        delta: float,
+        gamma: float,
+        vega: float,
+        theta: float,
+        net_delta: float,
+        margin: _EntryMarginSnapshot,
+    ) -> OpenPosition:
+        """Build mutable open-position state from entry lifecycle snapshots."""
         rebalance_date = (
             setup.intent.entry_date + pd.Timedelta(days=self.rebalance_period)
             if self.rebalance_period is not None
@@ -420,7 +503,7 @@ class PositionLifecycleEngine:
             legs=setup.intent.legs,
         )
 
-        position = OpenPosition(
+        return OpenPosition(
             entry_date=setup.intent.entry_date,
             expiry_date=expiry_summary,
             chosen_dte=dte_summary,
@@ -430,8 +513,8 @@ class PositionLifecycleEngine:
             contracts_open=contracts_open,
             risk_per_contract=setup.risk_per_contract,
             risk_worst_scenario=setup.risk_worst_scenario,
-            margin_account=margin_account,
-            latest_margin_per_contract=latest_margin_pc,
+            margin_account=margin.margin_account,
+            latest_margin_per_contract=margin.latest_margin_per_contract,
             net_entry=net_entry,
             prev_mtm=0.0,
             hedge_qty=0.0,
@@ -452,25 +535,16 @@ class PositionLifecycleEngine:
             last_theta=theta,
             last_net_delta=net_delta,
         )
-        return position, entry_record
 
-    def mark_position(
+    def _resolve_mark_valuation(
         self,
         *,
         position: OpenPosition,
         curr_date: pd.Timestamp,
         options: pd.DataFrame,
-        cfg: BacktestConfig,
-        equity_running: float,
-    ) -> tuple[OpenPosition | None, dict, list[dict]]:
-        """Revalue one open position for one date and apply exit/liquidation rules.
-
-        Returns:
-            Tuple ``(updated_position_or_none, mtm_record, trade_rows)``.
-        """
-        lot_size = cfg.lot_size
-        roundtrip_comm_pc = 2 * cfg.commission_per_leg
-
+        lot_size: int,
+    ) -> _MarkValuationSnapshot:
+        """Resolve one-date MTM and Greeks snapshot before margin/exit handling."""
         chain_all = self._chain_for_date(options, curr_date)
         leg_quotes = tuple(
             self._match_leg_quote(chain=chain_all, leg=leg)
@@ -508,9 +582,9 @@ class PositionLifecycleEngine:
             vega = vega_pc * position.contracts_open
             theta = theta_pc * position.contracts_open
 
-        S_curr = position.last_spot
+        spot_curr = position.last_spot
         if "spot_price" in chain_all.columns and not chain_all.empty:
-            S_curr = float(chain_all["spot_price"].iloc[0])
+            spot_curr = float(chain_all["spot_price"].iloc[0])
 
         iv_curr = position.last_iv
         if (
@@ -525,34 +599,69 @@ class PositionLifecycleEngine:
         hedge_pnl = 0.0
         net_delta = delta
         delta_pnl_market = (pnl_mtm - prev_mtm_before) + hedge_pnl
+        return _MarkValuationSnapshot(
+            prev_mtm_before=prev_mtm_before,
+            pnl_mtm=pnl_mtm,
+            delta=delta,
+            gamma=gamma,
+            vega=vega,
+            theta=theta,
+            complete_leg_quotes=complete_leg_quotes,
+            has_missing_quote=has_missing_quote,
+            spot=spot_curr,
+            iv=iv_curr,
+            hedge_pnl=hedge_pnl,
+            net_delta=net_delta,
+            delta_pnl_market=delta_pnl_market,
+        )
 
+    def _maybe_refresh_margin_per_contract(
+        self,
+        *,
+        position: OpenPosition,
+        curr_date: pd.Timestamp,
+        lot_size: int,
+        valuation: _MarkValuationSnapshot,
+    ) -> None:
+        """Refresh per-contract margin estimate in-place when market state is valid."""
         if (
-            self.margin_model is not None
-            and complete_leg_quotes is not None
-            and np.isfinite(iv_curr)
-            and iv_curr > 0
+            self.margin_model is None
+            or valuation.complete_leg_quotes is None
+            or not np.isfinite(valuation.iv)
+            or valuation.iv <= 0
         ):
-            current_intent = self._intent_with_updated_quotes(
-                intent=position.intent,
-                leg_quotes=complete_leg_quotes,
-            )
-            margin_pc_curr = estimate_entry_intent_margin_per_contract(
-                intent=current_intent,
-                as_of_date=curr_date,
-                lot_size=lot_size,
-                spot=float(S_curr),
-                volatility=float(iv_curr),
-                margin_model=self.margin_model,
-                pricer=self.pricer,
-            )
-            if margin_pc_curr is not None:
-                position.latest_margin_per_contract = margin_pc_curr
+            return
 
-        initial_margin_req = (
+        current_intent = self._intent_with_updated_quotes(
+            intent=position.intent,
+            leg_quotes=valuation.complete_leg_quotes,
+        )
+        margin_pc_curr = estimate_entry_intent_margin_per_contract(
+            intent=current_intent,
+            as_of_date=curr_date,
+            lot_size=lot_size,
+            spot=float(valuation.spot),
+            volatility=float(valuation.iv),
+            margin_model=self.margin_model,
+            pricer=self.pricer,
+        )
+        if margin_pc_curr is not None:
+            position.latest_margin_per_contract = margin_pc_curr
+
+    def _evaluate_mark_margin(
+        self,
+        *,
+        position: OpenPosition,
+        curr_date: pd.Timestamp,
+        equity_running: float,
+        valuation: _MarkValuationSnapshot,
+    ) -> _MarkMarginSnapshot:
+        """Evaluate one-date margin snapshot after MTM and before exits."""
+        initial_margin_requirement = (
             position.latest_margin_per_contract or 0.0
         ) * position.contracts_open
         financing_pnl = 0.0
-        maintenance_margin_req = 0.0
+        maintenance_margin_requirement = 0.0
         margin_excess = np.nan
         margin_deficit = np.nan
         in_margin_call = False
@@ -562,13 +671,15 @@ class PositionLifecycleEngine:
         margin_status = None
         if position.margin_account is not None:
             margin_status = position.margin_account.evaluate(
-                equity=equity_running + delta_pnl_market,
-                initial_margin_requirement=initial_margin_req,
+                equity=equity_running + valuation.delta_pnl_market,
+                initial_margin_requirement=initial_margin_requirement,
                 open_contracts=position.contracts_open,
                 as_of=curr_date,
             )
             financing_pnl = margin_status.financing_pnl
-            maintenance_margin_req = margin_status.maintenance_margin_requirement
+            maintenance_margin_requirement = (
+                margin_status.maintenance_margin_requirement
+            )
             margin_excess = margin_status.margin_excess
             margin_deficit = margin_status.margin_deficit
             in_margin_call = margin_status.in_margin_call
@@ -576,198 +687,113 @@ class PositionLifecycleEngine:
             forced_liquidation = margin_status.forced_liquidation
             contracts_liquidated = margin_status.contracts_to_liquidate
 
-        delta_pnl = delta_pnl_market + financing_pnl
-        mtm_record = {
+        return _MarkMarginSnapshot(
+            initial_margin_requirement=initial_margin_requirement,
+            financing_pnl=financing_pnl,
+            maintenance_margin_requirement=maintenance_margin_requirement,
+            margin_excess=margin_excess,
+            margin_deficit=margin_deficit,
+            in_margin_call=in_margin_call,
+            margin_call_days=margin_call_days,
+            forced_liquidation=forced_liquidation,
+            contracts_liquidated=contracts_liquidated,
+            margin_status=margin_status,
+        )
+
+    @staticmethod
+    def _build_mark_record(
+        *,
+        position: OpenPosition,
+        curr_date: pd.Timestamp,
+        valuation: _MarkValuationSnapshot,
+        margin: _MarkMarginSnapshot,
+    ) -> dict:
+        """Build one-date MTM record before forced close or standard exits."""
+        delta_pnl = valuation.delta_pnl_market + margin.financing_pnl
+        return {
             "date": curr_date,
-            "S": S_curr,
-            "iv": iv_curr,
+            "S": valuation.spot,
+            "iv": valuation.iv,
             "delta_pnl": delta_pnl,
-            "delta": delta,
-            "net_delta": net_delta,
-            "gamma": gamma,
-            "vega": vega,
-            "theta": theta,
+            "delta": valuation.delta,
+            "net_delta": valuation.net_delta,
+            "gamma": valuation.gamma,
+            "vega": valuation.vega,
+            "theta": valuation.theta,
             "hedge_qty": position.hedge_qty,
             "hedge_price_prev": position.hedge_price_entry,
-            "hedge_pnl": hedge_pnl,
+            "hedge_pnl": valuation.hedge_pnl,
             "open_contracts": position.contracts_open,
             "margin_per_contract": position.latest_margin_per_contract,
-            "initial_margin_requirement": initial_margin_req,
-            "maintenance_margin_requirement": maintenance_margin_req,
-            "margin_excess": margin_excess,
-            "margin_deficit": margin_deficit,
-            "in_margin_call": in_margin_call,
-            "margin_call_days": margin_call_days,
-            "forced_liquidation": forced_liquidation,
-            "contracts_liquidated": contracts_liquidated,
-            "financing_pnl": financing_pnl,
+            "initial_margin_requirement": margin.initial_margin_requirement,
+            "maintenance_margin_requirement": margin.maintenance_margin_requirement,
+            "margin_excess": margin.margin_excess,
+            "margin_deficit": margin.margin_deficit,
+            "in_margin_call": margin.in_margin_call,
+            "margin_call_days": margin.margin_call_days,
+            "forced_liquidation": margin.forced_liquidation,
+            "contracts_liquidated": margin.contracts_liquidated,
+            "financing_pnl": margin.financing_pnl,
         }
 
-        trade_rows: list[dict] = []
-        if (
-            margin_status is not None
-            and margin_status.forced_liquidation
-            and margin_status.contracts_to_liquidate > 0
-            and complete_leg_quotes is not None
-        ):
-            exit_prices = tuple(
-                self._exit_leg_price(
-                    quote,
-                    side=_effective_leg_side(leg),
-                    cfg=cfg,
-                )
-                for leg, quote in zip(
-                    position.intent.legs, complete_leg_quotes, strict=True
-                )
-            )
-            contracts_to_close = margin_status.contracts_to_liquidate
-            contracts_after = position.contracts_open - contracts_to_close
-            pnl_per_contract = self._pnl_per_contract_from_exit_prices(
-                legs=position.intent.legs,
-                exit_prices=exit_prices,
-                lot_size=lot_size,
-            )
-            real_pnl_closed = pnl_per_contract * contracts_to_close + hedge_pnl
-            pnl_net_closed = real_pnl_closed - (roundtrip_comm_pc * contracts_to_close)
+    @staticmethod
+    def _update_position_mark_state(
+        *,
+        position: OpenPosition,
+        pnl_mtm: float,
+        spot: float,
+        iv: float,
+        delta: float,
+        net_delta: float,
+        gamma: float,
+        vega: float,
+        theta: float,
+    ) -> None:
+        """Persist updated in-trade state after one mark step."""
+        position.prev_mtm = pnl_mtm
+        position.last_spot = spot
+        position.last_iv = iv
+        position.last_delta = delta
+        position.last_net_delta = net_delta
+        position.last_gamma = gamma
+        position.last_vega = vega
+        position.last_theta = theta
 
-            trade_row = {
-                "entry_date": position.entry_date,
-                "exit_date": curr_date,
-                "entry_dte": position.chosen_dte,
-                "expiry_date": position.expiry_date,
-                "contracts": contracts_to_close,
-                "pnl": pnl_net_closed,
-                "risk_per_contract": position.risk_per_contract,
-                "risk_worst_scenario": position.risk_worst_scenario,
-                "margin_per_contract": position.latest_margin_per_contract,
-                "exit_type": (
-                    "Margin Call Liquidation"
-                    if contracts_after == 0
-                    else "Margin Call Partial Liquidation"
-                ),
-                "trade_legs": self._trade_legs_payload(
-                    legs=position.intent.legs,
-                    exit_prices=exit_prices,
-                ),
-            }
-            trade_rows.append(trade_row)
-
-            if contracts_after == 0:
-                forced_delta_pnl = (pnl_net_closed - prev_mtm_before) + financing_pnl
-                equity_after = equity_running + forced_delta_pnl
-                mtm_record.update(
-                    {
-                        "delta_pnl": forced_delta_pnl,
-                        "delta": 0.0,
-                        "net_delta": 0.0,
-                        "gamma": 0.0,
-                        "vega": 0.0,
-                        "theta": 0.0,
-                        "hedge_qty": 0.0,
-                        "open_contracts": 0,
-                        "initial_margin_requirement": 0.0,
-                        "maintenance_margin_requirement": 0.0,
-                        "margin_excess": equity_after,
-                        "margin_deficit": 0.0,
-                        "in_margin_call": False,
-                        "forced_liquidation": True,
-                        "contracts_liquidated": contracts_to_close,
-                    }
-                )
-                return None, mtm_record, trade_rows
-
-            ratio_remaining = contracts_after / position.contracts_open
-            pnl_mtm_remaining = pnl_mtm * ratio_remaining
-            forced_delta_pnl = (
-                pnl_net_closed + pnl_mtm_remaining - prev_mtm_before
-            ) + financing_pnl
-            mtm_record.update(
-                {
-                    "delta_pnl": forced_delta_pnl,
-                    "delta": delta * ratio_remaining,
-                    "net_delta": net_delta * ratio_remaining,
-                    "gamma": gamma * ratio_remaining,
-                    "vega": vega * ratio_remaining,
-                    "theta": theta * ratio_remaining,
-                    "open_contracts": contracts_after,
-                    "initial_margin_requirement": (
-                        (position.latest_margin_per_contract or 0.0) * contracts_after
-                    ),
-                    "maintenance_margin_requirement": (
-                        (position.latest_margin_per_contract or 0.0)
-                        * contracts_after
-                        * (
-                            self.margin_policy.maintenance_margin_ratio
-                            if self.margin_policy is not None
-                            else 0.0
-                        )
-                    ),
-                    "contracts_liquidated": contracts_to_close,
-                }
-            )
-            position.contracts_open = contracts_after
-            position.net_entry *= ratio_remaining
-            position.prev_mtm = pnl_mtm_remaining
-            position.last_spot = S_curr
-            position.last_iv = iv_curr
-            position.last_delta = float(mtm_record["delta"])
-            position.last_net_delta = float(mtm_record["net_delta"])
-            position.last_gamma = float(mtm_record["gamma"])
-            position.last_vega = float(mtm_record["vega"])
-            position.last_theta = float(mtm_record["theta"])
-            return position, mtm_record, trade_rows
-
-        if has_missing_quote:
-            position.prev_mtm = pnl_mtm
-            position.last_spot = S_curr
-            position.last_iv = iv_curr
-            position.last_delta = float(mtm_record["delta"])
-            position.last_net_delta = float(mtm_record["net_delta"])
-            position.last_gamma = float(mtm_record["gamma"])
-            position.last_vega = float(mtm_record["vega"])
-            position.last_theta = float(mtm_record["theta"])
-            return position, mtm_record, trade_rows
-
-        exit_type = self.exit_rule_set.evaluate(curr_date=curr_date, position=position)
-        if exit_type is None:
-            position.prev_mtm = pnl_mtm
-            position.last_spot = S_curr
-            position.last_iv = iv_curr
-            position.last_delta = float(mtm_record["delta"])
-            position.last_net_delta = float(mtm_record["net_delta"])
-            position.last_gamma = float(mtm_record["gamma"])
-            position.last_vega = float(mtm_record["vega"])
-            position.last_theta = float(mtm_record["theta"])
-            return position, mtm_record, trade_rows
-
-        assert complete_leg_quotes is not None  # nosec B101
-        exit_prices = tuple(
+    def _exit_prices_for_position(
+        self,
+        *,
+        position: OpenPosition,
+        leg_quotes: tuple[pd.Series, ...],
+        cfg: BacktestConfig,
+    ) -> tuple[float, ...]:
+        """Compute executable exit prices for all legs of one open position."""
+        return tuple(
             self._exit_leg_price(
                 quote,
                 side=_effective_leg_side(leg),
                 cfg=cfg,
             )
-            for leg, quote in zip(
-                position.intent.legs, complete_leg_quotes, strict=True
-            )
+            for leg, quote in zip(position.intent.legs, leg_quotes, strict=True)
         )
-        pnl_per_contract = self._pnl_per_contract_from_exit_prices(
-            legs=position.intent.legs,
-            exit_prices=exit_prices,
-            lot_size=lot_size,
-        )
-        real_pnl = pnl_per_contract * position.contracts_open + hedge_pnl
-        pnl_net = real_pnl - (roundtrip_comm_pc * position.contracts_open)
-        exit_delta_pnl = (pnl_net - prev_mtm_before) + financing_pnl
-        equity_after = equity_running + exit_delta_pnl
 
-        trade_row = {
+    def _build_trade_row(
+        self,
+        *,
+        position: OpenPosition,
+        curr_date: pd.Timestamp,
+        contracts: int,
+        pnl: float,
+        exit_type: str,
+        exit_prices: tuple[float, ...],
+    ) -> dict:
+        """Build one trade ledger row for a close/forced-liquidation action."""
+        return {
             "entry_date": position.entry_date,
             "exit_date": curr_date,
             "entry_dte": position.chosen_dte,
             "expiry_date": position.expiry_date,
-            "contracts": position.contracts_open,
-            "pnl": pnl_net,
+            "contracts": contracts,
+            "pnl": pnl,
             "risk_per_contract": position.risk_per_contract,
             "risk_worst_scenario": position.risk_worst_scenario,
             "margin_per_contract": position.latest_margin_per_contract,
@@ -777,11 +803,18 @@ class PositionLifecycleEngine:
                 exit_prices=exit_prices,
             ),
         }
-        trade_rows.append(trade_row)
 
+    @staticmethod
+    def _apply_closed_position_fields(
+        mtm_record: dict,
+        *,
+        delta_pnl: float,
+        equity_after: float,
+    ) -> None:
+        """Update MTM record fields for a fully closed position."""
         mtm_record.update(
             {
-                "delta_pnl": exit_delta_pnl,
+                "delta_pnl": delta_pnl,
                 "delta": 0.0,
                 "net_delta": 0.0,
                 "gamma": 0.0,
@@ -796,4 +829,320 @@ class PositionLifecycleEngine:
                 "in_margin_call": False,
             }
         )
-        return None, mtm_record, trade_rows
+
+    def _handle_forced_liquidation(
+        self,
+        *,
+        position: OpenPosition,
+        curr_date: pd.Timestamp,
+        cfg: BacktestConfig,
+        lot_size: int,
+        roundtrip_commission_per_contract: float,
+        equity_running: float,
+        valuation: _MarkValuationSnapshot,
+        margin: _MarkMarginSnapshot,
+        mtm_record: dict,
+    ) -> tuple[OpenPosition | None, dict, list[dict]] | None:
+        """Handle forced margin liquidation and return lifecycle outcome if triggered."""
+        if (
+            margin.margin_status is None
+            or not margin.margin_status.forced_liquidation
+            or margin.margin_status.contracts_to_liquidate <= 0
+            or valuation.complete_leg_quotes is None
+        ):
+            return None
+
+        exit_prices = self._exit_prices_for_position(
+            position=position,
+            leg_quotes=valuation.complete_leg_quotes,
+            cfg=cfg,
+        )
+        contracts_to_close = margin.margin_status.contracts_to_liquidate
+        contracts_after = position.contracts_open - contracts_to_close
+        pnl_per_contract = self._pnl_per_contract_from_exit_prices(
+            legs=position.intent.legs,
+            exit_prices=exit_prices,
+            lot_size=lot_size,
+        )
+        real_pnl_closed = pnl_per_contract * contracts_to_close + valuation.hedge_pnl
+        pnl_net_closed = real_pnl_closed - (
+            roundtrip_commission_per_contract * contracts_to_close
+        )
+
+        trade_row = self._build_trade_row(
+            position=position,
+            curr_date=curr_date,
+            contracts=contracts_to_close,
+            pnl=pnl_net_closed,
+            exit_type=(
+                "Margin Call Liquidation"
+                if contracts_after == 0
+                else "Margin Call Partial Liquidation"
+            ),
+            exit_prices=exit_prices,
+        )
+        trade_rows = [trade_row]
+
+        if contracts_after == 0:
+            forced_delta_pnl = (
+                pnl_net_closed - valuation.prev_mtm_before
+            ) + margin.financing_pnl
+            equity_after = equity_running + forced_delta_pnl
+            self._apply_closed_position_fields(
+                mtm_record,
+                delta_pnl=forced_delta_pnl,
+                equity_after=equity_after,
+            )
+            mtm_record.update(
+                {
+                    "forced_liquidation": True,
+                    "contracts_liquidated": contracts_to_close,
+                }
+            )
+            return None, mtm_record, trade_rows
+
+        ratio_remaining = contracts_after / position.contracts_open
+        pnl_mtm_remaining = valuation.pnl_mtm * ratio_remaining
+        forced_delta_pnl = (
+            pnl_net_closed + pnl_mtm_remaining - valuation.prev_mtm_before
+        ) + margin.financing_pnl
+        mtm_record.update(
+            {
+                "delta_pnl": forced_delta_pnl,
+                "delta": valuation.delta * ratio_remaining,
+                "net_delta": valuation.net_delta * ratio_remaining,
+                "gamma": valuation.gamma * ratio_remaining,
+                "vega": valuation.vega * ratio_remaining,
+                "theta": valuation.theta * ratio_remaining,
+                "open_contracts": contracts_after,
+                "initial_margin_requirement": (
+                    (position.latest_margin_per_contract or 0.0) * contracts_after
+                ),
+                "maintenance_margin_requirement": (
+                    (position.latest_margin_per_contract or 0.0)
+                    * contracts_after
+                    * (
+                        self.margin_policy.maintenance_margin_ratio
+                        if self.margin_policy is not None
+                        else 0.0
+                    )
+                ),
+                "contracts_liquidated": contracts_to_close,
+            }
+        )
+        position.contracts_open = contracts_after
+        position.net_entry *= ratio_remaining
+        self._update_position_mark_state(
+            position=position,
+            pnl_mtm=pnl_mtm_remaining,
+            spot=valuation.spot,
+            iv=valuation.iv,
+            delta=float(mtm_record["delta"]),
+            net_delta=float(mtm_record["net_delta"]),
+            gamma=float(mtm_record["gamma"]),
+            vega=float(mtm_record["vega"]),
+            theta=float(mtm_record["theta"]),
+        )
+        return position, mtm_record, trade_rows
+
+    def _handle_standard_exit(
+        self,
+        *,
+        position: OpenPosition,
+        curr_date: pd.Timestamp,
+        exit_type: str,
+        cfg: BacktestConfig,
+        lot_size: int,
+        roundtrip_commission_per_contract: float,
+        equity_running: float,
+        valuation: _MarkValuationSnapshot,
+        margin: _MarkMarginSnapshot,
+        mtm_record: dict,
+    ) -> tuple[OpenPosition | None, dict, list[dict]]:
+        """Close a position on explicit exit rule trigger and build lifecycle outputs."""
+        assert valuation.complete_leg_quotes is not None  # nosec B101
+        exit_prices = self._exit_prices_for_position(
+            position=position,
+            leg_quotes=valuation.complete_leg_quotes,
+            cfg=cfg,
+        )
+        pnl_per_contract = self._pnl_per_contract_from_exit_prices(
+            legs=position.intent.legs,
+            exit_prices=exit_prices,
+            lot_size=lot_size,
+        )
+        real_pnl = pnl_per_contract * position.contracts_open + valuation.hedge_pnl
+        pnl_net = real_pnl - (
+            roundtrip_commission_per_contract * position.contracts_open
+        )
+        exit_delta_pnl = (pnl_net - valuation.prev_mtm_before) + margin.financing_pnl
+        equity_after = equity_running + exit_delta_pnl
+
+        trade_row = self._build_trade_row(
+            position=position,
+            curr_date=curr_date,
+            contracts=position.contracts_open,
+            pnl=pnl_net,
+            exit_type=exit_type,
+            exit_prices=exit_prices,
+        )
+
+        self._apply_closed_position_fields(
+            mtm_record,
+            delta_pnl=exit_delta_pnl,
+            equity_after=equity_after,
+        )
+        return None, mtm_record, [trade_row]
+
+    def open_position(
+        self,
+        *,
+        setup: PositionEntrySetup,
+        cfg: BacktestConfig,
+        equity_running: float,
+    ) -> tuple[OpenPosition, dict]:
+        """Open one position and emit its entry-day MTM accounting record."""
+        contracts_open = int(setup.contracts)
+        lot_size = cfg.lot_size
+        roundtrip_commission_per_contract = 2 * cfg.commission_per_leg
+        net_entry = self._entry_net_notional(
+            legs=setup.intent.legs,
+            lot_size=lot_size,
+            contracts=contracts_open,
+        )
+        delta_pc, gamma_pc, vega_pc, theta_pc = self._greeks_per_contract(
+            leg_quotes=tuple((leg, leg.quote) for leg in setup.intent.legs),
+            lot_size=lot_size,
+        )
+        delta = delta_pc * contracts_open
+        gamma = gamma_pc * contracts_open
+        vega = vega_pc * contracts_open
+        theta = theta_pc * contracts_open
+        net_delta = delta
+
+        margin = self._evaluate_entry_margin(
+            setup=setup,
+            equity_running=equity_running,
+            contracts_open=contracts_open,
+            roundtrip_commission_per_contract=roundtrip_commission_per_contract,
+        )
+        entry_record = self._build_entry_record(
+            setup=setup,
+            contracts_open=contracts_open,
+            delta=delta,
+            gamma=gamma,
+            vega=vega,
+            theta=theta,
+            net_delta=net_delta,
+            margin=margin,
+        )
+        position = self._build_open_position(
+            setup=setup,
+            contracts_open=contracts_open,
+            net_entry=net_entry,
+            delta=delta,
+            gamma=gamma,
+            vega=vega,
+            theta=theta,
+            net_delta=net_delta,
+            margin=margin,
+        )
+        return position, entry_record
+
+    def mark_position(
+        self,
+        *,
+        position: OpenPosition,
+        curr_date: pd.Timestamp,
+        options: pd.DataFrame,
+        cfg: BacktestConfig,
+        equity_running: float,
+    ) -> tuple[OpenPosition | None, dict, list[dict]]:
+        """Revalue one open position for one date and apply exit/liquidation rules.
+
+        Returns:
+            Tuple ``(updated_position_or_none, mtm_record, trade_rows)``.
+        """
+        lot_size = cfg.lot_size
+        roundtrip_commission_per_contract = 2 * cfg.commission_per_leg
+
+        valuation = self._resolve_mark_valuation(
+            position=position,
+            curr_date=curr_date,
+            options=options,
+            lot_size=lot_size,
+        )
+        self._maybe_refresh_margin_per_contract(
+            position=position,
+            curr_date=curr_date,
+            lot_size=lot_size,
+            valuation=valuation,
+        )
+        margin = self._evaluate_mark_margin(
+            position=position,
+            curr_date=curr_date,
+            equity_running=equity_running,
+            valuation=valuation,
+        )
+        mtm_record = self._build_mark_record(
+            position=position,
+            curr_date=curr_date,
+            valuation=valuation,
+            margin=margin,
+        )
+
+        forced_outcome = self._handle_forced_liquidation(
+            position=position,
+            curr_date=curr_date,
+            cfg=cfg,
+            lot_size=lot_size,
+            roundtrip_commission_per_contract=roundtrip_commission_per_contract,
+            equity_running=equity_running,
+            valuation=valuation,
+            margin=margin,
+            mtm_record=mtm_record,
+        )
+        if forced_outcome is not None:
+            return forced_outcome
+
+        if valuation.has_missing_quote:
+            self._update_position_mark_state(
+                position=position,
+                pnl_mtm=valuation.pnl_mtm,
+                spot=valuation.spot,
+                iv=valuation.iv,
+                delta=float(mtm_record["delta"]),
+                net_delta=float(mtm_record["net_delta"]),
+                gamma=float(mtm_record["gamma"]),
+                vega=float(mtm_record["vega"]),
+                theta=float(mtm_record["theta"]),
+            )
+            return position, mtm_record, []
+
+        exit_type = self.exit_rule_set.evaluate(curr_date=curr_date, position=position)
+        if exit_type is None:
+            self._update_position_mark_state(
+                position=position,
+                pnl_mtm=valuation.pnl_mtm,
+                spot=valuation.spot,
+                iv=valuation.iv,
+                delta=float(mtm_record["delta"]),
+                net_delta=float(mtm_record["net_delta"]),
+                gamma=float(mtm_record["gamma"]),
+                vega=float(mtm_record["vega"]),
+                theta=float(mtm_record["theta"]),
+            )
+            return position, mtm_record, []
+
+        return self._handle_standard_exit(
+            position=position,
+            curr_date=curr_date,
+            exit_type=exit_type,
+            cfg=cfg,
+            lot_size=lot_size,
+            roundtrip_commission_per_contract=roundtrip_commission_per_contract,
+            equity_running=equity_running,
+            valuation=valuation,
+            margin=margin,
+            mtm_record=mtm_record,
+        )
