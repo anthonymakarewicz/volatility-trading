@@ -41,10 +41,11 @@ from .sizing import (
 )
 from .specs import StrategySpec
 from .strategy_runner import OptionsStrategyRunner
-from .types import EntryIntent, LegSelection, LegSpec, StructureSpec
+from .types import EntryIntent, LegSelection, LegSpec, QuoteSnapshot, StructureSpec
 
 __all__ = [
     "LegSpec",
+    "QuoteSnapshot",
     "StructureSpec",
     "LegSelection",
     "EntryIntent",

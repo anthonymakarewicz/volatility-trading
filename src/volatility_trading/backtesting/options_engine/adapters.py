@@ -8,6 +8,8 @@ import pandas as pd
 from volatility_trading.options import OptionLeg, OptionSpec, OptionType, PositionSide
 from volatility_trading.options.types import OptionTypeInput
 
+from .types import QuoteSnapshot
+
 # TODO: Here we pass the lot_size (aka contratc multiplier around) but why not part it part of OptionLeg ?
 # namely not a backtest parameter but tied to the dataclass itself (same with lot size for the hedgign instrument)
 
@@ -69,26 +71,26 @@ def time_to_expiry_years(
 
 def quote_to_option_spec(
     *,
-    quote: pd.Series,
+    quote: QuoteSnapshot,
     entry_date: pd.Timestamp,
     expiry_date: pd.Timestamp,
 ) -> OptionSpec:
     """Build ``OptionSpec`` from one selected chain row."""
     return OptionSpec(
-        strike=float(quote["strike"]),
+        strike=float(quote.strike),
         time_to_expiry=time_to_expiry_years(
             entry_date=entry_date,
             expiry_date=expiry_date,
-            quote_yte=quote.get("yte"),
-            quote_dte=quote.get("dte"),
+            quote_yte=quote.yte,
+            quote_dte=quote.dte,
         ),
-        option_type=normalize_chain_option_type(quote["option_type"]),
+        option_type=normalize_chain_option_type(quote.option_type_label),
     )
 
 
 def quote_to_option_leg(
     *,
-    quote: pd.Series,
+    quote: QuoteSnapshot,
     entry_date: pd.Timestamp,
     expiry_date: pd.Timestamp,
     entry_price: float,

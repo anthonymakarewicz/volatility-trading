@@ -89,8 +89,8 @@ def _build_option_legs(
 
     built_legs = []
     for leg in legs:
-        quote_expiry = leg.quote.get("expiry_date")
-        if quote_expiry is not None and not pd.isna(quote_expiry):
+        quote_expiry = leg.quote.expiry_date
+        if quote_expiry is not None:
             expiry_date = pd.Timestamp(quote_expiry)
         elif default_expiry_date is not None:
             expiry_date = pd.Timestamp(default_expiry_date)

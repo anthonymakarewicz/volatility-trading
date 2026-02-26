@@ -10,7 +10,7 @@ from volatility_trading.backtesting.margin import MarginAccount, MarginStatus
 from volatility_trading.backtesting.types import BacktestConfig, MarginCore
 from volatility_trading.options.types import Greeks, MarketState
 
-from ..types import EntryIntent
+from ..types import EntryIntent, QuoteSnapshot
 
 # TODO: When adding delta hedging, keep two dataclasses for options and hedger for storign
 # nb of contracts, delta for eahc, entry price ...
@@ -83,7 +83,7 @@ class MarkValuationSnapshot:
     prev_mtm_before: float
     pnl_mtm: float
     greeks: Greeks
-    complete_leg_quotes: tuple[pd.Series, ...] | None
+    complete_leg_quotes: tuple[QuoteSnapshot, ...] | None
     has_missing_quote: bool
     market: MarketState
     hedge_pnl: float

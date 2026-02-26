@@ -120,12 +120,12 @@ def test_build_entry_intent_supports_grouped_expiry_selection():
 
     assert intent is not None
     assert len(intent.legs) == 2
-    assert pd.Timestamp(intent.legs[0].quote["expiry_date"]) == pd.Timestamp(
-        "2020-01-31"
-    )
-    assert pd.Timestamp(intent.legs[1].quote["expiry_date"]) == pd.Timestamp(
-        "2020-03-01"
-    )
+    expiry0 = intent.legs[0].quote.expiry_date
+    expiry1 = intent.legs[1].quote.expiry_date
+    assert expiry0 is not None
+    assert expiry1 is not None
+    assert pd.Timestamp(expiry0) == pd.Timestamp("2020-01-31")
+    assert pd.Timestamp(expiry1) == pd.Timestamp("2020-03-01")
 
 
 def test_build_entry_intent_all_or_none_rejects_partial_fill():
@@ -200,9 +200,9 @@ def test_build_entry_intent_min_ratio_allows_partial_fill():
     )
     assert intent is not None
     assert len(intent.legs) == 1
-    assert pd.Timestamp(intent.legs[0].quote["expiry_date"]) == pd.Timestamp(
-        "2020-01-31"
-    )
+    expiry0 = intent.legs[0].quote.expiry_date
+    assert expiry0 is not None
+    assert pd.Timestamp(expiry0) == pd.Timestamp("2020-01-31")
 
 
 def test_normalize_signals_to_on_defaults_to_short_for_on_only_inputs():

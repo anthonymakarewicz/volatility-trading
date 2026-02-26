@@ -18,7 +18,7 @@ from volatility_trading.options import MarketState, PositionSide
 
 from ..types import BacktestConfig
 from .selectors import select_best_expiry_for_leg_group
-from .types import EntryIntent, LegSelection, LegSpec, StructureSpec
+from .types import EntryIntent, LegSelection, LegSpec, QuoteSnapshot, StructureSpec
 
 
 def chain_for_date(options: pd.DataFrame, trade_date: pd.Timestamp) -> pd.DataFrame:
@@ -102,13 +102,13 @@ def normalize_signals_to_on(
 
 
 def _entry_price_from_side(
-    quote: pd.Series, *, side: PositionSide, cfg: BacktestConfig
+    quote: QuoteSnapshot, *, side: PositionSide, cfg: BacktestConfig
 ) -> float:
     """Return executable entry price for one leg given target side."""
     if side == PositionSide.SHORT:
-        return float(quote["bid_price"] - cfg.slip_bid)
+        return float(quote.bid_price - cfg.slip_bid)
     if side == PositionSide.LONG:
-        return float(quote["ask_price"] + cfg.slip_ask)
+        return float(quote.ask_price + cfg.slip_ask)
     raise ValueError("side must be PositionSide.SHORT or PositionSide.LONG")
 
 
@@ -210,6 +210,7 @@ def build_entry_intent_from_structure(
             quotes_for_group,
             strict=True,
         ):
+            quote_snapshot = QuoteSnapshot.from_series(quote)
             side_raw = side_resolver(leg_spec)
             try:
                 side = (
@@ -223,9 +224,9 @@ def build_entry_intent_from_structure(
                 ) from exc
             selected_by_index[leg_idx] = LegSelection(
                 spec=leg_spec,
-                quote=quote,
+                quote=quote_snapshot,
                 side=side,
-                entry_price=_entry_price_from_side(quote, side=side, cfg=cfg),
+                entry_price=_entry_price_from_side(quote_snapshot, side=side, cfg=cfg),
             )
 
     selected_legs = tuple(
@@ -251,9 +252,11 @@ def build_entry_intent_from_structure(
     else:
         spot_entry = float("nan")
 
-    if selected_legs and all("smoothed_iv" in leg.quote.index for leg in selected_legs):
+    if selected_legs and all(
+        leg.quote.smoothed_iv is not None for leg in selected_legs
+    ):
         iv_entry = float(
-            sum(float(leg.quote["smoothed_iv"]) for leg in selected_legs)
+            sum(float(leg.quote.smoothed_iv) for leg in selected_legs)
             / len(selected_legs)
         )
     elif (

@@ -5,6 +5,7 @@ from volatility_trading.backtesting.options_engine import (
     EntryIntent,
     LegSelection,
     LegSpec,
+    QuoteSnapshot,
     SizingRequest,
     estimate_entry_intent_margin_per_contract,
     select_best_expiry_for_leg_group,
@@ -28,7 +29,7 @@ def _quote(
     dte: int = 30,
     expiry_date: str = "2020-01-31",
     include_yte: bool = True,
-) -> pd.Series:
+) -> QuoteSnapshot:
     payload = {
         "option_type": option_type,
         "strike": strike,
@@ -40,7 +41,7 @@ def _quote(
     }
     if include_yte:
         payload["yte"] = dte / 365.0
-    return pd.Series(payload)
+    return QuoteSnapshot.from_series(pd.Series(payload))
 
 
 def _short_straddle_intent() -> EntryIntent:

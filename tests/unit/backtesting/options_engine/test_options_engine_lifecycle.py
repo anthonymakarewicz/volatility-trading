@@ -9,6 +9,7 @@ from volatility_trading.backtesting.options_engine import (
     LegSpec,
     PositionEntrySetup,
     PositionLifecycleEngine,
+    QuoteSnapshot,
 )
 from volatility_trading.options import MarketState, OptionType
 
@@ -52,22 +53,24 @@ def _make_quote(
     theta: float = -0.3,
     spot_price: float = 100.0,
     smoothed_iv: float = 0.2,
-) -> pd.Series:
-    return pd.Series(
-        {
-            "strike": strike,
-            "option_type": option_type,
-            "bid_price": bid_price,
-            "ask_price": ask_price,
-            "expiry_date": pd.Timestamp(expiry_date),
-            "dte": dte,
-            "delta": delta,
-            "gamma": gamma,
-            "vega": vega,
-            "theta": theta,
-            "spot_price": spot_price,
-            "smoothed_iv": smoothed_iv,
-        }
+) -> QuoteSnapshot:
+    return QuoteSnapshot.from_series(
+        pd.Series(
+            {
+                "strike": strike,
+                "option_type": option_type,
+                "bid_price": bid_price,
+                "ask_price": ask_price,
+                "expiry_date": pd.Timestamp(expiry_date),
+                "dte": dte,
+                "delta": delta,
+                "gamma": gamma,
+                "vega": vega,
+                "theta": theta,
+                "spot_price": spot_price,
+                "smoothed_iv": smoothed_iv,
+            }
+        )
     )
 
 

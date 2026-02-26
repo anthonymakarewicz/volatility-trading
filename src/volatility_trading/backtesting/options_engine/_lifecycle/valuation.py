@@ -12,7 +12,7 @@ from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label
 from ..entry import chain_for_date
-from ..types import EntryIntent, LegSelection
+from ..types import EntryIntent, LegSelection, QuoteSnapshot
 from .state import MarkValuationSnapshot, OpenPosition
 
 
@@ -27,12 +27,12 @@ def leg_units(leg: LegSelection) -> int:
     return abs(int(leg.spec.weight))
 
 
-def exit_leg_price(quote: pd.Series, *, side: int, cfg: BacktestConfig) -> float:
+def exit_leg_price(quote: QuoteSnapshot, *, side: int, cfg: BacktestConfig) -> float:
     """Return executable exit price for one leg given effective side."""
     if side == -1:
-        return float(quote["ask_price"] + cfg.slip_ask)
+        return float(quote.ask_price + cfg.slip_ask)
     if side == 1:
-        return float(quote["bid_price"] - cfg.slip_bid)
+        return float(quote.bid_price - cfg.slip_bid)
     raise ValueError("side must be -1 or +1")
 
 
@@ -40,13 +40,13 @@ def match_leg_quote(
     *,
     chain: pd.DataFrame,
     leg: LegSelection,
-) -> pd.Series | None:
+) -> QuoteSnapshot | None:
     """Return the row matching one leg strike/type for ``chain`` date slice."""
-    strike = leg.quote["strike"]
+    strike = leg.quote.strike
     canonical_label = option_type_to_chain_label(leg.spec.option_type)
     candidates = chain
-    if "expiry_date" in candidates.columns and "expiry_date" in leg.quote.index:
-        leg_expiry = pd.Timestamp(leg.quote["expiry_date"])
+    if "expiry_date" in candidates.columns and leg.quote.expiry_date is not None:
+        leg_expiry = pd.Timestamp(leg.quote.expiry_date)
         candidates = candidates[pd.to_datetime(candidates["expiry_date"]) == leg_expiry]
     candidates = candidates[
         (candidates["option_type"] == canonical_label)
@@ -54,10 +54,10 @@ def match_leg_quote(
     ]
     if candidates.empty:
         # Fallback for datasets using vendor labels already present in the leg row.
-        vendor_label = leg.quote.get("option_type")
+        vendor_label = leg.quote.option_type_label
         candidates = chain
-        if "expiry_date" in candidates.columns and "expiry_date" in leg.quote.index:
-            leg_expiry = pd.Timestamp(leg.quote["expiry_date"])
+        if "expiry_date" in candidates.columns and leg.quote.expiry_date is not None:
+            leg_expiry = pd.Timestamp(leg.quote.expiry_date)
             candidates = candidates[
                 pd.to_datetime(candidates["expiry_date"]) == leg_expiry
             ]
@@ -67,12 +67,12 @@ def match_leg_quote(
         ]
     if candidates.empty:
         return None
-    return candidates.iloc[0]
+    return QuoteSnapshot.from_series(candidates.iloc[0])
 
 
 def greeks_per_contract(
     *,
-    leg_quotes: Sequence[tuple[LegSelection, pd.Series]],
+    leg_quotes: Sequence[tuple[LegSelection, QuoteSnapshot]],
     lot_size: int,
 ) -> Greeks:
     """Aggregate structure Greeks for one strategy contract unit."""
@@ -83,17 +83,17 @@ def greeks_per_contract(
     for leg, quote in leg_quotes:
         side = effective_leg_side(leg)
         units = leg_units(leg)
-        delta += side * float(quote["delta"]) * units * lot_size
-        gamma += side * float(quote["gamma"]) * units * lot_size
-        vega += side * float(quote["vega"]) * units * lot_size
-        theta += side * float(quote["theta"]) * units * lot_size
+        delta += side * float(quote.delta) * units * lot_size
+        gamma += side * float(quote.gamma) * units * lot_size
+        vega += side * float(quote.vega) * units * lot_size
+        theta += side * float(quote.theta) * units * lot_size
     return Greeks(delta=delta, gamma=gamma, vega=vega, theta=theta)
 
 
 def mark_to_mid(
     *,
     legs: Sequence[LegSelection],
-    leg_quotes: Sequence[pd.Series],
+    leg_quotes: Sequence[QuoteSnapshot],
     lot_size: int,
     contracts_open: int,
     net_entry: float,
@@ -101,7 +101,7 @@ def mark_to_mid(
     """Return cumulative MTM PnL from current mids versus entry notional."""
     current_value = 0.0
     for leg, quote in zip(legs, leg_quotes, strict=True):
-        mid = 0.5 * (float(quote["bid_price"]) + float(quote["ask_price"]))
+        mid = 0.5 * (float(quote.bid_price) + float(quote.ask_price))
         current_value += effective_leg_side(leg) * mid * leg_units(leg)
     return current_value * lot_size * contracts_open - net_entry
 
@@ -150,10 +150,10 @@ def summary_expiry_and_dte_from_legs(
     expiries: list[pd.Timestamp] = []
     dtes: list[int] = []
     for leg in legs:
-        if "expiry_date" in leg.quote.index and pd.notna(leg.quote["expiry_date"]):
-            expiries.append(pd.Timestamp(leg.quote["expiry_date"]))
-        if "dte" in leg.quote.index and pd.notna(leg.quote["dte"]):
-            dtes.append(int(leg.quote["dte"]))
+        if leg.quote.expiry_date is not None:
+            expiries.append(pd.Timestamp(leg.quote.expiry_date))
+        if leg.quote.dte is not None:
+            dtes.append(int(leg.quote.dte))
 
     expiry_summary: pd.Timestamp | None = None
     if expiries and all(exp == expiries[0] for exp in expiries):
@@ -177,15 +177,11 @@ def trade_legs_payload(
     payload: list[dict] = []
     for idx, leg in enumerate(legs):
         expiry_date = (
-            pd.Timestamp(leg.quote["expiry_date"])
-            if "expiry_date" in leg.quote.index and pd.notna(leg.quote["expiry_date"])
+            pd.Timestamp(leg.quote.expiry_date)
+            if leg.quote.expiry_date is not None
             else None
         )
-        strike = (
-            float(leg.quote["strike"])
-            if "strike" in leg.quote.index and pd.notna(leg.quote["strike"])
-            else np.nan
-        )
+        strike = float(leg.quote.strike)
         exit_price = (
             float(exit_prices[idx])
             if exit_prices is not None and idx < len(exit_prices)
@@ -213,7 +209,7 @@ def trade_legs_payload(
 def intent_with_updated_quotes(
     *,
     intent: EntryIntent,
-    leg_quotes: Sequence[pd.Series],
+    leg_quotes: Sequence[QuoteSnapshot],
 ) -> EntryIntent:
     """Clone intent replacing quote snapshots with current-date rows."""
     legs = tuple(
@@ -252,7 +248,7 @@ def resolve_mark_valuation(
     if has_missing_quote:
         pnl_mtm = prev_mtm_before
         greeks = position.last_greeks
-        complete_leg_quotes: tuple[pd.Series, ...] | None = None
+        complete_leg_quotes: tuple[QuoteSnapshot, ...] | None = None
     else:
         complete_leg_quotes = tuple(quote for quote in leg_quotes if quote is not None)
         pnl_mtm = mark_to_mid(
@@ -277,11 +273,11 @@ def resolve_mark_valuation(
     iv_curr = position.last_market.volatility
     if (
         complete_leg_quotes is not None
-        and all("smoothed_iv" in quote.index for quote in complete_leg_quotes)
+        and all(quote.smoothed_iv is not None for quote in complete_leg_quotes)
         and len(complete_leg_quotes) > 0
     ):
         iv_curr = float(
-            np.mean([float(quote["smoothed_iv"]) for quote in complete_leg_quotes])
+            np.mean([float(quote.smoothed_iv) for quote in complete_leg_quotes])
         )
 
     hedge_pnl = 0.0
@@ -319,7 +315,7 @@ def update_position_mark_state(
 def exit_prices_for_position(
     *,
     position: OpenPosition,
-    leg_quotes: tuple[pd.Series, ...],
+    leg_quotes: tuple[QuoteSnapshot, ...],
     cfg: BacktestConfig,
 ) -> tuple[float, ...]:
     """Compute executable exit prices for all legs of one open position."""

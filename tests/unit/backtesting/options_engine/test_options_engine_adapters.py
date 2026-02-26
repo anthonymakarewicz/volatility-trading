@@ -3,6 +3,7 @@ import pytest
 
 from volatility_trading.backtesting.options_engine import (
     LegSpec,
+    QuoteSnapshot,
     StructureSpec,
     normalize_chain_option_type,
     option_type_to_chain_label,
@@ -62,13 +63,15 @@ def test_time_to_expiry_years_prefers_yte_then_dte_then_calendar():
 
 
 def test_quote_to_option_spec_and_leg():
-    quote = pd.Series(
-        {
-            "strike": 100.0,
-            "yte": 0.15,
-            "dte": 54,
-            "option_type": "P",
-        }
+    quote = QuoteSnapshot.from_series(
+        pd.Series(
+            {
+                "strike": 100.0,
+                "yte": 0.15,
+                "dte": 54,
+                "option_type": "P",
+            }
+        )
     )
     entry = pd.Timestamp("2020-01-01")
     expiry = pd.Timestamp("2020-02-01")
