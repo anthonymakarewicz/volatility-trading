@@ -198,7 +198,7 @@ def test_mark_position_with_missing_quotes_keeps_position_open():
     assert mtm_record.delta_pnl == pytest.approx(0.0)
     assert mtm_record.open_contracts == 1
     assert updated_position.prev_mtm == pytest.approx(0.0)
-    assert updated_position.last_delta == pytest.approx(-0.5)
+    assert updated_position.last_greeks.delta == pytest.approx(-0.5)
 
 
 def test_mark_position_rebalance_exit_closes_position_and_emits_trade():

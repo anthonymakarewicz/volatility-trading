@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 
 import pandas as pd
 
-from volatility_trading.options import Greeks, MarginModel, PriceModel
+from volatility_trading.options import Greeks, MarginModel, MarketState, PriceModel
 
 from ..margin import MarginPolicy
 from ..types import BacktestConfig
@@ -94,20 +94,12 @@ class PositionLifecycleEngine:
             prev_mtm=0.0,
             hedge_qty=0.0,
             hedge_price_entry=float("nan"),
-            last_spot=(
-                float(setup.intent.entry_state.spot)
+            last_market=(
+                setup.intent.entry_state
                 if setup.intent.entry_state is not None
-                else float("nan")
+                else MarketState(spot=float("nan"), volatility=float("nan"))
             ),
-            last_iv=(
-                float(setup.intent.entry_state.volatility)
-                if setup.intent.entry_state is not None
-                else float("nan")
-            ),
-            last_delta=greeks.delta,
-            last_gamma=greeks.gamma,
-            last_vega=greeks.vega,
-            last_theta=greeks.theta,
+            last_greeks=greeks,
             last_net_delta=net_delta,
         )
 
@@ -223,13 +215,9 @@ class PositionLifecycleEngine:
         update_position_mark_state(
             position=position,
             pnl_mtm=pnl_mtm_remaining,
-            spot=valuation.spot,
-            iv=valuation.iv,
-            delta=float(mtm_record.greeks.delta),
+            market=valuation.market,
+            greeks=mtm_record.greeks,
             net_delta=float(mtm_record.net_delta),
-            gamma=float(mtm_record.greeks.gamma),
-            vega=float(mtm_record.greeks.vega),
-            theta=float(mtm_record.greeks.theta),
         )
         return position, mtm_record, trade_rows
 
@@ -300,16 +288,11 @@ class PositionLifecycleEngine:
             lot_size=lot_size,
             contracts=contracts_open,
         )
-        delta_pc, gamma_pc, vega_pc, theta_pc = greeks_per_contract(
+        greeks_pc = greeks_per_contract(
             leg_quotes=tuple((leg, leg.quote) for leg in setup.intent.legs),
             lot_size=lot_size,
-        )  # TODO: Why not return the Greeks as object so that below we do greeks_pc * contracts_open ?
-        greeks = Greeks(
-            delta=delta_pc * contracts_open,
-            gamma=gamma_pc * contracts_open,
-            vega=vega_pc * contracts_open,
-            theta=theta_pc * contracts_open,
         )
+        greeks = greeks_pc.scaled(contracts_open)
         net_delta = greeks.delta
 
         margin = evaluate_entry_margin(
@@ -400,28 +383,20 @@ class PositionLifecycleEngine:
             update_position_mark_state(
                 position=position,
                 pnl_mtm=valuation.pnl_mtm,
-                spot=valuation.spot,
-                iv=valuation.iv,
-                delta=float(mtm_record.greeks.delta),
+                market=valuation.market,
+                greeks=mtm_record.greeks,
                 net_delta=float(mtm_record.net_delta),
-                gamma=float(mtm_record.greeks.gamma),
-                vega=float(mtm_record.greeks.vega),
-                theta=float(mtm_record.greeks.theta),
             )
             return position, mtm_record, []
 
         exit_type = self.exit_rule_set.evaluate(curr_date=curr_date, position=position)
         if exit_type is None:
-            update_position_mark_state(  # TODO: The call is the same as above
+            update_position_mark_state(
                 position=position,
                 pnl_mtm=valuation.pnl_mtm,
-                spot=valuation.spot,
-                iv=valuation.iv,
-                delta=float(mtm_record.greeks.delta),
+                market=valuation.market,
+                greeks=mtm_record.greeks,
                 net_delta=float(mtm_record.net_delta),
-                gamma=float(mtm_record.greeks.gamma),
-                vega=float(mtm_record.greeks.vega),
-                theta=float(mtm_record.greeks.theta),
             )
             return position, mtm_record, []
 

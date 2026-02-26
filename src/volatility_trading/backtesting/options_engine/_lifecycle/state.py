@@ -12,6 +12,9 @@ from volatility_trading.options.types import Greeks, MarketState
 
 from ..types import EntryIntent
 
+# TODO: When adding delta hedging, keep two dataclasses for options and hedger for storign
+# nb of contracts, delta for eahc, entry price ...
+
 
 @dataclass(frozen=True)
 class PositionEntrySetup:
@@ -55,12 +58,8 @@ class OpenPosition:
     prev_mtm: float
     hedge_qty: float
     hedge_price_entry: float
-    last_spot: float
-    last_iv: float
-    last_delta: float
-    last_gamma: float
-    last_vega: float
-    last_theta: float
+    last_market: MarketState
+    last_greeks: Greeks
     last_net_delta: float
 
 

@@ -74,7 +74,7 @@ def greeks_per_contract(
     *,
     leg_quotes: Sequence[tuple[LegSelection, pd.Series]],
     lot_size: int,
-) -> tuple[float, float, float, float]:
+) -> Greeks:
     """Aggregate structure Greeks for one strategy contract unit."""
     delta = 0.0
     gamma = 0.0
@@ -87,7 +87,7 @@ def greeks_per_contract(
         gamma += side * float(quote["gamma"]) * units * lot_size
         vega += side * float(quote["vega"]) * units * lot_size
         theta += side * float(quote["theta"]) * units * lot_size
-    return delta, gamma, vega, theta
+    return Greeks(delta=delta, gamma=gamma, vega=vega, theta=theta)
 
 
 def mark_to_mid(
@@ -251,12 +251,7 @@ def resolve_mark_valuation(
     has_missing_quote = any(quote is None for quote in leg_quotes)
     if has_missing_quote:
         pnl_mtm = prev_mtm_before
-        greeks = Greeks(
-            delta=position.last_delta,
-            gamma=position.last_gamma,
-            vega=position.last_vega,
-            theta=position.last_theta,
-        )
+        greeks = position.last_greeks
         complete_leg_quotes: tuple[pd.Series, ...] | None = None
     else:
         complete_leg_quotes = tuple(quote for quote in leg_quotes if quote is not None)
@@ -267,24 +262,19 @@ def resolve_mark_valuation(
             contracts_open=position.contracts_open,
             net_entry=position.net_entry,
         )
-        delta_pc, gamma_pc, vega_pc, theta_pc = greeks_per_contract(
+        greeks_pc = greeks_per_contract(
             leg_quotes=tuple(
                 zip(position.intent.legs, complete_leg_quotes, strict=True)
             ),
             lot_size=lot_size,
         )
-        greeks = Greeks(
-            delta=delta_pc * position.contracts_open,
-            gamma=gamma_pc * position.contracts_open,
-            vega=vega_pc * position.contracts_open,
-            theta=theta_pc * position.contracts_open,
-        )
+        greeks = greeks_pc.scaled(position.contracts_open)
 
-    spot_curr = position.last_spot
+    spot_curr = position.last_market.spot
     if "spot_price" in chain_all.columns and not chain_all.empty:
         spot_curr = float(chain_all["spot_price"].iloc[0])
 
-    iv_curr = position.last_iv
+    iv_curr = position.last_market.volatility
     if (
         complete_leg_quotes is not None
         and all("smoothed_iv" in quote.index for quote in complete_leg_quotes)
@@ -295,7 +285,7 @@ def resolve_mark_valuation(
         )
 
     hedge_pnl = 0.0
-    net_delta = greeks.delta
+    net_delta = position.last_net_delta if has_missing_quote else greeks.delta
     delta_pnl_market = (pnl_mtm - prev_mtm_before) + hedge_pnl
     market = MarketState(spot=spot_curr, volatility=iv_curr)
     return MarkValuationSnapshot(
@@ -311,28 +301,19 @@ def resolve_mark_valuation(
     )
 
 
-# TODO: WHy not make it take a Greek and MarketState and make OpenPosition alos take a last_greeks and last_market ?
 def update_position_mark_state(
     *,
     position: OpenPosition,
     pnl_mtm: float,
-    spot: float,
-    iv: float,
-    delta: float,
+    market: MarketState,
+    greeks: Greeks,
     net_delta: float,
-    gamma: float,
-    vega: float,
-    theta: float,
 ) -> None:
     """Persist updated in-trade state after one mark step."""
     position.prev_mtm = pnl_mtm
-    position.last_spot = spot
-    position.last_iv = iv
-    position.last_delta = delta
+    position.last_market = market
+    position.last_greeks = greeks
     position.last_net_delta = net_delta
-    position.last_gamma = gamma
-    position.last_vega = vega
-    position.last_theta = theta
 
 
 def exit_prices_for_position(
