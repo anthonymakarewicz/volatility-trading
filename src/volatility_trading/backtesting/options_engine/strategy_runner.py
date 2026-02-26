@@ -14,7 +14,7 @@ from .lifecycle import (
     PositionLifecycleEngine,
 )
 from .runner import SinglePositionRunnerHooks, run_single_position_date_loop
-from .sizing import size_entry_intent_contracts
+from .sizing import SizingRequest, size_entry_intent
 from .specs import StrategySpec
 
 
@@ -114,30 +114,32 @@ class OptionsStrategyRunner:
         else:
             spot_entry = float(intent.entry_state.spot)
             iv_entry = float(intent.entry_state.volatility)
-        contracts, risk_pc, risk_scenario, margin_pc = size_entry_intent_contracts(
-            intent=intent,
-            lot_size=cfg.lot_size,
-            spot=spot_entry,
-            volatility=iv_entry,
-            equity=float(equity_running),
-            pricer=self.pricer,
-            scenario_generator=self.scenario_generator,
-            risk_estimator=self.risk_estimator,
-            risk_sizer=self.risk_sizer,
-            margin_model=self.margin_model,
-            margin_budget_pct=self.margin_budget_pct,
-            min_contracts=self.min_contracts,
-            max_contracts=self.max_contracts,
+        sizing = size_entry_intent(
+            SizingRequest(
+                intent=intent,
+                lot_size=cfg.lot_size,
+                spot=spot_entry,
+                volatility=iv_entry,
+                equity=float(equity_running),
+                pricer=self.pricer,
+                scenario_generator=self.scenario_generator,
+                risk_estimator=self.risk_estimator,
+                risk_sizer=self.risk_sizer,
+                margin_model=self.margin_model,
+                margin_budget_pct=self.margin_budget_pct,
+                min_contracts=self.min_contracts,
+                max_contracts=self.max_contracts,
+            )
         )
-        if contracts <= 0:
+        if sizing.contracts <= 0:
             return None
 
         return PositionEntrySetup(
             intent=intent,
-            contracts=int(contracts),
-            risk_per_contract=risk_pc,
-            risk_worst_scenario=risk_scenario,
-            margin_per_contract=margin_pc,
+            contracts=int(sizing.contracts),
+            risk_per_contract=sizing.risk_per_contract,
+            risk_worst_scenario=sizing.risk_scenario,
+            margin_per_contract=sizing.margin_per_contract,
         )
 
     def _build_lifecycle_engine(self) -> PositionLifecycleEngine:

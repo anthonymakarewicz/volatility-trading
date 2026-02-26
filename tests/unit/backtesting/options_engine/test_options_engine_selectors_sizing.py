@@ -5,8 +5,10 @@ from volatility_trading.backtesting.options_engine import (
     EntryIntent,
     LegSelection,
     LegSpec,
+    SizingRequest,
     estimate_entry_intent_margin_per_contract,
     select_best_expiry_for_leg_group,
+    size_entry_intent,
     size_entry_intent_contracts,
 )
 from volatility_trading.options import (
@@ -105,7 +107,7 @@ def test_select_best_expiry_for_leg_group_prefers_lower_combined_score():
     assert len(quotes) == 2
 
 
-def test_size_entry_intent_contracts_uses_risk_and_margin_caps():
+def test_size_entry_intent_uses_risk_and_margin_caps():
     class OneScenarioGenerator:
         def generate(self, *, spec, state):
             _ = (spec, state)
@@ -131,7 +133,74 @@ def test_size_entry_intent_contracts_uses_risk_and_margin_caps():
             _ = (spec, state)
             return 1.0
 
-    contracts, risk_pc, risk_scenario, margin_pc = size_entry_intent_contracts(
+    decision = size_entry_intent(
+        SizingRequest(
+            intent=_short_straddle_intent(),
+            lot_size=1,
+            spot=100.0,
+            volatility=0.2,
+            equity=10_000.0,
+            pricer=NullPricer(),
+            scenario_generator=OneScenarioGenerator(),
+            risk_estimator=ConstantRiskEstimator(),
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=0.10, min_contracts=0),
+            margin_model=ConstantMarginModel(),
+            margin_budget_pct=0.05,
+            min_contracts=0,
+            max_contracts=None,
+        )
+    )
+
+    assert decision.contracts == 1
+    assert decision.risk_per_contract == pytest.approx(250.0)
+    assert decision.risk_scenario == "base"
+    assert decision.margin_per_contract == pytest.approx(500.0)
+
+
+def test_size_entry_intent_contracts_wrapper_matches_typed_api():
+    class OneScenarioGenerator:
+        def generate(self, *, spec, state):
+            _ = (spec, state)
+            return (StressScenario(name="base", shock=MarketShock()),)
+
+    class ConstantRiskEstimator:
+        def estimate_risk_per_contract(self, *, legs, state, scenarios, pricer):
+            _ = (legs, state, scenarios, pricer)
+            base = StressScenario(name="base", shock=MarketShock())
+            return StressResult(
+                worst_loss=250.0,
+                worst_scenario=base,
+                points=(StressPoint(scenario=base, pnl=-250.0),),
+            )
+
+    class ConstantMarginModel:
+        def initial_margin_requirement(self, *, legs, state, pricer):
+            _ = (legs, state, pricer)
+            return 500.0
+
+    class NullPricer:
+        def price(self, spec, state):
+            _ = (spec, state)
+            return 1.0
+
+    typed = size_entry_intent(
+        SizingRequest(
+            intent=_short_straddle_intent(),
+            lot_size=1,
+            spot=100.0,
+            volatility=0.2,
+            equity=10_000.0,
+            pricer=NullPricer(),
+            scenario_generator=OneScenarioGenerator(),
+            risk_estimator=ConstantRiskEstimator(),
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=0.10, min_contracts=0),
+            margin_model=ConstantMarginModel(),
+            margin_budget_pct=0.05,
+            min_contracts=0,
+            max_contracts=None,
+        )
+    )
+    wrapped = size_entry_intent_contracts(
         intent=_short_straddle_intent(),
         lot_size=1,
         spot=100.0,
@@ -147,10 +216,12 @@ def test_size_entry_intent_contracts_uses_risk_and_margin_caps():
         max_contracts=None,
     )
 
-    assert contracts == 1
-    assert risk_pc == pytest.approx(250.0)
-    assert risk_scenario == "base"
-    assert margin_pc == pytest.approx(500.0)
+    assert wrapped == (
+        typed.contracts,
+        typed.risk_per_contract,
+        typed.risk_scenario,
+        typed.margin_per_contract,
+    )
 
 
 def test_estimate_entry_intent_margin_per_contract():

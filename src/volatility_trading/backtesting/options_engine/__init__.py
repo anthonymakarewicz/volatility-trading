@@ -33,7 +33,10 @@ from .selectors import (
     select_best_quote_for_leg,
 )
 from .sizing import (
+    SizingDecision,
+    SizingRequest,
     estimate_entry_intent_margin_per_contract,
+    size_entry_intent,
     size_entry_intent_contracts,
 )
 from .specs import StrategySpec
@@ -65,6 +68,9 @@ __all__ = [
     "select_best_quote_for_leg",
     "select_best_expiry_for_leg_group",
     "estimate_entry_intent_margin_per_contract",
+    "SizingRequest",
+    "SizingDecision",
+    "size_entry_intent",
     "size_entry_intent_contracts",
     "PositionEntrySetup",
     "MtmRecord",
