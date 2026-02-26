@@ -14,6 +14,8 @@ from ..types import EntryIntent
 
 # TODO: When adding delta hedging, keep two dataclasses for options and hedger for storign
 # nb of contracts, delta for eahc, entry price ...
+# Cretae a psoiton that would have a OptionsPositon and HedgerPositon that store all info into a
+# centralzied dataclass
 
 
 @dataclass(frozen=True)
@@ -87,16 +89,6 @@ class MarkValuationSnapshot:
     hedge_pnl: float
     net_delta: float
     delta_pnl_market: float
-
-    @property
-    def spot(self) -> float:
-        """Compatibility accessor for market spot."""
-        return self.market.spot
-
-    @property
-    def iv(self) -> float:
-        """Compatibility accessor for market volatility."""
-        return self.market.volatility
 
 
 @dataclass(frozen=True)

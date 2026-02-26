@@ -67,8 +67,8 @@ def maybe_refresh_margin_per_contract(
     if (
         margin_model is None
         or valuation.complete_leg_quotes is None
-        or not np.isfinite(valuation.iv)
-        or valuation.iv <= 0
+        or not np.isfinite(valuation.market.volatility)
+        or valuation.market.volatility <= 0
     ):
         return
 
@@ -80,8 +80,8 @@ def maybe_refresh_margin_per_contract(
         intent=current_intent,
         as_of_date=curr_date,
         lot_size=lot_size,
-        spot=float(valuation.spot),
-        volatility=float(valuation.iv),
+        spot=float(valuation.market.spot),
+        volatility=float(valuation.market.volatility),
         margin_model=margin_model,
         pricer=pricer,
     )

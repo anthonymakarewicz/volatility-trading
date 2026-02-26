@@ -28,18 +28,16 @@ class SinglePositionRunnerHooks(Generic[PositionT, SetupT]):
 
     mark_open_position: Callable[
         [PositionT, pd.Timestamp, float],
-        tuple[PositionT | None, MtmRecord | dict, list[dict]],
+        tuple[PositionT | None, MtmRecord, list[dict]],
     ]
     prepare_entry: Callable[[pd.Timestamp, float], SetupT | None]
-    open_position: Callable[[SetupT, float], tuple[PositionT, MtmRecord | dict]]
+    open_position: Callable[[SetupT, float], tuple[PositionT, MtmRecord]]
     can_reenter_same_day: Callable[[list[dict]], bool]
 
 
-def _record_delta_pnl(record: MtmRecord | dict) -> float:
-    """Return ``delta_pnl`` from either typed MTM records or legacy row dicts."""
-    if isinstance(record, MtmRecord):
-        return float(record.delta_pnl)
-    return float(record["delta_pnl"])
+def _record_delta_pnl(record: MtmRecord) -> float:
+    """Return ``delta_pnl`` from typed MTM records."""
+    return float(record.delta_pnl)
 
 
 def run_single_position_date_loop(
@@ -48,14 +46,14 @@ def run_single_position_date_loop(
     active_signal_dates: set[pd.Timestamp],
     initial_equity: float,
     hooks: SinglePositionRunnerHooks[PositionT, SetupT],
-) -> tuple[list[dict], list[MtmRecord | dict]]:
+) -> tuple[list[dict], list[MtmRecord]]:
     """Run the shared single-position event loop.
 
     Returns:
         A tuple ``(trades, mtm_records)`` built from daily lifecycle callbacks.
     """
     trades: list[dict] = []
-    mtm_records: list[MtmRecord | dict] = []
+    mtm_records: list[MtmRecord] = []
     equity_running = float(initial_equity)
     open_position: PositionT | None = None
 

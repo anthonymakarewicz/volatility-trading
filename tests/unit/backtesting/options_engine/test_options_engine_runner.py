@@ -4,6 +4,31 @@ from volatility_trading.backtesting.options_engine import (
     SinglePositionRunnerHooks,
     run_single_position_date_loop,
 )
+from volatility_trading.backtesting.options_engine._lifecycle.state import (
+    MtmMargin,
+    MtmRecord,
+)
+from volatility_trading.backtesting.types import MarginCore
+from volatility_trading.options.types import Greeks, MarketState
+
+
+def _make_mtm_record(*, date: pd.Timestamp, delta_pnl: float) -> MtmRecord:
+    return MtmRecord(
+        date=date,
+        market=MarketState(spot=100.0, volatility=0.2),
+        delta_pnl=float(delta_pnl),
+        net_delta=0.0,
+        greeks=Greeks(delta=0.0, gamma=0.0, vega=0.0, theta=0.0),
+        hedge_qty=0.0,
+        hedge_price_prev=float("nan"),
+        hedge_pnl=0.0,
+        open_contracts=1,
+        margin=MtmMargin(
+            per_contract=None,
+            initial_requirement=0.0,
+            core=MarginCore.empty(),
+        ),
+    )
 
 
 def test_runner_blocks_same_day_reentry_when_policy_disallows():
@@ -19,16 +44,16 @@ def test_runner_blocks_same_day_reentry_when_policy_disallows():
         nonlocal entry_count
         _ = (setup, equity)
         entry_count += 1
-        return {"position_id": entry_count}, {
-            "date": trading_dates[0],
-            "delta_pnl": 0.0,
-        }
+        return {"position_id": entry_count}, _make_mtm_record(
+            date=trading_dates[0],
+            delta_pnl=0.0,
+        )
 
     def mark_open_position(position: dict, curr_date: pd.Timestamp, equity: float):
         _ = (position, curr_date, equity)
         return (
             None,
-            {"date": curr_date, "delta_pnl": 1.0},
+            _make_mtm_record(date=curr_date, delta_pnl=1.0),
             [{"exit_type": "Rebalance Period"}],
         )
 
@@ -65,16 +90,16 @@ def test_runner_can_reenter_same_day_and_uses_updated_equity():
         nonlocal entry_count
         _ = (setup, equity)
         entry_count += 1
-        return {"position_id": entry_count}, {
-            "date": trading_dates[0],
-            "delta_pnl": -2.0,
-        }
+        return {"position_id": entry_count}, _make_mtm_record(
+            date=trading_dates[0],
+            delta_pnl=-2.0,
+        )
 
     def mark_open_position(position: dict, curr_date: pd.Timestamp, equity: float):
         _ = (position, curr_date, equity)
         return (
             None,
-            {"date": curr_date, "delta_pnl": 5.0},
+            _make_mtm_record(date=curr_date, delta_pnl=5.0),
             [{"exit_type": "Rebalance Period"}],
         )
 
