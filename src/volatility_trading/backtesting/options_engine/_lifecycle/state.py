@@ -154,6 +154,39 @@ class MtmRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class TradeRecord:
+    """One realized trade ledger row emitted by lifecycle exits."""
+
+    entry_date: pd.Timestamp
+    exit_date: pd.Timestamp
+    entry_dte: int | None
+    expiry_date: pd.Timestamp | None
+    contracts: int
+    pnl: float
+    risk_per_contract: float | None
+    risk_worst_scenario: str | None
+    margin_per_contract: float | None
+    exit_type: str
+    trade_legs: list[dict[str, object]]  # TODO: Weird this object type ?
+
+    def to_dict(self) -> dict[str, object]:
+        """Flatten trade record into the canonical trades table row."""
+        return {
+            "entry_date": self.entry_date,
+            "exit_date": self.exit_date,
+            "entry_dte": self.entry_dte,
+            "expiry_date": self.expiry_date,
+            "contracts": self.contracts,
+            "pnl": self.pnl,
+            "risk_per_contract": self.risk_per_contract,
+            "risk_worst_scenario": self.risk_worst_scenario,
+            "margin_per_contract": self.margin_per_contract,
+            "exit_type": self.exit_type,
+            "trade_legs": self.trade_legs,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LifecycleStepContext:
     """Shared one-date context passed across lifecycle mark/exit handlers."""
 
@@ -170,4 +203,4 @@ class LifecycleStepResult:
 
     position: OpenPosition | None
     mtm_record: MtmRecord
-    trade_rows: list[dict]
+    trade_rows: list[TradeRecord]

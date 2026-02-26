@@ -11,6 +11,8 @@ from typing import Protocol, runtime_checkable
 
 import pandas as pd
 
+from ._lifecycle.state import TradeRecord
+
 # TODO: Add Stop Loss and TP Exit (maybe for liquidated positon because of unsufficient margin balance ? )
 
 
@@ -134,5 +136,12 @@ class SameDayReentryPolicy:
         """Evaluate same-day reentry from emitted trade rows."""
         for row in trade_rows:
             if self.allows(row.get("exit_type")):
+                return True
+        return False
+
+    def allow_from_trade_records(self, trade_records: list[TradeRecord]) -> bool:
+        """Evaluate same-day reentry from typed trade records."""
+        for record in trade_records:
+            if self.allows(record.exit_type):
                 return True
         return False

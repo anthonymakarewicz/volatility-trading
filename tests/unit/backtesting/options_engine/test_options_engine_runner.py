@@ -8,6 +8,7 @@ from volatility_trading.backtesting.options_engine._lifecycle.state import (
     LifecycleStepResult,
     MtmMargin,
     MtmRecord,
+    TradeRecord,
 )
 from volatility_trading.backtesting.types import MarginCore
 from volatility_trading.options.types import Greeks, MarketState
@@ -29,6 +30,22 @@ def _make_mtm_record(*, date: pd.Timestamp, delta_pnl: float) -> MtmRecord:
             initial_requirement=0.0,
             core=MarginCore.empty(),
         ),
+    )
+
+
+def _make_trade_record(*, exit_type: str) -> TradeRecord:
+    return TradeRecord(
+        entry_date=pd.Timestamp("2020-01-01"),
+        exit_date=pd.Timestamp("2020-01-02"),
+        entry_dte=30,
+        expiry_date=pd.Timestamp("2020-01-31"),
+        contracts=1,
+        pnl=0.0,
+        risk_per_contract=None,
+        risk_worst_scenario=None,
+        margin_per_contract=None,
+        exit_type=exit_type,
+        trade_legs=[],
     )
 
 
@@ -55,7 +72,7 @@ def test_runner_blocks_same_day_reentry_when_policy_disallows():
         return LifecycleStepResult(
             position=None,
             mtm_record=_make_mtm_record(date=curr_date, delta_pnl=1.0),
-            trade_rows=[{"exit_type": "Rebalance Period"}],
+            trade_rows=[_make_trade_record(exit_type="Rebalance Period")],
         )
 
     hooks = SinglePositionRunnerHooks[dict, dict](
@@ -101,7 +118,7 @@ def test_runner_can_reenter_same_day_and_uses_updated_equity():
         return LifecycleStepResult(
             position=None,
             mtm_record=_make_mtm_record(date=curr_date, delta_pnl=5.0),
-            trade_rows=[{"exit_type": "Rebalance Period"}],
+            trade_rows=[_make_trade_record(exit_type="Rebalance Period")],
         )
 
     hooks = SinglePositionRunnerHooks[dict, dict](

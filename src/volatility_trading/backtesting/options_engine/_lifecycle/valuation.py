@@ -207,7 +207,7 @@ def trade_legs_payload(
                 "expiry_group": leg.spec.expiry_group,
             }
         )
-    return payload
+    return payload  # TODO: Why not put that into a dataclass ?
 
 
 def intent_with_updated_quotes(

@@ -231,9 +231,9 @@ def test_mark_position_rebalance_exit_closes_position_and_emits_trade():
 
     assert updated_position is None
     assert len(trade_rows) == 1
-    assert trade_rows[0]["exit_type"] == "Rebalance Period"
-    assert trade_rows[0]["contracts"] == 2
-    assert trade_rows[0]["pnl"] == pytest.approx(-2.0)
+    assert trade_rows[0].exit_type == "Rebalance Period"
+    assert trade_rows[0].contracts == 2
+    assert trade_rows[0].pnl == pytest.approx(-2.0)
     assert mtm_record.delta_pnl == pytest.approx(-2.0)
     assert mtm_record.open_contracts == 0
     assert mtm_record.greeks.delta == pytest.approx(0.0)
@@ -270,8 +270,8 @@ def test_mark_position_forced_liquidation_full_mode_closes_all_contracts():
 
     assert updated_position is None
     assert len(trade_rows) == 1
-    assert trade_rows[0]["exit_type"] == "Margin Call Liquidation"
-    assert trade_rows[0]["contracts"] == 3
+    assert trade_rows[0].exit_type == "Margin Call Liquidation"
+    assert trade_rows[0].contracts == 3
     assert mtm_record.open_contracts == 0
     assert mtm_record.margin.core.forced_liquidation is True
     assert mtm_record.margin.core.contracts_liquidated == 3
@@ -311,8 +311,8 @@ def test_mark_position_forced_liquidation_target_mode_can_be_partial():
 
     assert updated_position is not None
     assert len(trade_rows) == 1
-    assert trade_rows[0]["exit_type"] == "Margin Call Partial Liquidation"
-    assert trade_rows[0]["contracts"] == 2
+    assert trade_rows[0].exit_type == "Margin Call Partial Liquidation"
+    assert trade_rows[0].contracts == 2
     assert updated_position.contracts_open == 2
     assert mtm_record.open_contracts == 2
     assert mtm_record.margin.core.contracts_liquidated == 2

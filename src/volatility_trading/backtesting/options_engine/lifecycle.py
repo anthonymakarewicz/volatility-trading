@@ -19,7 +19,7 @@ from ._lifecycle.records import (
     apply_closed_position_fields,
     build_entry_record,
     build_mark_record,
-    build_trade_row,
+    build_trade_record,
 )
 from ._lifecycle.state import (
     EntryMarginSnapshot,
@@ -30,6 +30,7 @@ from ._lifecycle.state import (
     MtmRecord,
     OpenPosition,
     PositionEntrySetup,
+    TradeRecord,
 )
 from ._lifecycle.valuation import (
     entry_net_notional,
@@ -140,7 +141,7 @@ class PositionLifecycleEngine:
             step.roundtrip_commission_per_contract * contracts_to_close
         )
 
-        trade_row = build_trade_row(
+        trade_row = build_trade_record(
             position=position,
             curr_date=step.curr_date,
             contracts=contracts_to_close,
@@ -152,7 +153,7 @@ class PositionLifecycleEngine:
             ),
             exit_prices=exit_prices,
         )
-        trade_rows = [trade_row]
+        trade_rows: list[TradeRecord] = [trade_row]
 
         if contracts_after == 0:
             forced_delta_pnl = (
@@ -258,7 +259,7 @@ class PositionLifecycleEngine:
         ) + margin.margin.financing_pnl
         equity_after = step.equity_running + exit_delta_pnl
 
-        trade_row = build_trade_row(
+        trade_row = build_trade_record(
             position=position,
             curr_date=step.curr_date,
             contracts=position.contracts_open,

@@ -7,7 +7,7 @@ from typing import Callable, Generic, TypeVar
 
 import pandas as pd
 
-from ._lifecycle.state import LifecycleStepResult, MtmRecord
+from ._lifecycle.state import LifecycleStepResult, MtmRecord, TradeRecord
 
 PositionT = TypeVar("PositionT")
 SetupT = TypeVar("SetupT")
@@ -32,7 +32,7 @@ class SinglePositionRunnerHooks(Generic[PositionT, SetupT]):
     ]
     prepare_entry: Callable[[pd.Timestamp, float], SetupT | None]
     open_position: Callable[[SetupT, float], tuple[PositionT, MtmRecord]]
-    can_reenter_same_day: Callable[[list[dict]], bool]
+    can_reenter_same_day: Callable[[list[TradeRecord]], bool]
 
 
 def _record_delta_pnl(record: MtmRecord) -> float:
@@ -46,13 +46,13 @@ def run_single_position_date_loop(
     active_signal_dates: set[pd.Timestamp],
     initial_equity: float,
     hooks: SinglePositionRunnerHooks[PositionT, SetupT],
-) -> tuple[list[dict], list[MtmRecord]]:
+) -> tuple[list[TradeRecord], list[MtmRecord]]:
     """Run the shared single-position event loop.
 
     Returns:
         A tuple ``(trades, mtm_records)`` built from daily lifecycle callbacks.
     """
-    trades: list[dict] = []
+    trades: list[TradeRecord] = []
     mtm_records: list[MtmRecord] = []
     equity_running = float(initial_equity)
     open_position: PositionT | None = None

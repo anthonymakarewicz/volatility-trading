@@ -18,6 +18,7 @@ from .state import (
     MtmRecord,
     OpenPosition,
     PositionEntrySetup,
+    TradeRecord,
 )
 from .valuation import trade_legs_payload
 
@@ -97,7 +98,7 @@ def mtm_records_to_rows(records: Sequence[MtmRecord]) -> list[dict[str, object]]
     return [mtm_record_to_dict(record) for record in records]
 
 
-def build_trade_row(
+def build_trade_record(
     *,
     position: OpenPosition,
     curr_date: pd.Timestamp,
@@ -105,24 +106,34 @@ def build_trade_row(
     pnl: float,
     exit_type: str,
     exit_prices: tuple[float, ...],
-) -> dict:
-    """Build one trade ledger row for a close/forced-liquidation action."""
-    return {
-        "entry_date": position.entry_date,
-        "exit_date": curr_date,
-        "entry_dte": position.chosen_dte,
-        "expiry_date": position.expiry_date,
-        "contracts": contracts,
-        "pnl": pnl,
-        "risk_per_contract": position.risk_per_contract,
-        "risk_worst_scenario": position.risk_worst_scenario,
-        "margin_per_contract": position.latest_margin_per_contract,
-        "exit_type": exit_type,
-        "trade_legs": trade_legs_payload(
+) -> TradeRecord:
+    """Build one typed trade ledger record for a close/liquidation action."""
+    return TradeRecord(
+        entry_date=position.entry_date,
+        exit_date=curr_date,
+        entry_dte=position.chosen_dte,
+        expiry_date=position.expiry_date,
+        contracts=contracts,
+        pnl=pnl,
+        risk_per_contract=position.risk_per_contract,
+        risk_worst_scenario=position.risk_worst_scenario,
+        margin_per_contract=position.latest_margin_per_contract,
+        exit_type=exit_type,
+        trade_legs=trade_legs_payload(
             legs=position.intent.legs,
             exit_prices=exit_prices,
         ),
-    }
+    )
+
+
+def trade_record_to_dict(record: TradeRecord) -> dict[str, object]:
+    """Serialize a typed trade record to one tabular output row."""
+    return record.to_dict()
+
+
+def trade_records_to_rows(records: Sequence[TradeRecord]) -> list[dict[str, object]]:
+    """Serialize multiple typed trade records to tabular output rows."""
+    return [trade_record_to_dict(record) for record in records]
 
 
 def apply_closed_position_fields(

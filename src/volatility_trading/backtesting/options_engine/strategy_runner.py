@@ -5,7 +5,8 @@ from __future__ import annotations
 import pandas as pd
 
 from ..types import BacktestConfig, SliceContext
-from ._lifecycle.records import mtm_record_to_dict
+from ._lifecycle.records import mtm_record_to_dict, trade_records_to_rows
+from ._lifecycle.state import TradeRecord
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import (
     OpenPosition,
@@ -150,9 +151,9 @@ class OptionsStrategyRunner:
             pricer=self.pricer,
         )
 
-    def _can_reenter_same_day(self, trade_rows: list[dict]) -> bool:
+    def _can_reenter_same_day(self, trade_rows: list[TradeRecord]) -> bool:
         """Delegate same-day reentry decision to configured policy."""
-        return self.reentry_policy.allow_from_trade_rows(trade_rows)
+        return self.reentry_policy.allow_from_trade_records(trade_rows)
 
     def _simulate_structure(
         self,
@@ -199,12 +200,13 @@ class OptionsStrategyRunner:
             ),
             can_reenter_same_day=self._can_reenter_same_day,
         )
-        trades, mtm_records = run_single_position_date_loop(
+        trade_records, mtm_records = run_single_position_date_loop(
             trading_dates=trading_dates,
             active_signal_dates=active_signal_dates,
             initial_equity=capital,
             hooks=hooks,
         )
+        trades = trade_records_to_rows(trade_records)
 
         if not mtm_records:
             return pd.DataFrame(trades), pd.DataFrame()
