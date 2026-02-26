@@ -7,7 +7,7 @@ from typing import Callable, Generic, TypeVar
 
 import pandas as pd
 
-from ._lifecycle.state import MtmRecord
+from ._lifecycle.state import LifecycleStepResult, MtmRecord
 
 PositionT = TypeVar("PositionT")
 SetupT = TypeVar("SetupT")
@@ -28,7 +28,7 @@ class SinglePositionRunnerHooks(Generic[PositionT, SetupT]):
 
     mark_open_position: Callable[
         [PositionT, pd.Timestamp, float],
-        tuple[PositionT | None, MtmRecord, list[dict]],
+        LifecycleStepResult,
     ]
     prepare_entry: Callable[[pd.Timestamp, float], SetupT | None]
     open_position: Callable[[SetupT, float], tuple[PositionT, MtmRecord]]
@@ -59,11 +59,14 @@ def run_single_position_date_loop(
 
     for curr_date in trading_dates:
         if open_position is not None:
-            open_position, mtm_record, trade_rows = hooks.mark_open_position(
+            step_result = hooks.mark_open_position(
                 open_position,
                 curr_date,
                 equity_running,
             )
+            open_position = step_result.position
+            mtm_record = step_result.mtm_record
+            trade_rows = step_result.trade_rows
             mtm_records.append(mtm_record)
             trades.extend(trade_rows)
             equity_running += _record_delta_pnl(mtm_record)

@@ -5,6 +5,7 @@ from volatility_trading.backtesting.options_engine import (
     run_single_position_date_loop,
 )
 from volatility_trading.backtesting.options_engine._lifecycle.state import (
+    LifecycleStepResult,
     MtmMargin,
     MtmRecord,
 )
@@ -51,10 +52,10 @@ def test_runner_blocks_same_day_reentry_when_policy_disallows():
 
     def mark_open_position(position: dict, curr_date: pd.Timestamp, equity: float):
         _ = (position, curr_date, equity)
-        return (
-            None,
-            _make_mtm_record(date=curr_date, delta_pnl=1.0),
-            [{"exit_type": "Rebalance Period"}],
+        return LifecycleStepResult(
+            position=None,
+            mtm_record=_make_mtm_record(date=curr_date, delta_pnl=1.0),
+            trade_rows=[{"exit_type": "Rebalance Period"}],
         )
 
     hooks = SinglePositionRunnerHooks[dict, dict](
@@ -97,10 +98,10 @@ def test_runner_can_reenter_same_day_and_uses_updated_equity():
 
     def mark_open_position(position: dict, curr_date: pd.Timestamp, equity: float):
         _ = (position, curr_date, equity)
-        return (
-            None,
-            _make_mtm_record(date=curr_date, delta_pnl=5.0),
-            [{"exit_type": "Rebalance Period"}],
+        return LifecycleStepResult(
+            position=None,
+            mtm_record=_make_mtm_record(date=curr_date, delta_pnl=5.0),
+            trade_rows=[{"exit_type": "Rebalance Period"}],
         )
 
     hooks = SinglePositionRunnerHooks[dict, dict](

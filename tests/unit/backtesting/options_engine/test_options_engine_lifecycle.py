@@ -185,13 +185,16 @@ def test_mark_position_with_missing_quotes_keeps_position_open():
         bid_price=4.0,
         ask_price=4.2,
     )
-    updated_position, mtm_record, trade_rows = engine.mark_position(
+    step_result = engine.mark_position(
         position=position,
         curr_date=pd.Timestamp("2020-01-02"),
         options=options,
         cfg=cfg,
         equity_running=10_000.0,
     )
+    updated_position = step_result.position
+    mtm_record = step_result.mtm_record
+    trade_rows = step_result.trade_rows
 
     assert updated_position is not None
     assert trade_rows == []
@@ -215,13 +218,16 @@ def test_mark_position_rebalance_exit_closes_position_and_emits_trade():
         bid_price=6.0,
         ask_price=6.0,
     )
-    updated_position, mtm_record, trade_rows = engine.mark_position(
+    step_result = engine.mark_position(
         position=position,
         curr_date=pd.Timestamp("2020-01-02"),
         options=options,
         cfg=cfg,
         equity_running=10_000.0,
     )
+    updated_position = step_result.position
+    mtm_record = step_result.mtm_record
+    trade_rows = step_result.trade_rows
 
     assert updated_position is None
     assert len(trade_rows) == 1
@@ -251,13 +257,16 @@ def test_mark_position_forced_liquidation_full_mode_closes_all_contracts():
     )
 
     options = _make_options_row_for_date()
-    updated_position, mtm_record, trade_rows = engine.mark_position(
+    step_result = engine.mark_position(
         position=position,
         curr_date=pd.Timestamp("2020-01-02"),
         options=options,
         cfg=cfg,
         equity_running=10_000.0,
     )
+    updated_position = step_result.position
+    mtm_record = step_result.mtm_record
+    trade_rows = step_result.trade_rows
 
     assert updated_position is None
     assert len(trade_rows) == 1
@@ -289,13 +298,16 @@ def test_mark_position_forced_liquidation_target_mode_can_be_partial():
     )
 
     options = _make_options_row_for_date()
-    updated_position, mtm_record, trade_rows = engine.mark_position(
+    step_result = engine.mark_position(
         position=position,
         curr_date=pd.Timestamp("2020-01-02"),
         options=options,
         cfg=cfg,
         equity_running=12_000.0,
     )
+    updated_position = step_result.position
+    mtm_record = step_result.mtm_record
+    trade_rows = step_result.trade_rows
 
     assert updated_position is not None
     assert len(trade_rows) == 1

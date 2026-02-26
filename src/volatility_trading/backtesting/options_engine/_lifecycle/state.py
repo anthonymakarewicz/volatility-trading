@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from volatility_trading.backtesting.margin import MarginAccount, MarginStatus
-from volatility_trading.backtesting.types import MarginCore
+from volatility_trading.backtesting.types import BacktestConfig, MarginCore
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..types import EntryIntent
@@ -151,3 +151,23 @@ class MtmRecord:
             "contracts_liquidated": self.margin.core.contracts_liquidated,
             "financing_pnl": self.margin.core.financing_pnl,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class LifecycleStepContext:
+    """Shared one-date context passed across lifecycle mark/exit handlers."""
+
+    curr_date: pd.Timestamp
+    cfg: BacktestConfig
+    equity_running: float
+    lot_size: int
+    roundtrip_commission_per_contract: float
+
+
+@dataclass(frozen=True, slots=True)
+class LifecycleStepResult:
+    """Normalized one-step lifecycle outcome returned by mark handlers."""
+
+    position: OpenPosition | None
+    mtm_record: MtmRecord
+    trade_rows: list[dict]

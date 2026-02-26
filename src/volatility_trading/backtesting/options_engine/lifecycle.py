@@ -23,6 +23,8 @@ from ._lifecycle.records import (
 )
 from ._lifecycle.state import (
     EntryMarginSnapshot,
+    LifecycleStepContext,
+    LifecycleStepResult,
     MarkMarginSnapshot,
     MarkValuationSnapshot,
     MtmRecord,
@@ -107,15 +109,11 @@ class PositionLifecycleEngine:
         self,
         *,
         position: OpenPosition,
-        curr_date: pd.Timestamp,
-        cfg: BacktestConfig,
-        lot_size: int,
-        roundtrip_commission_per_contract: float,
-        equity_running: float,
+        step: LifecycleStepContext,
         valuation: MarkValuationSnapshot,
         margin: MarkMarginSnapshot,
         mtm_record: MtmRecord,
-    ) -> tuple[OpenPosition | None, MtmRecord, list[dict]] | None:
+    ) -> LifecycleStepResult | None:
         """Handle forced margin liquidation and return lifecycle outcome if triggered."""
         if (
             margin.margin_status is None
@@ -128,23 +126,23 @@ class PositionLifecycleEngine:
         exit_prices = exit_prices_for_position(
             position=position,
             leg_quotes=valuation.complete_leg_quotes,
-            cfg=cfg,
+            cfg=step.cfg,
         )
         contracts_to_close = margin.margin_status.contracts_to_liquidate
         contracts_after = position.contracts_open - contracts_to_close
         pnl_per_contract = pnl_per_contract_from_exit_prices(
             legs=position.intent.legs,
             exit_prices=exit_prices,
-            lot_size=lot_size,
+            lot_size=step.lot_size,
         )
         real_pnl_closed = pnl_per_contract * contracts_to_close + valuation.hedge_pnl
         pnl_net_closed = real_pnl_closed - (
-            roundtrip_commission_per_contract * contracts_to_close
+            step.roundtrip_commission_per_contract * contracts_to_close
         )
 
         trade_row = build_trade_row(
             position=position,
-            curr_date=curr_date,
+            curr_date=step.curr_date,
             contracts=contracts_to_close,
             pnl=pnl_net_closed,
             exit_type=(
@@ -160,7 +158,7 @@ class PositionLifecycleEngine:
             forced_delta_pnl = (
                 pnl_net_closed - valuation.prev_mtm_before
             ) + margin.margin.financing_pnl
-            equity_after = equity_running + forced_delta_pnl
+            equity_after = step.equity_running + forced_delta_pnl
             mtm_record = apply_closed_position_fields(
                 mtm_record,
                 delta_pnl=forced_delta_pnl,
@@ -177,7 +175,11 @@ class PositionLifecycleEngine:
                     ),
                 ),
             )
-            return None, mtm_record, trade_rows
+            return LifecycleStepResult(
+                position=None,
+                mtm_record=mtm_record,
+                trade_rows=trade_rows,
+            )
 
         ratio_remaining = contracts_after / position.contracts_open
         pnl_mtm_remaining = valuation.pnl_mtm * ratio_remaining
@@ -219,46 +221,46 @@ class PositionLifecycleEngine:
             greeks=mtm_record.greeks,
             net_delta=float(mtm_record.net_delta),
         )
-        return position, mtm_record, trade_rows
+        return LifecycleStepResult(
+            position=position,
+            mtm_record=mtm_record,
+            trade_rows=trade_rows,
+        )
 
     def _handle_standard_exit(
         self,
         *,
         position: OpenPosition,
-        curr_date: pd.Timestamp,
+        step: LifecycleStepContext,
         exit_type: str,
-        cfg: BacktestConfig,
-        lot_size: int,
-        roundtrip_commission_per_contract: float,
-        equity_running: float,
         valuation: MarkValuationSnapshot,
         margin: MarkMarginSnapshot,
         mtm_record: MtmRecord,
-    ) -> tuple[OpenPosition | None, MtmRecord, list[dict]]:
+    ) -> LifecycleStepResult:
         """Close a position on explicit exit rule trigger and build lifecycle outputs."""
         assert valuation.complete_leg_quotes is not None  # nosec B101
         exit_prices = exit_prices_for_position(
             position=position,
             leg_quotes=valuation.complete_leg_quotes,
-            cfg=cfg,
+            cfg=step.cfg,
         )
         pnl_per_contract = pnl_per_contract_from_exit_prices(
             legs=position.intent.legs,
             exit_prices=exit_prices,
-            lot_size=lot_size,
+            lot_size=step.lot_size,
         )
         real_pnl = pnl_per_contract * position.contracts_open + valuation.hedge_pnl
         pnl_net = real_pnl - (
-            roundtrip_commission_per_contract * position.contracts_open
+            step.roundtrip_commission_per_contract * position.contracts_open
         )
         exit_delta_pnl = (
             pnl_net - valuation.prev_mtm_before
         ) + margin.margin.financing_pnl
-        equity_after = equity_running + exit_delta_pnl
+        equity_after = step.equity_running + exit_delta_pnl
 
         trade_row = build_trade_row(
             position=position,
-            curr_date=curr_date,
+            curr_date=step.curr_date,
             contracts=position.contracts_open,
             pnl=pnl_net,
             exit_type=exit_type,
@@ -270,7 +272,11 @@ class PositionLifecycleEngine:
             delta_pnl=exit_delta_pnl,
             equity_after=equity_after,
         )
-        return None, mtm_record, [trade_row]
+        return LifecycleStepResult(
+            position=None,
+            mtm_record=mtm_record,
+            trade_rows=[trade_row],
+        )
 
     def open_position(
         self,
@@ -327,51 +333,53 @@ class PositionLifecycleEngine:
         options: pd.DataFrame,
         cfg: BacktestConfig,
         equity_running: float,
-    ) -> tuple[OpenPosition | None, MtmRecord, list[dict]]:
+    ) -> LifecycleStepResult:
         """Revalue one open position for one date and apply exit/liquidation rules.
 
         Returns:
-            Tuple ``(updated_position_or_none, mtm_record, trade_rows)``.
+            ``LifecycleStepResult`` containing updated position, MTM record,
+            and emitted trade rows.
         """
-        lot_size = cfg.lot_size
-        roundtrip_commission_per_contract = (
-            2 * cfg.commission_per_leg
-        )  # TODO: Scale it by nb of Options leg
+        step = LifecycleStepContext(
+            curr_date=curr_date,
+            cfg=cfg,
+            equity_running=equity_running,
+            lot_size=cfg.lot_size,
+            roundtrip_commission_per_contract=(
+                2 * cfg.commission_per_leg
+            ),  # TODO: Scale it by nb of Options leg
+        )
 
         valuation = resolve_mark_valuation(
             position=position,
-            curr_date=curr_date,
+            curr_date=step.curr_date,
             options=options,
-            lot_size=lot_size,
+            lot_size=step.lot_size,
         )
         maybe_refresh_margin_per_contract(
             position=position,
-            curr_date=curr_date,
-            lot_size=lot_size,
+            curr_date=step.curr_date,
+            lot_size=step.lot_size,
             valuation=valuation,
             margin_model=self.margin_model,
             pricer=self.pricer,
         )
         margin = evaluate_mark_margin(
             position=position,
-            curr_date=curr_date,
-            equity_running=equity_running,
+            curr_date=step.curr_date,
+            equity_running=step.equity_running,
             valuation=valuation,
         )
         mtm_record = build_mark_record(
             position=position,
-            curr_date=curr_date,
+            curr_date=step.curr_date,
             valuation=valuation,
             margin=margin,
         )
 
         forced_outcome = self._handle_forced_liquidation(
             position=position,
-            curr_date=curr_date,
-            cfg=cfg,
-            lot_size=lot_size,
-            roundtrip_commission_per_contract=roundtrip_commission_per_contract,
-            equity_running=equity_running,
+            step=step,
             valuation=valuation,
             margin=margin,
             mtm_record=mtm_record,
@@ -387,9 +395,15 @@ class PositionLifecycleEngine:
                 greeks=mtm_record.greeks,
                 net_delta=float(mtm_record.net_delta),
             )
-            return position, mtm_record, []
+            return LifecycleStepResult(
+                position=position,
+                mtm_record=mtm_record,
+                trade_rows=[],
+            )
 
-        exit_type = self.exit_rule_set.evaluate(curr_date=curr_date, position=position)
+        exit_type = self.exit_rule_set.evaluate(
+            curr_date=step.curr_date, position=position
+        )
         if exit_type is None:
             update_position_mark_state(
                 position=position,
@@ -398,16 +412,16 @@ class PositionLifecycleEngine:
                 greeks=mtm_record.greeks,
                 net_delta=float(mtm_record.net_delta),
             )
-            return position, mtm_record, []
+            return LifecycleStepResult(
+                position=position,
+                mtm_record=mtm_record,
+                trade_rows=[],
+            )
 
         return self._handle_standard_exit(
             position=position,
-            curr_date=curr_date,
+            step=step,
             exit_type=exit_type,
-            cfg=cfg,
-            lot_size=lot_size,
-            roundtrip_commission_per_contract=roundtrip_commission_per_contract,
-            equity_running=equity_running,
             valuation=valuation,
             margin=margin,
             mtm_record=mtm_record,
