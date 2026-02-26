@@ -264,8 +264,8 @@ def test_mark_position_forced_liquidation_full_mode_closes_all_contracts():
     assert trade_rows[0]["exit_type"] == "Margin Call Liquidation"
     assert trade_rows[0]["contracts"] == 3
     assert mtm_record.open_contracts == 0
-    assert mtm_record.margin.forced_liquidation is True
-    assert mtm_record.margin.contracts_liquidated == 3
+    assert mtm_record.margin.core.forced_liquidation is True
+    assert mtm_record.margin.core.contracts_liquidated == 3
 
 
 def test_mark_position_forced_liquidation_target_mode_can_be_partial():
@@ -303,5 +303,5 @@ def test_mark_position_forced_liquidation_target_mode_can_be_partial():
     assert trade_rows[0]["contracts"] == 2
     assert updated_position.contracts_open == 2
     assert mtm_record.open_contracts == 2
-    assert mtm_record.margin.contracts_liquidated == 2
-    assert mtm_record.margin.forced_liquidation is True
+    assert mtm_record.margin.core.contracts_liquidated == 2
+    assert mtm_record.margin.core.forced_liquidation is True

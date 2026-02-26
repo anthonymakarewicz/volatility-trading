@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from volatility_trading.backtesting.margin import MarginAccount, MarginPolicy
+from volatility_trading.backtesting.types import MarginCore
 from volatility_trading.options import MarginModel, PriceModel
 
 from ..sizing import estimate_entry_intent_margin_per_contract
@@ -32,15 +33,7 @@ def evaluate_entry_margin(
     latest_margin_per_contract = setup.margin_per_contract
     initial_margin_requirement = (latest_margin_per_contract or 0.0) * contracts_open
     entry_delta_pnl = -(roundtrip_commission_per_contract * contracts_open)
-
-    financing_pnl = 0.0
-    maintenance_margin_requirement = 0.0
-    margin_excess = np.nan
-    margin_deficit = np.nan
-    in_margin_call = False
-    margin_call_days = 0
-    forced_liquidation = False
-    contracts_liquidated = 0
+    margin_core = MarginCore.empty()
 
     if margin_account is not None:
         margin_status = margin_account.evaluate(
@@ -49,29 +42,15 @@ def evaluate_entry_margin(
             open_contracts=contracts_open,
             as_of=setup.intent.entry_date,
         )
-        financing_pnl = margin_status.financing_pnl
-        entry_delta_pnl += financing_pnl
-        maintenance_margin_requirement = margin_status.maintenance_margin_requirement
-        margin_excess = margin_status.margin_excess
-        margin_deficit = margin_status.margin_deficit
-        in_margin_call = margin_status.in_margin_call
-        margin_call_days = margin_status.margin_call_days
-        forced_liquidation = margin_status.forced_liquidation
-        contracts_liquidated = margin_status.contracts_to_liquidate
+        margin_core = margin_status.core
+        entry_delta_pnl += margin_core.financing_pnl
 
     return EntryMarginSnapshot(
         margin_account=margin_account,
         latest_margin_per_contract=latest_margin_per_contract,
         initial_margin_requirement=initial_margin_requirement,
         entry_delta_pnl=entry_delta_pnl,
-        financing_pnl=financing_pnl,
-        maintenance_margin_requirement=maintenance_margin_requirement,
-        margin_excess=margin_excess,
-        margin_deficit=margin_deficit,
-        in_margin_call=in_margin_call,
-        margin_call_days=margin_call_days,
-        forced_liquidation=forced_liquidation,
-        contracts_liquidated=contracts_liquidated,
+        margin=margin_core,
     )
 
 
@@ -121,14 +100,7 @@ def evaluate_mark_margin(
     initial_margin_requirement = (
         position.latest_margin_per_contract or 0.0
     ) * position.contracts_open
-    financing_pnl = 0.0
-    maintenance_margin_requirement = 0.0
-    margin_excess = np.nan
-    margin_deficit = np.nan
-    in_margin_call = False
-    margin_call_days = 0
-    forced_liquidation = False
-    contracts_liquidated = 0
+    margin_core = MarginCore.empty()
     margin_status = None
     if position.margin_account is not None:
         margin_status = position.margin_account.evaluate(
@@ -137,24 +109,10 @@ def evaluate_mark_margin(
             open_contracts=position.contracts_open,
             as_of=curr_date,
         )
-        financing_pnl = margin_status.financing_pnl
-        maintenance_margin_requirement = margin_status.maintenance_margin_requirement
-        margin_excess = margin_status.margin_excess
-        margin_deficit = margin_status.margin_deficit
-        in_margin_call = margin_status.in_margin_call
-        margin_call_days = margin_status.margin_call_days
-        forced_liquidation = margin_status.forced_liquidation
-        contracts_liquidated = margin_status.contracts_to_liquidate
+        margin_core = margin_status.core
 
     return MarkMarginSnapshot(
         initial_margin_requirement=initial_margin_requirement,
-        financing_pnl=financing_pnl,
-        maintenance_margin_requirement=maintenance_margin_requirement,
-        margin_excess=margin_excess,
-        margin_deficit=margin_deficit,
-        in_margin_call=in_margin_call,
-        margin_call_days=margin_call_days,
-        forced_liquidation=forced_liquidation,
-        contracts_liquidated=contracts_liquidated,
+        margin=margin_core,
         margin_status=margin_status,
     )

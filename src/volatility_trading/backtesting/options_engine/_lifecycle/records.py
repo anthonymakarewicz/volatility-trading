@@ -55,14 +55,7 @@ def build_entry_record(
         margin=MtmMargin(
             per_contract=margin.latest_margin_per_contract,
             initial_requirement=margin.initial_margin_requirement,
-            maintenance_requirement=margin.maintenance_margin_requirement,
-            excess=margin.margin_excess,
-            deficit=margin.margin_deficit,
-            in_call=margin.in_margin_call,
-            call_days=margin.margin_call_days,
-            forced_liquidation=margin.forced_liquidation,
-            contracts_liquidated=margin.contracts_liquidated,
-            financing_pnl=margin.financing_pnl,
+            core=margin.margin,
         ),
     )
 
@@ -75,7 +68,7 @@ def build_mark_record(
     margin: MarkMarginSnapshot,
 ) -> MtmRecord:
     """Build one-date MTM record before forced close or standard exits."""
-    delta_pnl = valuation.delta_pnl_market + margin.financing_pnl
+    delta_pnl = valuation.delta_pnl_market + margin.margin.financing_pnl
     return MtmRecord(
         date=curr_date,
         market=valuation.market,
@@ -89,14 +82,7 @@ def build_mark_record(
         margin=MtmMargin(
             per_contract=position.latest_margin_per_contract,
             initial_requirement=margin.initial_margin_requirement,
-            maintenance_requirement=margin.maintenance_margin_requirement,
-            excess=margin.margin_excess,
-            deficit=margin.margin_deficit,
-            in_call=margin.in_margin_call,
-            call_days=margin.margin_call_days,
-            forced_liquidation=margin.forced_liquidation,
-            contracts_liquidated=margin.contracts_liquidated,
-            financing_pnl=margin.financing_pnl,
+            core=margin.margin,
         ),
     )
 
@@ -156,9 +142,12 @@ def apply_closed_position_fields(
         margin=replace(
             mtm_record.margin,
             initial_requirement=0.0,
-            maintenance_requirement=0.0,
-            excess=equity_after,
-            deficit=0.0,
-            in_call=False,
+            core=replace(
+                mtm_record.margin.core,
+                maintenance_margin_requirement=0.0,
+                margin_excess=equity_after,
+                margin_deficit=0.0,
+                in_margin_call=False,
+            ),
         ),
     )

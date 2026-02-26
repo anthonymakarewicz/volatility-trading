@@ -13,11 +13,11 @@ def test_margin_account_no_call_when_equity_above_maintenance():
         open_contracts=2,
     )
 
-    assert status.maintenance_margin_requirement == pytest.approx(4_500.0)
-    assert status.margin_excess == pytest.approx(5_500.0)
-    assert status.in_margin_call is False
-    assert status.margin_call_days == 0
-    assert status.forced_liquidation is False
+    assert status.core.maintenance_margin_requirement == pytest.approx(4_500.0)
+    assert status.core.margin_excess == pytest.approx(5_500.0)
+    assert status.core.in_margin_call is False
+    assert status.core.margin_call_days == 0
+    assert status.core.forced_liquidation is False
 
 
 def test_margin_account_forces_full_liquidation_after_grace():
@@ -40,11 +40,11 @@ def test_margin_account_forces_full_liquidation_after_grace():
         open_contracts=2,
     )
 
-    assert day1.in_margin_call is True
-    assert day1.forced_liquidation is False
-    assert day1.margin_call_days == 1
-    assert day2.in_margin_call is True
-    assert day2.forced_liquidation is True
+    assert day1.core.in_margin_call is True
+    assert day1.core.forced_liquidation is False
+    assert day1.core.margin_call_days == 1
+    assert day2.core.in_margin_call is True
+    assert day2.core.forced_liquidation is True
     assert day2.contracts_to_liquidate == 2
     assert day2.contracts_after_liquidation == 0
 
@@ -65,7 +65,7 @@ def test_margin_account_target_liquidation_uses_buffer():
         open_contracts=4,
     )
 
-    assert status.forced_liquidation is True
+    assert status.core.forced_liquidation is True
     assert status.contracts_after_liquidation == 2
     assert status.contracts_to_liquidate == 2
 
@@ -91,9 +91,9 @@ def test_margin_account_financing_terms_for_cash_and_borrow():
     )
 
     assert borrow_status.borrowed_balance == pytest.approx(2_000.0)
-    assert borrow_status.financing_pnl == pytest.approx(-(2_000.0 * 0.06 / 252.0))
+    assert borrow_status.core.financing_pnl == pytest.approx(-(2_000.0 * 0.06 / 252.0))
     assert cash_status.cash_balance == pytest.approx(2_000.0)
-    assert cash_status.financing_pnl == pytest.approx(2_000.0 * 0.02 / 252.0)
+    assert cash_status.core.financing_pnl == pytest.approx(2_000.0 * 0.02 / 252.0)
 
 
 def test_margin_account_financing_supports_date_indexed_rate_series():
@@ -121,5 +121,5 @@ def test_margin_account_financing_supports_date_indexed_rate_series():
         as_of=idx[1],
     )
 
-    assert borrow_day1.financing_pnl == pytest.approx(-(2_000.0 * 0.04 / 252.0))
-    assert borrow_day2.financing_pnl == pytest.approx(-(2_000.0 * 0.08 / 252.0))
+    assert borrow_day1.core.financing_pnl == pytest.approx(-(2_000.0 * 0.04 / 252.0))
+    assert borrow_day2.core.financing_pnl == pytest.approx(-(2_000.0 * 0.08 / 252.0))

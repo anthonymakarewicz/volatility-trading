@@ -311,6 +311,7 @@ def resolve_mark_valuation(
     )
 
 
+# TODO: WHy not make it take a Greek and MarketState and make OpenPosition alos take a last_greeks and last_market ?
 def update_position_mark_state(
     *,
     position: OpenPosition,

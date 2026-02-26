@@ -127,7 +127,7 @@ class PositionLifecycleEngine:
         """Handle forced margin liquidation and return lifecycle outcome if triggered."""
         if (
             margin.margin_status is None
-            or not margin.margin_status.forced_liquidation
+            or not margin.margin_status.core.forced_liquidation
             or margin.margin_status.contracts_to_liquidate <= 0
             or valuation.complete_leg_quotes is None
         ):
@@ -167,7 +167,7 @@ class PositionLifecycleEngine:
         if contracts_after == 0:
             forced_delta_pnl = (
                 pnl_net_closed - valuation.prev_mtm_before
-            ) + margin.financing_pnl
+            ) + margin.margin.financing_pnl
             equity_after = equity_running + forced_delta_pnl
             mtm_record = apply_closed_position_fields(
                 mtm_record,
@@ -178,8 +178,11 @@ class PositionLifecycleEngine:
                 mtm_record,
                 margin=replace(
                     mtm_record.margin,
-                    forced_liquidation=True,
-                    contracts_liquidated=contracts_to_close,
+                    core=replace(
+                        mtm_record.margin.core,
+                        forced_liquidation=True,
+                        contracts_liquidated=contracts_to_close,
+                    ),
                 ),
             )
             return None, mtm_record, trade_rows
@@ -188,7 +191,7 @@ class PositionLifecycleEngine:
         pnl_mtm_remaining = valuation.pnl_mtm * ratio_remaining
         forced_delta_pnl = (
             pnl_net_closed + pnl_mtm_remaining - valuation.prev_mtm_before
-        ) + margin.financing_pnl
+        ) + margin.margin.financing_pnl
         mtm_record = replace(
             mtm_record,
             delta_pnl=forced_delta_pnl,
@@ -200,16 +203,19 @@ class PositionLifecycleEngine:
                 initial_requirement=(
                     (position.latest_margin_per_contract or 0.0) * contracts_after
                 ),
-                maintenance_requirement=(
-                    (position.latest_margin_per_contract or 0.0)
-                    * contracts_after
-                    * (
-                        self.margin_policy.maintenance_margin_ratio
-                        if self.margin_policy is not None
-                        else 0.0
-                    )
+                core=replace(
+                    mtm_record.margin.core,
+                    maintenance_margin_requirement=(
+                        (position.latest_margin_per_contract or 0.0)
+                        * contracts_after
+                        * (
+                            self.margin_policy.maintenance_margin_ratio
+                            if self.margin_policy is not None
+                            else 0.0
+                        )
+                    ),
+                    contracts_liquidated=contracts_to_close,
                 ),
-                contracts_liquidated=contracts_to_close,
             ),
         )
         position.contracts_open = contracts_after
@@ -257,7 +263,9 @@ class PositionLifecycleEngine:
         pnl_net = real_pnl - (
             roundtrip_commission_per_contract * position.contracts_open
         )
-        exit_delta_pnl = (pnl_net - valuation.prev_mtm_before) + margin.financing_pnl
+        exit_delta_pnl = (
+            pnl_net - valuation.prev_mtm_before
+        ) + margin.margin.financing_pnl
         equity_after = equity_running + exit_delta_pnl
 
         trade_row = build_trade_row(
@@ -295,7 +303,7 @@ class PositionLifecycleEngine:
         delta_pc, gamma_pc, vega_pc, theta_pc = greeks_per_contract(
             leg_quotes=tuple((leg, leg.quote) for leg in setup.intent.legs),
             lot_size=lot_size,
-        )
+        )  # TODO: Why not return the Greeks as object so that below we do greeks_pc * contracts_open ?
         greeks = Greeks(
             delta=delta_pc * contracts_open,
             gamma=gamma_pc * contracts_open,

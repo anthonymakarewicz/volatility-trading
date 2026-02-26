@@ -25,6 +25,7 @@ from typing import Literal
 import pandas as pd
 
 from .rates import RateInput, coerce_rate_model
+from .types import MarginCore
 
 
 @dataclass(frozen=True)
@@ -83,32 +84,19 @@ class MarginStatus:
     Attributes:
         initial_margin_requirement: Initial margin requirement for current open
             contracts.
-        maintenance_margin_requirement: Maintenance requirement used for call checks.
-        margin_excess: `equity - maintenance_margin_requirement`.
-        margin_deficit: Positive deficit amount when maintenance is breached.
-        in_margin_call: True when the account is below maintenance.
-        margin_call_days: Current consecutive call-day count.
-        forced_liquidation: True when liquidation rule is triggered this step.
+        core: Shared maintenance/call/liquidation/financing account state.
         contracts_to_liquidate: Number of contracts to close immediately.
         contracts_after_liquidation: Remaining open contracts after forced action.
         cash_balance: Positive idle cash used for financing accrual.
         borrowed_balance: Positive borrowed amount used for financing accrual.
-        financing_pnl: Daily financing carry (positive from cash, negative from
-            borrow).
     """
 
     initial_margin_requirement: float
-    maintenance_margin_requirement: float
-    margin_excess: float
-    margin_deficit: float
-    in_margin_call: bool
-    margin_call_days: int
-    forced_liquidation: bool
+    core: MarginCore
     contracts_to_liquidate: int
     contracts_after_liquidation: int
     cash_balance: float
     borrowed_balance: float
-    financing_pnl: float
 
 
 class MarginAccount:
@@ -193,20 +181,24 @@ class MarginAccount:
             open_contracts=open_contracts,
             as_of=as_of,
         )
-
-        return MarginStatus(
-            initial_margin_requirement=initial_requirement,
+        core = MarginCore(
+            financing_pnl=financing_pnl,
             maintenance_margin_requirement=maintenance_requirement,
             margin_excess=margin_excess,
             margin_deficit=margin_deficit,
             in_margin_call=in_margin_call,
             margin_call_days=self._margin_call_days,
             forced_liquidation=forced_liquidation,
+            contracts_liquidated=contracts_to_liquidate,
+        )
+
+        return MarginStatus(
+            initial_margin_requirement=initial_requirement,
+            core=core,
             contracts_to_liquidate=contracts_to_liquidate,
             contracts_after_liquidation=contracts_after,
             cash_balance=cash_balance,
             borrowed_balance=borrowed_balance,
-            financing_pnl=financing_pnl,
         )
 
     def _maintenance_per_contract(

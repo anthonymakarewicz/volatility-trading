@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from volatility_trading.backtesting.margin import MarginAccount, MarginStatus
+from volatility_trading.backtesting.types import MarginCore
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..types import EntryIntent
@@ -71,14 +72,7 @@ class EntryMarginSnapshot:
     latest_margin_per_contract: float | None
     initial_margin_requirement: float
     entry_delta_pnl: float
-    financing_pnl: float
-    maintenance_margin_requirement: float
-    margin_excess: float
-    margin_deficit: float
-    in_margin_call: bool
-    margin_call_days: int
-    forced_liquidation: bool
-    contracts_liquidated: int
+    margin: MarginCore
 
 
 @dataclass(frozen=True)
@@ -111,14 +105,7 @@ class MarkMarginSnapshot:
     """One-date margin/accounting state after evaluating the margin account."""
 
     initial_margin_requirement: float
-    financing_pnl: float
-    maintenance_margin_requirement: float
-    margin_excess: float
-    margin_deficit: float
-    in_margin_call: bool
-    margin_call_days: int
-    forced_liquidation: bool
-    contracts_liquidated: int
+    margin: MarginCore
     margin_status: MarginStatus | None
 
 
@@ -128,14 +115,7 @@ class MtmMargin:
 
     per_contract: float | None
     initial_requirement: float
-    maintenance_requirement: float
-    excess: float
-    deficit: float
-    in_call: bool
-    call_days: int
-    forced_liquidation: bool
-    contracts_liquidated: int
-    financing_pnl: float
+    core: MarginCore
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,12 +151,12 @@ class MtmRecord:
             "open_contracts": self.open_contracts,
             "margin_per_contract": self.margin.per_contract,
             "initial_margin_requirement": self.margin.initial_requirement,
-            "maintenance_margin_requirement": self.margin.maintenance_requirement,
-            "margin_excess": self.margin.excess,
-            "margin_deficit": self.margin.deficit,
-            "in_margin_call": self.margin.in_call,
-            "margin_call_days": self.margin.call_days,
-            "forced_liquidation": self.margin.forced_liquidation,
-            "contracts_liquidated": self.margin.contracts_liquidated,
-            "financing_pnl": self.margin.financing_pnl,
+            "maintenance_margin_requirement": self.margin.core.maintenance_margin_requirement,
+            "margin_excess": self.margin.core.margin_excess,
+            "margin_deficit": self.margin.core.margin_deficit,
+            "in_margin_call": self.margin.core.in_margin_call,
+            "margin_call_days": self.margin.core.margin_call_days,
+            "forced_liquidation": self.margin.core.forced_liquidation,
+            "contracts_liquidated": self.margin.core.contracts_liquidated,
+            "financing_pnl": self.margin.core.financing_pnl,
         }
