@@ -34,7 +34,7 @@ flowchart TD
     B --> O[build_options_backtest_outputs<br/>backtesting/options_engine/outputs.py]
     E --> F[entry.py<br/>build EntryIntent]
     E --> G[sizing.py<br/>risk + margin sizing]
-    E --> H[lifecycle.py<br/>open/mark/close]
+    E --> H[lifecycle/engine.py<br/>open/mark/close]
     B --> I[run_backtest_execution_plan<br/>engine-owned loop]
 
     F --> J[selectors.py<br/>DTE/delta/liquidity selection]
@@ -113,7 +113,7 @@ stateDiagram-v2
   - margin-based contract limit (initial margin budget),
   - final contract count as constrained combination.
 
-### 3) Lifecycle + Accounting (`lifecycle.py`, `backtesting/margin.py`)
+### 3) Lifecycle + Accounting (`lifecycle/engine.py`, `backtesting/margin.py`)
 
 - `open_position`: initializes Greeks, MTM baseline, margin account fields.
 - `mark_position`: daily MTM, Greeks refresh, financing/margin updates.

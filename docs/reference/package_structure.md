@@ -32,15 +32,6 @@ src/volatility_trading
 │   ├── margin_types.py
 │   ├── options_engine
 │   │   ├── __init__.py
-│   │   ├── _lifecycle
-│   │   │   ├── __init__.py
-│   │   │   ├── marking.py
-│   │   │   ├── margining.py
-│   │   │   ├── opening.py
-│   │   │   ├── record_builders.py
-│   │   │   ├── runtime_state.py
-│   │   │   ├── transitions.py
-│   │   │   └── valuation.py
 │   │   ├── adapters.py
 │   │   ├── contracts
 │   │   │   ├── __init__.py
@@ -52,7 +43,16 @@ src/volatility_trading
 │   │   ├── economics.py
 │   │   ├── entry.py
 │   │   ├── exit_rules.py
-│   │   ├── lifecycle.py
+│   │   ├── lifecycle
+│   │   │   ├── __init__.py
+│   │   │   ├── engine.py
+│   │   │   ├── marking.py
+│   │   │   ├── margining.py
+│   │   │   ├── opening.py
+│   │   │   ├── record_builders.py
+│   │   │   ├── runtime_state.py
+│   │   │   ├── transitions.py
+│   │   │   └── valuation.py
 │   │   ├── plan_builder.py
 │   │   ├── outputs.py
 │   │   ├── selectors.py

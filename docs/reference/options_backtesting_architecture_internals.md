@@ -43,14 +43,14 @@ flowchart LR
     subgraph RuntimeDomain[Options Runtime Domain]
         R1[entry.py\nnormalize_signals_to_on\nbuild_entry_intent_from_structure]
         R2[sizing.py\nsize_entry_intent]
-        R3[lifecycle.py\nPositionLifecycleEngine\nopen_position/mark_position]
+        R3[lifecycle/engine.py\nPositionLifecycleEngine\nopen_position/mark_position]
         R4[exit_rules.py\nExitRuleSet / SameDayReentryPolicy]
         R5[selectors.py\nquote/expiry selection]
         R6[economics.py\neffective side/units\ncommission helpers]
         R7[outputs.py\nbuild_options_backtest_outputs]
     end
 
-    subgraph LifecycleInternals[_lifecycle Internal Modules]
+    subgraph LifecycleInternals[lifecycle/* Internal Modules]
         L1[valuation.py\nresolve_mark_valuation\nupdate_position_mark_state]
         L2[margining.py\nevaluate_entry_margin\nevaluate_mark_margin]
         L3[record_builders.py\nbuild_entry_record\nbuild_mark_record\nbuild_trade_record]
@@ -233,8 +233,8 @@ flowchart TD
 | `options_engine/entry.py` + `selectors.py` | build `EntryIntent` from chain + structure constraints | account/margin lifecycle |
 | `options_engine/economics.py` | shared leg-side/units and per-structure commission helpers | signal/entry/exit orchestration |
 | `options_engine/sizing.py` | contract count decision from risk/margin constraints | position mark/exit loop |
-| `options_engine/lifecycle.py` | open/mark/close logic, forced liquidation, exit handling | signal generation, global orchestration |
-| `options_engine/_lifecycle/*` | valuation/margin/record/state internals | plan compilation and outer loop |
+| `options_engine/lifecycle/engine.py` | open/mark/close logic, forced liquidation, exit handling | signal generation, global orchestration |
+| `options_engine/lifecycle/*` | valuation/margin/record/state internals | plan compilation and outer loop |
 
 ## 6) Why This Architecture (Design Choices)
 
@@ -256,9 +256,9 @@ flowchart TD
 - Better IDE assistance for hooks and outputs.
 - Fewer silent runtime shape mismatches.
 
-### Choice D: Lifecycle internals split into `_lifecycle/*`
+### Choice D: Lifecycle internals split into `lifecycle/*`
 
-- Keeps `lifecycle.py` focused on control flow and business decisions.
+- Keeps `lifecycle/engine.py` focused on control flow and business decisions.
 - Valuation, margining, and serialization evolve independently.
 - Tests can target specific responsibilities.
 
@@ -301,7 +301,7 @@ flowchart TD
 ### Add new accounting fields
 
 - Add to public record dataclasses (`MtmRecord`/`TradeRecord`) first.
-- Update serializer in `_lifecycle/record_builders.py`.
+- Update serializer in `lifecycle/record_builders.py`.
 - Keep loop contract unchanged unless boundary shape truly changes.
 
 ### Prepare for multi-position support (future)
@@ -319,13 +319,13 @@ flowchart TD
 5. `options_engine/specs.py`
 6. `options_engine/entry.py`
 7. `options_engine/sizing.py`
-8. `options_engine/lifecycle.py`
+8. `options_engine/lifecycle/engine.py`
 9. `options_engine/contracts/runtime.py`
 10. `options_engine/contracts/records.py`
-11. `options_engine/_lifecycle/runtime_state.py`
-12. `options_engine/_lifecycle/valuation.py`
-13. `options_engine/_lifecycle/margining.py`
-14. `options_engine/_lifecycle/record_builders.py`
-15. `options_engine/_lifecycle/opening.py`
-16. `options_engine/_lifecycle/marking.py`
-17. `options_engine/_lifecycle/transitions.py`
+11. `options_engine/lifecycle/runtime_state.py`
+12. `options_engine/lifecycle/valuation.py`
+13. `options_engine/lifecycle/margining.py`
+14. `options_engine/lifecycle/record_builders.py`
+15. `options_engine/lifecycle/opening.py`
+16. `options_engine/lifecycle/marking.py`
+17. `options_engine/lifecycle/transitions.py`
