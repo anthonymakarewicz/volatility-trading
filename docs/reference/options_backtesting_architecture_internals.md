@@ -26,7 +26,7 @@ flowchart LR
         U1[Notebook / Script / CLI]
         U2[VRPHarvestingSpec\nstrategies/vrp_harvesting/specs.py]
         U3[StrategySpec\noptions_engine/specs.py]
-        U4[BacktestRunConfig\nbacktesting/types.py]
+        U4[BacktestRunConfig\nbacktesting/config.py]
     end
 
     subgraph Orchestrator[Backtesting Orchestrator]

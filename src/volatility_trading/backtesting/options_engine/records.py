@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from volatility_trading.backtesting.types import MarginCore
+from volatility_trading.backtesting.margin_types import MarginCore
 from volatility_trading.options.types import Greeks, MarketState
 
 

@@ -16,7 +16,7 @@ import pandas as pd
 
 from volatility_trading.options import MarketState, PositionSide
 
-from ..types import BacktestRunConfig
+from ..config import BacktestRunConfig
 from .selectors import select_best_expiry_for_leg_group
 from .types import EntryIntent, LegSelection, LegSpec, QuoteSnapshot, StructureSpec
 

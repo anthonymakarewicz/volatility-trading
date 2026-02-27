@@ -24,8 +24,8 @@ from typing import Literal
 
 import pandas as pd
 
+from .margin_types import MarginCore
 from .rates import RateInput, coerce_rate_model
-from .types import MarginCore
 
 
 @dataclass(frozen=True)

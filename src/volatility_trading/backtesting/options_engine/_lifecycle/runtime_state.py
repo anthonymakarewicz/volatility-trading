@@ -10,8 +10,9 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from volatility_trading.backtesting.config import BacktestRunConfig
 from volatility_trading.backtesting.margin import MarginAccount, MarginStatus
-from volatility_trading.backtesting.types import BacktestRunConfig, MarginCore
+from volatility_trading.backtesting.margin_types import MarginCore
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..types import QuoteSnapshot

@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 
-from volatility_trading.backtesting.types import BacktestRunConfig
+from volatility_trading.backtesting.config import BacktestRunConfig
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label

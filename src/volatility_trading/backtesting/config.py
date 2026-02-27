@@ -1,3 +1,5 @@
+"""Run-level backtesting configuration contracts (account, execution, broker, modeling)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -14,8 +16,6 @@ if TYPE_CHECKING:
     )
 
     from .margin import MarginPolicy
-
-# --- Core dataclasses -----------------------------------------------
 
 
 def _default_pricer() -> PriceModel:
@@ -50,7 +50,6 @@ class AccountConfig:
 class ExecutionConfig:
     """Execution assumptions used by entry/exit lifecycle pricing."""
 
-    # Execution / market microstructure
     lot_size: int = 100
     slip_ask: float = 0.01
     slip_bid: float = 0.01
@@ -108,41 +107,3 @@ class BacktestRunConfig:
         if self.start_date is not None and self.end_date is not None:
             if pd.Timestamp(self.start_date) > pd.Timestamp(self.end_date):
                 raise ValueError("start_date must be <= end_date")
-
-
-@dataclass(frozen=True)
-class OptionsBacktestDataBundle:
-    """Typed input datasets consumed by options backtesting runtime."""
-
-    options: pd.DataFrame
-    features: pd.DataFrame | None = None
-    hedge: pd.Series | pd.DataFrame | None = None
-    fallback_iv_feature_col: str = "iv_atm"
-
-
-@dataclass(frozen=True, slots=True)
-class MarginCore:
-    """Shared margin/accounting state used across backtesting lifecycle snapshots."""
-
-    financing_pnl: float
-    maintenance_margin_requirement: float
-    margin_excess: float
-    margin_deficit: float
-    in_margin_call: bool
-    margin_call_days: int
-    forced_liquidation: bool
-    contracts_liquidated: int
-
-    @classmethod
-    def empty(cls) -> MarginCore:
-        """Return default non-margin-call state used before account evaluation."""
-        return cls(
-            financing_pnl=0.0,
-            maintenance_margin_requirement=0.0,
-            margin_excess=float("nan"),
-            margin_deficit=float("nan"),
-            in_margin_call=False,
-            margin_call_days=0,
-            forced_liquidation=False,
-            contracts_liquidated=0,
-        )

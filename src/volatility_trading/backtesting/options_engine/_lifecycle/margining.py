@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from volatility_trading.backtesting.margin import MarginAccount, MarginPolicy
-from volatility_trading.backtesting.types import MarginCore
+from volatility_trading.backtesting.margin_types import MarginCore
 from volatility_trading.options import MarginModel, PriceModel
 
 from ..sizing import estimate_entry_intent_margin_per_contract

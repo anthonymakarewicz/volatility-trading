@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from ..types import BacktestRunConfig, OptionsBacktestDataBundle
+from ..config import BacktestRunConfig
+from ..data_contracts import OptionsBacktestDataBundle
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import PositionLifecycleEngine

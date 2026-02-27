@@ -8,8 +8,8 @@ import pandas as pd
 
 from volatility_trading.options import Greeks, MarginModel, MarketState, PriceModel
 
+from ..config import BacktestRunConfig
 from ..margin import MarginPolicy
-from ..types import BacktestRunConfig
 from ._lifecycle.margining import (
     evaluate_entry_margin,
     evaluate_mark_margin,
