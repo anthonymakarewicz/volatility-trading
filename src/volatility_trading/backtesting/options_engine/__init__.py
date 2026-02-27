@@ -7,6 +7,7 @@ from .adapters import (
     quote_to_option_spec,
     time_to_expiry_years,
 )
+from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .entry import (
     build_entry_intent_from_structure,
     chain_for_date,
@@ -19,12 +20,9 @@ from .exit_rules import (
     RebalanceExitRule,
     SameDayReentryPolicy,
 )
-from .lifecycle import (
-    MtmRecord,
-    OpenPosition,
-    PositionEntrySetup,
-    PositionLifecycleEngine,
-)
+from .lifecycle import PositionLifecycleEngine
+from .plan_builder import build_options_execution_plan
+from .records import MtmRecord, TradeRecord
 from .selectors import (
     apply_leg_liquidity_filters,
     score_leg_candidates,
@@ -39,6 +37,7 @@ from .sizing import (
     size_entry_intent_contracts,
 )
 from .specs import StrategySpec
+from .state import LifecycleStepResult, OpenPosition, PositionEntrySetup
 from .types import EntryIntent, LegSelection, LegSpec, QuoteSnapshot, StructureSpec
 
 __all__ = [
@@ -53,6 +52,9 @@ __all__ = [
     "quote_to_option_spec",
     "quote_to_option_leg",
     "StrategySpec",
+    "SinglePositionHooks",
+    "SinglePositionExecutionPlan",
+    "build_options_execution_plan",
     "chain_for_date",
     "normalize_signals_to_on",
     "build_entry_intent_from_structure",
@@ -72,6 +74,8 @@ __all__ = [
     "size_entry_intent_contracts",
     "PositionEntrySetup",
     "MtmRecord",
+    "TradeRecord",
     "OpenPosition",
+    "LifecycleStepResult",
     "PositionLifecycleEngine",
 ]

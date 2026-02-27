@@ -1,24 +1,18 @@
-"""Strategy-spec compilation helpers for the options backtest kernel.
-
-The engine owns the execution loop. This module only compiles a ``StrategySpec``
-into engine hooks and output serializers.
-"""
+"""Compile ``StrategySpec`` into executable single-position plans."""
 
 from __future__ import annotations
 
 import pandas as pd
 
 from ..types import BacktestConfig, DataMapping
-from ._lifecycle.ledger import MtmRecord, TradeRecord
-from ._lifecycle.records import mtm_record_to_dict, trade_records_to_rows
-from .contracts import BacktestExecutionPlan, BacktestKernelHooks
+from ._lifecycle.record_builders import mtm_record_to_dict, trade_records_to_rows
+from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
-from .lifecycle import (
-    PositionEntrySetup,
-    PositionLifecycleEngine,
-)
+from .lifecycle import PositionLifecycleEngine
+from .records import MtmRecord, TradeRecord
 from .sizing import SizingRequest, size_entry_intent
 from .specs import StrategySpec
+from .state import PositionEntrySetup
 
 
 def build_options_execution_plan(
@@ -27,7 +21,7 @@ def build_options_execution_plan(
     data: DataMapping,
     config: BacktestConfig,
     capital: float,
-) -> BacktestExecutionPlan:
+) -> SinglePositionExecutionPlan:
     """Compile one options ``StrategySpec`` into an engine execution plan."""
     options = data[spec.options_data_key]
     features = data.get(spec.features_data_key)
@@ -47,7 +41,7 @@ def build_options_execution_plan(
     active_signal_dates = set(direction_by_date[direction_by_date != 0].index)
     lifecycle_engine = _build_lifecycle_engine(spec)
 
-    hooks = BacktestKernelHooks(
+    hooks = SinglePositionHooks(
         mark_open_position=lambda position, curr_date, equity_running: (
             lifecycle_engine.mark_position(
                 position=position,
@@ -75,7 +69,7 @@ def build_options_execution_plan(
             trade_rows
         ),
     )
-    return BacktestExecutionPlan(
+    return SinglePositionExecutionPlan(
         trading_dates=trading_dates,
         active_signal_dates=active_signal_dates,
         initial_equity=float(capital),

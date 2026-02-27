@@ -1,8 +1,4 @@
-"""Typed ledger records emitted by the options lifecycle engine.
-
-These dataclasses define the canonical in-memory representation of MTM and
-trade outputs before they are serialized to tabular rows.
-"""
+"""Public runtime output records for options backtesting."""
 
 from __future__ import annotations
 

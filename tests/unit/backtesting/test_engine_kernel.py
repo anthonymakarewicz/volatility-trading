@@ -3,19 +3,19 @@ from __future__ import annotations
 import pandas as pd
 
 from volatility_trading.backtesting.engine import run_backtest_execution_plan
-from volatility_trading.backtesting.options_engine._lifecycle.ledger import (
+from volatility_trading.backtesting.options_engine.contracts import (
+    SinglePositionExecutionPlan,
+    SinglePositionHooks,
+)
+from volatility_trading.backtesting.options_engine.records import (
     MtmMargin,
     MtmRecord,
     TradeRecord,
 )
-from volatility_trading.backtesting.options_engine._lifecycle.runtime_state import (
+from volatility_trading.backtesting.options_engine.state import (
     LifecycleStepResult,
     OpenPosition,
     PositionEntrySetup,
-)
-from volatility_trading.backtesting.options_engine.contracts import (
-    BacktestExecutionPlan,
-    BacktestKernelHooks,
 )
 from volatility_trading.backtesting.options_engine.types import (
     EntryIntent,
@@ -140,10 +140,10 @@ def _plan(
     *,
     trading_dates: list[pd.Timestamp],
     active_signal_dates: set[pd.Timestamp],
-    hooks: BacktestKernelHooks,
+    hooks: SinglePositionHooks,
     initial_equity: float = 100.0,
-) -> BacktestExecutionPlan:
-    return BacktestExecutionPlan(
+) -> SinglePositionExecutionPlan:
+    return SinglePositionExecutionPlan(
         trading_dates=trading_dates,
         active_signal_dates=active_signal_dates,
         initial_equity=float(initial_equity),
@@ -182,7 +182,7 @@ def test_kernel_blocks_same_day_reentry_when_policy_disallows():
             trade_rows=[_make_trade_record(exit_type="Rebalance Period")],
         )
 
-    hooks = BacktestKernelHooks(
+    hooks = SinglePositionHooks(
         mark_open_position=mark_open_position,
         prepare_entry=prepare_entry,
         open_position=open_position,
@@ -232,7 +232,7 @@ def test_kernel_can_reenter_same_day_and_uses_updated_equity():
             trade_rows=[_make_trade_record(exit_type="Rebalance Period")],
         )
 
-    hooks = BacktestKernelHooks(
+    hooks = SinglePositionHooks(
         mark_open_position=mark_open_position,
         prepare_entry=prepare_entry,
         open_position=open_position,

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .options_engine._lifecycle.ledger import MtmRecord, TradeRecord
-from .options_engine._lifecycle.runtime_state import OpenPosition
-from .options_engine.contracts import BacktestExecutionPlan, BacktestKernelHooks
+from .options_engine.contracts import SinglePositionExecutionPlan, SinglePositionHooks
+from .options_engine.plan_builder import build_options_execution_plan
+from .options_engine.records import MtmRecord, TradeRecord
 from .options_engine.specs import StrategySpec
-from .options_engine.strategy_runner import build_options_execution_plan
+from .options_engine.state import OpenPosition
 from .types import BacktestConfig, DataMapping
 
 
@@ -16,14 +16,14 @@ def _record_delta_pnl(record: MtmRecord) -> float:
 
 
 def run_backtest_execution_plan(
-    plan: BacktestExecutionPlan,
+    plan: SinglePositionExecutionPlan,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Run one compiled single-position plan and return strategy outputs."""
     trades: list[TradeRecord] = []
     mtm_records: list[MtmRecord] = []
     equity_running = float(plan.initial_equity)
     open_position: OpenPosition | None = None
-    hooks: BacktestKernelHooks = plan.hooks
+    hooks: SinglePositionHooks = plan.hooks
 
     for curr_date in plan.trading_dates:
         if open_position is not None:

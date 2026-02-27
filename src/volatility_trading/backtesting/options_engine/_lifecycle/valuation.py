@@ -12,9 +12,10 @@ from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label
 from ..entry import chain_for_date
+from ..records import TradeLegRecord
+from ..state import OpenPosition
 from ..types import EntryIntent, LegSelection, QuoteSnapshot
-from .ledger import TradeLegRecord
-from .runtime_state import MarkValuationSnapshot, OpenPosition
+from .runtime_state import MarkValuationSnapshot
 
 
 def effective_leg_side(leg: LegSelection) -> int:

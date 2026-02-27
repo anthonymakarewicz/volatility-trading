@@ -11,7 +11,7 @@ from typing import Protocol, runtime_checkable
 
 import pandas as pd
 
-from ._lifecycle.ledger import TradeRecord
+from .records import TradeRecord
 
 # TODO: Add Stop Loss and TP Exit (maybe for liquidated positon because of unsufficient margin balance ? )
 
