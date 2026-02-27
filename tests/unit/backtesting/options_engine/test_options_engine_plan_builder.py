@@ -1,10 +1,19 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting import BacktestConfig
+from volatility_trading.backtesting import (
+    AccountConfig,
+    BacktestRunConfig,
+    BrokerConfig,
+    ExecutionConfig,
+    MarginConfig,
+    OptionsBacktestDataBundle,
+)
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
     LegSpec,
+    LifecycleConfig,
+    SizingPolicyConfig,
     StrategySpec,
     StructureSpec,
 )
@@ -85,18 +94,19 @@ def _run_strategy(direction: int):
         name="directional_test",
         signal=DirectionSignal(direction=direction),
         structure_spec=structure,
-        rebalance_period=1,
-        max_holding_period=None,
+        lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
     )
-    cfg = BacktestConfig(
-        initial_capital=10_000.0,
-        lot_size=1,
-        slip_ask=0.0,
-        slip_bid=0.0,
-        commission_per_leg=0.0,
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
     )
     bt = Backtester(
-        data={"options": _make_options(), "features": None, "hedge": None},
+        data=OptionsBacktestDataBundle(options=_make_options()),
         strategy=spec,
         config=cfg,
     )
@@ -123,3 +133,39 @@ def test_config_strategy_uses_short_direction_for_entry_side():
     assert leg["side"] == -1
     assert leg["effective_side"] == -1
     assert row["pnl"] == pytest.approx(-1.2)
+
+
+def test_margin_budget_requires_broker_margin_model():
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="margin_budget_requires_model",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
+        sizing=SizingPolicyConfig(margin_budget_pct=0.10),
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
+        broker=BrokerConfig(margin=MarginConfig(model=None)),
+    )
+    bt = Backtester(
+        data=OptionsBacktestDataBundle(options=_make_options()),
+        strategy=spec,
+        config=cfg,
+    )
+    with pytest.raises(
+        ValueError,
+        match="strategy margin_budget_pct requires config.broker.margin.model",
+    ):
+        bt.run()

@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 
-from volatility_trading.backtesting.types import BacktestConfig
+from volatility_trading.backtesting.types import BacktestRunConfig
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label
@@ -19,12 +19,12 @@ from ..types import EntryIntent, LegSelection, QuoteSnapshot
 from .runtime_state import MarkValuationSnapshot
 
 
-def exit_leg_price(quote: QuoteSnapshot, *, side: int, cfg: BacktestConfig) -> float:
+def exit_leg_price(quote: QuoteSnapshot, *, side: int, cfg: BacktestRunConfig) -> float:
     """Return executable exit price for one leg given effective side."""
     if side == -1:
-        return float(quote.ask_price + cfg.slip_ask)
+        return float(quote.ask_price + cfg.execution.slip_ask)
     if side == 1:
-        return float(quote.bid_price - cfg.slip_bid)
+        return float(quote.bid_price - cfg.execution.slip_bid)
     raise ValueError("side must be -1 or +1")
 
 
@@ -308,7 +308,7 @@ def exit_prices_for_position(
     *,
     position: OpenPosition,
     leg_quotes: tuple[QuoteSnapshot, ...],
-    cfg: BacktestConfig,
+    cfg: BacktestRunConfig,
 ) -> tuple[float, ...]:
     """Compute executable exit prices for all legs of one open position."""
     return tuple(

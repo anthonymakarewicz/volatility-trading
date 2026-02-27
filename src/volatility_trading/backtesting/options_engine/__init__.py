@@ -36,7 +36,7 @@ from .sizing import (
     estimate_entry_intent_margin_per_contract,
     size_entry_intent,
 )
-from .specs import StrategySpec
+from .specs import LifecycleConfig, SizingPolicyConfig, StrategySpec
 from .state import LifecycleStepResult, OpenPosition, PositionEntrySetup
 from .types import EntryIntent, LegSelection, LegSpec, QuoteSnapshot, StructureSpec
 
@@ -52,6 +52,8 @@ __all__ = [
     "quote_to_option_spec",
     "quote_to_option_leg",
     "StrategySpec",
+    "LifecycleConfig",
+    "SizingPolicyConfig",
     "SinglePositionHooks",
     "SinglePositionExecutionPlan",
     "build_options_execution_plan",

@@ -76,13 +76,25 @@ Assume you already prepared:
 
 ```python
 from volatility_trading.backtesting import (
-  BacktestConfig,
-  print_performance_report,
-  to_daily_mtm,
+    AccountConfig,
+    BacktestRunConfig,
+    BrokerConfig,
+    ExecutionConfig,
+    MarginConfig,
+    OptionsBacktestDataBundle,
+    print_performance_report,
+    to_daily_mtm,
 )
 from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
+
+data = OptionsBacktestDataBundle(
+    options=options,
+    features=None,
+    hedge=None,
+)
 
 vrp_spec = VRPHarvestingSpec(
     signal=ShortOnlySignal(),
@@ -92,15 +104,21 @@ vrp_spec = VRPHarvestingSpec(
 )
 strategy = make_vrp_strategy(vrp_spec)
 
-cfg = BacktestConfig(initial_capital=50_000, commission_per_leg=0.0)
+cfg = BacktestRunConfig(
+    account=AccountConfig(initial_capital=50_000),
+    execution=ExecutionConfig(commission_per_leg=0.0),
+    broker=BrokerConfig(
+        margin=MarginConfig(model=RegTMarginModel(broad_index=False))
+    ),
+)
 
 bt = Backtester(
-    data={"options": options, "features": None, "hedge": None},
+    data=data,
     strategy=strategy,
     config=cfg,
 )
 trades, mtm = bt.run()
-daily_mtm = to_daily_mtm(mtm)
+daily_mtm = to_daily_mtm(mtm, cfg.account.initial_capital)
 
 metrics = print_performance_report(
     trades=trades,

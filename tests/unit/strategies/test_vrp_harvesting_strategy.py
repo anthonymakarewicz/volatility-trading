@@ -1,7 +1,16 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting import BacktestConfig, MarginPolicy
+from volatility_trading.backtesting import (
+    AccountConfig,
+    BacktestRunConfig,
+    BrokerConfig,
+    ExecutionConfig,
+    MarginConfig,
+    MarginPolicy,
+    ModelingConfig,
+    OptionsBacktestDataBundle,
+)
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import time_to_expiry_years
 from volatility_trading.options import (
@@ -21,13 +30,17 @@ def _run_backtest(
     rebalance_period: int | None = 5,
     max_holding_period: int | None = None,
     strategy_kwargs: dict | None = None,
+    run_config_kwargs: dict | None = None,
 ):
-    cfg = BacktestConfig(
-        initial_capital=10_000.0,
-        lot_size=1,
-        slip_ask=0.0,
-        slip_bid=0.0,
-        commission_per_leg=0.0,
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
+        **(run_config_kwargs or {}),
     )
     spec = VRPHarvestingSpec(
         signal=ShortOnlySignal(),
@@ -37,7 +50,7 @@ def _run_backtest(
     )
     strat = make_vrp_strategy(spec)
     bt = Backtester(
-        data={"options": options, "features": None, "hedge": None},
+        data=OptionsBacktestDataBundle(options=options),
         strategy=strat,
         config=cfg,
     )
@@ -346,8 +359,12 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
         strategy_kwargs={
             "risk_budget_pct": 0.10,
             "min_contracts": 0,
-            "scenario_generator": OneScenarioGenerator(),
-            "risk_estimator": ConstantRiskEstimator(),
+        },
+        run_config_kwargs={
+            "modeling": ModelingConfig(
+                scenario_generator=OneScenarioGenerator(),
+                risk_estimator=ConstantRiskEstimator(),
+            )
         },
     )
 
@@ -451,9 +468,13 @@ def test_margin_budget_caps_contracts_below_risk_budget():
             "risk_budget_pct": 0.10,
             "margin_budget_pct": 0.05,
             "min_contracts": 0,
-            "scenario_generator": OneScenarioGenerator(),
-            "risk_estimator": ConstantRiskEstimator(),
-            "margin_model": ConstantMarginModel(),
+        },
+        run_config_kwargs={
+            "modeling": ModelingConfig(
+                scenario_generator=OneScenarioGenerator(),
+                risk_estimator=ConstantRiskEstimator(),
+            ),
+            "broker": BrokerConfig(margin=MarginConfig(model=ConstantMarginModel())),
         },
     )
 
@@ -538,9 +559,13 @@ def test_margin_call_liquidation_exits_before_holding_period():
     trades, mtm = _run_backtest(
         options,
         rebalance_period=10,
-        strategy_kwargs={
-            "margin_model": ConstantMarginModel(),
-            "margin_policy": MarginPolicy(margin_call_grace_days=0),
+        run_config_kwargs={
+            "broker": BrokerConfig(
+                margin=MarginConfig(
+                    model=ConstantMarginModel(),
+                    policy=MarginPolicy(margin_call_grace_days=0),
+                )
+            )
         },
     )
 

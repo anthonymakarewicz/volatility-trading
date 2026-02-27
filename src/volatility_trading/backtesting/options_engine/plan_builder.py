@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from ..types import BacktestConfig, DataMapping
+from ..types import BacktestRunConfig, OptionsBacktestDataBundle
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import PositionLifecycleEngine
@@ -17,14 +17,34 @@ from .state import PositionEntrySetup
 def build_options_execution_plan(
     *,
     spec: StrategySpec,
-    data: DataMapping,
-    config: BacktestConfig,
+    data: OptionsBacktestDataBundle,
+    config: BacktestRunConfig,
     capital: float,
 ) -> SinglePositionExecutionPlan:
     """Compile one options ``StrategySpec`` into an engine execution plan."""
-    options = data[spec.options_data_key]
-    features = data.get(spec.features_data_key)
-    hedge = data.get(spec.hedge_data_key)
+    if spec.sizing.margin_budget_pct is not None and config.broker.margin.model is None:
+        raise ValueError(
+            "strategy margin_budget_pct requires config.broker.margin.model"
+        )
+
+    options = data.options
+    features = data.features
+    hedge = data.hedge
+
+    if config.start_date is not None:
+        start = pd.Timestamp(config.start_date)
+        options = options.loc[options.index >= start]
+        if features is not None:
+            features = features.loc[features.index >= start]
+        if hedge is not None:
+            hedge = hedge.loc[hedge.index >= start]
+    if config.end_date is not None:
+        end = pd.Timestamp(config.end_date)
+        options = options.loc[options.index <= end]
+        if features is not None:
+            features = features.loc[features.index <= end]
+        if hedge is not None:
+            hedge = hedge.loc[hedge.index <= end]
 
     signal_input = spec.signal_input_builder(options, features, hedge)
     signals = spec.signal.generate_signals(signal_input)
@@ -38,7 +58,7 @@ def build_options_execution_plan(
     trading_dates = sorted(options.index.unique())
     direction_by_date = sig_df["entry_direction"].groupby(level=0).last().astype(int)
     active_signal_dates = set(direction_by_date[direction_by_date != 0].index)
-    lifecycle_engine = _build_lifecycle_engine(spec)
+    lifecycle_engine = _build_lifecycle_engine(spec=spec, cfg=config)
 
     hooks = SinglePositionHooks(
         mark_open_position=lambda position, curr_date, equity_running: (
@@ -58,6 +78,7 @@ def build_options_execution_plan(
             features=features,
             equity_running=equity_running,
             cfg=config,
+            fallback_iv_feature_col=data.fallback_iv_feature_col,
         ),
         open_position=lambda setup, equity_running: lifecycle_engine.open_position(
             setup=setup,
@@ -65,7 +86,7 @@ def build_options_execution_plan(
             equity_running=equity_running,
         ),
         can_reenter_same_day=lambda trade_rows: (
-            spec.reentry_policy.allow_from_trade_records(trade_rows)
+            spec.lifecycle.reentry_policy.allow_from_trade_records(trade_rows)
         ),
     )
     return SinglePositionExecutionPlan(
@@ -85,7 +106,8 @@ def _prepare_entry_setup(
     options: pd.DataFrame,
     features: pd.DataFrame | None,
     equity_running: float,
-    cfg: BacktestConfig,
+    cfg: BacktestRunConfig,
+    fallback_iv_feature_col: str,
 ) -> PositionEntrySetup | None:
     """Build one structure entry setup for one date."""
     if entry_direction == 0:
@@ -101,7 +123,7 @@ def _prepare_entry_setup(
             entry_direction,
         ),
         features=features,
-        fallback_iv_feature_col=spec.fallback_iv_feature_col,
+        fallback_iv_feature_col=fallback_iv_feature_col,
     )
     if intent is None:
         return None
@@ -115,18 +137,18 @@ def _prepare_entry_setup(
     sizing = size_entry_intent(
         SizingRequest(
             intent=intent,
-            lot_size=cfg.lot_size,
+            lot_size=cfg.execution.lot_size,
             spot=spot_entry,
             volatility=iv_entry,
             equity=float(equity_running),
-            pricer=spec.pricer,
-            scenario_generator=spec.scenario_generator,
-            risk_estimator=spec.risk_estimator,
-            risk_sizer=spec.risk_sizer,
-            margin_model=spec.margin_model,
-            margin_budget_pct=spec.margin_budget_pct,
-            min_contracts=spec.min_contracts,
-            max_contracts=spec.max_contracts,
+            pricer=cfg.modeling.pricer,
+            scenario_generator=cfg.modeling.scenario_generator,
+            risk_estimator=cfg.modeling.risk_estimator,
+            risk_sizer=spec.sizing.risk_sizer,
+            margin_model=cfg.broker.margin.model,
+            margin_budget_pct=spec.sizing.margin_budget_pct,
+            min_contracts=spec.sizing.min_contracts,
+            max_contracts=spec.sizing.max_contracts,
         )
     )
     if sizing.contracts <= 0:
@@ -141,13 +163,15 @@ def _prepare_entry_setup(
     )
 
 
-def _build_lifecycle_engine(spec: StrategySpec) -> PositionLifecycleEngine:
+def _build_lifecycle_engine(
+    *, spec: StrategySpec, cfg: BacktestRunConfig
+) -> PositionLifecycleEngine:
     """Build lifecycle engine configured from one strategy spec."""
     return PositionLifecycleEngine(
-        rebalance_period=spec.rebalance_period,
-        max_holding_period=spec.max_holding_period,
-        exit_rule_set=spec.exit_rule_set,
-        margin_policy=spec.margin_policy,
-        margin_model=spec.margin_model,
-        pricer=spec.pricer,
+        rebalance_period=spec.lifecycle.rebalance_period,
+        max_holding_period=spec.lifecycle.max_holding_period,
+        exit_rule_set=spec.lifecycle.exit_rule_set,
+        margin_policy=cfg.broker.margin.policy,
+        margin_model=cfg.broker.margin.model,
+        pricer=cfg.modeling.pricer,
     )

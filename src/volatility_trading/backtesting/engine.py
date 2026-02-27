@@ -7,7 +7,7 @@ from .options_engine.plan_builder import build_options_execution_plan
 from .options_engine.records import MtmRecord, TradeRecord
 from .options_engine.specs import StrategySpec
 from .options_engine.state import OpenPosition
-from .types import BacktestConfig, DataMapping
+from .types import BacktestRunConfig, OptionsBacktestDataBundle
 
 
 def _record_delta_pnl(record: MtmRecord) -> float:
@@ -61,24 +61,17 @@ def run_backtest_execution_plan(
 class Backtester:
     def __init__(
         self,
-        data: DataMapping,
+        data: OptionsBacktestDataBundle,
         strategy: StrategySpec,
-        config: BacktestConfig,
+        config: BacktestRunConfig,
     ):
-        """
-        data: Map of named DataFrames/Series, e.g.
-            {
-                "options": options_df,      # Option chain to execute trades
-                "features": features_df,   # For signals and filters
-                "hedge": hedge_series,    # for delta hedging
-            }
-        """
+        """Initialize one options backtester run with typed data/config contracts."""
         self.data = data
         self.strategy = strategy
         self.config = config
 
     def run(self):
-        current_capital = float(self.config.initial_capital)
+        current_capital = float(self.config.account.initial_capital)
         plan = build_options_execution_plan(
             spec=self.strategy,
             data=self.data,

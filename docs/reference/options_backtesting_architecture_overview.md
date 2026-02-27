@@ -144,6 +144,14 @@ stateDiagram-v2
   entry selection, sizing, lifecycle, exit rules, and plan compilation.
 - It does not own top-level run orchestration.
 
+### Configuration Boundary
+
+- `StrategySpec` carries strategy intent and policy:
+  signal/filter wiring, structure selection, lifecycle policy, sizing policy.
+- `BacktestRunConfig` carries run-time environment assumptions:
+  account, execution, broker margin rules, pricing/risk engines, optional date window.
+- Margin model/policy and pricing/risk engines are configured at run level, not preset level.
+
 ## Strategy Preset Pattern
 
 Current VRP preset:
@@ -162,7 +170,7 @@ Each preset should primarily define:
 1. signal + filters
 2. structure spec (legs and constraints)
 3. side resolver
-4. risk/margin policy defaults
+4. lifecycle/sizing policy defaults
 
 ## Extension Points
 
@@ -170,8 +178,9 @@ Add new strategy behavior by configuration first:
 
 - New structure: add `LegSpec` legs in `StructureSpec`
 - New exit logic: implement `ExitRule` and attach to `ExitRuleSet`
-- New sizing logic: provide `RiskSizer`/`RiskEstimator`/`MarginModel`
-- New pricing model: pass another `PriceModel`
+- New sizing logic: adjust `StrategySpec.sizing` and/or provide another `RiskBudgetSizer`
+- New pricing/risk model: set `BacktestRunConfig.modeling` engines
+- New margin model/policy: set `BacktestRunConfig.broker.margin`
 
 Only add new engine code when behavior cannot be expressed through these
 contracts.

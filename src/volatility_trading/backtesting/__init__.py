@@ -22,10 +22,25 @@ from .reporting.plots import (
     plot_pnl_attribution,
     plot_stressed_pnl,
 )
-from .types import BacktestConfig, MarginCore
+from .types import (
+    AccountConfig,
+    BacktestRunConfig,
+    BrokerConfig,
+    ExecutionConfig,
+    MarginConfig,
+    MarginCore,
+    ModelingConfig,
+    OptionsBacktestDataBundle,
+)
 
 __all__ = [
-    "BacktestConfig",
+    "AccountConfig",
+    "ExecutionConfig",
+    "MarginConfig",
+    "BrokerConfig",
+    "ModelingConfig",
+    "BacktestRunConfig",
+    "OptionsBacktestDataBundle",
     "MarginCore",
     "to_daily_mtm",
     "MarginPolicy",

@@ -26,6 +26,7 @@ flowchart LR
         U1[Notebook / Script / CLI]
         U2[VRPHarvestingSpec\nstrategies/vrp_harvesting/specs.py]
         U3[StrategySpec\noptions_engine/specs.py]
+        U4[BacktestRunConfig\nbacktesting/types.py]
     end
 
     subgraph Orchestrator[Backtesting Orchestrator]
@@ -68,10 +69,12 @@ flowchart LR
     end
 
     U1 --> U2 --> U3
+    U1 --> U4
     U1 --> O1
     O1 --> P1
     O1 --> O2
     U3 --> P1
+    U4 --> P1
     P1 --> P2
     P1 --> P3
     P1 --> R1
@@ -103,15 +106,29 @@ plan with typed hooks.
 ```mermaid
 flowchart TD
     A[StrategySpec] --> B[build_options_execution_plan]
+    A2[BacktestRunConfig] --> B
     B --> C[SinglePositionExecutionPlan]
     C --> D[SinglePositionHooks]
 
-    D --> D1[mark_open_position\n(OpenPosition, date, equity)\n-> LifecycleStepResult]
-    D --> D2[prepare_entry\n(date, equity)\n-> PositionEntrySetup | None]
-    D --> D3[open_position\n(PositionEntrySetup, equity)\n-> (OpenPosition, MtmRecord)]
-    D --> D4[can_reenter_same_day\n(list[TradeRecord]) -> bool]
+    D --> D1["mark_open_position<br/>(open_position, date, equity) -> lifecycle_step_result"]
+    D --> D2["prepare_entry<br/>(date, equity) -> entry_setup or None"]
+    D --> D3["open_position<br/>(entry_setup, equity) -> (open_position, mtm_record)"]
+    D --> D4["can_reenter_same_day<br/>(trade_rows) -> bool"]
 
-    C --> E[build_outputs\n(list[TradeRecord], list[MtmRecord], initial_capital)\n-> (trades_df, mtm_df)]
+    C --> E["build_outputs<br/>(trade_records, mtm_records, initial_capital) -> (trades_df, mtm_df)"]
+```
+
+### Strategy vs Run-Config Dataclasses
+
+```mermaid
+flowchart LR
+    S[StrategySpec] --> S1[LifecycleConfig]
+    S --> S2[SizingPolicyConfig]
+    R[BacktestRunConfig] --> R1[AccountConfig]
+    R --> R2[ExecutionConfig]
+    R --> R3[BrokerConfig]
+    R --> R4[ModelingConfig]
+    R3 --> R31[MarginConfig]
 ```
 
 ### Dataclass Composition Map
@@ -267,8 +284,18 @@ flowchart TD
 
 ### Add new sizing behavior
 
-- Extend risk estimator/sizer or margin model dependencies.
+- Update strategy policy in `StrategySpec.sizing` and/or provide another `RiskBudgetSizer`.
 - Keep contract count decision in `size_entry_intent`.
+
+### Add new pricing/risk engines
+
+- Configure `BacktestRunConfig.modeling` (`pricer`, `scenario_generator`, `risk_estimator`).
+- Keep strategy presets focused on business policy, not environment wiring.
+
+### Add new margin rules
+
+- Configure `BacktestRunConfig.broker.margin` (`model`, `policy`).
+- Keep margin lifecycle behavior in `backtesting/margin.py` and lifecycle integration code.
 
 ### Add new accounting fields
 

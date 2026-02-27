@@ -17,7 +17,12 @@ from dataclasses import dataclass
 import pandas as pd
 
 from volatility_trading.backtesting import (
-    BacktestConfig,
+    AccountConfig,
+    BacktestRunConfig,
+    BrokerConfig,
+    ExecutionConfig,
+    MarginConfig,
+    OptionsBacktestDataBundle,
     print_performance_report,
     to_daily_mtm,
 )
@@ -129,28 +134,30 @@ def main() -> None:
             f"No options rows for ticker={cfg.ticker} in range {cfg.start}:{cfg.end}"
         )
 
-    rf_series = _load_rf_series(options_red.index)
+    rf_series = _load_rf_series(pd.DatetimeIndex(options_red.index))
 
     strategy_spec = VRPHarvestingSpec(
         signal=ShortOnlySignal(),
         rebalance_period=cfg.rebalance_period,
         risk_budget_pct=cfg.risk_budget_pct,
         margin_budget_pct=cfg.margin_budget_pct,
-        margin_model=RegTMarginModel(broad_index=False),
     )
     strategy = make_vrp_strategy(strategy_spec)
 
-    backtest_cfg = BacktestConfig(
-        initial_capital=cfg.initial_capital,
-        commission_per_leg=cfg.commission_per_leg,
+    backtest_cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=cfg.initial_capital),
+        execution=ExecutionConfig(commission_per_leg=cfg.commission_per_leg),
+        broker=BrokerConfig(
+            margin=MarginConfig(model=RegTMarginModel(broad_index=False))
+        ),
     )
     bt = Backtester(
-        data={"options": options_red, "features": None, "hedge": None},
+        data=OptionsBacktestDataBundle(options=options_red),
         strategy=strategy,
         config=backtest_cfg,
     )
     trades, mtm = bt.run()
-    daily_mtm = to_daily_mtm(mtm, backtest_cfg.initial_capital)
+    daily_mtm = to_daily_mtm(mtm, backtest_cfg.account.initial_capital)
 
     print(
         "Backtest completed: "

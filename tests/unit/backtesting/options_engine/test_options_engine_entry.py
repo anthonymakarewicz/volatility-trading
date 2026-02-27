@@ -1,7 +1,11 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting import BacktestConfig
+from volatility_trading.backtesting import (
+    AccountConfig,
+    BacktestRunConfig,
+    ExecutionConfig,
+)
 from volatility_trading.backtesting.options_engine import (
     LegSpec,
     StructureSpec,
@@ -11,13 +15,15 @@ from volatility_trading.backtesting.options_engine import (
 from volatility_trading.options import OptionType
 
 
-def _base_cfg() -> BacktestConfig:
-    return BacktestConfig(
-        initial_capital=10_000.0,
-        lot_size=1,
-        slip_ask=0.0,
-        slip_bid=0.0,
-        commission_per_leg=0.0,
+def _base_cfg() -> BacktestRunConfig:
+    return BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
     )
 
 

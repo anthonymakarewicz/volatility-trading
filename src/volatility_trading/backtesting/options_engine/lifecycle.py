@@ -9,7 +9,7 @@ import pandas as pd
 from volatility_trading.options import Greeks, MarginModel, MarketState, PriceModel
 
 from ..margin import MarginPolicy
-from ..types import BacktestConfig
+from ..types import BacktestRunConfig
 from ._lifecycle.margining import (
     evaluate_entry_margin,
     evaluate_mark_margin,
@@ -61,7 +61,7 @@ class PositionLifecycleEngine:
         *,
         position: OpenPosition,
         curr_date: pd.Timestamp,
-        cfg: BacktestConfig,
+        cfg: BacktestRunConfig,
         equity_running: float,
     ) -> LifecycleStepContext:
         """Build shared one-date execution context for mark transitions."""
@@ -69,10 +69,10 @@ class PositionLifecycleEngine:
             curr_date=curr_date,
             cfg=cfg,
             equity_running=equity_running,
-            lot_size=cfg.lot_size,
+            lot_size=cfg.execution.lot_size,
             roundtrip_commission_per_contract=(
                 roundtrip_commission_per_structure_contract(
-                    commission_per_leg=cfg.commission_per_leg,
+                    commission_per_leg=cfg.execution.commission_per_leg,
                     legs=position.intent.legs,
                 )
             ),
@@ -363,14 +363,14 @@ class PositionLifecycleEngine:
         self,
         *,
         setup: PositionEntrySetup,
-        cfg: BacktestConfig,
+        cfg: BacktestRunConfig,
         equity_running: float,
     ) -> tuple[OpenPosition, MtmRecord]:
         """Open one position and emit its entry-day MTM accounting record."""
         contracts_open = int(setup.contracts)
-        lot_size = cfg.lot_size
+        lot_size = cfg.execution.lot_size
         roundtrip_commission_per_contract = roundtrip_commission_per_structure_contract(
-            commission_per_leg=cfg.commission_per_leg,
+            commission_per_leg=cfg.execution.commission_per_leg,
             legs=setup.intent.legs,
         )
         net_entry = entry_net_notional(
@@ -415,7 +415,7 @@ class PositionLifecycleEngine:
         position: OpenPosition,
         curr_date: pd.Timestamp,
         options: pd.DataFrame,
-        cfg: BacktestConfig,
+        cfg: BacktestRunConfig,
         equity_running: float,
     ) -> LifecycleStepResult:
         """Revalue one open position for one date and apply exit/liquidation rules.

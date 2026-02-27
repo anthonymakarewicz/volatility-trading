@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from volatility_trading.backtesting.margin import MarginAccount, MarginStatus
-from volatility_trading.backtesting.types import BacktestConfig, MarginCore
+from volatility_trading.backtesting.types import BacktestRunConfig, MarginCore
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..types import QuoteSnapshot
@@ -57,7 +57,7 @@ class LifecycleStepContext:
     """Shared one-date context passed across lifecycle mark/exit handlers."""
 
     curr_date: pd.Timestamp
-    cfg: BacktestConfig
+    cfg: BacktestRunConfig
     equity_running: float
     lot_size: int
     roundtrip_commission_per_contract: float

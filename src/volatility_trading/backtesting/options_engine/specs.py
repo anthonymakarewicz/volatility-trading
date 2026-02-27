@@ -10,19 +10,11 @@ import pandas as pd
 
 from volatility_trading.filters import Filter
 from volatility_trading.options import (
-    BlackScholesPricer,
-    FixedGridScenarioGenerator,
-    MarginModel,
     PositionSide,
-    PriceModel,
     RiskBudgetSizer,
-    RiskEstimator,
-    ScenarioGenerator,
-    StressLossRiskEstimator,
 )
 from volatility_trading.signals import Signal
 
-from ..margin import MarginPolicy
 from .exit_rules import ExitRuleSet, SameDayReentryPolicy
 from .types import LegSpec, StructureSpec
 
@@ -76,16 +68,56 @@ def _default_side_resolver(_leg: LegSpec, entry_direction: int) -> int:
     return int(entry_direction)
 
 
+@dataclass(frozen=True)
+class LifecycleConfig:
+    """Position lifecycle policy for one strategy."""
+
+    rebalance_period: int | None = 5
+    max_holding_period: int | None = None
+    exit_rule_set: ExitRuleSet = field(default_factory=ExitRuleSet.period_rules)
+    reentry_policy: SameDayReentryPolicy = field(default_factory=SameDayReentryPolicy)
+
+    def __post_init__(self) -> None:
+        for name, period in (
+            ("rebalance_period", self.rebalance_period),
+            ("max_holding_period", self.max_holding_period),
+        ):
+            if period is not None and period <= 0:
+                raise ValueError(f"{name} must be > 0 when provided")
+        if self.rebalance_period is None and self.max_holding_period is None:
+            raise ValueError(
+                "At least one of rebalance_period or max_holding_period must be set."
+            )
+
+
+@dataclass(frozen=True)
+class SizingPolicyConfig:
+    """Contract sizing policy for one strategy."""
+
+    risk_sizer: RiskBudgetSizer | None = None
+    margin_budget_pct: float | None = None
+    min_contracts: int = 1
+    max_contracts: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.min_contracts < 0:
+            raise ValueError("min_contracts must be >= 0")
+        if self.max_contracts is not None and self.max_contracts <= 0:
+            raise ValueError("max_contracts must be > 0 when provided")
+        if self.max_contracts is not None and self.max_contracts < self.min_contracts:
+            raise ValueError("max_contracts must be >= min_contracts")
+        if self.margin_budget_pct is not None and not 0 <= self.margin_budget_pct <= 1:
+            raise ValueError("margin_budget_pct must be in [0, 1]")
+
+
 @dataclass
 class StrategySpec:
     """Full configuration contract consumed by the backtest engine.
 
     The spec bundles signal/filter plumbing, structure selection rules,
-    lifecycle timing, and sizing/margin dependencies so engine execution stays
+    lifecycle timing, and sizing policy so engine execution stays
     generic and strategy-agnostic.
     """
-
-    # TODO: Move generic backtest config into BacktestConfig
 
     signal: Signal
     structure_spec: StructureSpec
@@ -95,49 +127,5 @@ class StrategySpec:
     filter_context_builder: FilterContextBuilder = _default_filter_context
     side_resolver: SideResolver = _default_side_resolver
 
-    options_data_key: str = "options"
-    features_data_key: str = "features"
-    hedge_data_key: str = "hedge"
-    fallback_iv_feature_col: str = "iv_atm"
-
-    rebalance_period: int | None = 5
-    max_holding_period: int | None = None
-    exit_rule_set: ExitRuleSet = field(default_factory=ExitRuleSet.period_rules)
-    reentry_policy: SameDayReentryPolicy = field(default_factory=SameDayReentryPolicy)
-
-    pricer: PriceModel = field(default_factory=BlackScholesPricer)
-    scenario_generator: ScenarioGenerator = field(
-        default_factory=FixedGridScenarioGenerator
-    )
-    risk_estimator: RiskEstimator = field(default_factory=StressLossRiskEstimator)
-    risk_sizer: RiskBudgetSizer | None = None
-
-    margin_model: MarginModel | None = None
-    margin_budget_pct: float | None = None
-    margin_policy: MarginPolicy | None = None
-    min_contracts: int = 1
-    max_contracts: int | None = None
-
-    def __post_init__(self) -> None:
-        """Validate timing and sizing constraints at strategy construction time."""
-        for name, period in (
-            ("rebalance_period", self.rebalance_period),
-            ("max_holding_period", self.max_holding_period),
-        ):
-            if period is not None and period <= 0:
-                raise ValueError(f"{name} must be > 0 when provided")
-
-        if self.rebalance_period is None and self.max_holding_period is None:
-            raise ValueError(
-                "At least one of rebalance_period or max_holding_period must be set."
-            )
-
-        if self.min_contracts < 0:
-            raise ValueError("min_contracts must be >= 0")
-        if self.max_contracts is not None and self.max_contracts <= 0:
-            raise ValueError("max_contracts must be > 0 when provided")
-        if self.max_contracts is not None and self.max_contracts < self.min_contracts:
-            raise ValueError("max_contracts must be >= min_contracts")
-
-        if self.margin_budget_pct is not None and not 0 <= self.margin_budget_pct <= 1:
-            raise ValueError("margin_budget_pct must be in [0, 1]")
+    lifecycle: LifecycleConfig = field(default_factory=LifecycleConfig)
+    sizing: SizingPolicyConfig = field(default_factory=SizingPolicyConfig)

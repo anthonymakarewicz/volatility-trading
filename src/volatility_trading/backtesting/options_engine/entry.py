@@ -16,7 +16,7 @@ import pandas as pd
 
 from volatility_trading.options import MarketState, PositionSide
 
-from ..types import BacktestConfig
+from ..types import BacktestRunConfig
 from .selectors import select_best_expiry_for_leg_group
 from .types import EntryIntent, LegSelection, LegSpec, QuoteSnapshot, StructureSpec
 
@@ -101,13 +101,13 @@ def normalize_signals_to_on(
 
 
 def _entry_price_from_side(
-    quote: QuoteSnapshot, *, side: PositionSide, cfg: BacktestConfig
+    quote: QuoteSnapshot, *, side: PositionSide, cfg: BacktestRunConfig
 ) -> float:
     """Return executable entry price for one leg given target side."""
     if side == PositionSide.SHORT:
-        return float(quote.bid_price - cfg.slip_bid)
+        return float(quote.bid_price - cfg.execution.slip_bid)
     if side == PositionSide.LONG:
-        return float(quote.ask_price + cfg.slip_ask)
+        return float(quote.ask_price + cfg.execution.slip_ask)
     raise ValueError("side must be PositionSide.SHORT or PositionSide.LONG")
 
 
@@ -166,7 +166,7 @@ def build_entry_intent_from_structure(
     entry_date: pd.Timestamp,
     options: pd.DataFrame,
     structure_spec: StructureSpec,
-    cfg: BacktestConfig,
+    cfg: BacktestRunConfig,
     side_resolver: Callable[[LegSpec], int | PositionSide],
     features: pd.DataFrame | None = None,
     fallback_iv_feature_col: str = "iv_atm",

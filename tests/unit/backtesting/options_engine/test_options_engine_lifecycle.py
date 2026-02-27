@@ -1,7 +1,12 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting import BacktestConfig, MarginPolicy
+from volatility_trading.backtesting import (
+    AccountConfig,
+    BacktestRunConfig,
+    ExecutionConfig,
+    MarginPolicy,
+)
 from volatility_trading.backtesting.options_engine import (
     EntryIntent,
     ExitRuleSet,
@@ -29,13 +34,15 @@ class _ConstantMarginModel:
         return self.margin_per_contract
 
 
-def _make_cfg(*, commission_per_leg: float = 0.0) -> BacktestConfig:
-    return BacktestConfig(
-        initial_capital=10_000.0,
-        lot_size=1,
-        slip_ask=0.0,
-        slip_bid=0.0,
-        commission_per_leg=commission_per_leg,
+def _make_cfg(*, commission_per_leg: float = 0.0) -> BacktestRunConfig:
+    return BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=commission_per_leg,
+        ),
     )
 
 
