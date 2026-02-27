@@ -42,6 +42,7 @@ src/volatility_trading
 │   │   ├── exit_rules.py
 │   │   ├── lifecycle.py
 │   │   ├── plan_builder.py
+│   │   ├── outputs.py
 │   │   ├── records.py
 │   │   ├── selectors.py
 │   │   ├── sizing.py

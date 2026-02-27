@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import replace
 
 import numpy as np
@@ -89,16 +88,6 @@ def build_mark_record(
     )
 
 
-def mtm_record_to_dict(record: MtmRecord) -> dict[str, object]:
-    """Serialize a lifecycle MTM record to one tabular output row."""
-    return record.to_dict()
-
-
-def mtm_records_to_rows(records: Sequence[MtmRecord]) -> list[dict[str, object]]:
-    """Serialize multiple lifecycle MTM records to tabular output rows."""
-    return [mtm_record_to_dict(record) for record in records]
-
-
 def build_trade_record(
     *,
     position: OpenPosition,
@@ -125,16 +114,6 @@ def build_trade_record(
             exit_prices=exit_prices,
         ),
     )
-
-
-def trade_record_to_dict(record: TradeRecord) -> dict[str, object]:
-    """Serialize a typed trade record to one tabular output row."""
-    return record.to_dict()
-
-
-def trade_records_to_rows(records: Sequence[TradeRecord]) -> list[dict[str, object]]:
-    """Serialize multiple typed trade records to tabular output rows."""
-    return [trade_record_to_dict(record) for record in records]
 
 
 def apply_closed_position_fields(

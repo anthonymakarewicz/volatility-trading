@@ -31,6 +31,7 @@ flowchart TD
     C --> D[StrategySpec<br/>backtesting/options_engine/specs.py]
     B --> D
     B --> E[build_options_execution_plan<br/>backtesting/options_engine/plan_builder.py]
+    B --> O[build_options_backtest_outputs<br/>backtesting/options_engine/outputs.py]
     E --> F[entry.py<br/>build EntryIntent]
     E --> G[sizing.py<br/>risk + margin sizing]
     E --> H[lifecycle.py<br/>open/mark/close]
@@ -126,6 +127,7 @@ stateDiagram-v2
   - mark open position first,
   - optionally allow same-day reentry based on exit-type policy,
   - open new position only on active entry dates.
+- Output serialization/aggregation is delegated to `outputs.py` (not plan compilation).
 
 ## Contracts and Boundaries
 

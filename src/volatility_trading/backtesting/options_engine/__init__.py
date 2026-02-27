@@ -21,6 +21,7 @@ from .exit_rules import (
     SameDayReentryPolicy,
 )
 from .lifecycle import PositionLifecycleEngine
+from .outputs import build_options_backtest_outputs
 from .plan_builder import build_options_execution_plan
 from .records import MtmRecord, TradeRecord
 from .selectors import (
@@ -55,6 +56,7 @@ __all__ = [
     "SinglePositionHooks",
     "SinglePositionExecutionPlan",
     "build_options_execution_plan",
+    "build_options_backtest_outputs",
     "chain_for_date",
     "normalize_signals_to_on",
     "build_entry_intent_from_structure",

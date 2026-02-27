@@ -46,6 +46,7 @@ flowchart LR
         R4[exit_rules.py\nExitRuleSet / SameDayReentryPolicy]
         R5[selectors.py\nquote/expiry selection]
         R6[economics.py\neffective side/units\ncommission helpers]
+        R7[outputs.py\nbuild_options_backtest_outputs]
     end
 
     subgraph LifecycleInternals[_lifecycle Internal Modules]
@@ -77,6 +78,7 @@ flowchart LR
     P1 --> R2
     P1 --> R3
     P1 --> R4
+    P1 --> R7
     R1 --> R5
     R2 --> R6
     R3 --> R6
@@ -208,7 +210,8 @@ flowchart TD
 |---|---|---|
 | `backtesting/engine.py` | orchestration loop, equity progression, top-level `Backtester.run()` | option quote selection, risk/margin formulas, trade construction details |
 | `options_engine/contracts.py` | typed kernel boundary between engine and options runtime | business logic |
-| `options_engine/plan_builder.py` | compile `StrategySpec` into executable plan + output serializer | date loop execution |
+| `options_engine/plan_builder.py` | compile `StrategySpec` into executable plan | strategy execution loop and tabular aggregation |
+| `options_engine/outputs.py` | convert typed records into canonical `trades`/`mtm` DataFrames | signal generation, entry/mark/exit lifecycle logic |
 | `options_engine/entry.py` + `selectors.py` | build `EntryIntent` from chain + structure constraints | account/margin lifecycle |
 | `options_engine/economics.py` | shared leg-side/units and per-structure commission helpers | signal/entry/exit orchestration |
 | `options_engine/sizing.py` | contract count decision from risk/margin constraints | position mark/exit loop |
@@ -284,13 +287,14 @@ flowchart TD
 1. `backtesting/engine.py`
 2. `options_engine/contracts.py`
 3. `options_engine/plan_builder.py`
-4. `options_engine/specs.py`
-5. `options_engine/entry.py`
-6. `options_engine/sizing.py`
-7. `options_engine/lifecycle.py`
-8. `options_engine/state.py`
-9. `options_engine/records.py`
-10. `options_engine/_lifecycle/runtime_state.py`
-11. `options_engine/_lifecycle/valuation.py`
-12. `options_engine/_lifecycle/margining.py`
-13. `options_engine/_lifecycle/record_builders.py`
+4. `options_engine/outputs.py`
+5. `options_engine/specs.py`
+6. `options_engine/entry.py`
+7. `options_engine/sizing.py`
+8. `options_engine/lifecycle.py`
+9. `options_engine/state.py`
+10. `options_engine/records.py`
+11. `options_engine/_lifecycle/runtime_state.py`
+12. `options_engine/_lifecycle/valuation.py`
+13. `options_engine/_lifecycle/margining.py`
+14. `options_engine/_lifecycle/record_builders.py`

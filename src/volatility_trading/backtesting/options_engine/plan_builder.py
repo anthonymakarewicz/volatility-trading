@@ -5,11 +5,10 @@ from __future__ import annotations
 import pandas as pd
 
 from ..types import BacktestConfig, DataMapping
-from ._lifecycle.record_builders import mtm_record_to_dict, trade_records_to_rows
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import PositionLifecycleEngine
-from .records import MtmRecord, TradeRecord
+from .outputs import build_options_backtest_outputs
 from .sizing import SizingRequest, size_entry_intent
 from .specs import StrategySpec
 from .state import PositionEntrySetup
@@ -74,7 +73,7 @@ def build_options_execution_plan(
         active_signal_dates=active_signal_dates,
         initial_equity=float(capital),
         hooks=hooks,
-        build_outputs=_build_outputs,
+        build_outputs=build_options_backtest_outputs,
     )
 
 
@@ -152,56 +151,3 @@ def _build_lifecycle_engine(spec: StrategySpec) -> PositionLifecycleEngine:
         margin_model=spec.margin_model,
         pricer=spec.pricer,
     )
-
-
-def _build_outputs(
-    trade_records: list[TradeRecord],
-    mtm_records: list[MtmRecord],
-    initial_capital: float,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Convert typed runtime records into the canonical tabular outputs."""
-    trades = trade_records_to_rows(trade_records)
-
-    if not mtm_records:
-        return pd.DataFrame(trades), pd.DataFrame()
-
-    mtm_rows: list[dict] = [mtm_record_to_dict(record) for record in mtm_records]
-
-    mtm_agg = pd.DataFrame(mtm_rows).set_index("date").sort_index()
-    agg_map = {
-        "delta_pnl": "sum",
-        "delta": "sum",
-        "net_delta": "sum",
-        "gamma": "sum",
-        "vega": "sum",
-        "theta": "sum",
-        "hedge_pnl": "sum",
-        "S": "first",
-        "iv": "first",
-    }
-    optional_sum_cols = [
-        "open_contracts",
-        "initial_margin_requirement",
-        "maintenance_margin_requirement",
-        "contracts_liquidated",
-        "financing_pnl",
-    ]
-    optional_first_cols = [
-        "margin_per_contract",
-        "margin_excess",
-        "margin_deficit",
-    ]
-    optional_max_cols = ["in_margin_call", "margin_call_days", "forced_liquidation"]
-    for col in optional_sum_cols:
-        if col in mtm_agg.columns:
-            agg_map[col] = "sum"
-    for col in optional_first_cols:
-        if col in mtm_agg.columns:
-            agg_map[col] = "first"
-    for col in optional_max_cols:
-        if col in mtm_agg.columns:
-            agg_map[col] = "max"
-    mtm = mtm_agg.groupby("date").agg(agg_map)
-    mtm["equity"] = float(initial_capital) + mtm["delta_pnl"].cumsum()
-
-    return pd.DataFrame(trades), mtm
