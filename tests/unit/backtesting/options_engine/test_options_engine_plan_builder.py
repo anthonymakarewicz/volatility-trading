@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from pandas.testing import assert_frame_equal
 
 from volatility_trading.backtesting import (
     AccountConfig,
@@ -133,6 +134,130 @@ def test_config_strategy_uses_short_direction_for_entry_side():
     assert leg["side"] == -1
     assert leg["effective_side"] == -1
     assert row["pnl"] == pytest.approx(-1.2)
+
+
+@pytest.mark.parametrize(
+    (
+        "direction",
+        "expected_trade_pnl",
+        "expected_side",
+        "expected_effective_side",
+        "expected_entry_price",
+        "expected_exit_price",
+        "expected_delta",
+        "expected_gamma",
+        "expected_vega",
+        "expected_theta",
+        "expected_equity_day2",
+    ),
+    [
+        (
+            1,
+            0.8,
+            1,
+            1,
+            5.2,
+            6.0,
+            0.5,
+            0.01,
+            0.10,
+            -0.02,
+            10_000.8,
+        ),
+        (
+            -1,
+            -1.2,
+            -1,
+            -1,
+            5.0,
+            6.2,
+            -0.5,
+            -0.01,
+            -0.10,
+            0.02,
+            9_998.8,
+        ),
+    ],
+)
+def test_directional_strategy_outputs_regression_snapshot(
+    direction: int,
+    expected_trade_pnl: float,
+    expected_side: int,
+    expected_effective_side: int,
+    expected_entry_price: float,
+    expected_exit_price: float,
+    expected_delta: float,
+    expected_gamma: float,
+    expected_vega: float,
+    expected_theta: float,
+    expected_equity_day2: float,
+):
+    trades, mtm = _run_strategy(direction=direction)
+
+    assert len(trades) == 1
+    row = trades.iloc[0]
+    leg = row["trade_legs"][0]
+    assert row["entry_date"] == pd.Timestamp("2020-01-01")
+    assert row["exit_date"] == pd.Timestamp("2020-01-02")
+    assert row["exit_type"] == "Rebalance Period"
+    assert row["pnl"] == pytest.approx(expected_trade_pnl)
+    assert leg["side"] == expected_side
+    assert leg["effective_side"] == expected_effective_side
+    assert leg["entry_price"] == pytest.approx(expected_entry_price)
+    assert leg["exit_price"] == pytest.approx(expected_exit_price)
+
+    expected_mtm = pd.DataFrame(
+        [
+            {
+                "date": pd.Timestamp("2020-01-01"),
+                "delta_pnl": 0.0,
+                "delta": expected_delta,
+                "net_delta": expected_delta,
+                "gamma": expected_gamma,
+                "vega": expected_vega,
+                "theta": expected_theta,
+                "S": 100.0,
+                "iv": 0.20,
+                "open_contracts": 1,
+                "equity": 10_000.0,
+            },
+            {
+                "date": pd.Timestamp("2020-01-02"),
+                "delta_pnl": expected_trade_pnl,
+                "delta": expected_delta,
+                "net_delta": expected_delta,
+                "gamma": expected_gamma,
+                "vega": expected_vega,
+                "theta": expected_theta,
+                "S": 101.0,
+                "iv": 0.21,
+                "open_contracts": 1,
+                "equity": expected_equity_day2,
+            },
+        ]
+    ).set_index("date")
+
+    mtm_subset = mtm[
+        [
+            "delta_pnl",
+            "delta",
+            "net_delta",
+            "gamma",
+            "vega",
+            "theta",
+            "S",
+            "iv",
+            "open_contracts",
+            "equity",
+        ]
+    ]
+    assert_frame_equal(
+        mtm_subset,
+        expected_mtm,
+        check_dtype=False,
+        atol=1e-12,
+        rtol=0.0,
+    )
 
 
 def test_margin_budget_requires_broker_margin_model():

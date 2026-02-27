@@ -55,6 +55,7 @@ flowchart LR
         L2[margining.py\nevaluate_entry_margin\nevaluate_mark_margin]
         L3[record_builders.py\nbuild_entry_record\nbuild_mark_record\nbuild_trade_record]
         L4[runtime_state.py\nEntry/Mark snapshots]
+        L5[opening.py / marking.py / transitions.py\nstate/context/transition handlers]
     end
 
     subgraph RuntimeContracts[Public Runtime Contracts]
@@ -204,7 +205,7 @@ flowchart TD
     D --> E[build_mark_record]
     E --> F{Forced liquidation?}
 
-    F -- Yes --> G[_handle_forced_liquidation]
+    F -- Yes --> G[transition_forced_liquidation]
     G --> H[return LifecycleStepResult]
 
     F -- No --> I{Missing quote?}
@@ -216,7 +217,7 @@ flowchart TD
     M -- No --> N[update_position_mark_state]
     N --> O[return open position + no trade row]
 
-    M -- Yes --> P[_handle_standard_exit]
+    M -- Yes --> P[transition_standard_exit]
     P --> Q[build_trade_record + close MTM fields]
     Q --> R[return closed position + trade row]
 ```
@@ -325,3 +326,6 @@ flowchart TD
 12. `options_engine/_lifecycle/valuation.py`
 13. `options_engine/_lifecycle/margining.py`
 14. `options_engine/_lifecycle/record_builders.py`
+15. `options_engine/_lifecycle/opening.py`
+16. `options_engine/_lifecycle/marking.py`
+17. `options_engine/_lifecycle/transitions.py`

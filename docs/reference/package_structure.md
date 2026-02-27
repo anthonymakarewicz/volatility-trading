@@ -34,9 +34,12 @@ src/volatility_trading
 │   │   ├── __init__.py
 │   │   ├── _lifecycle
 │   │   │   ├── __init__.py
+│   │   │   ├── marking.py
 │   │   │   ├── margining.py
+│   │   │   ├── opening.py
 │   │   │   ├── record_builders.py
 │   │   │   ├── runtime_state.py
+│   │   │   ├── transitions.py
 │   │   │   └── valuation.py
 │   │   ├── adapters.py
 │   │   ├── contracts.py
