@@ -41,6 +41,9 @@ from .exit_rules import ExitRuleSet
 from .records import MtmRecord, TradeRecord
 from .state import LifecycleStepResult, OpenPosition, PositionEntrySetup
 
+# TODO: SPlit into submodules when adding new features (dynamic hedging, stop-loss/TP
+# multiple-positions ...)
+
 
 @dataclass(frozen=True)
 class PositionLifecycleEngine:
@@ -52,6 +55,64 @@ class PositionLifecycleEngine:
     margin_policy: MarginPolicy | None
     margin_model: MarginModel | None
     pricer: PriceModel
+
+    def _build_mark_step_context(
+        self,
+        *,
+        position: OpenPosition,
+        curr_date: pd.Timestamp,
+        cfg: BacktestConfig,
+        equity_running: float,
+    ) -> LifecycleStepContext:
+        """Build shared one-date execution context for mark transitions."""
+        return LifecycleStepContext(
+            curr_date=curr_date,
+            cfg=cfg,
+            equity_running=equity_running,
+            lot_size=cfg.lot_size,
+            roundtrip_commission_per_contract=(
+                roundtrip_commission_per_structure_contract(
+                    commission_per_leg=cfg.commission_per_leg,
+                    legs=position.intent.legs,
+                )
+            ),
+        )
+
+    def _build_mark_step_snapshots(
+        self,
+        *,
+        position: OpenPosition,
+        step: LifecycleStepContext,
+        options: pd.DataFrame,
+    ) -> tuple[MarkValuationSnapshot, MarkMarginSnapshot, MtmRecord]:
+        """Build valuation, margin, and base MTM snapshots for one mark date."""
+        valuation = resolve_mark_valuation(
+            position=position,
+            curr_date=step.curr_date,
+            options=options,
+            lot_size=step.lot_size,
+        )
+        maybe_refresh_margin_per_contract(
+            position=position,
+            curr_date=step.curr_date,
+            lot_size=step.lot_size,
+            valuation=valuation,
+            margin_model=self.margin_model,
+            pricer=self.pricer,
+        )
+        margin = evaluate_mark_margin(
+            position=position,
+            curr_date=step.curr_date,
+            equity_running=step.equity_running,
+            valuation=valuation,
+        )
+        mtm_record = build_mark_record(
+            position=position,
+            curr_date=step.curr_date,
+            valuation=valuation,
+            margin=margin,
+        )
+        return valuation, margin, mtm_record
 
     def _build_open_position(
         self,
@@ -104,7 +165,7 @@ class PositionLifecycleEngine:
             last_net_delta=net_delta,
         )
 
-    def _handle_forced_liquidation(
+    def _transition_forced_liquidation(
         self,
         *,
         position: OpenPosition,
@@ -226,7 +287,7 @@ class PositionLifecycleEngine:
             trade_rows=trade_rows,
         )
 
-    def _handle_standard_exit(
+    def _transition_standard_exit(
         self,
         *,
         position: OpenPosition,
@@ -275,6 +336,27 @@ class PositionLifecycleEngine:
             position=None,
             mtm_record=mtm_record,
             trade_rows=[trade_row],
+        )
+
+    def _transition_continue_open(
+        self,
+        *,
+        position: OpenPosition,
+        valuation: MarkValuationSnapshot,
+        mtm_record: MtmRecord,
+    ) -> LifecycleStepResult:
+        """Persist mark state and continue with an open position."""
+        update_position_mark_state(
+            position=position,
+            pnl_mtm=valuation.pnl_mtm,
+            market=valuation.market,
+            greeks=mtm_record.greeks,
+            net_delta=float(mtm_record.net_delta),
+        )
+        return LifecycleStepResult(
+            position=position,
+            mtm_record=mtm_record,
+            trade_rows=[],
         )
 
     def open_position(
@@ -342,47 +424,20 @@ class PositionLifecycleEngine:
             ``LifecycleStepResult`` containing updated position, MTM record,
             and emitted trade rows.
         """
-        step = LifecycleStepContext(
+        step = self._build_mark_step_context(
+            position=position,
             curr_date=curr_date,
             cfg=cfg,
             equity_running=equity_running,
-            lot_size=cfg.lot_size,
-            roundtrip_commission_per_contract=(
-                roundtrip_commission_per_structure_contract(
-                    commission_per_leg=cfg.commission_per_leg,
-                    legs=position.intent.legs,
-                )
-            ),
         )
 
-        valuation = resolve_mark_valuation(
+        valuation, margin, mtm_record = self._build_mark_step_snapshots(
             position=position,
-            curr_date=step.curr_date,
+            step=step,
             options=options,
-            lot_size=step.lot_size,
-        )
-        maybe_refresh_margin_per_contract(
-            position=position,
-            curr_date=step.curr_date,
-            lot_size=step.lot_size,
-            valuation=valuation,
-            margin_model=self.margin_model,
-            pricer=self.pricer,
-        )
-        margin = evaluate_mark_margin(
-            position=position,
-            curr_date=step.curr_date,
-            equity_running=step.equity_running,
-            valuation=valuation,
-        )
-        mtm_record = build_mark_record(
-            position=position,
-            curr_date=step.curr_date,
-            valuation=valuation,
-            margin=margin,
         )
 
-        forced_outcome = self._handle_forced_liquidation(
+        forced_outcome = self._transition_forced_liquidation(
             position=position,
             step=step,
             valuation=valuation,
@@ -393,37 +448,23 @@ class PositionLifecycleEngine:
             return forced_outcome
 
         if valuation.has_missing_quote:
-            update_position_mark_state(
+            return self._transition_continue_open(
                 position=position,
-                pnl_mtm=valuation.pnl_mtm,
-                market=valuation.market,
-                greeks=mtm_record.greeks,
-                net_delta=float(mtm_record.net_delta),
-            )
-            return LifecycleStepResult(
-                position=position,
+                valuation=valuation,
                 mtm_record=mtm_record,
-                trade_rows=[],
             )
 
         exit_type = self.exit_rule_set.evaluate(
             curr_date=step.curr_date, position=position
         )
         if exit_type is None:
-            update_position_mark_state(
+            return self._transition_continue_open(
                 position=position,
-                pnl_mtm=valuation.pnl_mtm,
-                market=valuation.market,
-                greeks=mtm_record.greeks,
-                net_delta=float(mtm_record.net_delta),
-            )
-            return LifecycleStepResult(
-                position=position,
+                valuation=valuation,
                 mtm_record=mtm_record,
-                trade_rows=[],
             )
 
-        return self._handle_standard_exit(
+        return self._transition_standard_exit(
             position=position,
             step=step,
             exit_type=exit_type,
