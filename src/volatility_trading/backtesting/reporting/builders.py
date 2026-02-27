@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+from typing import Any
+
+import numpy as np
 import pandas as pd
 
 from volatility_trading.backtesting.performance import compute_performance_metrics
@@ -9,8 +13,57 @@ from volatility_trading.backtesting.rates import RateInput
 
 from .schemas import SummaryMetrics
 
-# TODO: Update report builders/writers to persist trade_legs safely (JSON string column for CSV, native list in parquet/json).
-# Add tests for multi-expiry trade rows in reporting/performance modules.
+
+def _coerce_json_compatible_value(value: Any) -> Any:
+    """Return a JSON-compatible scalar used inside trade-leg payloads."""
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, np.datetime64):
+        return pd.Timestamp(value).isoformat()
+    if isinstance(value, (np.floating, np.integer)):
+        return value.item()
+    return value
+
+
+def _normalize_trade_legs_value(value: Any) -> list[dict[str, Any]]:
+    """Normalize one ``trade_legs`` cell to a list-of-dicts payload."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return []
+
+    raw = value
+    if isinstance(raw, str):
+        parsed = json.loads(raw)
+        raw = parsed
+    elif isinstance(raw, tuple):
+        raw = list(raw)
+
+    if not isinstance(raw, list):
+        raise TypeError("trade_legs must be a list, tuple, JSON string, or null-like")
+
+    normalized: list[dict[str, Any]] = []
+    for leg in raw:
+        if hasattr(leg, "to_dict"):
+            leg_dict = leg.to_dict()
+        elif isinstance(leg, dict):
+            leg_dict = leg
+        else:
+            raise TypeError("each trade leg must be dict-like or expose to_dict()")
+        normalized.append(
+            {
+                str(key): _coerce_json_compatible_value(val)
+                for key, val in leg_dict.items()
+            }
+        )
+    return normalized
+
+
+def build_trades_table(trades: pd.DataFrame) -> pd.DataFrame:
+    """Build canonical reporting trades table with normalized ``trade_legs`` payloads."""
+    out = trades.copy()
+    if "trade_legs" not in out.columns:
+        return out
+    out["trade_legs"] = out["trade_legs"].map(_normalize_trade_legs_value)
+    return out
 
 
 def build_summary_metrics(

@@ -49,6 +49,20 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         handle.write("\n")
 
 
+def _encode_trade_legs_csv_cell(value: Any) -> str:
+    """Encode one ``trade_legs`` cell as canonical JSON string for CSV output."""
+    return json.dumps(value, sort_keys=True, default=_json_default)
+
+
+def _prepare_trades_for_csv(trades: pd.DataFrame) -> pd.DataFrame:
+    """Prepare trades DataFrame for CSV persistence with stable ``trade_legs`` serialization."""
+    out = trades.copy()
+    if "trade_legs" not in out.columns:
+        return out
+    out["trade_legs"] = out["trade_legs"].map(_encode_trade_legs_csv_cell)
+    return out
+
+
 def write_report_bundle(
     bundle: BacktestReportBundle,
     *,
@@ -73,7 +87,7 @@ def write_report_bundle(
     )
     _write_json(summary_path, asdict(bundle.summary_metrics))
     bundle.equity_and_drawdown.to_csv(equity_path, index=True, index_label="date")
-    bundle.trades.to_csv(trades_path, index=False)
+    _prepare_trades_for_csv(bundle.trades).to_csv(trades_path, index=False)
     bundle.exposures_daily.to_csv(exposures_path, index=True, index_label="date")
 
     plot_paths: dict[str, str] = {}

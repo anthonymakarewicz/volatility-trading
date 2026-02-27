@@ -110,3 +110,52 @@ def test_save_report_bundle_writes_component_plots_when_enabled(tmp_path):
     assert (run_dir / "plots" / "equity_vs_benchmark.png").exists()
     assert (run_dir / "plots" / "drawdown.png").exists()
     assert (run_dir / "plots" / "greeks_exposure.png").exists()
+
+
+def test_save_report_bundle_serializes_trade_legs_as_json_for_csv(tmp_path):
+    index = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03"])
+    trades = pd.DataFrame(
+        {
+            "entry_date": [index[0]],
+            "exit_date": [index[-1]],
+            "contracts": [1],
+            "pnl": [7.5],
+            "trade_legs": [
+                [
+                    {
+                        "leg_index": 0,
+                        "option_type": "call",
+                        "expiry_date": pd.Timestamp("2020-01-31"),
+                        "side": -1,
+                        "entry_price": 5.2,
+                        "exit_price": 4.7,
+                    }
+                ]
+            ],
+        }
+    )
+    mtm_daily = pd.DataFrame(
+        {"equity": [100_000.0, 100_100.0, 100_120.0]},
+        index=index,
+    )
+
+    bundle = build_backtest_report_bundle(
+        trades=trades,
+        mtm_daily=mtm_daily,
+        benchmark=None,
+        strategy_name="vrp_harvesting",
+        benchmark_name=None,
+        run_config={"holding_period": 10},
+        run_id="unit_test_trade_legs_json",
+        include_dashboard_plot=False,
+    )
+
+    # In-memory bundle keeps native list payload for non-CSV consumers.
+    assert isinstance(bundle.trades.loc[0, "trade_legs"], list)
+
+    run_dir = save_backtest_report_bundle(bundle, output_root=tmp_path)
+    written = pd.read_csv(run_dir / "trades.csv")
+    payload = json.loads(written.loc[0, "trade_legs"])
+    assert isinstance(payload, list)
+    assert payload[0]["leg_index"] == 0
+    assert payload[0]["expiry_date"] == "2020-01-31T00:00:00"

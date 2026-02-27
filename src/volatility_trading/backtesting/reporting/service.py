@@ -14,6 +14,7 @@ from .builders import (
     build_equity_and_drawdown_table,
     build_exposures_daily_table,
     build_summary_metrics,
+    build_trades_table,
 )
 from .constants import (
     DASHBOARD_FILENAME,
@@ -104,7 +105,7 @@ def build_backtest_report_bundle(
         run_config=run_config,
         summary_metrics=summary,
         equity_and_drawdown=equity_and_drawdown,
-        trades=trades.copy(),
+        trades=build_trades_table(trades),
         exposures_daily=exposures,
         figures=figures,
     )

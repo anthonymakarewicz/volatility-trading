@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -5,6 +6,7 @@ from volatility_trading.backtesting.reporting.builders import (
     build_equity_and_drawdown_table,
     build_exposures_daily_table,
     build_summary_metrics,
+    build_trades_table,
 )
 
 # TODO: Create subfolder for reporting/
@@ -83,3 +85,32 @@ def test_build_exposures_daily_table_selects_expected_columns():
         "hedge_pnl",
     ]
     assert len(out) == len(mtm_daily)
+
+
+def test_build_trades_table_normalizes_trade_legs_payload():
+    trades = pd.DataFrame(
+        {
+            "entry_date": [pd.Timestamp("2020-01-01"), pd.Timestamp("2020-01-02")],
+            "exit_date": [pd.Timestamp("2020-01-03"), pd.Timestamp("2020-01-04")],
+            "contracts": [1, 2],
+            "pnl": [1.0, -0.5],
+            "trade_legs": [
+                (
+                    {
+                        "leg_index": np.int64(0),
+                        "expiry_date": pd.Timestamp("2020-01-31"),
+                        "side": np.int64(-1),
+                        "entry_price": np.float64(5.2),
+                    },
+                ),
+                None,
+            ],
+        }
+    )
+
+    out = build_trades_table(trades)
+
+    assert isinstance(out.loc[0, "trade_legs"], list)
+    assert out.loc[0, "trade_legs"][0]["leg_index"] == 0
+    assert out.loc[0, "trade_legs"][0]["expiry_date"] == "2020-01-31T00:00:00"
+    assert out.loc[1, "trade_legs"] == []
