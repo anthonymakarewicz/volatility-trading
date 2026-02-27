@@ -65,8 +65,8 @@ def build_options_execution_plan(
             cfg=config,
             equity_running=equity_running,
         ),
-        can_reenter_same_day=lambda trade_rows: spec.reentry_policy.allow_from_trade_records(
-            trade_rows
+        can_reenter_same_day=lambda trade_rows: (
+            spec.reentry_policy.allow_from_trade_records(trade_rows)
         ),
     )
     return SinglePositionExecutionPlan(

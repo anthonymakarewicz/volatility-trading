@@ -36,7 +36,7 @@ tests/
     │   │   ├── test_options_engine_entry.py
     │   │   ├── test_options_engine_exit_rules.py
     │   │   ├── test_options_engine_selectors_sizing.py
-    │   │   └── test_options_engine_strategy_runner.py
+    │   │   └── test_options_engine_plan_builder.py
     │   ├── test_performance_calculators.py
     │   ├── test_performance_console.py
     │   ├── test_reporting_builders.py
