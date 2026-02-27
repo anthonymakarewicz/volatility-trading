@@ -104,6 +104,38 @@ def _make_setup(
     )
 
 
+def _make_two_leg_setup(*, contracts: int = 1) -> PositionEntrySetup:
+    put_quote = _make_quote(option_type="P", delta=-0.5)
+    call_quote = _make_quote(option_type="C", delta=0.5)
+    intent = EntryIntent(
+        entry_date=pd.Timestamp("2020-01-01"),
+        expiry_date=pd.Timestamp("2020-01-31"),
+        chosen_dte=30,
+        legs=(
+            LegSelection(
+                spec=LegSpec(option_type=OptionType.PUT, delta_target=-0.5),
+                quote=put_quote,
+                side=-1,
+                entry_price=5.0,
+            ),
+            LegSelection(
+                spec=LegSpec(option_type=OptionType.CALL, delta_target=0.5),
+                quote=call_quote,
+                side=-1,
+                entry_price=5.0,
+            ),
+        ),
+        entry_state=MarketState(spot=100.0, volatility=0.2),
+    )
+    return PositionEntrySetup(
+        intent=intent,
+        contracts=contracts,
+        risk_per_contract=None,
+        risk_worst_scenario=None,
+        margin_per_contract=None,
+    )
+
+
 def _make_options_row_for_date(
     *,
     trade_date: str = "2020-01-02",
@@ -171,6 +203,21 @@ def test_open_position_records_entry_commission_and_greeks():
     assert entry_record.greeks.gamma == pytest.approx(-0.3)
     assert entry_record.greeks.vega == pytest.approx(-0.6)
     assert entry_record.greeks.theta == pytest.approx(0.9)
+
+
+def test_open_position_commission_scales_with_leg_count():
+    setup = _make_two_leg_setup(contracts=2)
+    cfg = _make_cfg(commission_per_leg=1.0)
+    engine = _make_engine()
+
+    _, entry_record = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    # 2 legs * roundtrip (entry+exit) * $1 commission * 2 contracts.
+    assert entry_record.delta_pnl == pytest.approx(-8.0)
 
 
 def test_mark_position_with_missing_quotes_keeps_position_open():

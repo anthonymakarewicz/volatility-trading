@@ -19,6 +19,7 @@ from volatility_trading.options import (
 )
 
 from .adapters import quote_to_option_leg
+from .economics import effective_leg_side, leg_contract_multiplier
 from .types import EntryIntent, LegSelection
 
 
@@ -61,17 +62,6 @@ class SizingDecision:
     margin_per_contract: float | None
 
 
-def _effective_leg_side(leg: LegSelection) -> int:
-    """Return signed side after applying potential negative leg weights."""
-    weight_sign = 1 if leg.spec.weight >= 0 else -1
-    return int(leg.side) * weight_sign
-
-
-def _leg_contract_multiplier(leg: LegSelection, *, lot_size: int) -> float:
-    """Return per-leg cash multiplier including lot size and leg ratio."""
-    return float(lot_size * abs(int(leg.spec.weight)))
-
-
 def _build_option_legs(
     *,
     entry_date: pd.Timestamp,
@@ -105,8 +95,8 @@ def _build_option_legs(
                 entry_date=entry_date,
                 expiry_date=expiry_date,
                 entry_price=leg.entry_price,
-                side=_effective_leg_side(leg),
-                contract_multiplier=_leg_contract_multiplier(
+                side=effective_leg_side(leg),
+                contract_multiplier=leg_contract_multiplier(
                     leg,
                     lot_size=lot_size,
                 ),

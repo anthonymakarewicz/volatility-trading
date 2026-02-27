@@ -11,22 +11,12 @@ from volatility_trading.backtesting.types import BacktestConfig
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label
+from ..economics import effective_leg_side, leg_units
 from ..entry import chain_for_date
 from ..records import TradeLegRecord
 from ..state import OpenPosition
 from ..types import EntryIntent, LegSelection, QuoteSnapshot
 from .runtime_state import MarkValuationSnapshot
-
-
-def effective_leg_side(leg: LegSelection) -> int:
-    """Return signed side after applying potential negative leg weights."""
-    weight_sign = 1 if leg.spec.weight >= 0 else -1
-    return int(leg.side) * weight_sign
-
-
-def leg_units(leg: LegSelection) -> int:
-    """Return absolute leg ratio multiplier for PnL/Greek aggregation."""
-    return abs(int(leg.spec.weight))
 
 
 def exit_leg_price(quote: QuoteSnapshot, *, side: int, cfg: BacktestConfig) -> float:

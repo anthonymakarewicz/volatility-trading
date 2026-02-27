@@ -45,6 +45,7 @@ flowchart LR
         R3[lifecycle.py\nPositionLifecycleEngine\nopen_position/mark_position]
         R4[exit_rules.py\nExitRuleSet / SameDayReentryPolicy]
         R5[selectors.py\nquote/expiry selection]
+        R6[economics.py\neffective side/units\ncommission helpers]
     end
 
     subgraph LifecycleInternals[_lifecycle Internal Modules]
@@ -77,6 +78,8 @@ flowchart LR
     P1 --> R3
     P1 --> R4
     R1 --> R5
+    R2 --> R6
+    R3 --> R6
     R3 --> L1
     R3 --> L2
     R3 --> L3
@@ -207,6 +210,7 @@ flowchart TD
 | `options_engine/contracts.py` | typed kernel boundary between engine and options runtime | business logic |
 | `options_engine/plan_builder.py` | compile `StrategySpec` into executable plan + output serializer | date loop execution |
 | `options_engine/entry.py` + `selectors.py` | build `EntryIntent` from chain + structure constraints | account/margin lifecycle |
+| `options_engine/economics.py` | shared leg-side/units and per-structure commission helpers | signal/entry/exit orchestration |
 | `options_engine/sizing.py` | contract count decision from risk/margin constraints | position mark/exit loop |
 | `options_engine/lifecycle.py` | open/mark/close logic, forced liquidation, exit handling | signal generation, global orchestration |
 | `options_engine/_lifecycle/*` | valuation/margin/record/state internals | plan compilation and outer loop |

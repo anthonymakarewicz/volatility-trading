@@ -36,6 +36,7 @@ from ._lifecycle.valuation import (
     summary_expiry_and_dte_from_legs,
     update_position_mark_state,
 )
+from .economics import roundtrip_commission_per_structure_contract
 from .exit_rules import ExitRuleSet
 from .records import MtmRecord, TradeRecord
 from .state import LifecycleStepResult, OpenPosition, PositionEntrySetup
@@ -286,7 +287,10 @@ class PositionLifecycleEngine:
         """Open one position and emit its entry-day MTM accounting record."""
         contracts_open = int(setup.contracts)
         lot_size = cfg.lot_size
-        roundtrip_commission_per_contract = 2 * cfg.commission_per_leg
+        roundtrip_commission_per_contract = roundtrip_commission_per_structure_contract(
+            commission_per_leg=cfg.commission_per_leg,
+            legs=setup.intent.legs,
+        )
         net_entry = entry_net_notional(
             legs=setup.intent.legs,
             lot_size=lot_size,
@@ -344,8 +348,11 @@ class PositionLifecycleEngine:
             equity_running=equity_running,
             lot_size=cfg.lot_size,
             roundtrip_commission_per_contract=(
-                2 * cfg.commission_per_leg
-            ),  # TODO: Scale it by nb of Options leg
+                roundtrip_commission_per_structure_contract(
+                    commission_per_leg=cfg.commission_per_leg,
+                    legs=position.intent.legs,
+                )
+            ),
         )
 
         valuation = resolve_mark_valuation(

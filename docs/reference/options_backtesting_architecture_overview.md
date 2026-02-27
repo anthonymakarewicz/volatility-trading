@@ -38,6 +38,8 @@ flowchart TD
 
     F --> J[selectors.py<br/>DTE/delta/liquidity selection]
     F --> K[types.py<br/>LegSpec/StructureSpec/EntryIntent]
+    G --> N[economics.py<br/>shared leg math + commission helpers]
+    H --> N
     G --> L[options/*<br/>pricer/risk/margin models]
     H --> M[backtesting/margin.py<br/>margin lifecycle account]
 ```
@@ -104,6 +106,7 @@ stateDiagram-v2
 ### 2) Sizing (`sizing.py`)
 
 - Builds option-risk `OptionLeg` objects from selected legs.
+- Reuses shared execution economics (`economics.py`) for signed side/units.
 - Computes:
   - risk-based contract limit (scenario worst loss),
   - margin-based contract limit (initial margin budget),
@@ -113,6 +116,7 @@ stateDiagram-v2
 
 - `open_position`: initializes Greeks, MTM baseline, margin account fields.
 - `mark_position`: daily MTM, Greeks refresh, financing/margin updates.
+- Uses shared commission helpers (`economics.py`) for per-structure costs.
 - Applies exit rules (`exit_rules.py`) and emits trade rows on close.
 - Supports forced partial/full liquidation from margin lifecycle.
 
