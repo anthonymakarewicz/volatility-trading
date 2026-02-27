@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol, TypeAlias
-
-import pandas as pd
+from typing import Any, TypeAlias
 
 # --- Shared aliases -------------------------------------------------
 DataMapping: TypeAlias = Mapping[str, Any]
@@ -26,42 +24,6 @@ class BacktestConfig:
 
     # Risk “floors” that are environment-like
     risk_pc_floor: float = 750.0
-
-
-class LifecycleStepLike(Protocol):
-    """Runtime shape required by the backtest kernel mark step."""
-
-    position: Any | None
-    mtm_record: Any
-    trade_rows: list[Any]
-
-
-MarkOpenPositionFn: TypeAlias = Callable[[Any, pd.Timestamp, float], LifecycleStepLike]
-PrepareEntryFn: TypeAlias = Callable[[pd.Timestamp, float], Any | None]
-OpenPositionFn: TypeAlias = Callable[[Any, float], tuple[Any, Any]]
-CanReenterFn: TypeAlias = Callable[[list[Any]], bool]
-BuildOutputsFn: TypeAlias = Callable[[list[Any], list[Any], float], tuple[Any, Any]]
-
-
-@dataclass(frozen=True)
-class BacktestKernelHooks:
-    """Callback bundle consumed by the engine-owned single-position loop."""
-
-    mark_open_position: MarkOpenPositionFn
-    prepare_entry: PrepareEntryFn
-    open_position: OpenPositionFn
-    can_reenter_same_day: CanReenterFn
-
-
-@dataclass(frozen=True)
-class BacktestExecutionPlan:
-    """Engine-executable simulation plan compiled by one strategy runner."""
-
-    trading_dates: list[pd.Timestamp]
-    active_signal_dates: set[pd.Timestamp]
-    initial_equity: float
-    hooks: BacktestKernelHooks
-    build_outputs: BuildOutputsFn
 
 
 @dataclass(frozen=True, slots=True)

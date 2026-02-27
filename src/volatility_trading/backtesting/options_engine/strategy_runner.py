@@ -6,18 +6,12 @@ into engine hooks and output serializers.
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 import pandas as pd
 
-from ..types import (
-    BacktestConfig,
-    BacktestExecutionPlan,
-    BacktestKernelHooks,
-    DataMapping,
-)
+from ..types import BacktestConfig, DataMapping
 from ._lifecycle.ledger import MtmRecord, TradeRecord
 from ._lifecycle.records import mtm_record_to_dict, trade_records_to_rows
+from .contracts import BacktestExecutionPlan, BacktestKernelHooks
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import (
     PositionEntrySetup,
@@ -167,13 +161,11 @@ def _build_lifecycle_engine(spec: StrategySpec) -> PositionLifecycleEngine:
 
 
 def _build_outputs(
-    trades_raw: list[Any],
-    mtm_raw: list[Any],
+    trade_records: list[TradeRecord],
+    mtm_records: list[MtmRecord],
     initial_capital: float,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Convert typed runtime records into the canonical tabular outputs."""
-    trade_records = cast(list[TradeRecord], trades_raw)
-    mtm_records = cast(list[MtmRecord], mtm_raw)
     trades = trade_records_to_rows(trade_records)
 
     if not mtm_records:

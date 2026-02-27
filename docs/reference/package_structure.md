@@ -37,6 +37,7 @@ src/volatility_trading
 │   │   │   ├── runtime_state.py
 │   │   │   └── valuation.py
 │   │   ├── adapters.py
+│   │   ├── contracts.py
 │   │   ├── entry.py
 │   │   ├── exit_rules.py
 │   │   ├── lifecycle.py

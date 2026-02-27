@@ -3,6 +3,9 @@
 This document describes how the current options backtesting stack is wired, from
 `Backtester` orchestration to strategy-specific presets such as VRP harvesting.
 
+For a deeper module-by-module and dataclass-level view, see
+[`docs/reference/options_backtesting_architecture_deep_dive.md`](options_backtesting_architecture_deep_dive.md).
+
 ## Scope
 
 - Covered: options strategy runtime (`backtesting/` + `backtesting/options_engine/`)
@@ -127,6 +130,7 @@ stateDiagram-v2
 - `Backtester` consumes a concrete `StrategySpec`.
 - `Backtester` compiles that spec into a `BacktestExecutionPlan` and owns the
   runtime execution loop.
+- The execution-plan contracts live in `backtesting/options_engine/contracts.py`.
 
 ### Options Runtime Boundary
 

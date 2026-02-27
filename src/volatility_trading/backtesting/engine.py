@@ -1,28 +1,28 @@
 from __future__ import annotations
 
-from typing import Any
+import pandas as pd
 
+from .options_engine._lifecycle.ledger import MtmRecord, TradeRecord
+from .options_engine._lifecycle.runtime_state import OpenPosition
+from .options_engine.contracts import BacktestExecutionPlan, BacktestKernelHooks
 from .options_engine.specs import StrategySpec
 from .options_engine.strategy_runner import build_options_execution_plan
-from .types import (
-    BacktestConfig,
-    BacktestExecutionPlan,
-    BacktestKernelHooks,
-    DataMapping,
-)
+from .types import BacktestConfig, DataMapping
 
 
-def _record_delta_pnl(record: Any) -> float:
+def _record_delta_pnl(record: MtmRecord) -> float:
     """Extract numeric ``delta_pnl`` from one typed MTM record."""
-    return float(getattr(record, "delta_pnl"))
+    return float(record.delta_pnl)
 
 
-def run_backtest_execution_plan(plan: BacktestExecutionPlan) -> tuple[Any, Any]:
+def run_backtest_execution_plan(
+    plan: BacktestExecutionPlan,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Run one compiled single-position plan and return strategy outputs."""
-    trades: list[Any] = []
-    mtm_records: list[Any] = []
+    trades: list[TradeRecord] = []
+    mtm_records: list[MtmRecord] = []
     equity_running = float(plan.initial_equity)
-    open_position: Any | None = None
+    open_position: OpenPosition | None = None
     hooks: BacktestKernelHooks = plan.hooks
 
     for curr_date in plan.trading_dates:
