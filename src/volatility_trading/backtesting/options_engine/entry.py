@@ -210,7 +210,6 @@ def build_entry_intent_from_structure(
             quotes_for_group,
             strict=True,
         ):
-            quote_snapshot = QuoteSnapshot.from_series(quote)
             side_raw = side_resolver(leg_spec)
             try:
                 side = (
@@ -224,9 +223,9 @@ def build_entry_intent_from_structure(
                 ) from exc
             selected_by_index[leg_idx] = LegSelection(
                 spec=leg_spec,
-                quote=quote_snapshot,
+                quote=quote,
                 side=side,
-                entry_price=_entry_price_from_side(quote_snapshot, side=side, cfg=cfg),
+                entry_price=_entry_price_from_side(quote, side=side, cfg=cfg),
             )
 
     selected_legs = tuple(

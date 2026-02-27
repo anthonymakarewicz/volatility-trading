@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 from .adapters import option_type_to_chain_label
-from .types import LegSpec
+from .types import LegSpec, QuoteSnapshot
 
 
 def apply_leg_liquidity_filters(
@@ -117,7 +117,7 @@ def select_best_quote_for_leg(
     chain_for_expiry: pd.DataFrame,
     *,
     leg_spec: LegSpec,
-) -> tuple[pd.Series, float] | None:
+) -> tuple[QuoteSnapshot, float] | None:
     """Return best quote and score for one leg inside one expiry candidate."""
     option_type_label = option_type_to_chain_label(leg_spec.option_type)
     leg_quotes = chain_for_expiry[chain_for_expiry["option_type"] == option_type_label]
@@ -126,7 +126,7 @@ def select_best_quote_for_leg(
         return None
 
     score = float(scored.iloc[0]["leg_score"])
-    best = scored.iloc[0].drop(
+    best_row = scored.iloc[0].drop(
         labels=[
             c
             for c in (
@@ -139,7 +139,7 @@ def select_best_quote_for_leg(
             if c in scored.columns
         ]
     )
-    return best, score
+    return QuoteSnapshot.from_series(best_row), score
 
 
 def select_best_expiry_for_leg_group(
@@ -150,7 +150,7 @@ def select_best_expiry_for_leg_group(
     dte_tolerance: int,
     expiry_column: str = "expiry_date",
     dte_column: str = "dte",
-) -> tuple[pd.Timestamp, int, tuple[pd.Series, ...]] | None:
+) -> tuple[pd.Timestamp, int, tuple[QuoteSnapshot, ...]] | None:
     """Pick one expiry for a leg group, then best quotes for all group legs.
 
     Candidate expiries must satisfy the DTE band and be feasible for every leg
@@ -184,7 +184,7 @@ def select_best_expiry_for_leg_group(
             float,
             pd.Timestamp,
             int,
-            tuple[pd.Series, ...],
+            tuple[QuoteSnapshot, ...],
         ]
         | None
     ) = None
@@ -199,7 +199,7 @@ def select_best_expiry_for_leg_group(
             chain_with_expiry_ts["_expiry_ts"] == expiry_ts
         ]
 
-        quotes_for_group: list[pd.Series] = []
+        quotes_for_group: list[QuoteSnapshot] = []
         leg_scores: list[float] = []
         weights: list[float] = []
         feasible = True

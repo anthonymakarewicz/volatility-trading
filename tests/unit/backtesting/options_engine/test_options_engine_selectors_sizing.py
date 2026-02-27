@@ -106,6 +106,7 @@ def test_select_best_expiry_for_leg_group_prefers_lower_combined_score():
     assert expiry == pd.Timestamp("2020-02-02")
     assert chosen_dte == 31
     assert len(quotes) == 2
+    assert all(isinstance(q, QuoteSnapshot) for q in quotes)
 
 
 def test_size_entry_intent_uses_risk_and_margin_caps():
