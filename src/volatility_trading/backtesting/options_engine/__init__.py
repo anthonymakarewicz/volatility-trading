@@ -35,7 +35,6 @@ from .sizing import (
     SizingRequest,
     estimate_entry_intent_margin_per_contract,
     size_entry_intent,
-    size_entry_intent_contracts,
 )
 from .specs import StrategySpec
 from .state import LifecycleStepResult, OpenPosition, PositionEntrySetup
@@ -73,7 +72,6 @@ __all__ = [
     "SizingRequest",
     "SizingDecision",
     "size_entry_intent",
-    "size_entry_intent_contracts",
     "PositionEntrySetup",
     "MtmRecord",
     "TradeRecord",

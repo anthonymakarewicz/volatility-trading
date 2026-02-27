@@ -42,52 +42,51 @@ def normalize_signals_to_on(
     - `0`: no entry
     """
     if isinstance(signals, pd.Series):
-        sig_df = signals.to_frame("on")
+        sig_df = signals.to_frame(signals.name or "value")
     else:
         sig_df = signals.copy()
 
+    has_long = "long" in sig_df.columns
+    has_short = "short" in sig_df.columns
+    has_entry_direction = "entry_direction" in sig_df.columns
     long_on = (
         sig_df["long"].astype(bool)
-        if "long" in sig_df.columns
+        if has_long
         else pd.Series(False, index=sig_df.index)
     )
     short_on = (
         sig_df["short"].astype(bool)
-        if "short" in sig_df.columns
+        if has_short
         else pd.Series(False, index=sig_df.index)
     )
 
-    if "on" in sig_df.columns:
-        sig_df["on"] = sig_df["on"].astype(bool)
-    elif "long" in sig_df.columns or "short" in sig_df.columns:
-        sig_df["on"] = long_on | short_on
-    elif sig_df.shape[1] == 1:
-        sig_df["on"] = sig_df.iloc[:, 0].astype(bool)
-    else:
-        raise ValueError(
-            f"{strategy_name} expects a boolean 'on' column in signals, "
-            "or a Series, or a DF with 'short'/'long' or a single column."
-        )
-
-    if "entry_direction" in sig_df.columns:
+    if has_entry_direction:
         direction = pd.to_numeric(sig_df["entry_direction"], errors="coerce").fillna(
             0.0
         )
         direction = np.sign(direction).astype(int)
-    elif "long" in sig_df.columns and "short" in sig_df.columns:
+    elif has_long and has_short:
         direction = pd.Series(0, index=sig_df.index, dtype=int)
         direction.loc[long_on & ~short_on] = 1
         direction.loc[short_on & ~long_on] = -1
-    elif "short" in sig_df.columns:
+    elif has_short:
         direction = pd.Series(0, index=sig_df.index, dtype=int)
         direction.loc[short_on] = -1
-    elif "long" in sig_df.columns:
+    elif has_long:
         direction = pd.Series(0, index=sig_df.index, dtype=int)
         direction.loc[long_on] = 1
     else:
-        # Legacy/default behavior for `on`-only signals is short entry.
-        direction = pd.Series(0, index=sig_df.index, dtype=int)
-        direction.loc[sig_df["on"]] = -1
+        raise ValueError(
+            f"{strategy_name} signals must include `entry_direction` "
+            "or `long`/`short` columns."
+        )
+
+    if "on" in sig_df.columns:
+        sig_df["on"] = sig_df["on"].astype(bool)
+    elif has_long or has_short:
+        sig_df["on"] = long_on | short_on
+    else:
+        sig_df["on"] = direction != 0
 
     # Defensive normalization: never allow direction != 0 when `on` is False.
     direction = direction.where(sig_df["on"], 0).astype(int)

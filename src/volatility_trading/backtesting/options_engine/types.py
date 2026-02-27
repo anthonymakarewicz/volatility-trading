@@ -261,8 +261,8 @@ class EntryIntent:
 
     Attributes:
         entry_date: Trade date when the structure is entered.
-        expiry_date: Summary expiry used by legacy reporting fields.
-        chosen_dte: Summary DTE used by legacy reporting fields.
+        expiry_date: Summary expiry used by reporting outputs.
+        chosen_dte: Summary DTE used by reporting outputs.
         legs: Concrete selected legs with quotes and execution sides.
         entry_state: Market snapshot used for entry pricing/risk context.
     """

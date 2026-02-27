@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from volatility_trading.backtesting import BacktestConfig
 from volatility_trading.backtesting.options_engine import (
@@ -205,15 +206,14 @@ def test_build_entry_intent_min_ratio_allows_partial_fill():
     assert pd.Timestamp(expiry0) == pd.Timestamp("2020-01-31")
 
 
-def test_normalize_signals_to_on_defaults_to_short_for_on_only_inputs():
+def test_normalize_signals_to_on_rejects_on_only_inputs():
     signals = pd.Series(
         [True, False, True],
         index=pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03"]),
         name="on",
     )
-    out = normalize_signals_to_on(signals)
-    assert list(out["on"]) == [True, False, True]
-    assert list(out["entry_direction"]) == [-1, 0, -1]
+    with pytest.raises(ValueError, match="entry_direction"):
+        normalize_signals_to_on(signals)
 
 
 def test_normalize_signals_to_on_builds_direction_from_long_short_columns():
