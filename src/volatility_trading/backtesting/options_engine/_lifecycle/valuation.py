@@ -13,7 +13,7 @@ from volatility_trading.options.types import Greeks, MarketState
 from ..adapters import option_type_to_chain_label
 from ..entry import chain_for_date
 from ..types import EntryIntent, LegSelection, QuoteSnapshot
-from .state import MarkValuationSnapshot, OpenPosition
+from .state import MarkValuationSnapshot, OpenPosition, TradeLegRecord
 
 
 def effective_leg_side(leg: LegSelection) -> int:
@@ -172,9 +172,9 @@ def trade_legs_payload(
     *,
     legs: Sequence[LegSelection],
     exit_prices: Sequence[float] | None = None,
-) -> list[dict]:
+) -> tuple[TradeLegRecord, ...]:
     """Build per-leg trade payload for durable multi-expiry trade records."""
-    payload: list[dict] = []
+    payload: list[TradeLegRecord] = []
     for idx, leg in enumerate(legs):
         expiry_date = (
             pd.Timestamp(leg.quote.expiry_date)
@@ -188,22 +188,22 @@ def trade_legs_payload(
             else np.nan
         )
         payload.append(
-            {
-                "leg_index": idx,
-                "option_type": str(leg.spec.option_type),
-                "strike": strike,
-                "expiry_date": expiry_date,
-                "weight": int(leg.spec.weight),
-                "side": int(leg.side),
-                "effective_side": effective_leg_side(leg),
-                "entry_price": float(leg.entry_price),
-                "exit_price": exit_price,
-                "delta_target": float(leg.spec.delta_target),
-                "delta_tolerance": float(leg.spec.delta_tolerance),
-                "expiry_group": leg.spec.expiry_group,
-            }
+            TradeLegRecord(
+                leg_index=idx,
+                option_type=str(leg.spec.option_type),
+                strike=strike,
+                expiry_date=expiry_date,
+                weight=int(leg.spec.weight),
+                side=int(leg.side),
+                effective_side=effective_leg_side(leg),
+                entry_price=float(leg.entry_price),
+                exit_price=exit_price,
+                delta_target=float(leg.spec.delta_target),
+                delta_tolerance=float(leg.spec.delta_tolerance),
+                expiry_group=leg.spec.expiry_group,
+            )
         )
-    return payload  # TODO: Why not put that into a dataclass ?
+    return tuple(payload)
 
 
 def intent_with_updated_quotes(

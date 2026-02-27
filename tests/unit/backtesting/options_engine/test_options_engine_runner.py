@@ -45,7 +45,7 @@ def _make_trade_record(*, exit_type: str) -> TradeRecord:
         risk_worst_scenario=None,
         margin_per_contract=None,
         exit_type=exit_type,
-        trade_legs=[],
+        trade_legs=(),
     )
 
 

@@ -154,6 +154,41 @@ class MtmRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class TradeLegRecord:
+    """One per-leg payload row attached to a realized trade record."""
+
+    leg_index: int
+    option_type: str
+    strike: float
+    expiry_date: pd.Timestamp | None
+    weight: int
+    side: int
+    effective_side: int
+    entry_price: float
+    exit_price: float
+    delta_target: float
+    delta_tolerance: float
+    expiry_group: str
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialize the per-leg payload into the canonical mapping schema."""
+        return {
+            "leg_index": self.leg_index,
+            "option_type": self.option_type,
+            "strike": self.strike,
+            "expiry_date": self.expiry_date,
+            "weight": self.weight,
+            "side": self.side,
+            "effective_side": self.effective_side,
+            "entry_price": self.entry_price,
+            "exit_price": self.exit_price,
+            "delta_target": self.delta_target,
+            "delta_tolerance": self.delta_tolerance,
+            "expiry_group": self.expiry_group,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class TradeRecord:
     """One realized trade ledger row emitted by lifecycle exits."""
 
@@ -167,7 +202,7 @@ class TradeRecord:
     risk_worst_scenario: str | None
     margin_per_contract: float | None
     exit_type: str
-    trade_legs: list[dict[str, object]]  # TODO: Weird this object type ?
+    trade_legs: tuple[TradeLegRecord, ...]
 
     def to_dict(self) -> dict[str, object]:
         """Flatten trade record into the canonical trades table row."""
@@ -182,7 +217,7 @@ class TradeRecord:
             "risk_worst_scenario": self.risk_worst_scenario,
             "margin_per_contract": self.margin_per_contract,
             "exit_type": self.exit_type,
-            "trade_legs": self.trade_legs,
+            "trade_legs": [leg.to_dict() for leg in self.trade_legs],
         }
 
 
