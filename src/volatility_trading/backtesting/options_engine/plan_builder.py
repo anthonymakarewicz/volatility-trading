@@ -7,12 +7,12 @@ import pandas as pd
 from ..config import BacktestRunConfig
 from ..data_contracts import OptionsBacktestDataBundle
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
+from .contracts.runtime import PositionEntrySetup
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import PositionLifecycleEngine
 from .outputs import build_options_backtest_outputs
 from .sizing import SizingRequest, size_entry_intent
 from .specs import StrategySpec
-from .state import PositionEntrySetup
 
 
 def build_options_execution_plan(

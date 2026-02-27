@@ -17,8 +17,8 @@ import pandas as pd
 from volatility_trading.options import MarketState, PositionSide
 
 from ..config import BacktestRunConfig
-from .contracts_market import QuoteSnapshot
-from .contracts_structures import (
+from .contracts.market import QuoteSnapshot
+from .contracts.structures import (
     EntryIntent,
     LegSelection,
     LegSpec,

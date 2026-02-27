@@ -1,4 +1,4 @@
-"""Options-specific execution-kernel contracts consumed by ``Backtester``."""
+"""Execution-plan contracts consumed by the engine-owned runtime loop."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from .records import MtmRecord, TradeRecord
-from .state import LifecycleStepResult, OpenPosition, PositionEntrySetup
+from .runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
 
 SinglePositionMarkFn = Callable[
     [OpenPosition, pd.Timestamp, float], LifecycleStepResult

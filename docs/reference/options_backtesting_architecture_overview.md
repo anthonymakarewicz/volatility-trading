@@ -136,7 +136,8 @@ stateDiagram-v2
 - `Backtester` consumes a concrete `StrategySpec`.
 - `Backtester` compiles that spec into a `SinglePositionExecutionPlan` and owns the
   runtime execution loop.
-- The execution-plan contracts live in `backtesting/options_engine/contracts.py`.
+- The execution-plan contracts live in
+  `backtesting/options_engine/contracts/execution.py`.
 
 ### Options Runtime Boundary
 

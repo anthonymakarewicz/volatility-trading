@@ -15,7 +15,7 @@ from volatility_trading.backtesting.margin import MarginAccount, MarginStatus
 from volatility_trading.backtesting.margin_types import MarginCore
 from volatility_trading.options.types import Greeks, MarketState
 
-from ..contracts_market import QuoteSnapshot
+from ..contracts.market import QuoteSnapshot
 
 
 @dataclass(frozen=True)

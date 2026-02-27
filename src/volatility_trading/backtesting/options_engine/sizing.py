@@ -19,7 +19,7 @@ from volatility_trading.options import (
 )
 
 from .adapters import quote_to_option_leg
-from .contracts_structures import EntryIntent, LegSelection
+from .contracts.structures import EntryIntent, LegSelection
 from .economics import effective_leg_side, leg_contract_multiplier
 
 

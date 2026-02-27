@@ -11,12 +11,12 @@ from volatility_trading.backtesting.config import BacktestRunConfig
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label
-from ..contracts_market import QuoteSnapshot
-from ..contracts_structures import EntryIntent, LegSelection
+from ..contracts.market import QuoteSnapshot
+from ..contracts.records import TradeLegRecord
+from ..contracts.runtime import OpenPosition
+from ..contracts.structures import EntryIntent, LegSelection
 from ..economics import effective_leg_side, leg_units
 from ..entry import chain_for_date
-from ..records import TradeLegRecord
-from ..state import OpenPosition
 from .runtime_state import MarkValuationSnapshot
 
 

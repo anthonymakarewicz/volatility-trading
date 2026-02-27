@@ -9,8 +9,8 @@ import pandas as pd
 from volatility_trading.backtesting.margin import MarginAccount
 from volatility_trading.options.types import Greeks, MarketState
 
-from .contracts_structures import EntryIntent
 from .records import MtmRecord, TradeRecord
+from .structures import EntryIntent
 
 
 @dataclass(frozen=True)

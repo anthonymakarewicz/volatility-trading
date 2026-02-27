@@ -42,20 +42,22 @@ src/volatility_trading
 │   │   │   ├── transitions.py
 │   │   │   └── valuation.py
 │   │   ├── adapters.py
-│   │   ├── contracts.py
-│   │   ├── contracts_market.py
-│   │   ├── contracts_structures.py
+│   │   ├── contracts
+│   │   │   ├── __init__.py
+│   │   │   ├── execution.py
+│   │   │   ├── market.py
+│   │   │   ├── records.py
+│   │   │   ├── runtime.py
+│   │   │   └── structures.py
 │   │   ├── economics.py
 │   │   ├── entry.py
 │   │   ├── exit_rules.py
 │   │   ├── lifecycle.py
 │   │   ├── plan_builder.py
 │   │   ├── outputs.py
-│   │   ├── records.py
 │   │   ├── selectors.py
 │   │   ├── sizing.py
-│   │   ├── specs.py
-│   │   └── state.py
+│   │   └── specs.py
 │   ├── performance
 │   │   ├── __init__.py
 │   │   ├── calculators.py
@@ -315,5 +317,5 @@ src/volatility_trading
     ├── __init__.py
     └── logging_config.py
 
-58 directories, 252 files
+59 directories, 257 files
 ```

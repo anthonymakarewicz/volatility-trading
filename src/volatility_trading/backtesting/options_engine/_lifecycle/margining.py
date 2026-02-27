@@ -9,8 +9,8 @@ from volatility_trading.backtesting.margin import MarginAccount, MarginPolicy
 from volatility_trading.backtesting.margin_types import MarginCore
 from volatility_trading.options import MarginModel, PriceModel
 
+from ..contracts.runtime import OpenPosition, PositionEntrySetup
 from ..sizing import estimate_entry_intent_margin_per_contract
-from ..state import OpenPosition, PositionEntrySetup
 from .runtime_state import (
     EntryMarginSnapshot,
     MarkMarginSnapshot,

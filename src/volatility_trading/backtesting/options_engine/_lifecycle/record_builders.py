@@ -9,12 +9,12 @@ import pandas as pd
 
 from volatility_trading.options.types import Greeks, MarketState
 
-from ..records import (
+from ..contracts.records import (
     MtmMargin,
     MtmRecord,
     TradeRecord,
 )
-from ..state import OpenPosition, PositionEntrySetup
+from ..contracts.runtime import OpenPosition, PositionEntrySetup
 from .runtime_state import (
     EntryMarginSnapshot,
     MarkMarginSnapshot,

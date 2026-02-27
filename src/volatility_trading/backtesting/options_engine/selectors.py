@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 
 from .adapters import option_type_to_chain_label
-from .contracts_market import QuoteSnapshot
-from .contracts_structures import LegSpec
+from .contracts.market import QuoteSnapshot
+from .contracts.structures import LegSpec
 
 
 def apply_leg_liquidity_filters(

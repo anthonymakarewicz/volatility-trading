@@ -9,7 +9,7 @@ import pandas as pd
 
 from volatility_trading.options import MarketState, OptionType, PositionSide
 
-from .contracts_market import QuoteSnapshot
+from .market import QuoteSnapshot
 
 FillPolicy: TypeAlias = Literal["all_or_none", "min_ratio"]
 

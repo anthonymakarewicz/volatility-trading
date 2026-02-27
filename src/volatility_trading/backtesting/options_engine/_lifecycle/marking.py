@@ -7,9 +7,9 @@ import pandas as pd
 from volatility_trading.options import MarginModel, PriceModel
 
 from ...config import BacktestRunConfig
+from ..contracts.records import MtmRecord
+from ..contracts.runtime import OpenPosition
 from ..economics import roundtrip_commission_per_structure_contract
-from ..records import MtmRecord
-from ..state import OpenPosition
 from .margining import (
     evaluate_mark_margin,
     maybe_refresh_margin_per_contract,

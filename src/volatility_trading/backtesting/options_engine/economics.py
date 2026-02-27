@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from .contracts_structures import LegSelection
+from .contracts.structures import LegSelection
 
 
 def effective_leg_side(leg: LegSelection) -> int:

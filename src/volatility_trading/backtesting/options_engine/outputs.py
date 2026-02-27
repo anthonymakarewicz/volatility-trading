@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .records import MtmRecord, TradeRecord
+from .contracts.records import MtmRecord, TradeRecord
 
 
 def build_options_backtest_outputs(

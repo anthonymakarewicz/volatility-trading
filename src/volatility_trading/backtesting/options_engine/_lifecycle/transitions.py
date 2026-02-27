@@ -6,8 +6,8 @@ from dataclasses import replace
 
 from volatility_trading.backtesting.margin import MarginPolicy
 
-from ..records import MtmRecord, TradeRecord
-from ..state import LifecycleStepResult, OpenPosition
+from ..contracts.records import MtmRecord, TradeRecord
+from ..contracts.runtime import LifecycleStepResult, OpenPosition
 from .record_builders import (
     apply_closed_position_fields,
     build_trade_record,

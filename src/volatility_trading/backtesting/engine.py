@@ -5,10 +5,10 @@ import pandas as pd
 from .config import BacktestRunConfig
 from .data_contracts import OptionsBacktestDataBundle
 from .options_engine.contracts import SinglePositionExecutionPlan, SinglePositionHooks
+from .options_engine.contracts.records import MtmRecord, TradeRecord
+from .options_engine.contracts.runtime import OpenPosition
 from .options_engine.plan_builder import build_options_execution_plan
-from .options_engine.records import MtmRecord, TradeRecord
 from .options_engine.specs import StrategySpec
-from .options_engine.state import OpenPosition
 
 
 def _record_delta_pnl(record: MtmRecord) -> float:

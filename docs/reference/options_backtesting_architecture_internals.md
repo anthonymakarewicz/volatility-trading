@@ -36,8 +36,8 @@ flowchart LR
 
     subgraph PlanCompiler[Options Plan Compiler]
         P1[build_options_execution_plan\noptions_engine/plan_builder.py]
-        P2[SinglePositionExecutionPlan\noptions_engine/contracts.py]
-        P3[SinglePositionHooks\noptions_engine/contracts.py]
+        P2[SinglePositionExecutionPlan\noptions_engine/contracts/execution.py]
+        P3[SinglePositionHooks\noptions_engine/contracts/execution.py]
     end
 
     subgraph RuntimeDomain[Options Runtime Domain]
@@ -59,8 +59,8 @@ flowchart LR
     end
 
     subgraph RuntimeContracts[Public Runtime Contracts]
-        C1[state.py\nOpenPosition\nPositionEntrySetup\nLifecycleStepResult]
-        C2[records.py\nMtmRecord\nTradeRecord]
+        C1[contracts/runtime.py\nOpenPosition\nPositionEntrySetup\nLifecycleStepResult]
+        C2[contracts/records.py\nMtmRecord\nTradeRecord]
     end
 
     subgraph ExternalDeps[Cross-Package Dependencies]
@@ -227,7 +227,7 @@ flowchart TD
 | Module | Owns | Does Not Own |
 |---|---|---|
 | `backtesting/engine.py` | orchestration loop, equity progression, top-level `Backtester.run()` | option quote selection, risk/margin formulas, trade construction details |
-| `options_engine/contracts.py` | typed kernel boundary between engine and options runtime | business logic |
+| `options_engine/contracts/execution.py` | typed kernel boundary between engine and options runtime | business logic |
 | `options_engine/plan_builder.py` | compile `StrategySpec` into executable plan | strategy execution loop and tabular aggregation |
 | `options_engine/outputs.py` | convert typed records into canonical `trades`/`mtm` DataFrames | signal generation, entry/mark/exit lifecycle logic |
 | `options_engine/entry.py` + `selectors.py` | build `EntryIntent` from chain + structure constraints | account/margin lifecycle |
@@ -313,15 +313,15 @@ flowchart TD
 ## 9) File-Level Reading Order (Recommended)
 
 1. `backtesting/engine.py`
-2. `options_engine/contracts.py`
+2. `options_engine/contracts/execution.py`
 3. `options_engine/plan_builder.py`
 4. `options_engine/outputs.py`
 5. `options_engine/specs.py`
 6. `options_engine/entry.py`
 7. `options_engine/sizing.py`
 8. `options_engine/lifecycle.py`
-9. `options_engine/state.py`
-10. `options_engine/records.py`
+9. `options_engine/contracts/runtime.py`
+10. `options_engine/contracts/records.py`
 11. `options_engine/_lifecycle/runtime_state.py`
 12. `options_engine/_lifecycle/valuation.py`
 13. `options_engine/_lifecycle/margining.py`
