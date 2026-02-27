@@ -4,6 +4,12 @@ import pandas as pd
 
 from volatility_trading.backtesting.engine import run_backtest_execution_plan
 from volatility_trading.backtesting.margin_types import MarginCore
+from volatility_trading.backtesting.options_engine import (
+    EntryIntent,
+    LegSelection,
+    LegSpec,
+    QuoteSnapshot,
+)
 from volatility_trading.backtesting.options_engine.contracts import (
     SinglePositionExecutionPlan,
     SinglePositionHooks,
@@ -17,12 +23,6 @@ from volatility_trading.backtesting.options_engine.state import (
     LifecycleStepResult,
     OpenPosition,
     PositionEntrySetup,
-)
-from volatility_trading.backtesting.options_engine.types import (
-    EntryIntent,
-    LegSelection,
-    LegSpec,
-    QuoteSnapshot,
 )
 from volatility_trading.options import Greeks, MarketState, OptionType, PositionSide
 

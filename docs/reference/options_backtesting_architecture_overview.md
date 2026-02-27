@@ -38,7 +38,7 @@ flowchart TD
     B --> I[run_backtest_execution_plan<br/>engine-owned loop]
 
     F --> J[selectors.py<br/>DTE/delta/liquidity selection]
-    F --> K[types.py<br/>LegSpec/StructureSpec/EntryIntent]
+    F --> K[contracts_structures.py + contracts_market.py<br/>LegSpec/StructureSpec/EntryIntent/QuoteSnapshot]
     G --> N[economics.py<br/>shared leg math + commission helpers]
     H --> N
     G --> L[options/*<br/>pricer/risk/margin models]

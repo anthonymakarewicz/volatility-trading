@@ -8,6 +8,8 @@ from .adapters import (
     time_to_expiry_years,
 )
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
+from .contracts_market import QuoteSnapshot
+from .contracts_structures import EntryIntent, LegSelection, LegSpec, StructureSpec
 from .entry import (
     build_entry_intent_from_structure,
     chain_for_date,
@@ -38,7 +40,6 @@ from .sizing import (
 )
 from .specs import LifecycleConfig, SizingPolicyConfig, StrategySpec
 from .state import LifecycleStepResult, OpenPosition, PositionEntrySetup
-from .types import EntryIntent, LegSelection, LegSpec, QuoteSnapshot, StructureSpec
 
 __all__ = [
     "LegSpec",

@@ -8,7 +8,7 @@ import pandas as pd
 from volatility_trading.options import OptionLeg, OptionSpec, OptionType, PositionSide
 from volatility_trading.options.types import OptionTypeInput
 
-from .types import QuoteSnapshot
+from .contracts_market import QuoteSnapshot
 
 # TODO: Here we pass the lot_size (aka contratc multiplier around) but why not part it part of OptionLeg ?
 # namely not a backtest parameter but tied to the dataclass itself (same with lot size for the hedgign instrument)

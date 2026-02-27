@@ -17,8 +17,14 @@ import pandas as pd
 from volatility_trading.options import MarketState, PositionSide
 
 from ..config import BacktestRunConfig
+from .contracts_market import QuoteSnapshot
+from .contracts_structures import (
+    EntryIntent,
+    LegSelection,
+    LegSpec,
+    StructureSpec,
+)
 from .selectors import select_best_expiry_for_leg_group
-from .types import EntryIntent, LegSelection, LegSpec, QuoteSnapshot, StructureSpec
 
 
 def chain_for_date(options: pd.DataFrame, trade_date: pd.Timestamp) -> pd.DataFrame:

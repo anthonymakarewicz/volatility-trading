@@ -1,3 +1,5 @@
+from typing import cast
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -110,7 +112,9 @@ def test_build_trades_table_normalizes_trade_legs_payload():
 
     out = build_trades_table(trades)
 
-    assert isinstance(out.loc[0, "trade_legs"], list)
-    assert out.loc[0, "trade_legs"][0]["leg_index"] == 0
-    assert out.loc[0, "trade_legs"][0]["expiry_date"] == "2020-01-31T00:00:00"
-    assert out.loc[1, "trade_legs"] == []
+    trade_legs_0 = cast(list[dict[str, object]], out.at[0, "trade_legs"])
+    assert isinstance(trade_legs_0, list)
+    assert trade_legs_0[0]["leg_index"] == 0
+    assert trade_legs_0[0]["expiry_date"] == "2020-01-31T00:00:00"
+    trade_legs_1 = cast(list[dict[str, object]], out.at[1, "trade_legs"])
+    assert trade_legs_1 == []

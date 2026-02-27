@@ -15,8 +15,8 @@ from volatility_trading.options import (
 )
 from volatility_trading.signals import Signal
 
+from .contracts_structures import LegSpec, StructureSpec
 from .exit_rules import ExitRuleSet, SameDayReentryPolicy
-from .types import LegSpec, StructureSpec
 
 SignalInput: TypeAlias = pd.Series | pd.DataFrame
 SignalInputBuilder: TypeAlias = Callable[

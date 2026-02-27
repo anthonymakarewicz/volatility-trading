@@ -43,6 +43,8 @@ src/volatility_trading
 │   │   │   └── valuation.py
 │   │   ├── adapters.py
 │   │   ├── contracts.py
+│   │   ├── contracts_market.py
+│   │   ├── contracts_structures.py
 │   │   ├── economics.py
 │   │   ├── entry.py
 │   │   ├── exit_rules.py
@@ -53,8 +55,7 @@ src/volatility_trading
 │   │   ├── selectors.py
 │   │   ├── sizing.py
 │   │   ├── specs.py
-│   │   ├── state.py
-│   │   └── types.py
+│   │   └── state.py
 │   ├── performance
 │   │   ├── __init__.py
 │   │   ├── calculators.py
