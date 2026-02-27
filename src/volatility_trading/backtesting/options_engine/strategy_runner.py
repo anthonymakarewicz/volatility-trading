@@ -5,8 +5,8 @@ from __future__ import annotations
 import pandas as pd
 
 from ..types import BacktestConfig, SliceContext
+from ._lifecycle.ledger import TradeRecord
 from ._lifecycle.records import mtm_record_to_dict, trade_records_to_rows
-from ._lifecycle.state import TradeRecord
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
 from .lifecycle import (
     OpenPosition,

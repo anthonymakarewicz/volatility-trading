@@ -10,7 +10,7 @@ from volatility_trading.backtesting.types import MarginCore
 from volatility_trading.options import MarginModel, PriceModel
 
 from ..sizing import estimate_entry_intent_margin_per_contract
-from .state import (
+from .runtime_state import (
     EntryMarginSnapshot,
     MarkMarginSnapshot,
     MarkValuationSnapshot,
