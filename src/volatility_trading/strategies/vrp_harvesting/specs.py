@@ -1,7 +1,7 @@
 """VRP harvesting preset specification and factory.
 
 This module maps a business-level VRP configuration into the generic
-``StrategySpec`` contract consumed by ``OptionsStrategyRunner``.
+``StrategySpec`` contract consumed by the backtest engine.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from volatility_trading.backtesting.margin import MarginPolicy
 from volatility_trading.backtesting.options_engine import (
     ExitRuleSet,
     LegSpec,
-    OptionsStrategyRunner,
     SameDayReentryPolicy,
     StrategySpec,
     StructureSpec,
@@ -127,6 +126,6 @@ class VRPHarvestingSpec:
         )
 
 
-def make_vrp_strategy(spec: VRPHarvestingSpec) -> OptionsStrategyRunner:
-    """Build an options runner from a VRP preset spec."""
-    return OptionsStrategyRunner(spec.to_strategy_spec())
+def make_vrp_strategy(spec: VRPHarvestingSpec) -> StrategySpec:
+    """Build an executable strategy specification from a VRP preset."""
+    return spec.to_strategy_spec()

@@ -12,7 +12,7 @@ This document describes how the current options backtesting stack is wired, from
 
 The architecture separates:
 
-1. **Backtest orchestration** (engine, runtime context, strategy contract)
+1. **Backtest orchestration** (engine, execution loop, strategy-spec contract)
 2. **Generic options execution runtime** (entry selection, sizing, lifecycle)
 3. **Strategy presets** (VRP or future skew/IV-RV variants)
 
@@ -23,23 +23,20 @@ accounting logic across structures (single-leg or multi-leg).
 
 ```mermaid
 flowchart TD
-    A[Notebook / Script] --> B[Backtester<br/>backtesting/engine.py]
-    B --> C[StrategyRunner Protocol<br/>backtesting/types.py]
-    C -.implemented by.-> D[OptionsStrategyRunner<br/>backtesting/options_engine/strategy_runner.py]
+    A[User Entrypoint] --> B[Backtester<br/>backtesting/engine.py]
+    A --> C[VRPHarvestingSpec + make_vrp_strategy<br/>strategies/vrp_harvesting/specs.py]
+    C --> D[StrategySpec<br/>backtesting/options_engine/specs.py]
+    B --> D
+    B --> E[build_options_execution_plan<br/>backtesting/options_engine/strategy_runner.py]
+    E --> F[entry.py<br/>build EntryIntent]
+    E --> G[sizing.py<br/>risk + margin sizing]
+    E --> H[lifecycle.py<br/>open/mark/close]
+    B --> I[run_backtest_execution_plan<br/>engine-owned loop]
 
-    A --> E[VRPHarvestingSpec + make_vrp_strategy<br/>strategies/vrp_harvesting/specs.py]
-    E --> D
-
-    D --> F[StrategySpec<br/>backtesting/options_engine/specs.py]
-    D --> G[entry.py<br/>build EntryIntent]
-    D --> H[sizing.py<br/>risk + margin sizing]
-    D --> I[lifecycle.py<br/>open/mark/close]
-    D --> J[runner.py<br/>single-position date loop]
-
-    G --> K[selectors.py<br/>DTE/delta/liquidity selection]
-    G --> L[types.py<br/>LegSpec/StructureSpec/EntryIntent]
-    H --> M[options/*<br/>pricer/risk/margin models]
-    I --> N[backtesting/margin.py<br/>margin lifecycle account]
+    F --> J[selectors.py<br/>DTE/delta/liquidity selection]
+    F --> K[types.py<br/>LegSpec/StructureSpec/EntryIntent]
+    G --> L[options/*<br/>pricer/risk/margin models]
+    H --> M[backtesting/margin.py<br/>margin lifecycle account]
 ```
 
 ## Runtime Sequence (One Backtest Run)
@@ -48,29 +45,28 @@ flowchart TD
 sequenceDiagram
     participant U as User Entrypoint
     participant B as Backtester
-    participant S as OptionsStrategyRunner
+    participant P as Plan Builder
     participant E as Entry Builder
     participant Z as Sizing
     participant L as Lifecycle
 
     U->>B: run(data, strategy, config)
-    B->>S: run(SliceContext)
-    S->>S: generate signals + apply filters
+    B->>P: build_options_execution_plan(...)
+    P->>P: generate signals + apply filters
     loop each trading date
         alt position open
-            S->>L: mark_position(...)
-            L-->>S: mtm_record + optional trade close rows
+            B->>L: mark_position(...)
+            L-->>B: mtm_record + optional trade close rows
         end
         alt entry date active and flat
-            S->>E: build_entry_intent_from_structure(...)
-            E-->>S: EntryIntent or None
-            S->>Z: size_entry_intent_contracts(...)
-            Z-->>S: contracts, risk/margin stats
-            S->>L: open_position(...)
-            L-->>S: entry mtm record
+            B->>E: build_entry_intent_from_structure(...)
+            E-->>B: EntryIntent or None
+            B->>Z: size_entry_intent(...)
+            Z-->>B: contracts, risk/margin stats
+            B->>L: open_position(...)
+            L-->>B: entry mtm record
         end
     end
-    S-->>B: trades, mtm
     B-->>U: trades, mtm
 ```
 
@@ -117,9 +113,9 @@ stateDiagram-v2
 - Applies exit rules (`exit_rules.py`) and emits trade rows on close.
 - Supports forced partial/full liquidation from margin lifecycle.
 
-### 4) Shared Loop (`runner.py`)
+### 4) Runtime Loop (`engine.py`)
 
-- Single-position date loop:
+- Engine-owned single-position date loop (`engine.py`):
   - mark open position first,
   - optionally allow same-day reentry based on exit-type policy,
   - open new position only on active entry dates.
@@ -128,24 +124,22 @@ stateDiagram-v2
 
 ### Backtester Boundary
 
-- `Backtester` depends on the minimal runtime contract:
-  - `StrategyRunner` protocol in `backtesting/types.py`
-  - required method: `run(ctx: SliceContext) -> (trades, mtm)`
-
-This keeps `backtesting/` generic and independent from options-specific classes.
+- `Backtester` consumes a concrete `StrategySpec`.
+- `Backtester` compiles that spec into a `BacktestExecutionPlan` and owns the
+  runtime execution loop.
 
 ### Options Runtime Boundary
 
-- `OptionsStrategyRunner` is one concrete implementation of `StrategyRunner`.
-- It is configured entirely by `StrategySpec` and collaborators (pricer, risk,
-  margin, entry/lifecycle policies).
+- `backtesting/options_engine/` contains pure options-domain building blocks:
+  entry selection, sizing, lifecycle, exit rules, and plan compilation.
+- It does not own top-level run orchestration.
 
 ## Strategy Preset Pattern
 
 Current VRP preset:
 
 - `VRPHarvestingSpec` defines business defaults
-- `make_vrp_strategy(spec)` returns `OptionsStrategyRunner`
+- `make_vrp_strategy(spec)` returns a concrete `StrategySpec`
 
 This pattern is reusable for future presets:
 

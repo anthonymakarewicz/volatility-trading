@@ -5,7 +5,6 @@ from volatility_trading.backtesting import BacktestConfig
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
     LegSpec,
-    OptionsStrategyRunner,
     StrategySpec,
     StructureSpec,
 )
@@ -89,7 +88,6 @@ def _run_strategy(direction: int):
         rebalance_period=1,
         max_holding_period=None,
     )
-    strategy = OptionsStrategyRunner(spec)
     cfg = BacktestConfig(
         initial_capital=10_000.0,
         lot_size=1,
@@ -99,7 +97,7 @@ def _run_strategy(direction: int):
     )
     bt = Backtester(
         data={"options": _make_options(), "features": None, "hedge": None},
-        strategy=strategy,
+        strategy=spec,
         config=cfg,
     )
     return bt.run()

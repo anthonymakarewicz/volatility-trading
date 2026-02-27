@@ -1,24 +1,69 @@
+from __future__ import annotations
+
+from typing import Any
+
+from .options_engine.specs import StrategySpec
+from .options_engine.strategy_runner import build_options_execution_plan
 from .types import (
     BacktestConfig,
+    BacktestExecutionPlan,
+    BacktestKernelHooks,
     DataMapping,
-    ParamGrid,
-    SliceContext,
-    StrategyRunner,
 )
 
-# TODO: Fix circular import in init to put Backtester in init
 
-# TODO: Pass to it the MarginAccount, or a Broker account, and move the execution logic here
-# so as to avoid passign a Slice context to the strategy
+def _record_delta_pnl(record: Any) -> float:
+    """Extract numeric ``delta_pnl`` from one typed MTM record."""
+    return float(getattr(record, "delta_pnl"))
+
+
+def run_backtest_execution_plan(plan: BacktestExecutionPlan) -> tuple[Any, Any]:
+    """Run one compiled single-position plan and return strategy outputs."""
+    trades: list[Any] = []
+    mtm_records: list[Any] = []
+    equity_running = float(plan.initial_equity)
+    open_position: Any | None = None
+    hooks: BacktestKernelHooks = plan.hooks
+
+    for curr_date in plan.trading_dates:
+        if open_position is not None:
+            step_result = hooks.mark_open_position(
+                open_position,
+                curr_date,
+                equity_running,
+            )
+            open_position = step_result.position
+            mtm_record = step_result.mtm_record
+            trade_rows = step_result.trade_rows
+            mtm_records.append(mtm_record)
+            trades.extend(trade_rows)
+            equity_running += _record_delta_pnl(mtm_record)
+
+            if open_position is not None:
+                continue
+            if not hooks.can_reenter_same_day(trade_rows):
+                continue
+
+        if curr_date not in plan.active_signal_dates:
+            continue
+
+        setup = hooks.prepare_entry(curr_date, equity_running)
+        if setup is None:
+            continue
+
+        open_position, entry_record = hooks.open_position(setup, equity_running)
+        mtm_records.append(entry_record)
+        equity_running += _record_delta_pnl(entry_record)
+
+    return plan.build_outputs(trades, mtm_records, plan.initial_equity)
 
 
 class Backtester:
     def __init__(
         self,
         data: DataMapping,
-        strategy: StrategyRunner,
+        strategy: StrategySpec,
         config: BacktestConfig,
-        param_grid: ParamGrid | None = None,
     ):
         """
         data: Map of named DataFrames/Series, e.g.
@@ -31,22 +76,15 @@ class Backtester:
         self.data = data
         self.strategy = strategy
         self.config = config
-        self.param_grid = param_grid or {}
 
     def run(self):
-        current_capital = self.config.initial_capital
-
-        ctx = SliceContext(
+        current_capital = float(self.config.initial_capital)
+        plan = build_options_execution_plan(
+            spec=self.strategy,
             data=self.data,
-            params=self.param_grid,
             config=self.config,
             capital=current_capital,
         )
-
-        trades, mtm = self.strategy.run(ctx)
+        trades, mtm = run_backtest_execution_plan(plan)
 
         return trades, mtm
-
-    # Should be a global orchestrator of the backtest
-    # The startegy runs the stratgey bybreturnign tardes and mtm, and the backtester performs the optmization of
-    # the params, runs the walk forwrad by passing the current train dev and test sets to the strategy

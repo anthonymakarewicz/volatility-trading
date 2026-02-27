@@ -22,11 +22,10 @@ from .reporting.plots import (
     plot_pnl_attribution,
     plot_stressed_pnl,
 )
-from .types import BacktestConfig, MarginCore, SliceContext
+from .types import BacktestConfig, MarginCore
 
 __all__ = [
     "BacktestConfig",
-    "SliceContext",
     "MarginCore",
     "to_daily_mtm",
     "MarginPolicy",

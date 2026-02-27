@@ -2,7 +2,7 @@
 
 This script demonstrates a minimal pipeline:
 1) load processed options + rates datasets,
-2) build a VRP strategy runner,
+2) build a VRP strategy spec,
 3) run the backtest,
 4) print performance metrics.
 

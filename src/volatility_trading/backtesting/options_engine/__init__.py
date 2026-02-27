@@ -25,7 +25,6 @@ from .lifecycle import (
     PositionEntrySetup,
     PositionLifecycleEngine,
 )
-from .runner import SinglePositionRunnerHooks, run_single_position_date_loop
 from .selectors import (
     apply_leg_liquidity_filters,
     score_leg_candidates,
@@ -40,7 +39,6 @@ from .sizing import (
     size_entry_intent_contracts,
 )
 from .specs import StrategySpec
-from .strategy_runner import OptionsStrategyRunner
 from .types import EntryIntent, LegSelection, LegSpec, QuoteSnapshot, StructureSpec
 
 __all__ = [
@@ -55,7 +53,6 @@ __all__ = [
     "quote_to_option_spec",
     "quote_to_option_leg",
     "StrategySpec",
-    "OptionsStrategyRunner",
     "chain_for_date",
     "normalize_signals_to_on",
     "build_entry_intent_from_structure",
@@ -77,6 +74,4 @@ __all__ = [
     "MtmRecord",
     "OpenPosition",
     "PositionLifecycleEngine",
-    "SinglePositionRunnerHooks",
-    "run_single_position_date_loop",
 ]

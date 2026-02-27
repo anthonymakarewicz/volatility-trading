@@ -1,4 +1,4 @@
-"""Typed configuration objects for options strategy runners."""
+"""Typed strategy specification consumed by the backtesting engine."""
 
 from __future__ import annotations
 
@@ -78,12 +78,14 @@ def _default_side_resolver(_leg: LegSpec, entry_direction: int) -> int:
 
 @dataclass
 class StrategySpec:
-    """Full configuration contract consumed by ``OptionsStrategyRunner``.
+    """Full configuration contract consumed by the backtest engine.
 
     The spec bundles signal/filter plumbing, structure selection rules,
-    lifecycle timing, and sizing/margin dependencies so the runner can stay
+    lifecycle timing, and sizing/margin dependencies so engine execution stays
     generic and strategy-agnostic.
     """
+
+    # TODO: Move generic backtest config into BacktestConfig
 
     signal: Signal
     structure_spec: StructureSpec

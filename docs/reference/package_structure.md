@@ -40,7 +40,6 @@ src/volatility_trading
 │   │   ├── entry.py
 │   │   ├── exit_rules.py
 │   │   ├── lifecycle.py
-│   │   ├── runner.py
 │   │   ├── selectors.py
 │   │   ├── sizing.py
 │   │   ├── specs.py
