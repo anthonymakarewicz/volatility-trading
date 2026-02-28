@@ -88,6 +88,11 @@ Notes:
 - Keep the summary <= 72 characters.
 - If pre-commit modifies files during `git commit`, run `git add -A` and commit again.
 
+## Releases
+
+For versioning and publish steps, see
+[Release Process](release_process.md).
+
 ## Notebook Workflow
 
 Notebook usage is standardized with Jupytext pairing (`.ipynb` + `.py:percent`).

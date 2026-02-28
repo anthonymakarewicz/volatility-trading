@@ -5,6 +5,7 @@ Use this page as the canonical entrypoint for repository documentation.
 ## Getting Started
 
 - [Development Guide](contributing/development.md): local environment, core workflow, and CI-aligned checks.
+- [Release Process](contributing/release_process.md): versioning policy (`0.x.y`), tags, and publish flow.
 - [Troubleshooting](troubleshooting.md): common setup/runtime failures and fixes.
 
 ## Engineering Standards

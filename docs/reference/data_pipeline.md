@@ -5,6 +5,12 @@ This project uses two pipeline patterns:
 1. **ORATS staged pipeline** (raw -> intermediate -> processed -> QC)
 2. **External market feed lightweight pipeline** (raw -> processed)
 
+Current scope:
+
+- Full options ETL is currently ORATS-first.
+- External feed pipeline (FRED/yfinance) currently supports market/rates time series.
+- Backtesting can consume non-ORATS options data when pre-normalized to the expected options-chain schema.
+
 Runtime YAML configs are grouped by source under `config/`:
 - `config/orats/`
 - `config/fred/`

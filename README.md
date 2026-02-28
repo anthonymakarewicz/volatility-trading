@@ -67,6 +67,13 @@ orats-api-download --config config/orats/api_download.yml --dry-run
 
 For the full command sequence, see [Data pipeline](docs/reference/data_pipeline.md).
 
+## **Current Data Support Status**
+
+- Options ETL (options chain + daily features) is currently supported through the ORATS pipeline.
+- External feed sync (`fred-sync`, `yfinance-sync`) currently covers rates/market time series, not a full generic options ETL path.
+- The options backtesting runtime expects the current project options-chain schema (for example quotes/Greeks fields used by entry, sizing, and lifecycle).
+- You can run backtests with non-ORATS data if it is pre-normalized to the expected schema.
+
 ## **Quick VRP Backtest Example**
 
 The snippet below focuses only on running the strategy.

@@ -25,6 +25,9 @@ Commands:
 - `orats-qc-daily-features` (config: `config/orats/qc_daily_features.yml`)
 - `orats-qc-options-chain` (config: `config/orats/qc_options_chain.yml`)
 
+Note:
+- The current full options ETL path is provided through these ORATS commands.
+
 Example:
 ```bash
 orats-api-download --config config/orats/api_download.yml
