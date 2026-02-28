@@ -20,6 +20,7 @@ from volatility_trading.backtesting.options_engine.contracts.records import (
     TradeRecord,
 )
 from volatility_trading.backtesting.options_engine.contracts.runtime import (
+    HedgeState,
     LifecycleStepResult,
     OpenPosition,
     PositionEntrySetup,
@@ -80,9 +81,7 @@ def _make_open_position(setup: PositionEntrySetup) -> OpenPosition:
         latest_margin_per_contract=setup.margin_per_contract,
         net_entry=0.0,
         prev_mtm=0.0,
-        hedge_qty=0.0,
-        hedge_price_entry=float("nan"),
-        last_hedge_rebalance_date=setup.intent.entry_date,
+        hedge=HedgeState(last_rebalance_date=setup.intent.entry_date),
         last_market=setup.intent.entry_state or MarketState(spot=100.0, volatility=0.2),
         last_greeks=Greeks(delta=0.0, gamma=0.0, vega=0.0, theta=0.0),
         last_net_delta=0.0,

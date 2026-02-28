@@ -4,10 +4,11 @@ from .config import (
     BacktestRunConfig,
     BrokerConfig,
     ExecutionConfig,
+    HedgeExecutionConfig,
     MarginConfig,
     ModelingConfig,
 )
-from .data_contracts import OptionsBacktestDataBundle
+from .data_contracts import HedgeMarketData, OptionsBacktestDataBundle
 from .margin import MarginAccount, MarginPolicy, MarginStatus
 from .margin_types import MarginCore
 from .performance import (
@@ -36,11 +37,13 @@ from .reporting.plots import (
 __all__ = [
     "AccountConfig",
     "ExecutionConfig",
+    "HedgeExecutionConfig",
     "MarginConfig",
     "BrokerConfig",
     "ModelingConfig",
     "BacktestRunConfig",
     "OptionsBacktestDataBundle",
+    "HedgeMarketData",
     "MarginCore",
     "to_daily_mtm",
     "MarginPolicy",

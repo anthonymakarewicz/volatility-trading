@@ -6,7 +6,7 @@ import pandas as pd
 
 from volatility_trading.options.types import Greeks, MarketState
 
-from ..contracts.runtime import OpenPosition, PositionEntrySetup
+from ..contracts.runtime import HedgeState, OpenPosition, PositionEntrySetup
 from .runtime_state import EntryMarginSnapshot
 from .valuation import summary_expiry_and_dte_from_legs
 
@@ -52,9 +52,7 @@ def build_open_position_state(
         latest_margin_per_contract=margin.latest_margin_per_contract,
         net_entry=net_entry,
         prev_mtm=0.0,
-        hedge_qty=0.0,
-        hedge_price_entry=float("nan"),
-        last_hedge_rebalance_date=setup.intent.entry_date,
+        hedge=HedgeState(last_rebalance_date=setup.intent.entry_date),
         last_market=(
             setup.intent.entry_state
             if setup.intent.entry_state is not None

@@ -25,6 +25,15 @@ class PositionEntrySetup:
 
 
 @dataclass
+class HedgeState:
+    """Mutable hedge state carried by one open option position."""
+
+    qty: float = 0.0
+    last_price: float = float("nan")
+    last_rebalance_date: pd.Timestamp | None = None
+
+
+@dataclass
 class OpenPosition:
     """Mutable open-position state updated once per trading date."""
 
@@ -41,9 +50,7 @@ class OpenPosition:
     latest_margin_per_contract: float | None
     net_entry: float
     prev_mtm: float
-    hedge_qty: float
-    hedge_price_entry: float
-    last_hedge_rebalance_date: pd.Timestamp | None
+    hedge: HedgeState
     last_market: MarketState
     last_greeks: Greeks
     last_net_delta: float

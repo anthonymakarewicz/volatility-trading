@@ -45,6 +45,15 @@ class MarkValuationSnapshot:
 
 
 @dataclass(frozen=True)
+class HedgeStepSnapshot:
+    """One-date hedge step result applied on top of option valuation."""
+
+    hedge_price_prev: float
+    hedge_pnl: float
+    net_delta: float
+
+
+@dataclass(frozen=True)
 class MarkMarginSnapshot:
     """One-date margin/accounting state after evaluating the margin account."""
 

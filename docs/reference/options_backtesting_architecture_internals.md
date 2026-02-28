@@ -124,13 +124,21 @@ flowchart TD
 ```mermaid
 flowchart LR
     S[StrategySpec] --> S1[LifecycleConfig]
+    S1 --> S11[DeltaHedgePolicy]
+    S11 --> S12[HedgeTriggerPolicy]
     S --> S2[SizingPolicyConfig]
     R[BacktestRunConfig] --> R1[AccountConfig]
     R --> R2[ExecutionConfig]
+    R2 --> R21[HedgeExecutionConfig]
     R --> R3[BrokerConfig]
     R --> R4[ModelingConfig]
     R3 --> R31[MarginConfig]
 ```
+
+- Dynamic hedging policy belongs to strategy config (`LifecycleConfig.delta_hedge`).
+- Hedge transaction-cost assumptions belong to run config (`ExecutionConfig.hedge`).
+- Hedge market prices are data inputs (`OptionsBacktestDataBundle.hedge_market`).
+- When delta hedging is enabled, the plan builder enforces hedge market availability.
 
 ### Dataclass Composition Map
 

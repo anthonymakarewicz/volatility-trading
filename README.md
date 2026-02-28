@@ -80,6 +80,7 @@ from volatility_trading.backtesting import (
     BacktestRunConfig,
     BrokerConfig,
     ExecutionConfig,
+    HedgeMarketData,
     MarginConfig,
     OptionsBacktestDataBundle,
     print_performance_report,
@@ -90,10 +91,11 @@ from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
 
+hedge_mid = options.groupby(level=0)["spot_price"].first().astype(float)
 data = OptionsBacktestDataBundle(
     options=options,
     features=None,
-    hedge=None,
+    hedge_market=HedgeMarketData(mid=hedge_mid),
 )
 
 vrp_spec = VRPHarvestingSpec(

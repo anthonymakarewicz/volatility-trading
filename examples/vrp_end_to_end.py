@@ -3,8 +3,9 @@
 This script demonstrates a minimal pipeline:
 1) load processed options + rates datasets,
 2) build a VRP strategy spec,
-3) run the backtest,
-4) print performance metrics.
+3) configure delta-hedging policy + hedge market feed,
+4) run the backtest,
+5) print performance metrics.
 
 It assumes the processed datasets already exist under `data/processed/`.
 """
@@ -21,12 +22,18 @@ from volatility_trading.backtesting import (
     BacktestRunConfig,
     BrokerConfig,
     ExecutionConfig,
+    HedgeExecutionConfig,
+    HedgeMarketData,
     MarginConfig,
     OptionsBacktestDataBundle,
     print_performance_report,
     to_daily_mtm,
 )
 from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting.options_engine import (
+    DeltaHedgePolicy,
+    HedgeTriggerPolicy,
+)
 from volatility_trading.datasets import (
     options_chain_wide_to_long,
     read_fred_rates,
@@ -135,24 +142,48 @@ def main() -> None:
         )
 
     rf_series = _load_rf_series(pd.DatetimeIndex(options_red.index))
+    hedge_mid = options_red.groupby(level=0)["spot_price"].first().astype(float)
 
     strategy_spec = VRPHarvestingSpec(
         signal=ShortOnlySignal(),
         rebalance_period=cfg.rebalance_period,
         risk_budget_pct=cfg.risk_budget_pct,
         margin_budget_pct=cfg.margin_budget_pct,
+        delta_hedge=DeltaHedgePolicy(
+            enabled=True,
+            target_net_delta=0.0,
+            trigger=HedgeTriggerPolicy(
+                delta_band_abs=25.0,
+                rebalance_every_n_days=5,
+                combine_mode="or",
+            ),
+            min_rebalance_qty=1.0,
+        ),
     )
     strategy = make_vrp_strategy(strategy_spec)
 
     backtest_cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=cfg.initial_capital),
-        execution=ExecutionConfig(commission_per_leg=cfg.commission_per_leg),
+        execution=ExecutionConfig(
+            commission_per_leg=cfg.commission_per_leg,
+            hedge=HedgeExecutionConfig(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_unit=0.0,
+            ),
+        ),
         broker=BrokerConfig(
             margin=MarginConfig(model=RegTMarginModel(broad_index=False))
         ),
     )
     bt = Backtester(
-        data=OptionsBacktestDataBundle(options=options_red),
+        data=OptionsBacktestDataBundle(
+            options=options_red,
+            hedge_market=HedgeMarketData(
+                mid=hedge_mid,
+                symbol=cfg.ticker,
+            ),
+        ),
         strategy=strategy,
         config=backtest_cfg,
     )

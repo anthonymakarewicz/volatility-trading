@@ -11,7 +11,7 @@ from .execution import (
 )
 from .market import QuoteSnapshot
 from .records import MtmMargin, MtmRecord, TradeLegRecord, TradeRecord
-from .runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
+from .runtime import HedgeState, LifecycleStepResult, OpenPosition, PositionEntrySetup
 from .structures import EntryIntent, FillPolicy, LegSelection, LegSpec, StructureSpec
 
 __all__ = [
@@ -27,6 +27,7 @@ __all__ = [
     "TradeRecord",
     "PositionEntrySetup",
     "OpenPosition",
+    "HedgeState",
     "LifecycleStepResult",
     "SinglePositionMarkFn",
     "SinglePositionPrepareEntryFn",

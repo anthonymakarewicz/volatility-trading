@@ -151,7 +151,12 @@ stateDiagram-v2
   signal/filter wiring, structure selection, lifecycle policy, sizing policy.
 - `BacktestRunConfig` carries run-time environment assumptions:
   account, execution, broker margin rules, pricing/risk engines, optional date window.
+- `OptionsBacktestDataBundle` carries market inputs:
+  options panel, optional features panel, and optional `hedge_market`.
 - Margin model/policy and pricing/risk engines are configured at run level, not preset level.
+- Dynamic delta hedging is strategy policy (`StrategySpec.lifecycle.delta_hedge`),
+  while hedge execution costs are run-level (`BacktestRunConfig.execution.hedge`).
+- If dynamic hedging is enabled, `data.hedge_market` is required.
 
 ## Strategy Preset Pattern
 
@@ -182,6 +187,8 @@ Add new strategy behavior by configuration first:
 - New sizing logic: adjust `StrategySpec.sizing` and/or provide another `RiskBudgetSizer`
 - New pricing/risk model: set `BacktestRunConfig.modeling` engines
 - New margin model/policy: set `BacktestRunConfig.broker.margin`
+- Dynamic delta hedging: set `StrategySpec.lifecycle.delta_hedge` and supply
+  `OptionsBacktestDataBundle.hedge_market`
 
 Only add new engine code when behavior cannot be expressed through these
 contracts.

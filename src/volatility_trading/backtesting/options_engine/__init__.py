@@ -10,7 +10,12 @@ from .adapters import (
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .contracts.market import QuoteSnapshot
 from .contracts.records import MtmRecord, TradeRecord
-from .contracts.runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
+from .contracts.runtime import (
+    HedgeState,
+    LifecycleStepResult,
+    OpenPosition,
+    PositionEntrySetup,
+)
 from .contracts.structures import EntryIntent, LegSelection, LegSpec, StructureSpec
 from .entry import (
     build_entry_intent_from_structure,
@@ -41,6 +46,7 @@ from .sizing import (
 )
 from .specs import (
     DeltaHedgePolicy,
+    HedgeTriggerPolicy,
     LifecycleConfig,
     SizingPolicyConfig,
     StrategySpec,
@@ -59,6 +65,7 @@ __all__ = [
     "quote_to_option_leg",
     "StrategySpec",
     "DeltaHedgePolicy",
+    "HedgeTriggerPolicy",
     "LifecycleConfig",
     "SizingPolicyConfig",
     "SinglePositionHooks",
@@ -85,6 +92,7 @@ __all__ = [
     "MtmRecord",
     "TradeRecord",
     "OpenPosition",
+    "HedgeState",
     "LifecycleStepResult",
     "PositionLifecycleEngine",
 ]

@@ -9,6 +9,7 @@ import pandas as pd
 from volatility_trading.options import MarginModel, PriceModel
 
 from ...config import BacktestRunConfig
+from ...data_contracts import HedgeMarketData
 from ..contracts.records import MtmRecord
 from ..contracts.runtime import OpenPosition
 from ..economics import roundtrip_commission_per_structure_contract
@@ -55,6 +56,7 @@ def build_mark_step_snapshots(
     margin_model: MarginModel | None,
     pricer: PriceModel,
     delta_hedge_policy: DeltaHedgePolicy,
+    hedge_market: HedgeMarketData | None,
 ) -> tuple[MarkValuationSnapshot, MarkMarginSnapshot, MtmRecord]:
     """Build valuation, margin, and base MTM snapshots for one mark date."""
     valuation = resolve_mark_valuation(
@@ -64,18 +66,23 @@ def build_mark_step_snapshots(
         lot_size=step.lot_size,
     )
     hedger = DeltaHedgeEngine(delta_hedge_policy)
-    hedge_pnl, net_delta = hedger.apply(
+    hedge_price = _resolve_hedge_price(
+        hedge_market=hedge_market,
+        curr_date=step.curr_date,
+    )
+    hedge_step = hedger.apply(
         position=position,
         curr_date=step.curr_date,
         option_delta=float(valuation.greeks.delta),
-        spot=float(valuation.market.spot),
+        hedge_price=hedge_price,
         execution=step.cfg.execution,
     )
     valuation = replace(
         valuation,
-        hedge_pnl=hedge_pnl,
-        net_delta=net_delta,
-        delta_pnl_market=(valuation.pnl_mtm - valuation.prev_mtm_before) + hedge_pnl,
+        hedge_pnl=hedge_step.hedge_pnl,
+        net_delta=hedge_step.net_delta,
+        delta_pnl_market=(valuation.pnl_mtm - valuation.prev_mtm_before)
+        + hedge_step.hedge_pnl,
     )
     maybe_refresh_margin_per_contract(
         position=position,
@@ -96,5 +103,25 @@ def build_mark_step_snapshots(
         curr_date=step.curr_date,
         valuation=valuation,
         margin=margin,
+        hedge_price_prev=hedge_step.hedge_price_prev,
     )
     return valuation, margin, mtm_record
+
+
+def _resolve_hedge_price(
+    *,
+    hedge_market: HedgeMarketData | None,
+    curr_date: pd.Timestamp,
+) -> float:
+    """Resolve hedge mid price for one date from typed hedge market data."""
+    if hedge_market is None:
+        return float("nan")
+    try:
+        raw = hedge_market.mid.loc[pd.Timestamp(curr_date)]
+    except KeyError:
+        return float("nan")
+    if isinstance(raw, pd.Series):
+        raw = raw.iloc[-1]
+    if pd.isna(raw):
+        return float("nan")
+    return float(raw)

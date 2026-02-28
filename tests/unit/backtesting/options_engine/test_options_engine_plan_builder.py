@@ -7,11 +7,14 @@ from volatility_trading.backtesting import (
     BacktestRunConfig,
     BrokerConfig,
     ExecutionConfig,
+    HedgeMarketData,
     MarginConfig,
     OptionsBacktestDataBundle,
 )
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
+    DeltaHedgePolicy,
+    HedgeTriggerPolicy,
     LegSpec,
     LifecycleConfig,
     SizingPolicyConfig,
@@ -112,6 +115,12 @@ def _run_strategy(direction: int):
         config=cfg,
     )
     return bt.run()
+
+
+def _make_hedge_market(options: pd.DataFrame) -> HedgeMarketData:
+    dates = options.index.unique()
+    mid = pd.Series(100.0, index=dates)
+    return HedgeMarketData(mid=mid)
 
 
 def test_config_strategy_uses_long_direction_for_entry_side():
@@ -294,3 +303,86 @@ def test_margin_budget_requires_broker_margin_model():
         match="strategy margin_budget_pct requires config.broker.margin.model",
     ):
         bt.run()
+
+
+def test_enabled_delta_hedging_requires_hedge_market_data():
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="delta_hedge_requires_data",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(
+            rebalance_period=1,
+            delta_hedge=DeltaHedgePolicy(
+                enabled=True,
+                trigger=HedgeTriggerPolicy(delta_band_abs=0.1),
+            ),
+        ),
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
+    )
+    bt = Backtester(
+        data=OptionsBacktestDataBundle(options=_make_options()),
+        strategy=spec,
+        config=cfg,
+    )
+    with pytest.raises(
+        ValueError,
+        match="enabled delta hedging requires data.hedge_market",
+    ):
+        bt.run()
+
+
+def test_enabled_delta_hedging_accepts_complete_hedge_market_data():
+    options = _make_options()
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="delta_hedge_with_data",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(
+            rebalance_period=1,
+            delta_hedge=DeltaHedgePolicy(
+                enabled=True,
+                trigger=HedgeTriggerPolicy(delta_band_abs=0.1),
+            ),
+        ),
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
+    )
+    bt = Backtester(
+        data=OptionsBacktestDataBundle(
+            options=options,
+            hedge_market=_make_hedge_market(options),
+        ),
+        strategy=spec,
+        config=cfg,
+    )
+    trades, mtm = bt.run()
+
+    assert len(trades) == 1
+    assert len(mtm) == 2

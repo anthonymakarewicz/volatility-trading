@@ -106,7 +106,7 @@ def transition_forced_liquidation(
         pnl_net_closed + pnl_mtm_remaining - valuation.prev_mtm_before
     ) + margin.margin.financing_pnl
     greeks_remaining = valuation.greeks.scaled(ratio_remaining)
-    net_delta_remaining = float(greeks_remaining.delta + position.hedge_qty)
+    net_delta_remaining = float(greeks_remaining.delta + position.hedge.qty)
     mtm_record = replace(
         mtm_record,
         delta_pnl=forced_delta_pnl,

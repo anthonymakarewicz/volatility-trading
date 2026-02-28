@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 
 from ..config import BacktestRunConfig
-from ..data_contracts import OptionsBacktestDataBundle
+from ..data_contracts import HedgeMarketData, OptionsBacktestDataBundle
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .contracts.runtime import PositionEntrySetup
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
@@ -30,27 +30,34 @@ def build_options_execution_plan(
 
     options = data.options
     features = data.features
-    hedge = data.hedge
+    hedge_market = data.hedge_market
 
     if config.start_date is not None:
         start = pd.Timestamp(config.start_date)
         options = options.loc[options.index >= start]
         if features is not None:
             features = features.loc[features.index >= start]
-        if hedge is not None:
-            hedge = hedge.loc[hedge.index >= start]
+        hedge_market = _slice_hedge_market(
+            hedge_market=hedge_market,
+            start=start,
+        )
     if config.end_date is not None:
         end = pd.Timestamp(config.end_date)
         options = options.loc[options.index <= end]
         if features is not None:
             features = features.loc[features.index <= end]
-        if hedge is not None:
-            hedge = hedge.loc[hedge.index <= end]
+        hedge_market = _slice_hedge_market(
+            hedge_market=hedge_market,
+            end=end,
+        )
 
-    signal_input = spec.signal_input_builder(options, features, hedge)
+    if spec.lifecycle.delta_hedge.enabled and hedge_market is None:
+        raise ValueError("enabled delta hedging requires data.hedge_market")
+
+    signal_input = spec.signal_input_builder(options, features, hedge_market)
     signals = spec.signal.generate_signals(signal_input)
     if spec.filters:
-        filter_ctx = spec.filter_context_builder(options, features, hedge)
+        filter_ctx = spec.filter_context_builder(options, features, hedge_market)
         for filt in spec.filters:
             signals = filt.apply(signals, filter_ctx)
 
@@ -59,7 +66,16 @@ def build_options_execution_plan(
     trading_dates = sorted(options.index.unique())
     direction_by_date = sig_df["entry_direction"].groupby(level=0).last().astype(int)
     active_signal_dates = set(direction_by_date[direction_by_date != 0].index)
-    lifecycle_engine = _build_lifecycle_engine(spec=spec, cfg=config)
+    _validate_hedge_market_coverage(
+        trading_dates=trading_dates,
+        spec=spec,
+        hedge_market=hedge_market,
+    )
+    lifecycle_engine = _build_lifecycle_engine(
+        spec=spec,
+        cfg=config,
+        hedge_market=hedge_market,
+    )
 
     hooks = SinglePositionHooks(
         mark_open_position=lambda position, curr_date, equity_running: (
@@ -165,7 +181,10 @@ def _prepare_entry_setup(
 
 
 def _build_lifecycle_engine(
-    *, spec: StrategySpec, cfg: BacktestRunConfig
+    *,
+    spec: StrategySpec,
+    cfg: BacktestRunConfig,
+    hedge_market: HedgeMarketData | None,
 ) -> PositionLifecycleEngine:
     """Build lifecycle engine configured from one strategy spec."""
     return PositionLifecycleEngine(
@@ -176,4 +195,63 @@ def _build_lifecycle_engine(
         margin_model=cfg.broker.margin.model,
         pricer=cfg.modeling.pricer,
         delta_hedge_policy=spec.lifecycle.delta_hedge,
+        hedge_market=hedge_market,
     )
+
+
+def _slice_hedge_market(
+    *,
+    hedge_market: HedgeMarketData | None,
+    start: pd.Timestamp | None = None,
+    end: pd.Timestamp | None = None,
+) -> HedgeMarketData | None:
+    """Slice hedge market series to backtest date range when provided."""
+    if hedge_market is None:
+        return None
+
+    mid = hedge_market.mid
+    bid = hedge_market.bid
+    ask = hedge_market.ask
+    if start is not None:
+        mid = mid.loc[mid.index >= start]
+        if bid is not None:
+            bid = bid.loc[bid.index >= start]
+        if ask is not None:
+            ask = ask.loc[ask.index >= start]
+    if end is not None:
+        mid = mid.loc[mid.index <= end]
+        if bid is not None:
+            bid = bid.loc[bid.index <= end]
+        if ask is not None:
+            ask = ask.loc[ask.index <= end]
+
+    return HedgeMarketData(
+        mid=mid,
+        bid=bid,
+        ask=ask,
+        symbol=hedge_market.symbol,
+        contract_multiplier=hedge_market.contract_multiplier,
+    )
+
+
+def _validate_hedge_market_coverage(
+    *,
+    trading_dates: list[pd.Timestamp],
+    spec: StrategySpec,
+    hedge_market: HedgeMarketData | None,
+) -> None:
+    """Validate hedge mid-price coverage for enabled strict delta hedging."""
+    if (
+        not spec.lifecycle.delta_hedge.enabled
+        or spec.lifecycle.delta_hedge.allow_missing_hedge_price
+        or hedge_market is None
+    ):
+        return
+
+    hedge_dates = set(pd.to_datetime(hedge_market.mid.index))
+    missing_dates = [date for date in trading_dates if date not in hedge_dates]
+    if missing_dates:
+        raise ValueError(
+            "hedge_market.mid is missing prices for one or more trading dates; "
+            "set allow_missing_hedge_price=True to allow gaps"
+        )

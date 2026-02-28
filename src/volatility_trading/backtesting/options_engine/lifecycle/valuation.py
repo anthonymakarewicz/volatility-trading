@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 
 import numpy as np
@@ -301,8 +300,6 @@ def update_position_mark_state(
 ) -> None:
     """Persist updated in-trade state after one mark step."""
     position.prev_mtm = pnl_mtm
-    if math.isfinite(float(market.spot)):
-        position.hedge_price_entry = float(market.spot)
     position.last_market = market
     position.last_greeks = greeks
     position.last_net_delta = net_delta

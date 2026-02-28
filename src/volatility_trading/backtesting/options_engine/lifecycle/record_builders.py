@@ -67,6 +67,7 @@ def build_mark_record(
     curr_date: pd.Timestamp,
     valuation: MarkValuationSnapshot,
     margin: MarkMarginSnapshot,
+    hedge_price_prev: float,
 ) -> MtmRecord:
     """Build one-date MTM record before forced close or standard exits."""
     delta_pnl = valuation.delta_pnl_market + margin.margin.financing_pnl
@@ -76,8 +77,8 @@ def build_mark_record(
         delta_pnl=delta_pnl,
         greeks=valuation.greeks,
         net_delta=valuation.net_delta,
-        hedge_qty=position.hedge_qty,
-        hedge_price_prev=position.hedge_price_entry,
+        hedge_qty=position.hedge.qty,
+        hedge_price_prev=hedge_price_prev,
         hedge_pnl=valuation.hedge_pnl,
         open_contracts=position.contracts_open,
         margin=MtmMargin(

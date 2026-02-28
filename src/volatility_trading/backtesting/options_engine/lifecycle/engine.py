@@ -9,6 +9,7 @@ import pandas as pd
 from volatility_trading.options import MarginModel, PriceModel
 
 from ...config import BacktestRunConfig
+from ...data_contracts import HedgeMarketData
 from ...margin import MarginPolicy
 from ..contracts.records import MtmRecord
 from ..contracts.runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
@@ -41,6 +42,7 @@ class PositionLifecycleEngine:
     margin_model: MarginModel | None
     pricer: PriceModel
     delta_hedge_policy: DeltaHedgePolicy
+    hedge_market: HedgeMarketData | None = None
 
     def open_position(
         self,
@@ -123,6 +125,7 @@ class PositionLifecycleEngine:
             margin_model=self.margin_model,
             pricer=self.pricer,
             delta_hedge_policy=self.delta_hedge_policy,
+            hedge_market=self.hedge_market,
         )
 
         forced_outcome = transition_forced_liquidation(
