@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from volatility_trading.backtesting.options_engine import (
+    DeltaHedgePolicy,
     ExitRuleSet,
     LegSpec,
     LifecycleConfig,
@@ -50,6 +51,7 @@ class VRPHarvestingSpec:
     margin_budget_pct: float | None = None
     exit_rule_set: ExitRuleSet = field(default_factory=ExitRuleSet.period_rules)
     reentry_policy: SameDayReentryPolicy | None = None
+    delta_hedge: DeltaHedgePolicy = field(default_factory=DeltaHedgePolicy)
     min_contracts: int = 1
     max_contracts: int | None = None
 
@@ -88,6 +90,7 @@ class VRPHarvestingSpec:
                 max_holding_period=self.max_holding_period,
                 exit_rule_set=self.exit_rule_set,
                 reentry_policy=reentry_policy,
+                delta_hedge=self.delta_hedge,
             ),
             sizing=SizingPolicyConfig(
                 risk_sizer=risk_sizer,

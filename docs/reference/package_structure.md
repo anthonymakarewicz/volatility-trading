@@ -46,6 +46,7 @@ src/volatility_trading
 │   │   ├── lifecycle
 │   │   │   ├── __init__.py
 │   │   │   ├── engine.py
+│   │   │   ├── hedging.py
 │   │   │   ├── marking.py
 │   │   │   ├── margining.py
 │   │   │   ├── opening.py

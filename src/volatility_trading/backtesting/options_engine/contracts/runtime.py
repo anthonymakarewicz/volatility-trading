@@ -43,6 +43,7 @@ class OpenPosition:
     prev_mtm: float
     hedge_qty: float
     hedge_price_entry: float
+    last_hedge_rebalance_date: pd.Timestamp | None
     last_market: MarketState
     last_greeks: Greeks
     last_net_delta: float

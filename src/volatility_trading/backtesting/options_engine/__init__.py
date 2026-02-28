@@ -39,7 +39,12 @@ from .sizing import (
     estimate_entry_intent_margin_per_contract,
     size_entry_intent,
 )
-from .specs import LifecycleConfig, SizingPolicyConfig, StrategySpec
+from .specs import (
+    DeltaHedgePolicy,
+    LifecycleConfig,
+    SizingPolicyConfig,
+    StrategySpec,
+)
 
 __all__ = [
     "LegSpec",
@@ -53,6 +58,7 @@ __all__ = [
     "quote_to_option_spec",
     "quote_to_option_leg",
     "StrategySpec",
+    "DeltaHedgePolicy",
     "LifecycleConfig",
     "SizingPolicyConfig",
     "SinglePositionHooks",

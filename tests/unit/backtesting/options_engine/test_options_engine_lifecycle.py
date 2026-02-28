@@ -8,6 +8,7 @@ from volatility_trading.backtesting import (
     MarginPolicy,
 )
 from volatility_trading.backtesting.options_engine import (
+    DeltaHedgePolicy,
     EntryIntent,
     ExitRuleSet,
     LegSelection,
@@ -179,6 +180,7 @@ def _make_engine(
     rebalance_period: int | None = 5,
     margin_policy: MarginPolicy | None = None,
     margin_model=None,
+    delta_hedge_policy: DeltaHedgePolicy | None = None,
 ) -> PositionLifecycleEngine:
     return PositionLifecycleEngine(
         rebalance_period=rebalance_period,
@@ -187,6 +189,7 @@ def _make_engine(
         margin_policy=margin_policy,
         margin_model=margin_model,
         pricer=_NullPricer(),
+        delta_hedge_policy=delta_hedge_policy or DeltaHedgePolicy(),
     )
 
 
@@ -374,3 +377,95 @@ def test_mark_position_forced_liquidation_target_mode_can_be_partial():
     assert mtm_record.open_contracts == 2
     assert mtm_record.margin.core.contracts_liquidated == 2
     assert mtm_record.margin.core.forced_liquidation is True
+
+
+def test_mark_position_applies_delta_band_hedging_and_updates_net_delta():
+    setup = _make_setup(contracts=1)
+    cfg = _make_cfg()
+    engine = _make_engine(
+        rebalance_period=10,
+        delta_hedge_policy=DeltaHedgePolicy(
+            enabled=True,
+            target_net_delta=0.0,
+            delta_band_abs=0.1,
+            rebalance_every_n_days=None,
+        ),
+    )
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    options = _make_options_row_for_date(
+        trade_date="2020-01-02",
+        spot_price=101.0,
+    )
+    step_result = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=options,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+    updated_position = step_result.position
+    mtm_record = step_result.mtm_record
+
+    assert updated_position is not None
+    assert mtm_record.hedge_qty == pytest.approx(0.5)
+    assert mtm_record.net_delta == pytest.approx(0.0)
+    assert mtm_record.hedge_pnl == pytest.approx(0.0)
+    assert updated_position.hedge_qty == pytest.approx(0.5)
+    assert updated_position.last_net_delta == pytest.approx(0.0)
+    assert updated_position.hedge_price_entry == pytest.approx(101.0)
+    assert updated_position.last_hedge_rebalance_date == pd.Timestamp("2020-01-02")
+
+
+def test_mark_position_applies_time_based_hedging_trigger():
+    setup = _make_setup(contracts=1)
+    cfg = _make_cfg()
+    engine = _make_engine(
+        rebalance_period=10,
+        delta_hedge_policy=DeltaHedgePolicy(
+            enabled=True,
+            target_net_delta=0.0,
+            delta_band_abs=None,
+            rebalance_every_n_days=2,
+        ),
+    )
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    day2 = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-02",
+            spot_price=101.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+    position_day2 = day2.position
+    assert position_day2 is not None
+    assert day2.mtm_record.hedge_qty == pytest.approx(0.0)
+    assert day2.mtm_record.net_delta == pytest.approx(-0.5)
+
+    day3 = engine.mark_position(
+        position=position_day2,
+        curr_date=pd.Timestamp("2020-01-03"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-03",
+            spot_price=102.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0 + float(day2.mtm_record.delta_pnl),
+    )
+    position_day3 = day3.position
+    assert position_day3 is not None
+    assert day3.mtm_record.hedge_qty == pytest.approx(0.5)
+    assert day3.mtm_record.net_delta == pytest.approx(0.0)
+    assert position_day3.last_hedge_rebalance_date == pd.Timestamp("2020-01-03")

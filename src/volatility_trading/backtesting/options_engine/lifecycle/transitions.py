@@ -105,11 +105,13 @@ def transition_forced_liquidation(
     forced_delta_pnl = (
         pnl_net_closed + pnl_mtm_remaining - valuation.prev_mtm_before
     ) + margin.margin.financing_pnl
+    greeks_remaining = valuation.greeks.scaled(ratio_remaining)
+    net_delta_remaining = float(greeks_remaining.delta + position.hedge_qty)
     mtm_record = replace(
         mtm_record,
         delta_pnl=forced_delta_pnl,
-        greeks=valuation.greeks.scaled(ratio_remaining),
-        net_delta=valuation.net_delta * ratio_remaining,
+        greeks=greeks_remaining,
+        net_delta=net_delta_remaining,
         open_contracts=contracts_after,
         margin=replace(
             mtm_record.margin,
@@ -136,8 +138,8 @@ def transition_forced_liquidation(
         position=position,
         pnl_mtm=pnl_mtm_remaining,
         market=valuation.market,
-        greeks=mtm_record.greeks,
-        net_delta=float(mtm_record.net_delta),
+        greeks=greeks_remaining,
+        net_delta=net_delta_remaining,
     )
     return LifecycleStepResult(
         position=position,

@@ -54,6 +54,9 @@ class ExecutionConfig:
     slip_ask: float = 0.01
     slip_bid: float = 0.01
     commission_per_leg: float = 1.0
+    hedge_slip_ask: float = 0.0
+    hedge_slip_bid: float = 0.0
+    hedge_commission_per_unit: float = 0.0
 
     def __post_init__(self) -> None:
         if self.lot_size <= 0:
@@ -64,6 +67,12 @@ class ExecutionConfig:
             raise ValueError("slip_bid must be >= 0")
         if self.commission_per_leg < 0:
             raise ValueError("commission_per_leg must be >= 0")
+        if self.hedge_slip_ask < 0:
+            raise ValueError("hedge_slip_ask must be >= 0")
+        if self.hedge_slip_bid < 0:
+            raise ValueError("hedge_slip_bid must be >= 0")
+        if self.hedge_commission_per_unit < 0:
+            raise ValueError("hedge_commission_per_unit must be >= 0")
 
 
 @dataclass(frozen=True)

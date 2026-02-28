@@ -175,4 +175,5 @@ def _build_lifecycle_engine(
         margin_policy=cfg.broker.margin.policy,
         margin_model=cfg.broker.margin.model,
         pricer=cfg.modeling.pricer,
+        delta_hedge_policy=spec.lifecycle.delta_hedge,
     )

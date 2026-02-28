@@ -14,6 +14,7 @@ from ..contracts.records import MtmRecord
 from ..contracts.runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
 from ..economics import roundtrip_commission_per_structure_contract
 from ..exit_rules import ExitRuleSet
+from ..specs import DeltaHedgePolicy
 from .margining import evaluate_entry_margin
 from .marking import build_mark_step_context, build_mark_step_snapshots
 from .opening import build_open_position_state
@@ -39,6 +40,7 @@ class PositionLifecycleEngine:
     margin_policy: MarginPolicy | None
     margin_model: MarginModel | None
     pricer: PriceModel
+    delta_hedge_policy: DeltaHedgePolicy
 
     def open_position(
         self,
@@ -120,6 +122,7 @@ class PositionLifecycleEngine:
             options=options,
             margin_model=self.margin_model,
             pricer=self.pricer,
+            delta_hedge_policy=self.delta_hedge_policy,
         )
 
         forced_outcome = transition_forced_liquidation(

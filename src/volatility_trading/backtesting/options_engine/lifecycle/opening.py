@@ -54,6 +54,7 @@ def build_open_position_state(
         prev_mtm=0.0,
         hedge_qty=0.0,
         hedge_price_entry=float("nan"),
+        last_hedge_rebalance_date=setup.intent.entry_date,
         last_market=(
             setup.intent.entry_state
             if setup.intent.entry_state is not None

@@ -82,6 +82,7 @@ def _make_open_position(setup: PositionEntrySetup) -> OpenPosition:
         prev_mtm=0.0,
         hedge_qty=0.0,
         hedge_price_entry=float("nan"),
+        last_hedge_rebalance_date=setup.intent.entry_date,
         last_market=setup.intent.entry_state or MarketState(spot=100.0, volatility=0.2),
         last_greeks=Greeks(delta=0.0, gamma=0.0, vega=0.0, theta=0.0),
         last_net_delta=0.0,

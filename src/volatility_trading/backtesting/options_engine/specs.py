@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TypeAlias
+from typing import Literal, TypeAlias
 
 import pandas as pd
 
@@ -69,6 +69,45 @@ def _default_side_resolver(_leg: LegSpec, entry_direction: int) -> int:
 
 
 @dataclass(frozen=True)
+class DeltaHedgePolicy:
+    """Dynamic delta-hedging policy applied during lifecycle mark steps."""
+
+    enabled: bool = False
+    target_net_delta: float = 0.0
+    delta_band_abs: float | None = None
+    rebalance_every_n_days: int | None = None
+    combine_mode: Literal["or", "and"] = "or"
+    min_rebalance_qty: float = 0.0
+    max_rebalance_qty: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.delta_band_abs is not None and self.delta_band_abs < 0:
+            raise ValueError("delta_band_abs must be >= 0 when provided")
+        if self.rebalance_every_n_days is not None and self.rebalance_every_n_days <= 0:
+            raise ValueError("rebalance_every_n_days must be > 0 when provided")
+        if self.combine_mode not in {"or", "and"}:
+            raise ValueError("combine_mode must be either 'or' or 'and'")
+        if self.min_rebalance_qty < 0:
+            raise ValueError("min_rebalance_qty must be >= 0")
+        if self.max_rebalance_qty is not None and self.max_rebalance_qty <= 0:
+            raise ValueError("max_rebalance_qty must be > 0 when provided")
+        if (
+            self.max_rebalance_qty is not None
+            and self.max_rebalance_qty < self.min_rebalance_qty
+        ):
+            raise ValueError("max_rebalance_qty must be >= min_rebalance_qty")
+        if (
+            self.enabled
+            and self.delta_band_abs is None
+            and self.rebalance_every_n_days is None
+        ):
+            raise ValueError(
+                "enabled delta hedging requires delta_band_abs and/or "
+                "rebalance_every_n_days"
+            )
+
+
+@dataclass(frozen=True)
 class LifecycleConfig:
     """Position lifecycle policy for one strategy."""
 
@@ -76,6 +115,7 @@ class LifecycleConfig:
     max_holding_period: int | None = None
     exit_rule_set: ExitRuleSet = field(default_factory=ExitRuleSet.period_rules)
     reentry_policy: SameDayReentryPolicy = field(default_factory=SameDayReentryPolicy)
+    delta_hedge: DeltaHedgePolicy = field(default_factory=DeltaHedgePolicy)
 
     def __post_init__(self) -> None:
         for name, period in (

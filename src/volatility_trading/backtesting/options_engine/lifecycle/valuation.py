@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 
 import numpy as np
@@ -274,8 +275,8 @@ def resolve_mark_valuation(
         )
 
     hedge_pnl = 0.0
-    net_delta = position.last_net_delta if has_missing_quote else greeks.delta
-    delta_pnl_market = (pnl_mtm - prev_mtm_before) + hedge_pnl
+    net_delta = float(greeks.delta)
+    delta_pnl_market = pnl_mtm - prev_mtm_before
     market = MarketState(spot=spot_curr, volatility=iv_curr)
     return MarkValuationSnapshot(
         prev_mtm_before=prev_mtm_before,
@@ -300,6 +301,8 @@ def update_position_mark_state(
 ) -> None:
     """Persist updated in-trade state after one mark step."""
     position.prev_mtm = pnl_mtm
+    if math.isfinite(float(market.spot)):
+        position.hedge_price_entry = float(market.spot)
     position.last_market = market
     position.last_greeks = greeks
     position.last_net_delta = net_delta

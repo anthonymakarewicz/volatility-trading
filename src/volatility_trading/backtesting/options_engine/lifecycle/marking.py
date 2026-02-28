@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pandas as pd
 
 from volatility_trading.options import MarginModel, PriceModel
@@ -10,6 +12,8 @@ from ...config import BacktestRunConfig
 from ..contracts.records import MtmRecord
 from ..contracts.runtime import OpenPosition
 from ..economics import roundtrip_commission_per_structure_contract
+from ..specs import DeltaHedgePolicy
+from .hedging import DeltaHedgeEngine
 from .margining import (
     evaluate_mark_margin,
     maybe_refresh_margin_per_contract,
@@ -50,6 +54,7 @@ def build_mark_step_snapshots(
     options: pd.DataFrame,
     margin_model: MarginModel | None,
     pricer: PriceModel,
+    delta_hedge_policy: DeltaHedgePolicy,
 ) -> tuple[MarkValuationSnapshot, MarkMarginSnapshot, MtmRecord]:
     """Build valuation, margin, and base MTM snapshots for one mark date."""
     valuation = resolve_mark_valuation(
@@ -57,6 +62,20 @@ def build_mark_step_snapshots(
         curr_date=step.curr_date,
         options=options,
         lot_size=step.lot_size,
+    )
+    hedger = DeltaHedgeEngine(delta_hedge_policy)
+    hedge_pnl, net_delta = hedger.apply(
+        position=position,
+        curr_date=step.curr_date,
+        option_delta=float(valuation.greeks.delta),
+        spot=float(valuation.market.spot),
+        execution=step.cfg.execution,
+    )
+    valuation = replace(
+        valuation,
+        hedge_pnl=hedge_pnl,
+        net_delta=net_delta,
+        delta_pnl_market=(valuation.pnl_mtm - valuation.prev_mtm_before) + hedge_pnl,
     )
     maybe_refresh_margin_per_contract(
         position=position,
