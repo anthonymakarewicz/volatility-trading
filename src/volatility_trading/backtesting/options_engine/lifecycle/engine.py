@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -16,6 +16,12 @@ from ..contracts.runtime import LifecycleStepResult, OpenPosition, PositionEntry
 from ..economics import roundtrip_commission_per_structure_contract
 from ..exit_rules import ExitRuleSet
 from ..specs import DeltaHedgePolicy
+from .hedging import (
+    DeltaNeutralHedgeTargetModel,
+    HedgeExecutionModel,
+    HedgeTargetModel,
+    LinearHedgeExecutionModel,
+)
 from .margining import evaluate_entry_margin
 from .marking import build_mark_step_context, build_mark_step_snapshots
 from .opening import build_open_position_state
@@ -43,6 +49,12 @@ class PositionLifecycleEngine:
     pricer: PriceModel
     delta_hedge_policy: DeltaHedgePolicy
     hedge_market: HedgeMarketData | None = None
+    hedge_target_model: HedgeTargetModel = field(
+        default_factory=DeltaNeutralHedgeTargetModel
+    )
+    hedge_execution_model: HedgeExecutionModel = field(
+        default_factory=LinearHedgeExecutionModel
+    )
 
     def open_position(
         self,
@@ -126,6 +138,8 @@ class PositionLifecycleEngine:
             pricer=self.pricer,
             delta_hedge_policy=self.delta_hedge_policy,
             hedge_market=self.hedge_market,
+            hedge_target_model=self.hedge_target_model,
+            hedge_execution_model=self.hedge_execution_model,
         )
 
         forced_outcome = transition_forced_liquidation(

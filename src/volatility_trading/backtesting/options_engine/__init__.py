@@ -29,7 +29,15 @@ from .exit_rules import (
     RebalanceExitRule,
     SameDayReentryPolicy,
 )
-from .lifecycle import PositionLifecycleEngine
+from .lifecycle import (
+    DeltaHedgeEngine,
+    DeltaNeutralHedgeTargetModel,
+    HedgeExecutionModel,
+    HedgeExecutionResult,
+    HedgeTargetModel,
+    LinearHedgeExecutionModel,
+    PositionLifecycleEngine,
+)
 from .outputs import build_options_backtest_outputs
 from .plan_builder import build_options_execution_plan
 from .selectors import (
@@ -95,4 +103,10 @@ __all__ = [
     "HedgeState",
     "LifecycleStepResult",
     "PositionLifecycleEngine",
+    "DeltaHedgeEngine",
+    "HedgeTargetModel",
+    "DeltaNeutralHedgeTargetModel",
+    "HedgeExecutionResult",
+    "HedgeExecutionModel",
+    "LinearHedgeExecutionModel",
 ]

@@ -14,7 +14,11 @@ from ..contracts.records import MtmRecord
 from ..contracts.runtime import OpenPosition
 from ..economics import roundtrip_commission_per_structure_contract
 from ..specs import DeltaHedgePolicy
-from .hedging import DeltaHedgeEngine
+from .hedging import (
+    DeltaHedgeEngine,
+    HedgeExecutionModel,
+    HedgeTargetModel,
+)
 from .margining import (
     evaluate_mark_margin,
     maybe_refresh_margin_per_contract,
@@ -57,6 +61,8 @@ def build_mark_step_snapshots(
     pricer: PriceModel,
     delta_hedge_policy: DeltaHedgePolicy,
     hedge_market: HedgeMarketData | None,
+    hedge_target_model: HedgeTargetModel,
+    hedge_execution_model: HedgeExecutionModel,
 ) -> tuple[MarkValuationSnapshot, MarkMarginSnapshot, MtmRecord]:
     """Build valuation, margin, and base MTM snapshots for one mark date."""
     valuation = resolve_mark_valuation(
@@ -65,7 +71,11 @@ def build_mark_step_snapshots(
         options=options,
         lot_size=step.lot_size,
     )
-    hedger = DeltaHedgeEngine(delta_hedge_policy)
+    hedger = DeltaHedgeEngine(
+        delta_hedge_policy,
+        target_model=hedge_target_model,
+        execution_model=hedge_execution_model,
+    )
     hedge_price = _resolve_hedge_price(
         hedge_market=hedge_market,
         curr_date=step.curr_date,

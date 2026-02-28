@@ -51,6 +51,9 @@ class HedgeStepSnapshot:
     hedge_price_prev: float
     hedge_pnl: float
     net_delta: float
+    target_net_delta: float
+    trade_qty: float
+    hedge_cost: float
 
 
 @dataclass(frozen=True)
