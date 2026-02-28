@@ -33,6 +33,21 @@ Example:
 orats-api-download --config config/orats/api_download.yml
 ```
 
+## OptionsDX
+
+Commands:
+- `optionsdx-prepare-panel` (config: `config/optionsdx/prepare_panel.yml`)
+
+Example:
+```bash
+optionsdx-prepare-panel --config config/optionsdx/prepare_panel.yml
+```
+
+Notes:
+- Expects raw archives under `data/raw/optionsdx/<TICKER>/<YEAR>/*.7z`.
+- Writes one processed panel per ticker under
+  `data/processed/optionsdx/<TICKER>/`.
+
 ## Market Feeds
 
 Commands:
@@ -60,3 +75,8 @@ All ORATS apps now use a **consistent** paths schema:
 - `paths.inter_root` (intermediate data)
 - `paths.proc_root` (processed data)
 - `paths.monies_implied_root` (options-chain build only)
+
+OptionsDX panel build app uses:
+
+- `paths.raw_root`
+- `paths.proc_root`

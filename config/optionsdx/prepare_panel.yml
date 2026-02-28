@@ -1,0 +1,20 @@
+# OptionsDX panel build config (CLI overrides YAML)
+logging:
+  level: INFO
+  color: true
+
+paths:
+  raw_root: data/raw/optionsdx
+  proc_root: data/processed/optionsdx
+
+tickers:
+  - SPY
+
+start_year: 2010
+end_year: 2023
+low_memory: false
+do_clean: true
+reshape: wide
+overwrite: true
+verbose: true
+panel_name: null

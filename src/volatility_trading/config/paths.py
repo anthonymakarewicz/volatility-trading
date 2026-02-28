@@ -19,7 +19,7 @@ RAW_ORATS = DATA_RAW / "orats"  # provider root
 RAW_ORATS_FTP = RAW_ORATS / "ftp"
 RAW_ORATS_API = RAW_ORATS / "api"
 
-RAW_OPTIONSDX = DATA_RAW / "optionsdx"
+RAW_OPTIONSDX = DATA_RAW / "optionsdx"  # <ticker>/<year>/*.7z
 
 RAW_YFINANCE = DATA_RAW / "yfinance"
 RAW_YFINANCE_TIME_SERIES = RAW_YFINANCE / "time_series"
@@ -40,7 +40,9 @@ PROC_ORATS = DATA_PROC / "orats"
 PROC_ORATS_OPTIONS_CHAIN = PROC_ORATS / "options_chain"
 PROC_ORATS_DAILY_FEATURES = PROC_ORATS / "daily_features"
 
-PROC_OPTIONSDX = DATA_PROC / "optionsdx"
+PROC_OPTIONSDX = (
+    DATA_PROC / "optionsdx"
+)  # <ticker>/optionsdx_panel_<start>_<end>.parquet
 PROC_OPTIONSDX_OPTIONS_CHAIN = PROC_OPTIONSDX / "options_chain"
 PROC_OPTIONSDX_DAILY_FEATURES = PROC_OPTIONSDX / "daily_features"
 

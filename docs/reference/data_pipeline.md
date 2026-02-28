@@ -8,11 +8,13 @@ This project uses two pipeline patterns:
 Current scope:
 
 - Full options ETL is currently ORATS-first.
+- OptionsDX is supported as a local raw-archive to processed-panel pipeline.
 - External feed pipeline (FRED/yfinance) currently supports market/rates time series.
 - Backtesting can consume non-ORATS options data when pre-normalized to the expected options-chain schema.
 
 Runtime YAML configs are grouped by source under `config/`:
 - `config/orats/`
+- `config/optionsdx/`
 - `config/fred/`
 - `config/yfinance/`
 
@@ -173,6 +175,40 @@ Design notes:
 - Use `raw/` for lineage/debug/rebuild workflows.
 - Keep external feeds in `raw -> processed` unless complexity justifies an
   explicit intermediate stage.
+
+## OptionsDX Lightweight Pipeline
+
+OptionsDX currently uses a lightweight local-ingestion pattern:
+
+1. Download yearly `.7z` archives manually from OptionsDX.
+2. Store raw files by ticker and year.
+3. Build one processed panel per ticker.
+
+CLI entrypoint:
+
+```bash
+optionsdx-prepare-panel --config config/optionsdx/prepare_panel.yml --dry-run
+optionsdx-prepare-panel --config config/optionsdx/prepare_panel.yml
+```
+
+Directory layout:
+
+```text
+data/
+  raw/
+    optionsdx/
+      SPY/
+        2010/
+          *.7z
+        2011/
+          *.7z
+  processed/
+    optionsdx/
+      SPY/
+        optionsdx_panel_2010_2023.parquet
+```
+
+For provider download steps, see [OptionsDX Setup](optionsdx_setup.md).
 
 ## Tips
 

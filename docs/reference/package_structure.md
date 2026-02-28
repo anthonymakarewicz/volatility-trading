@@ -9,6 +9,9 @@ src/volatility_trading
 │   ├── fred
 │   │   ├── __init__.py
 │   │   └── sync.py
+│   ├── optionsdx
+│   │   ├── __init__.py
+│   │   └── prepare_panel.py
 │   ├── orats
 │       ├── __init__.py
 │       ├── build_daily_features.py
@@ -105,7 +108,9 @@ src/volatility_trading
 │   ├── fred
 │   │   ├── __init__.py
 │   │   └── sync.py
-│   ├── optionsdx_loader.py
+│   ├── optionsdx
+│   │   ├── __init__.py
+│   │   └── panel.py
 │   ├── orats
 │       ├── __init__.py
 │       ├── api
