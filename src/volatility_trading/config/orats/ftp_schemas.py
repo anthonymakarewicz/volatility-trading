@@ -22,6 +22,15 @@ from typing import Final
 
 import polars as pl
 
+from volatility_trading.contracts.options_chain import (
+    EXPIRY_DATE,
+    MODEL_IV,
+    SPOT_PRICE,
+    STRIKE,
+    TRADE_DATE,
+    YTE,
+)
+
 from .schema_spec import OratsSchemaSpec
 
 # ----------------------------------------------------------------------------
@@ -116,11 +125,11 @@ _STRIKES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "pOpra": "put_opra",
     # underlying / dates
     "stkPx": "underlying_price",
-    "spot_px": "spot_price",
-    "expirDate": "expiry_date",
-    "trade_date": "trade_date",
-    "yte": "yte",
-    "strike": "strike",
+    "spot_px": SPOT_PRICE,
+    "expirDate": EXPIRY_DATE,
+    "trade_date": TRADE_DATE,
+    "yte": YTE,
+    "strike": STRIKE,
     # volume / open interest
     "cVolu": "call_volume",
     "cOi": "call_open_interest",
@@ -137,7 +146,7 @@ _STRIKES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "cBidIv": "call_bid_iv",
     "cMidIv": "call_market_iv",
     "cAskIv": "call_ask_iv",
-    "smoothSmvVol": "model_iv",
+    "smoothSmvVol": MODEL_IV,
     "pBidIv": "put_bid_iv",
     "pMidIv": "put_market_iv",
     "pAskIv": "put_ask_iv",
@@ -167,13 +176,13 @@ _STRIKES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
 _STRIKES_KEEP_CANONICAL: tuple[str, ...] = (
     # identifiers / dates
     "ticker",
-    "trade_date",
-    "expiry_date",
-    "yte",
-    "strike",
+    TRADE_DATE,
+    EXPIRY_DATE,
+    YTE,
+    STRIKE,
     # underlying
     "underlying_price",
-    "spot_price",
+    SPOT_PRICE,
     # identifiers (useful for de-dupe; optional but I’d keep)
     "call_opra",
     "put_opra",
@@ -190,7 +199,7 @@ _STRIKES_KEEP_CANONICAL: tuple[str, ...] = (
     "put_model_price",
     "put_ask_price",
     # vols
-    "model_iv",
+    MODEL_IV,
     "call_market_iv",
     "put_market_iv",
     # curves
@@ -219,9 +228,9 @@ _STRIKES_KEEP_CANONICAL: tuple[str, ...] = (
 # Tier 1: structural validity => drop row
 _STRIKES_BOUNDS_DROP_CANONICAL: dict[str, tuple[float, float]] = {
     "underlying_price": (0.0, 1e7),
-    "spot_price": (0.0, 1e7),
-    "strike": (0.0, 1e9),
-    "yte": (0.0, 10.0),
+    SPOT_PRICE: (0.0, 1e7),
+    STRIKE: (0.0, 1e9),
+    YTE: (0.0, 10.0),
 }
 
 # Tier 2: value plausibility => set to null
@@ -234,7 +243,7 @@ _STRIKES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "put_model_price": (0.0, 1e7),
     "put_ask_price": (0.0, 1e7),
     # vols
-    "model_iv": (0.0, 10.0),
+    MODEL_IV: (0.0, 10.0),
     "call_bid_iv": (0.0, 10.0),
     "call_market_iv": (0.0, 10.0),
     "call_ask_iv": (0.0, 10.0),

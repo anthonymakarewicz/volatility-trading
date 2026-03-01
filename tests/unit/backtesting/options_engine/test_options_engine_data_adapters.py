@@ -11,6 +11,7 @@ from volatility_trading.backtesting import (
 )
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
+    CanonicalOptionsChainAdapter,
     ColumnMapOptionsChainAdapter,
     LegSpec,
     LifecycleConfig,
@@ -91,6 +92,44 @@ def test_column_map_adapter_maps_custom_source_columns():
     assert normalized.index.name == "trade_date"
     assert list(normalized["option_type"]) == ["C"]
     assert normalized["bid_price"].iloc[0] == pytest.approx(5.0)
+
+
+def test_canonical_adapter_validates_trusted_canonical_input():
+    raw = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(["2020-01-01"]),
+            "expiry_date": pd.to_datetime(["2020-01-31"]),
+            "dte": [30.0],
+            "option_type": ["C"],
+            "strike": [100.0],
+            "delta": [0.5],
+            "bid_price": [5.0],
+            "ask_price": [5.2],
+        }
+    )
+    normalized = normalize_options_chain(raw, adapter=CanonicalOptionsChainAdapter())
+    assert normalized.index.name == "trade_date"
+    assert normalized["option_type"].iloc[0] == "C"
+
+
+def test_canonical_adapter_raises_on_non_numeric_required_column():
+    raw = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(["2020-01-01"]),
+            "expiry_date": pd.to_datetime(["2020-01-31"]),
+            "dte": [30.0],
+            "option_type": ["C"],
+            "strike": [100.0],
+            "delta": ["bad_value"],
+            "bid_price": [5.0],
+            "ask_price": [5.2],
+        }
+    )
+    with pytest.raises(
+        OptionsChainAdapterError,
+        match="required numeric column 'delta' must be numeric",
+    ):
+        normalize_options_chain(raw, adapter=CanonicalOptionsChainAdapter())
 
 
 def test_yfinance_adapter_parses_option_type_from_contract_symbol():

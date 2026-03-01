@@ -9,6 +9,10 @@ plan compilation:
 
 This boundary is applied in `build_options_execution_plan(...)`.
 
+Canonical field names are centralized in
+`volatility_trading.contracts.options_chain` and reused by ETL and
+backtesting adapters.
+
 ## Canonical Options-Chain Contract
 
 Required columns:
@@ -50,6 +54,11 @@ Optional columns:
 
 - `ColumnMapOptionsChainAdapter`
   - Generic source-to-canonical mapping for custom datasets.
+
+- `CanonicalOptionsChainAdapter`
+  - Fast-path contract check for trusted canonical ETL outputs.
+  - Skips alias remapping/coercion and enforces schema validation only.
+  - Requires canonical typed columns (for example numeric `delta`, datetime `expiry_date`).
 
 ## Usage
 

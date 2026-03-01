@@ -16,47 +16,22 @@ from typing import Protocol
 
 import pandas as pd
 
-CANONICAL_REQUIRED_COLUMNS: tuple[str, ...] = (
-    "expiry_date",
-    "dte",
-    "option_type",
-    "strike",
-    "delta",
-    "bid_price",
-    "ask_price",
-)
-
-CANONICAL_OPTIONAL_COLUMNS: tuple[str, ...] = (
-    "gamma",
-    "vega",
-    "theta",
-    "spot_price",
-    "market_iv",
-    "model_iv",
-    "yte",
-    "open_interest",
-    "volume",
-)
-
-CANONICAL_COLUMN_SET: frozenset[str] = frozenset(
-    CANONICAL_REQUIRED_COLUMNS + CANONICAL_OPTIONAL_COLUMNS
-)
-
-NUMERIC_COLUMNS: tuple[str, ...] = (
-    "dte",
-    "strike",
-    "delta",
-    "gamma",
-    "vega",
-    "theta",
-    "bid_price",
-    "ask_price",
-    "spot_price",
-    "market_iv",
-    "model_iv",
-    "yte",
-    "open_interest",
-    "volume",
+from volatility_trading.contracts.options_chain import (
+    ASK_PRICE,
+    BID_PRICE,
+    CANONICAL_ALIAS_FIELDS,
+    CANONICAL_COLUMN_SET,
+    CANONICAL_REQUIRED_COLUMNS,
+    DELTA,
+    DTE,
+    EXPIRY_DATE,
+    NUMERIC_COLUMNS,
+    OPTION_TYPE,
+    OPTIONSDX_ALIAS_OVERRIDES,
+    ORATS_ALIAS_OVERRIDES,
+    STRIKE,
+    TRADE_DATE,
+    YFINANCE_ALIAS_OVERRIDES,
 )
 
 
@@ -73,6 +48,10 @@ class OptionsChainAdapter(Protocol):
 
     def normalize(self, raw: pd.DataFrame) -> pd.DataFrame:
         """Return source data normalized to canonical engine columns."""
+
+
+_VALID_OPTION_TYPES = frozenset({"C", "P"})
+_REQUIRED_NUMERIC_COLUMNS = (DTE, STRIKE, DELTA, BID_PRICE, ASK_PRICE)
 
 
 def _coerce_numeric(series: pd.Series) -> pd.Series:
@@ -98,22 +77,22 @@ def _canonicalize_option_type(series: pd.Series) -> pd.Series:
 
 
 def _set_trade_date_index(df: pd.DataFrame) -> pd.DataFrame:
-    if "trade_date" in df.columns:
+    if TRADE_DATE in df.columns:
         out = df.copy()
-        out["trade_date"] = _coerce_datetime(out["trade_date"])
-        out = out.set_index("trade_date").sort_index()
-        out.index.name = "trade_date"
+        out[TRADE_DATE] = _coerce_datetime(out[TRADE_DATE])
+        out = out.set_index(TRADE_DATE).sort_index()
+        out.index.name = TRADE_DATE
         return out
 
     if isinstance(df.index, pd.DatetimeIndex):
         out = df.copy()
         out.index = pd.to_datetime(out.index, errors="coerce")
-        out.index.name = "trade_date"
+        out.index.name = TRADE_DATE
         return out.sort_index()
 
     out = df.copy()
     out.index = pd.to_datetime(out.index, errors="coerce")
-    out.index.name = "trade_date"
+    out.index.name = TRADE_DATE
     return out.sort_index()
 
 
@@ -159,12 +138,12 @@ class AliasOptionsChainAdapter:
 
         if (
             self.parse_option_type_from_contract_symbol
-            and "option_type" not in df.columns
+            and OPTION_TYPE not in df.columns
             and "contract_symbol" in df.columns
         ):
             symbol = df["contract_symbol"].astype(str).str.upper()
             parsed = symbol.str.extract(r"(\d{6,8})([CP])\d+$", expand=True)
-            df["option_type"] = parsed.iloc[:, 1]
+            df[OPTION_TYPE] = parsed.iloc[:, 1]
 
         return normalize_and_validate_options_chain(df, adapter_name=self.name)
 
@@ -185,7 +164,7 @@ class ColumnMapOptionsChainAdapter:
         invalid_targets = [
             canonical
             for canonical in self.source_to_canonical.values()
-            if canonical not in CANONICAL_COLUMN_SET and canonical != "trade_date"
+            if canonical not in CANONICAL_COLUMN_SET and canonical != TRADE_DATE
         ]
         if invalid_targets:
             unique_targets = sorted(set(invalid_targets))
@@ -198,11 +177,19 @@ class ColumnMapOptionsChainAdapter:
         return normalize_and_validate_options_chain(df, adapter_name=self.name)
 
 
-CANONICAL_ALIAS_FIELDS: tuple[str, ...] = (
-    "trade_date",
-    *CANONICAL_REQUIRED_COLUMNS,
-    *CANONICAL_OPTIONAL_COLUMNS,
-)
+@dataclass(frozen=True)
+class CanonicalOptionsChainAdapter:
+    """Fast-path adapter for trusted canonical inputs.
+
+    This adapter skips alias remapping and numeric coercion. It only enforces
+    canonical schema/typing checks. Use it for ETL outputs already normalized
+    to the canonical options-chain contract.
+    """
+
+    name: str = "canonical"
+
+    def normalize(self, raw: pd.DataFrame) -> pd.DataFrame:
+        return validate_options_chain_contract(raw, adapter_name=self.name)
 
 
 def _unique_aliases(*values: str) -> tuple[str, ...]:
@@ -232,39 +219,6 @@ def _build_aliases(
         )
     return aliases
 
-
-ORATS_ALIAS_OVERRIDES: dict[str, tuple[str, ...]] = {
-    "trade_date": ("date", "quote_date"),
-    "expiry_date": ("expiry", "expire_date"),
-    "bid_price": ("bid",),
-    "ask_price": ("ask",),
-    "spot_price": ("underlying_last", "underlying_price"),
-    "market_iv": ("market_iv", "mid_iv", "iv", "smoothed_iv"),
-    "model_iv": ("model_iv", "smoothed_iv"),
-    "open_interest": ("oi",),
-}
-
-YFINANCE_ALIAS_OVERRIDES: dict[str, tuple[str, ...]] = {
-    "trade_date": ("quote_date", "date", "last_trade_date"),
-    "expiry_date": ("expiration", "expiry", "expiration_date"),
-    "option_type": ("type", "option_type_label"),
-    "bid_price": ("bid",),
-    "ask_price": ("ask",),
-    "spot_price": ("underlying_price", "underlying_last"),
-    "market_iv": ("implied_volatility", "impliedVolatility", "iv", "smoothed_iv"),
-    "open_interest": ("openInterest",),
-}
-
-OPTIONSDX_ALIAS_OVERRIDES: dict[str, tuple[str, ...]] = {
-    "trade_date": ("date", "quote_date", "quote_readtime"),
-    "expiry_date": ("expiry", "expire_date"),
-    "bid_price": ("bid",),
-    "ask_price": ("ask",),
-    "spot_price": ("underlying_last", "underlying_price"),
-    # OptionsDX exposes market IV; map to canonical market_iv.
-    "market_iv": ("mid_iv", "iv", "smoothed_iv"),
-    "open_interest": ("oi",),
-}
 
 ORATS_ALIASES = _build_aliases(ORATS_ALIAS_OVERRIDES)
 YFINANCE_ALIASES = _build_aliases(YFINANCE_ALIAS_OVERRIDES)
@@ -315,14 +269,102 @@ class OptionsDxOptionsChainAdapter(AliasOptionsChainAdapter):
         lowered = raw.rename(
             columns={col: str(col).strip().lower() for col in raw.columns}
         )
-        if "option_type" not in lowered.columns and any(
+        if OPTION_TYPE not in lowered.columns and any(
             col.startswith(("c_", "p_")) for col in lowered.columns
         ):
             raise OptionsChainAdapterError(
                 "optionsdx: wide c_*/p_* columns detected. "
                 "Run OptionsDX ETL with reshape='long' before backtesting."
-            )  # TODO: Issue warnig and maybe reshape to long format here
+            )
         return super().normalize(lowered)
+
+
+def _normalize_canonical_df(options: pd.DataFrame) -> pd.DataFrame:
+    """Coerce canonical dataframe fields before contract validation."""
+    df = _set_trade_date_index(options)
+
+    if EXPIRY_DATE in df.columns:
+        df[EXPIRY_DATE] = _coerce_datetime(df[EXPIRY_DATE])
+
+    if OPTION_TYPE in df.columns:
+        df[OPTION_TYPE] = _canonicalize_option_type(df[OPTION_TYPE])
+
+    numeric_cols = [col for col in NUMERIC_COLUMNS if col in df.columns]
+    if numeric_cols:
+        df[numeric_cols] = df[numeric_cols].apply(_coerce_numeric)
+
+    return df
+
+
+def _validate_canonical_df(
+    df: pd.DataFrame,
+    *,
+    adapter_name: str,
+    assume_coerced: bool,
+) -> None:
+    """Validate canonical schema and core data sanity constraints."""
+    if df.index.isna().any():
+        raise OptionsChainAdapterError(
+            f"{adapter_name}: could not parse one or more {TRADE_DATE} values"
+        )
+
+    missing_required = [
+        col for col in CANONICAL_REQUIRED_COLUMNS if col not in df.columns
+    ]
+    if missing_required:
+        raise OptionsChainAdapterError(
+            f"{adapter_name}: missing required canonical columns: {missing_required}"
+        )
+
+    if OPTION_TYPE in df.columns:
+        bad_option_types = sorted(set(df[OPTION_TYPE].dropna()) - _VALID_OPTION_TYPES)
+        if bad_option_types:
+            raise OptionsChainAdapterError(
+                f"{adapter_name}: {OPTION_TYPE} must be C/P (or call/put). "
+                f"Found invalid labels: {bad_option_types}"
+            )
+
+    coercion_context = "after coercion" if assume_coerced else "during validation"
+    for required_numeric in _REQUIRED_NUMERIC_COLUMNS:
+        if not assume_coerced and not pd.api.types.is_numeric_dtype(
+            df[required_numeric]
+        ):
+            raise OptionsChainAdapterError(
+                f"{adapter_name}: required numeric column '{required_numeric}' must be numeric "
+                "for canonical validation"
+            )
+        if df[required_numeric].isna().all():
+            raise OptionsChainAdapterError(
+                f"{adapter_name}: required numeric column '{required_numeric}' is all-null "
+                f"{coercion_context}"
+            )
+
+    if not assume_coerced and not pd.api.types.is_datetime64_any_dtype(df[EXPIRY_DATE]):
+        raise OptionsChainAdapterError(
+            f"{adapter_name}: {EXPIRY_DATE} must be datetime-like for canonical validation"
+        )
+
+    expiry_context = (
+        "after datetime coercion" if assume_coerced else "during validation"
+    )
+    if df[EXPIRY_DATE].isna().all():
+        raise OptionsChainAdapterError(
+            f"{adapter_name}: {EXPIRY_DATE} is all-null {expiry_context}"
+        )
+
+
+def validate_options_chain_contract(
+    options: pd.DataFrame,
+    *,
+    adapter_name: str = "canonical",
+) -> pd.DataFrame:
+    """Validate a trusted canonical options-chain dataframe without coercion."""
+    if options.empty:
+        raise OptionsChainAdapterError(f"{adapter_name}: options dataframe is empty")
+
+    df = _set_trade_date_index(options)
+    _validate_canonical_df(df, adapter_name=adapter_name, assume_coerced=False)
+    return df
 
 
 def normalize_and_validate_options_chain(
@@ -334,53 +376,8 @@ def normalize_and_validate_options_chain(
     if options.empty:
         raise OptionsChainAdapterError(f"{adapter_name}: options dataframe is empty")
 
-    df = _set_trade_date_index(options)
-
-    if df.index.isna().any():
-        raise OptionsChainAdapterError(
-            f"{adapter_name}: could not parse one or more trade_date values"
-        )
-
-    if "expiry_date" in df.columns:
-        df = df.copy()
-        df["expiry_date"] = _coerce_datetime(df["expiry_date"])
-
-    if "option_type" in df.columns:
-        df = df.copy()
-        df["option_type"] = _canonicalize_option_type(df["option_type"])
-
-    for col in NUMERIC_COLUMNS:
-        if col in df.columns:
-            df = df.copy()
-            df[col] = _coerce_numeric(df[col])
-
-    missing_required = [
-        col for col in CANONICAL_REQUIRED_COLUMNS if col not in df.columns
-    ]
-    if missing_required:
-        raise OptionsChainAdapterError(
-            f"{adapter_name}: missing required canonical columns: {missing_required}"
-        )
-
-    bad_option_types = sorted(set(df["option_type"].dropna()) - {"C", "P"})
-    if bad_option_types:
-        raise OptionsChainAdapterError(
-            f"{adapter_name}: option_type must be C/P (or call/put). "
-            f"Found invalid labels: {bad_option_types}"
-        )
-
-    for required_numeric in ("dte", "strike", "delta", "bid_price", "ask_price"):
-        if df[required_numeric].isna().all():
-            raise OptionsChainAdapterError(
-                f"{adapter_name}: required numeric column '{required_numeric}' is all-null "
-                "after coercion"
-            )
-
-    if df["expiry_date"].isna().all():
-        raise OptionsChainAdapterError(
-            f"{adapter_name}: expiry_date is all-null after datetime coercion"
-        )
-
+    df = _normalize_canonical_df(options)
+    _validate_canonical_df(df, adapter_name=adapter_name, assume_coerced=True)
     return df
 
 

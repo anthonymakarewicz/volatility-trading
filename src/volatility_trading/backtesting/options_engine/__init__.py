@@ -4,6 +4,7 @@ from ..data_adapters import (
     CANONICAL_OPTIONAL_COLUMNS,
     CANONICAL_REQUIRED_COLUMNS,
     AliasOptionsChainAdapter,
+    CanonicalOptionsChainAdapter,
     ColumnMapOptionsChainAdapter,
     OptionsChainAdapterError,
     OptionsDxOptionsChainAdapter,
@@ -11,6 +12,7 @@ from ..data_adapters import (
     YfinanceOptionsChainAdapter,
     normalize_and_validate_options_chain,
     normalize_options_chain,
+    validate_options_chain_contract,
 )
 from .adapters import (
     normalize_chain_option_type,
@@ -125,10 +127,12 @@ __all__ = [
     "CANONICAL_OPTIONAL_COLUMNS",
     "OptionsChainAdapterError",
     "AliasOptionsChainAdapter",
+    "CanonicalOptionsChainAdapter",
     "OratsOptionsChainAdapter",
     "YfinanceOptionsChainAdapter",
     "OptionsDxOptionsChainAdapter",
     "ColumnMapOptionsChainAdapter",
     "normalize_and_validate_options_chain",
     "normalize_options_chain",
+    "validate_options_chain_contract",
 ]

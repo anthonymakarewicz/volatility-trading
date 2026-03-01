@@ -50,6 +50,10 @@ Run the extraction/processing pipeline to clean and store data in:
 
 `data/processed/optionsdx/<TICKER>/`
 
+When `reshape: long` is used, output columns are normalized to canonical
+options-chain names (for example `trade_date`, `expiry_date`, `bid_price`,
+`ask_price`, `market_iv`) to match backtesting contracts.
+
 ```bash
 optionsdx-prepare-panel --config config/optionsdx/prepare_panel.yml --dry-run
 optionsdx-prepare-panel --config config/optionsdx/prepare_panel.yml

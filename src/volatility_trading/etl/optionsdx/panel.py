@@ -10,6 +10,10 @@ from pathlib import Path
 import polars as pl
 import py7zr
 
+from volatility_trading.contracts.options_chain import (
+    OPTIONSDX_LONG_RENAMES_VENDOR_TO_CANONICAL,
+)
+
 
 def _normalize_column_name(name: str) -> str:
     """Normalize vendor column names to a stable snake-case-ish format."""
@@ -243,6 +247,18 @@ def clean_data(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+def _rename_long_to_canonical(df: pl.DataFrame) -> pl.DataFrame:
+    """Rename cleaned long-format OptionsDX fields to canonical contract names."""
+    rename_map = {
+        source: target
+        for source, target in OPTIONSDX_LONG_RENAMES_VENDOR_TO_CANONICAL.items()
+        if source in df.columns and source != target
+    }
+    if not rename_map:
+        return df
+    return df.rename(rename_map)
+
+
 def remove_illiquid_options(
     df: pl.DataFrame,
     volume_min: int = 1,
@@ -321,6 +337,7 @@ def prepare_option_panel(
     elif reshape == "long":
         if verbose:
             print("Keeping long format...")
+        df = _rename_long_to_canonical(df)
     elif reshape is None:
         if verbose:
             print("Skipping reshaping...")
