@@ -80,7 +80,7 @@ def test_mtm_delta_pnl_matches_trade_pnl_on_holding_period_exit():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-01",
@@ -95,7 +95,7 @@ def test_mtm_delta_pnl_matches_trade_pnl_on_holding_period_exit():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-02",
@@ -110,7 +110,7 @@ def test_mtm_delta_pnl_matches_trade_pnl_on_holding_period_exit():
                 "bid_price": 5.8,
                 "ask_price": 6.2,
                 "spot_price": 101.0,
-                "smoothed_iv": 0.22,
+                "market_iv": 0.22,
             },
             {
                 "trade_date": "2020-01-02",
@@ -125,7 +125,7 @@ def test_mtm_delta_pnl_matches_trade_pnl_on_holding_period_exit():
                 "bid_price": 5.8,
                 "ask_price": 6.2,
                 "spot_price": 101.0,
-                "smoothed_iv": 0.22,
+                "market_iv": 0.22,
             },
             {
                 "trade_date": "2020-01-03",
@@ -140,7 +140,7 @@ def test_mtm_delta_pnl_matches_trade_pnl_on_holding_period_exit():
                 "bid_price": 6.2,
                 "ask_price": 6.5,
                 "spot_price": 102.0,
-                "smoothed_iv": 0.23,
+                "market_iv": 0.23,
             },
             {
                 "trade_date": "2020-01-03",
@@ -155,7 +155,7 @@ def test_mtm_delta_pnl_matches_trade_pnl_on_holding_period_exit():
                 "bid_price": 6.2,
                 "ask_price": 6.5,
                 "spot_price": 102.0,
-                "smoothed_iv": 0.23,
+                "market_iv": 0.23,
             },
         ]
     )
@@ -183,7 +183,7 @@ def test_unresolved_trade_keeps_mtm_path_instead_of_being_dropped():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-01",
@@ -198,7 +198,7 @@ def test_unresolved_trade_keeps_mtm_path_instead_of_being_dropped():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             # Matching expiry, but not the held strike, so the position never exits.
             {
@@ -214,7 +214,7 @@ def test_unresolved_trade_keeps_mtm_path_instead_of_being_dropped():
                 "bid_price": 4.8,
                 "ask_price": 5.0,
                 "spot_price": 105.0,
-                "smoothed_iv": 0.21,
+                "market_iv": 0.21,
             },
             {
                 "trade_date": "2020-01-02",
@@ -229,7 +229,7 @@ def test_unresolved_trade_keeps_mtm_path_instead_of_being_dropped():
                 "bid_price": 4.8,
                 "ask_price": 5.0,
                 "spot_price": 105.0,
-                "smoothed_iv": 0.21,
+                "market_iv": 0.21,
             },
             {
                 "trade_date": "2020-01-03",
@@ -244,7 +244,7 @@ def test_unresolved_trade_keeps_mtm_path_instead_of_being_dropped():
                 "bid_price": 4.7,
                 "ask_price": 4.9,
                 "spot_price": 105.0,
-                "smoothed_iv": 0.21,
+                "market_iv": 0.21,
             },
             {
                 "trade_date": "2020-01-03",
@@ -259,7 +259,7 @@ def test_unresolved_trade_keeps_mtm_path_instead_of_being_dropped():
                 "bid_price": 4.7,
                 "ask_price": 4.9,
                 "spot_price": 105.0,
-                "smoothed_iv": 0.21,
+                "market_iv": 0.21,
             },
         ]
     )
@@ -303,7 +303,7 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-01",
@@ -318,7 +318,7 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-03",
@@ -333,7 +333,7 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
                 "bid_price": 6.2,
                 "ask_price": 6.5,
                 "spot_price": 102.0,
-                "smoothed_iv": 0.23,
+                "market_iv": 0.23,
             },
             {
                 "trade_date": "2020-01-03",
@@ -348,7 +348,7 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
                 "bid_price": 6.2,
                 "ask_price": 6.5,
                 "spot_price": 102.0,
-                "smoothed_iv": 0.23,
+                "market_iv": 0.23,
             },
         ]
     )
@@ -411,7 +411,7 @@ def test_margin_budget_caps_contracts_below_risk_budget():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-01",
@@ -426,7 +426,7 @@ def test_margin_budget_caps_contracts_below_risk_budget():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-03",
@@ -441,7 +441,7 @@ def test_margin_budget_caps_contracts_below_risk_budget():
                 "bid_price": 6.2,
                 "ask_price": 6.5,
                 "spot_price": 102.0,
-                "smoothed_iv": 0.23,
+                "market_iv": 0.23,
             },
             {
                 "trade_date": "2020-01-03",
@@ -456,7 +456,7 @@ def test_margin_budget_caps_contracts_below_risk_budget():
                 "bid_price": 6.2,
                 "ask_price": 6.5,
                 "spot_price": 102.0,
-                "smoothed_iv": 0.23,
+                "market_iv": 0.23,
             },
         ]
     )
@@ -506,7 +506,7 @@ def test_margin_call_liquidation_exits_before_holding_period():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-01",
@@ -521,7 +521,7 @@ def test_margin_call_liquidation_exits_before_holding_period():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-02",
@@ -536,7 +536,7 @@ def test_margin_call_liquidation_exits_before_holding_period():
                 "bid_price": 8.0,
                 "ask_price": 8.2,
                 "spot_price": 118.0,
-                "smoothed_iv": 0.32,
+                "market_iv": 0.32,
             },
             {
                 "trade_date": "2020-01-02",
@@ -551,7 +551,7 @@ def test_margin_call_liquidation_exits_before_holding_period():
                 "bid_price": 8.0,
                 "ask_price": 8.2,
                 "spot_price": 118.0,
-                "smoothed_iv": 0.32,
+                "market_iv": 0.32,
             },
         ]
     )
@@ -621,7 +621,7 @@ def test_same_day_reentry_can_be_enabled_for_rebalance_rolls():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-01",
@@ -636,7 +636,7 @@ def test_same_day_reentry_can_be_enabled_for_rebalance_rolls():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-02",
@@ -651,7 +651,7 @@ def test_same_day_reentry_can_be_enabled_for_rebalance_rolls():
                 "bid_price": 5.8,
                 "ask_price": 6.0,
                 "spot_price": 101.0,
-                "smoothed_iv": 0.21,
+                "market_iv": 0.21,
             },
             {
                 "trade_date": "2020-01-02",
@@ -666,7 +666,7 @@ def test_same_day_reentry_can_be_enabled_for_rebalance_rolls():
                 "bid_price": 5.8,
                 "ask_price": 6.0,
                 "spot_price": 101.0,
-                "smoothed_iv": 0.21,
+                "market_iv": 0.21,
             },
             {
                 "trade_date": "2020-01-03",
@@ -681,7 +681,7 @@ def test_same_day_reentry_can_be_enabled_for_rebalance_rolls():
                 "bid_price": 6.2,
                 "ask_price": 6.4,
                 "spot_price": 102.0,
-                "smoothed_iv": 0.22,
+                "market_iv": 0.22,
             },
             {
                 "trade_date": "2020-01-03",
@@ -696,7 +696,7 @@ def test_same_day_reentry_can_be_enabled_for_rebalance_rolls():
                 "bid_price": 6.2,
                 "ask_price": 6.4,
                 "spot_price": 102.0,
-                "smoothed_iv": 0.22,
+                "market_iv": 0.22,
             },
         ]
     )
@@ -744,7 +744,7 @@ def test_rebalance_period_and_max_holding_period_can_be_set_separately():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-01",
@@ -759,7 +759,7 @@ def test_rebalance_period_and_max_holding_period_can_be_set_separately():
                 "bid_price": 5.0,
                 "ask_price": 5.2,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-02",
@@ -774,7 +774,7 @@ def test_rebalance_period_and_max_holding_period_can_be_set_separately():
                 "bid_price": 5.8,
                 "ask_price": 6.0,
                 "spot_price": 101.0,
-                "smoothed_iv": 0.21,
+                "market_iv": 0.21,
             },
             {
                 "trade_date": "2020-01-02",
@@ -789,7 +789,7 @@ def test_rebalance_period_and_max_holding_period_can_be_set_separately():
                 "bid_price": 5.8,
                 "ask_price": 6.0,
                 "spot_price": 101.0,
-                "smoothed_iv": 0.21,
+                "market_iv": 0.21,
             },
         ]
     )

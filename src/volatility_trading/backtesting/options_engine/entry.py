@@ -256,11 +256,9 @@ def build_entry_intent_from_structure(
     else:
         spot_entry = float("nan")
 
-    if selected_legs and all(
-        leg.quote.smoothed_iv is not None for leg in selected_legs
-    ):
+    if selected_legs and all(leg.quote.market_iv is not None for leg in selected_legs):
         iv_entry = float(
-            sum(float(leg.quote.smoothed_iv) for leg in selected_legs)
+            sum(float(leg.quote.market_iv) for leg in selected_legs)
             / len(selected_legs)
         )
     elif (

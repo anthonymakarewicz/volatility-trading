@@ -15,7 +15,7 @@ CORE_NUMERIC_COLS: tuple[str, ...] = (
     "bid_price",
     "ask_price",
     "mid_price",
-    "smoothed_iv",
+    "model_iv",
     "strike",
     "dte",
     "delta",

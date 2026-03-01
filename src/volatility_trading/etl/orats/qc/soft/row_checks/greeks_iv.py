@@ -61,7 +61,7 @@ def flag_delta_bounds(
 def flag_iv_high(
     df: pl.DataFrame,
     *,
-    iv_col: str = "smoothed_iv",
+    iv_col: str = "model_iv",
     threshold: float = 1.0,
     out_col: str = "iv_too_high_violation",
 ) -> pl.DataFrame:

@@ -42,7 +42,7 @@ def _make_entry_setup(entry_date: pd.Timestamp) -> PositionEntrySetup:
         expiry_date=pd.Timestamp("2020-01-31"),
         dte=30,
         spot_price=100.0,
-        smoothed_iv=0.2,
+        market_iv=0.2,
     )
     leg = LegSelection(
         spec=leg_spec,

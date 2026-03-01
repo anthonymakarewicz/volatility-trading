@@ -266,11 +266,11 @@ def resolve_mark_valuation(
     iv_curr = position.last_market.volatility
     if (
         complete_leg_quotes is not None
-        and all(quote.smoothed_iv is not None for quote in complete_leg_quotes)
+        and all(quote.market_iv is not None for quote in complete_leg_quotes)
         and len(complete_leg_quotes) > 0
     ):
         iv_curr = float(
-            np.mean([float(quote.smoothed_iv) for quote in complete_leg_quotes])
+            np.mean([float(quote.market_iv) for quote in complete_leg_quotes])
         )
 
     hedge_pnl = 0.0

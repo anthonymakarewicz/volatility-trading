@@ -26,7 +26,8 @@ Optional columns:
 - `vega`
 - `theta`
 - `spot_price`
-- `smoothed_iv`
+- `market_iv`
+- `model_iv`
 - `yte`
 - `open_interest`
 - `volume`
@@ -44,7 +45,7 @@ Optional columns:
 
 - `OptionsDxOptionsChainAdapter`
   - Supports cleaned OptionsDX long-format chains.
-  - Maps vendor `iv` to canonical `smoothed_iv`.
+  - Maps vendor `iv` to canonical `market_iv`.
   - Rejects raw wide vendor format (`c_*`/`p_*`) with a clear error.
 
 - `ColumnMapOptionsChainAdapter`

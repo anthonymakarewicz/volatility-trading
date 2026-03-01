@@ -42,7 +42,7 @@ def _base_chain() -> pd.DataFrame:
                 "open_interest": 200,
                 "volume": 300,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-01",
@@ -56,7 +56,7 @@ def _base_chain() -> pd.DataFrame:
                 "open_interest": 200,
                 "volume": 300,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.20,
+                "market_iv": 0.20,
             },
             {
                 "trade_date": "2020-01-01",
@@ -70,7 +70,7 @@ def _base_chain() -> pd.DataFrame:
                 "open_interest": 250,
                 "volume": 350,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.22,
+                "market_iv": 0.22,
             },
             {
                 "trade_date": "2020-01-01",
@@ -84,7 +84,7 @@ def _base_chain() -> pd.DataFrame:
                 "open_interest": 250,
                 "volume": 350,
                 "spot_price": 100.0,
-                "smoothed_iv": 0.22,
+                "market_iv": 0.22,
             },
         ]
     )

@@ -31,9 +31,9 @@ OPTIONS_CHAIN_CORE_COLUMNS: tuple[str, ...] = (
     "put_ask_price",
     "put_rel_spread",
     # vols
-    "smoothed_iv",
-    "call_mid_iv",
-    "put_mid_iv",
+    "model_iv",
+    "call_market_iv",
+    "put_market_iv",
     # greeks (C + parity-derived P)
     "call_delta",
     "call_gamma",

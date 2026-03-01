@@ -133,8 +133,8 @@ def test_optionsdx_adapter_normalizes_cleaned_long_format():
 
     assert normalized.index.name == "trade_date"
     assert set(normalized["option_type"].unique()) == {"C", "P"}
-    assert "smoothed_iv" in normalized.columns
-    assert normalized["smoothed_iv"].iloc[0] == pytest.approx(0.18)
+    assert "market_iv" in normalized.columns
+    assert normalized["market_iv"].iloc[0] == pytest.approx(0.18)
 
 
 def test_optionsdx_adapter_raises_on_wide_vendor_input():
@@ -233,7 +233,7 @@ def test_backtester_uses_data_bundle_options_adapter_boundary():
             "b": "bid_price",
             "a": "ask_price",
             "spot": "spot_price",
-            "ivm": "smoothed_iv",
+            "ivm": "market_iv",
         }
     )
 

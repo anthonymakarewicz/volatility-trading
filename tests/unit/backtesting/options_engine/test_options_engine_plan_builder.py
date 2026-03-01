@@ -63,7 +63,7 @@ def _make_options() -> pd.DataFrame:
             "bid_price": 5.0,
             "ask_price": 5.2,
             "spot_price": 100.0,
-            "smoothed_iv": 0.20,
+            "market_iv": 0.20,
         },
         {
             "trade_date": "2020-01-02",
@@ -78,7 +78,7 @@ def _make_options() -> pd.DataFrame:
             "bid_price": 6.0,
             "ask_price": 6.2,
             "spot_price": 101.0,
-            "smoothed_iv": 0.21,
+            "market_iv": 0.21,
         },
     ]
     df = pd.DataFrame(rows)

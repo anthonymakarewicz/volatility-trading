@@ -135,11 +135,11 @@ _STRIKES_RENAMES_VENDOR_TO_CANONICAL: dict[str, str] = {
     "pAskPx": "put_ask_price",
     # implied vols
     "cBidIv": "call_bid_iv",
-    "cMidIv": "call_mid_iv",
+    "cMidIv": "call_market_iv",
     "cAskIv": "call_ask_iv",
-    "smoothSmvVol": "smoothed_iv",
+    "smoothSmvVol": "model_iv",
     "pBidIv": "put_bid_iv",
-    "pMidIv": "put_mid_iv",
+    "pMidIv": "put_market_iv",
     "pAskIv": "put_ask_iv",
     # rates
     "iRate": "risk_free_rate",
@@ -190,9 +190,9 @@ _STRIKES_KEEP_CANONICAL: tuple[str, ...] = (
     "put_model_price",
     "put_ask_price",
     # vols
-    "smoothed_iv",
-    "call_mid_iv",
-    "put_mid_iv",
+    "model_iv",
+    "call_market_iv",
+    "put_market_iv",
     # curves
     "risk_free_rate",
     "dividend_yield",
@@ -234,12 +234,12 @@ _STRIKES_BOUNDS_NULL_CANONICAL: dict[str, tuple[float, float]] = {
     "put_model_price": (0.0, 1e7),
     "put_ask_price": (0.0, 1e7),
     # vols
-    "smoothed_iv": (0.0, 10.0),
+    "model_iv": (0.0, 10.0),
     "call_bid_iv": (0.0, 10.0),
-    "call_mid_iv": (0.0, 10.0),
+    "call_market_iv": (0.0, 10.0),
     "call_ask_iv": (0.0, 10.0),
     "put_bid_iv": (0.0, 10.0),
-    "put_mid_iv": (0.0, 10.0),
+    "put_market_iv": (0.0, 10.0),
     "put_ask_iv": (0.0, 10.0),
     # rates / yields
     "risk_free_rate": (-1.0, 1.0),

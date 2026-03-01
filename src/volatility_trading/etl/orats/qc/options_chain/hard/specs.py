@@ -72,7 +72,7 @@ def get_hard_specs() -> list[HardSpec]:
         # ---- IV sign diagnostics ----
         HardSpec(
             name="iv_non_negative",
-            predicate_expr=expr_bad_negative("smoothed_iv", eps=1e-5),
-            sample_cols=BASE_KEYS + ["smoothed_iv"],
+            predicate_expr=expr_bad_negative("model_iv", eps=1e-5),
+            sample_cols=BASE_KEYS + ["model_iv"],
         ),
     ]

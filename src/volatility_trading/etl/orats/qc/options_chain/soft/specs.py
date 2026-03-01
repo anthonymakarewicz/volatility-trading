@@ -148,7 +148,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             flagger_kwargs={"threshold": 1.0},
             use_roi=False,
             by_option_type=False,
-            sample_cols=BASE_KEYS + ["smoothed_iv"],
+            sample_cols=BASE_KEYS + ["model_iv"],
             summarize_by_bucket=False,
         ),
         SoftRowSpec(
@@ -159,7 +159,7 @@ def _get_base_soft_specs() -> list[SoftSpec]:
             flagger_kwargs={"threshold": 2.0},
             use_roi=False,
             by_option_type=False,
-            sample_cols=BASE_KEYS + ["smoothed_iv"],
+            sample_cols=BASE_KEYS + ["model_iv"],
             summarize_by_bucket=False,
         ),
         # ---- Arbitrage diagnostics ----

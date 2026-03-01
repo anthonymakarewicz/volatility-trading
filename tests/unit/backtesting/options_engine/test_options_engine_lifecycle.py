@@ -67,7 +67,7 @@ def _make_quote(
     vega: float = 0.2,
     theta: float = -0.3,
     spot_price: float = 100.0,
-    smoothed_iv: float = 0.2,
+    market_iv: float = 0.2,
 ) -> QuoteSnapshot:
     return QuoteSnapshot.from_series(
         pd.Series(
@@ -83,7 +83,7 @@ def _make_quote(
                 "vega": vega,
                 "theta": theta,
                 "spot_price": spot_price,
-                "smoothed_iv": smoothed_iv,
+                "market_iv": market_iv,
             }
         )
     )
@@ -159,7 +159,7 @@ def _make_options_row_for_date(
     bid_price: float = 5.0,
     ask_price: float = 5.0,
     spot_price: float = 101.0,
-    smoothed_iv: float = 0.21,
+    market_iv: float = 0.21,
 ) -> pd.DataFrame:
     row = {
         "trade_date": trade_date,
@@ -174,7 +174,7 @@ def _make_options_row_for_date(
         "bid_price": bid_price,
         "ask_price": ask_price,
         "spot_price": spot_price,
-        "smoothed_iv": smoothed_iv,
+        "market_iv": market_iv,
     }
     options = pd.DataFrame([row])
     options["trade_date"] = pd.to_datetime(options["trade_date"])

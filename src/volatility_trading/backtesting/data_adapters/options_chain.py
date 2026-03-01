@@ -31,7 +31,8 @@ CANONICAL_OPTIONAL_COLUMNS: tuple[str, ...] = (
     "vega",
     "theta",
     "spot_price",
-    "smoothed_iv",
+    "market_iv",
+    "model_iv",
     "yte",
     "open_interest",
     "volume",
@@ -51,7 +52,8 @@ NUMERIC_COLUMNS: tuple[str, ...] = (
     "bid_price",
     "ask_price",
     "spot_price",
-    "smoothed_iv",
+    "market_iv",
+    "model_iv",
     "yte",
     "open_interest",
     "volume",
@@ -220,7 +222,7 @@ def _build_aliases(
     unknown_fields = sorted(set(overrides) - valid_fields)
     if unknown_fields:
         raise ValueError(
-            "unsupported canonical fields in alias overrides: " f"{unknown_fields}"
+            f"unsupported canonical fields in alias overrides: {unknown_fields}"
         )
 
     aliases: dict[str, tuple[str, ...]] = {}
@@ -237,7 +239,8 @@ ORATS_ALIAS_OVERRIDES: dict[str, tuple[str, ...]] = {
     "bid_price": ("bid",),
     "ask_price": ("ask",),
     "spot_price": ("underlying_last", "underlying_price"),
-    "smoothed_iv": ("iv",),
+    "market_iv": ("market_iv", "mid_iv", "iv", "smoothed_iv"),
+    "model_iv": ("model_iv", "smoothed_iv"),
     "open_interest": ("oi",),
 }
 
@@ -248,7 +251,7 @@ YFINANCE_ALIAS_OVERRIDES: dict[str, tuple[str, ...]] = {
     "bid_price": ("bid",),
     "ask_price": ("ask",),
     "spot_price": ("underlying_price", "underlying_last"),
-    "smoothed_iv": ("implied_volatility", "impliedVolatility", "iv"),
+    "market_iv": ("implied_volatility", "impliedVolatility", "iv", "smoothed_iv"),
     "open_interest": ("openInterest",),
 }
 
@@ -258,8 +261,8 @@ OPTIONSDX_ALIAS_OVERRIDES: dict[str, tuple[str, ...]] = {
     "bid_price": ("bid",),
     "ask_price": ("ask",),
     "spot_price": ("underlying_last", "underlying_price"),
-    # OptionsDX exposes market IV; it is mapped to canonical chain IV field.
-    "smoothed_iv": ("mid_iv", "iv"),
+    # OptionsDX exposes market IV; map to canonical market_iv.
+    "market_iv": ("mid_iv", "iv", "smoothed_iv"),
     "open_interest": ("oi",),
 }
 
@@ -299,7 +302,7 @@ class OptionsDxOptionsChainAdapter(AliasOptionsChainAdapter):
 
     Notes:
     - Input must be long format (`option_type`, not `c_*`/`p_*` columns).
-    - Vendor `iv` is mapped to canonical `smoothed_iv` for engine compatibility.
+    - Vendor `iv` is mapped to canonical `market_iv`.
     - `open_interest` is optional and may be absent in OptionsDX feeds.
     """
 

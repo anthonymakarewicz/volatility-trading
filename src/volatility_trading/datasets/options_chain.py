@@ -29,7 +29,7 @@ DEFAULT_BASE_COLS = [
     "underlying_price",
     "risk_free_rate",
     "dividend_yield",
-    "smoothed_iv",
+    "model_iv",
 ]
 
 
