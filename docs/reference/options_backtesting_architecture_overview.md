@@ -32,7 +32,7 @@ flowchart TD
     B --> D
     B --> E[build_options_execution_plan<br/>backtesting/options_engine/plan_builder.py]
     B --> O[build_options_backtest_outputs<br/>backtesting/options_engine/outputs.py]
-    E --> A1[backtesting/data_adapters/options_chain.py<br/>normalize -> validate]
+    E --> A1[backtesting/data_adapters/options_chain_adapters.py + options_chain_pipeline.py<br/>normalize -> validate]
     E --> F[entry.py<br/>build EntryIntent]
     E --> G[sizing.py<br/>risk + margin sizing]
     E --> H[lifecycle/engine.py<br/>open/mark/close]
