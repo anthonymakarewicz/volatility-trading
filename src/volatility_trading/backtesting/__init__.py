@@ -7,6 +7,7 @@ from .config import (
     HedgeExecutionConfig,
     MarginConfig,
     ModelingConfig,
+    OptionsAdapterMode,
 )
 from .data_contracts import HedgeMarketData, OptionsBacktestDataBundle
 from .margin import MarginAccount, MarginPolicy, MarginStatus
@@ -41,6 +42,7 @@ __all__ = [
     "MarginConfig",
     "BrokerConfig",
     "ModelingConfig",
+    "OptionsAdapterMode",
     "BacktestRunConfig",
     "OptionsBacktestDataBundle",
     "HedgeMarketData",

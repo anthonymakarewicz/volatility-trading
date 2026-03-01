@@ -383,11 +383,10 @@ def normalize_and_validate_options_chain(
     return df
 
 
-def normalize_options_chain(
+def normalize_options_chain(  # TODO: Remove it
     options: pd.DataFrame,
     *,
-    adapter: OptionsChainAdapter | None,
+    adapter: OptionsChainAdapter,
 ) -> pd.DataFrame:
     """Apply adapter boundary before options execution plan compilation."""
-    active_adapter = adapter or OratsOptionsChainAdapter()
-    return active_adapter.normalize(options)
+    return adapter.normalize(options)

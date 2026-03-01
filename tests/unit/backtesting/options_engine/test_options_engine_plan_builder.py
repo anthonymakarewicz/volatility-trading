@@ -13,6 +13,7 @@ from volatility_trading.backtesting import (
 )
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
+    ColumnMapOptionsChainAdapter,
     DeltaHedgePolicy,
     HedgeTriggerPolicy,
     LegSpec,
@@ -121,6 +122,32 @@ def _make_hedge_market(options: pd.DataFrame) -> HedgeMarketData:
     dates = options.index.unique()
     mid = pd.Series(100.0, index=dates)
     return HedgeMarketData(mid=mid)
+
+
+def _make_options_alias_columns() -> pd.DataFrame:
+    rows = [
+        {
+            "date": "2020-01-01",
+            "expiry": "2020-01-31",
+            "dte": 30,
+            "strike": 100.0,
+            "option_type": "C",
+            "delta": 0.5,
+            "bid": 5.0,
+            "ask": 5.2,
+        },
+        {
+            "date": "2020-01-02",
+            "expiry": "2020-01-31",
+            "dte": 29,
+            "strike": 100.0,
+            "option_type": "C",
+            "delta": 0.5,
+            "bid": 6.0,
+            "ask": 6.2,
+        },
+    ]
+    return pd.DataFrame(rows)
 
 
 def test_config_strategy_uses_long_direction_for_entry_side():
@@ -386,3 +413,134 @@ def test_enabled_delta_hedging_accepts_complete_hedge_market_data():
 
     assert len(trades) == 1
     assert len(mtm) == 2
+
+
+def test_require_explicit_adapter_mode_raises_without_adapter():
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="require_explicit_adapter",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
+        options_adapter_mode="require_explicit",
+    )
+    bt = Backtester(
+        data=OptionsBacktestDataBundle(options=_make_options()),
+        strategy=spec,
+        config=cfg,
+    )
+    with pytest.raises(
+        ValueError,
+        match="options adapter is required",
+    ):
+        bt.run()
+
+
+def test_runtime_config_options_adapter_is_used_when_provided():
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="runtime_adapter_from_config",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
+        options_adapter_mode="require_explicit",
+        options_adapter=ColumnMapOptionsChainAdapter(
+            source_to_canonical={
+                "date": "trade_date",
+                "expiry": "expiry_date",
+                "dte": "dte",
+                "option_type": "option_type",
+                "strike": "strike",
+                "delta": "delta",
+                "bid": "bid_price",
+                "ask": "ask_price",
+            }
+        ),
+    )
+    bt = Backtester(
+        data=OptionsBacktestDataBundle(options=_make_options_alias_columns()),
+        strategy=spec,
+        config=cfg,
+    )
+    trades, mtm = bt.run()
+
+    assert len(trades) == 1
+    assert len(mtm) == 2
+
+
+def test_runtime_adapter_conflict_between_config_and_data_bundle_raises():
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="runtime_adapter_conflict",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
+    )
+    adapter = ColumnMapOptionsChainAdapter(
+        source_to_canonical={
+            "date": "trade_date",
+            "expiry": "expiry_date",
+            "dte": "dte",
+            "option_type": "option_type",
+            "strike": "strike",
+            "delta": "delta",
+            "bid": "bid_price",
+            "ask": "ask_price",
+        }
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
+        options_adapter=adapter,
+    )
+    bt = Backtester(
+        data=OptionsBacktestDataBundle(
+            options=_make_options_alias_columns(),
+            options_adapter=adapter,
+        ),
+        strategy=spec,
+        config=cfg,
+    )
+    with pytest.raises(
+        ValueError,
+        match="options adapter is set in both config.options_adapter and data.options_adapter",
+    ):
+        bt.run()

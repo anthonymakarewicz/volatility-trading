@@ -15,6 +15,16 @@ backtesting adapters.
 Provider-specific alias/rename mappings live in
 `volatility_trading.config.options_chain_sources`.
 
+Runtime adapter resolution is configured in `BacktestRunConfig`:
+- `options_adapter_mode`: `orats` | `canonical` | `require_explicit`
+- `options_adapter`: optional explicit adapter instance at run config level
+
+Resolution order:
+1. `config.options_adapter` (if set)
+2. `data.options_adapter` (if set)
+3. `options_adapter_mode` fallback (`orats` or `canonical`)
+4. `require_explicit` raises if no adapter is supplied
+
 ## Canonical Options-Chain Contract
 
 Required columns:
@@ -41,7 +51,7 @@ Optional columns:
 ## Built-in Adapters
 
 - `OratsOptionsChainAdapter`
-  - Default adapter when `options_adapter=None`.
+  - Default adapter when no adapter is supplied and `options_adapter_mode='orats'`.
   - Handles common ORATS-style aliases (for example `date`, `expiry`, `bid`, `ask`).
 
 - `YfinanceOptionsChainAdapter`

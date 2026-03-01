@@ -5,7 +5,12 @@ from __future__ import annotations
 import pandas as pd
 
 from ..config import BacktestRunConfig
-from ..data_adapters import normalize_options_chain
+from ..data_adapters import (
+    CanonicalOptionsChainAdapter,
+    OptionsChainAdapter,
+    OratsOptionsChainAdapter,
+    normalize_options_chain,
+)
 from ..data_contracts import HedgeMarketData, OptionsBacktestDataBundle
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .contracts.runtime import PositionEntrySetup
@@ -29,9 +34,10 @@ def build_options_execution_plan(
             "strategy margin_budget_pct requires config.broker.margin.model"
         )
 
+    adapter = _resolve_options_adapter(data=data, config=config)
     options = normalize_options_chain(
         data.options,
-        adapter=data.options_adapter,
+        adapter=adapter,
     )
     features = data.features
     hedge_market = data.hedge_market
@@ -182,6 +188,35 @@ def _prepare_entry_setup(
         risk_worst_scenario=sizing.risk_scenario,
         margin_per_contract=sizing.margin_per_contract,
     )
+
+
+def _resolve_options_adapter(
+    *,
+    data: OptionsBacktestDataBundle,
+    config: BacktestRunConfig,
+) -> OptionsChainAdapter:
+    """Resolve one options adapter from run config and data bundle contracts."""
+    if config.options_adapter is not None and data.options_adapter is not None:
+        raise ValueError(
+            "options adapter is set in both config.options_adapter and "
+            "data.options_adapter; set only one adapter source"
+        )
+    if config.options_adapter is not None:
+        return config.options_adapter
+    if data.options_adapter is not None:
+        return data.options_adapter
+
+    if config.options_adapter_mode == "orats":
+        return OratsOptionsChainAdapter()
+    if config.options_adapter_mode == "canonical":
+        return CanonicalOptionsChainAdapter()
+    if config.options_adapter_mode == "require_explicit":
+        raise ValueError(
+            "options adapter is required: set config.options_adapter, "
+            "data.options_adapter, or use options_adapter_mode='orats'/'canonical'"
+        )
+
+    raise ValueError(f"unsupported options_adapter_mode: {config.options_adapter_mode}")
 
 
 def _build_lifecycle_engine(

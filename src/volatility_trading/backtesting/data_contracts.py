@@ -31,7 +31,8 @@ class OptionsBacktestDataBundle:
     """Typed input datasets consumed by options backtesting runtime.
 
     ``options_adapter`` is optional. When provided, it normalizes/validates the
-    options panel before execution plan compilation.
+    options panel before execution plan compilation. Run-level adapter
+    configuration can also be set in ``BacktestRunConfig``.
     """
 
     options: pd.DataFrame
