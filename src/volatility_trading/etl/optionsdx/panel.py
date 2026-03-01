@@ -10,7 +10,7 @@ from pathlib import Path
 import polars as pl
 import py7zr
 
-from volatility_trading.contracts.options_chain import (
+from volatility_trading.config.options_chain_sources import (
     OPTIONSDX_LONG_RENAMES_VENDOR_TO_CANONICAL,
 )
 

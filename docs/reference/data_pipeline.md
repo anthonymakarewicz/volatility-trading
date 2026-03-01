@@ -214,6 +214,8 @@ For canonical options schema and adapter usage, see
 [Options Data Adapters](options_data_adapters.md).
 Shared canonical field names are defined in
 `volatility_trading.contracts.options_chain`.
+Provider-specific column alias/rename maps are defined in
+`volatility_trading.config.options_chain_sources`.
 
 ## Tips
 

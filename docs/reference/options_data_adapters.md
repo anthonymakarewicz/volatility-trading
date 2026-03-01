@@ -12,6 +12,8 @@ This boundary is applied in `build_options_execution_plan(...)`.
 Canonical field names are centralized in
 `volatility_trading.contracts.options_chain` and reused by ETL and
 backtesting adapters.
+Provider-specific alias/rename mappings live in
+`volatility_trading.config.options_chain_sources`.
 
 ## Canonical Options-Chain Contract
 

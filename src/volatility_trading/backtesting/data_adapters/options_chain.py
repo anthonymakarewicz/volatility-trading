@@ -16,6 +16,11 @@ from typing import Protocol
 
 import pandas as pd
 
+from volatility_trading.config.options_chain_sources import (
+    OPTIONSDX_ALIAS_OVERRIDES,
+    ORATS_ALIAS_OVERRIDES,
+    YFINANCE_ALIAS_OVERRIDES,
+)
 from volatility_trading.contracts.options_chain import (
     ASK_PRICE,
     BID_PRICE,
@@ -27,11 +32,8 @@ from volatility_trading.contracts.options_chain import (
     EXPIRY_DATE,
     NUMERIC_COLUMNS,
     OPTION_TYPE,
-    OPTIONSDX_ALIAS_OVERRIDES,
-    ORATS_ALIAS_OVERRIDES,
     STRIKE,
     TRADE_DATE,
-    YFINANCE_ALIAS_OVERRIDES,
 )
 
 
