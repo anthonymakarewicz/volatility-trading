@@ -1,5 +1,17 @@
 """Shared options backtesting runtime contracts and helpers."""
 
+from ..data_adapters import (
+    CANONICAL_OPTIONAL_COLUMNS,
+    CANONICAL_REQUIRED_COLUMNS,
+    AliasOptionsChainAdapter,
+    ColumnMapOptionsChainAdapter,
+    OptionsChainAdapterError,
+    OptionsDxOptionsChainAdapter,
+    OratsOptionsChainAdapter,
+    YfinanceOptionsChainAdapter,
+    normalize_and_validate_options_chain,
+    normalize_options_chain,
+)
 from .adapters import (
     normalize_chain_option_type,
     option_type_to_chain_label,
@@ -109,4 +121,14 @@ __all__ = [
     "HedgeExecutionResult",
     "HedgeExecutionModel",
     "LinearHedgeExecutionModel",
+    "CANONICAL_REQUIRED_COLUMNS",
+    "CANONICAL_OPTIONAL_COLUMNS",
+    "OptionsChainAdapterError",
+    "AliasOptionsChainAdapter",
+    "OratsOptionsChainAdapter",
+    "YfinanceOptionsChainAdapter",
+    "OptionsDxOptionsChainAdapter",
+    "ColumnMapOptionsChainAdapter",
+    "normalize_and_validate_options_chain",
+    "normalize_options_chain",
 ]

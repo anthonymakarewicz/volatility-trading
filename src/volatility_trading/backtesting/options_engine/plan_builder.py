@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 
 from ..config import BacktestRunConfig
+from ..data_adapters import normalize_options_chain
 from ..data_contracts import HedgeMarketData, OptionsBacktestDataBundle
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .contracts.runtime import PositionEntrySetup
@@ -28,7 +29,10 @@ def build_options_execution_plan(
             "strategy margin_budget_pct requires config.broker.margin.model"
         )
 
-    options = data.options
+    options = normalize_options_chain(
+        data.options,
+        adapter=data.options_adapter,
+    )
     features = data.features
     hedge_market = data.hedge_market
 

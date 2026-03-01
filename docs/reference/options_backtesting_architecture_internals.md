@@ -104,6 +104,10 @@ flowchart LR
 The engine loop does not call entry/sizing/lifecycle directly. It runs a typed
 plan with typed hooks.
 
+Before hooks are compiled, options data passes through a dedicated adapter
+boundary (`backtesting/data_adapters/options_chain.py`) that normalizes source
+columns to canonical names and validates required schema constraints.
+
 ```mermaid
 flowchart TD
     A[StrategySpec] --> B[build_options_execution_plan]

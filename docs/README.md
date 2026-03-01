@@ -17,6 +17,8 @@ Use this page as the canonical entrypoint for repository documentation.
 ## Data and Pipeline
 
 - [Data Pipeline](reference/data_pipeline.md): end-to-end ORATS runbook and data flow.
+- [Options Data Adapters](reference/options_data_adapters.md): canonical
+  options-chain contract and source adapter usage.
 - [ORATS Troubleshooting](reference/orats_troubleshooting.md): ORATS pipeline/app-specific failures and fixes.
 - [Entrypoints](reference/entrypoints.md): CLI commands and shared flags.
 - [Configs](reference/configs.md): YAML schema reference and path keys.

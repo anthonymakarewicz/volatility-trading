@@ -10,7 +10,8 @@ Current scope:
 - Full options ETL is currently ORATS-first.
 - OptionsDX is supported as a local raw-archive to processed-panel pipeline.
 - External feed pipeline (FRED/yfinance) currently supports market/rates time series.
-- Backtesting can consume non-ORATS options data when pre-normalized to the expected options-chain schema.
+- Backtesting can consume non-ORATS options data via the options-engine adapter
+  boundary (`normalize -> validate -> run`).
 
 Runtime YAML configs are grouped by source under `config/`:
 - `config/orats/`
@@ -209,6 +210,8 @@ data/
 ```
 
 For provider download steps, see [OptionsDX Setup](optionsdx_setup.md).
+For canonical options schema and adapter usage, see
+[Options Data Adapters](options_data_adapters.md).
 
 ## Tips
 

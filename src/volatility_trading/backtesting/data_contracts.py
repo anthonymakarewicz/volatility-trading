@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from volatility_trading.backtesting.data_adapters import OptionsChainAdapter
 
 
 @dataclass(frozen=True)
@@ -24,9 +28,14 @@ class HedgeMarketData:
 
 @dataclass(frozen=True)
 class OptionsBacktestDataBundle:
-    """Typed input datasets consumed by options backtesting runtime."""
+    """Typed input datasets consumed by options backtesting runtime.
+
+    ``options_adapter`` is optional. When provided, it normalizes/validates the
+    options panel before execution plan compilation.
+    """
 
     options: pd.DataFrame
     features: pd.DataFrame | None = None
     hedge_market: HedgeMarketData | None = None
     fallback_iv_feature_col: str = "iv_atm"
+    options_adapter: OptionsChainAdapter | None = None

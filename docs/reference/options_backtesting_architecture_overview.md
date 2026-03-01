@@ -32,6 +32,7 @@ flowchart TD
     B --> D
     B --> E[build_options_execution_plan<br/>backtesting/options_engine/plan_builder.py]
     B --> O[build_options_backtest_outputs<br/>backtesting/options_engine/outputs.py]
+    E --> A1[backtesting/data_adapters/options_chain.py<br/>normalize -> validate]
     E --> F[entry.py<br/>build EntryIntent]
     E --> G[sizing.py<br/>risk + margin sizing]
     E --> H[lifecycle/engine.py<br/>open/mark/close]
@@ -152,7 +153,10 @@ stateDiagram-v2
 - `BacktestRunConfig` carries run-time environment assumptions:
   account, execution, broker margin rules, pricing/risk engines, optional date window.
 - `OptionsBacktestDataBundle` carries market inputs:
-  options panel, optional features panel, and optional `hedge_market`.
+  options panel, optional features panel, optional `hedge_market`, and optional
+  `options_adapter`.
+- Options data is normalized/validated by adapter boundary before strategy plan
+  compilation.
 - Margin model/policy and pricing/risk engines are configured at run level, not preset level.
 - Dynamic delta hedging is strategy policy (`StrategySpec.lifecycle.delta_hedge`),
   while hedge execution costs are run-level (`BacktestRunConfig.execution.hedge`).
