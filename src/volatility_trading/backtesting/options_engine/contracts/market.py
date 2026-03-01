@@ -59,7 +59,7 @@ class QuoteSnapshot:
             expiry_date=_optional_timestamp(quote.get("expiry_date")),
             dte=_optional_int(quote.get("dte")),
             spot_price=_optional_float(quote.get("spot_price")),
-            market_iv=_optional_float(quote.get("market_iv", quote.get("smoothed_iv"))),
+            market_iv=_optional_float(quote.get("market_iv")),
             yte=_optional_float(quote.get("yte")),
             open_interest=_optional_float(quote.get("open_interest")),
             volume=_optional_float(quote.get("volume")),

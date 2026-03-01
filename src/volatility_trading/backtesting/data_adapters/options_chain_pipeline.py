@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 import pandas as pd
 
 from volatility_trading.contracts.options_chain import (
@@ -19,6 +21,7 @@ from volatility_trading.contracts.options_chain import (
 
 _VALID_OPTION_TYPES = frozenset({"C", "P"})
 _REQUIRED_NUMERIC_COLUMNS = (DTE, STRIKE, DELTA, BID_PRICE, ASK_PRICE)
+ValidationMode = Literal["coerce", "strict"]
 
 
 class OptionsChainAdapterError(ValueError):
@@ -47,19 +50,35 @@ def _canonicalize_option_type(series: pd.Series) -> pd.Series:
     return normalized
 
 
-def _set_trade_date_index(df: pd.DataFrame) -> pd.DataFrame:
+def _set_trade_date_index(
+    df: pd.DataFrame,
+    *,
+    validation_mode: ValidationMode,
+) -> pd.DataFrame:
     if TRADE_DATE in df.columns:
         out = df.copy()
-        out[TRADE_DATE] = _coerce_datetime(out[TRADE_DATE])
+        if validation_mode == "coerce":
+            out[TRADE_DATE] = _coerce_datetime(out[TRADE_DATE])
+        elif not pd.api.types.is_datetime64_any_dtype(out[TRADE_DATE]):
+            raise OptionsChainAdapterError(
+                f"{TRADE_DATE} must be datetime-like for strict validation"
+            )
         out = out.set_index(TRADE_DATE).sort_index()
         out.index.name = TRADE_DATE
         return out
 
     if isinstance(df.index, pd.DatetimeIndex):
         out = df.copy()
-        out.index = pd.to_datetime(out.index, errors="coerce")
+        if validation_mode == "coerce":
+            out.index = pd.to_datetime(out.index, errors="coerce")
         out.index.name = TRADE_DATE
         return out.sort_index()
+
+    if validation_mode == "strict":
+        raise OptionsChainAdapterError(
+            f"{TRADE_DATE} must be provided as a datetime-like column or DatetimeIndex "
+            "for strict validation"
+        )
 
     out = df.copy()
     out.index = pd.to_datetime(out.index, errors="coerce")
@@ -67,9 +86,15 @@ def _set_trade_date_index(df: pd.DataFrame) -> pd.DataFrame:
     return out.sort_index()
 
 
-def _normalize_canonical_df(options: pd.DataFrame) -> pd.DataFrame:
-    """Coerce canonical dataframe fields before contract validation."""
-    df = _set_trade_date_index(options)
+def _prepare_canonical_df(
+    options: pd.DataFrame,
+    *,
+    validation_mode: ValidationMode,
+) -> pd.DataFrame:
+    """Prepare canonical dataframe for validation under one mode."""
+    df = _set_trade_date_index(options, validation_mode=validation_mode)
+    if validation_mode == "strict":
+        return df
 
     if EXPIRY_DATE in df.columns:
         df[EXPIRY_DATE] = _coerce_datetime(df[EXPIRY_DATE])
@@ -88,7 +113,7 @@ def _validate_canonical_df(
     df: pd.DataFrame,
     *,
     adapter_name: str,
-    assume_coerced: bool,
+    validation_mode: ValidationMode,
 ) -> None:
     """Validate canonical schema and core data sanity constraints."""
     if df.index.isna().any():
@@ -112,14 +137,17 @@ def _validate_canonical_df(
                 f"Found invalid labels: {bad_option_types}"
             )
 
-    coercion_context = "after coercion" if assume_coerced else "during validation"
+    strict_validation = validation_mode == "strict"
+    coercion_context = (
+        "after coercion" if validation_mode == "coerce" else "during strict validation"
+    )
     for required_numeric in _REQUIRED_NUMERIC_COLUMNS:
-        if not assume_coerced and not pd.api.types.is_numeric_dtype(
+        if strict_validation and not pd.api.types.is_numeric_dtype(
             df[required_numeric]
         ):
             raise OptionsChainAdapterError(
                 f"{adapter_name}: required numeric column '{required_numeric}' must be numeric "
-                "for canonical validation"
+                "for strict validation"
             )
         if df[required_numeric].isna().all():
             raise OptionsChainAdapterError(
@@ -127,13 +155,15 @@ def _validate_canonical_df(
                 f"{coercion_context}"
             )
 
-    if not assume_coerced and not pd.api.types.is_datetime64_any_dtype(df[EXPIRY_DATE]):
+    if strict_validation and not pd.api.types.is_datetime64_any_dtype(df[EXPIRY_DATE]):
         raise OptionsChainAdapterError(
-            f"{adapter_name}: {EXPIRY_DATE} must be datetime-like for canonical validation"
+            f"{adapter_name}: {EXPIRY_DATE} must be datetime-like for strict validation"
         )
 
     expiry_context = (
-        "after datetime coercion" if assume_coerced else "during validation"
+        "after datetime coercion"
+        if validation_mode == "coerce"
+        else "during strict validation"
     )
     if df[EXPIRY_DATE].isna().all():
         raise OptionsChainAdapterError(
@@ -141,17 +171,22 @@ def _validate_canonical_df(
         )
 
 
-def validate_options_chain_contract(
+def validate_options_chain(
     options: pd.DataFrame,
     *,
-    adapter_name: str = "canonical",
+    adapter_name: str = "unknown",
+    validation_mode: ValidationMode = "coerce",
 ) -> pd.DataFrame:
-    """Validate a trusted canonical options-chain dataframe without coercion."""
+    """Validate one options-chain dataframe under a chosen validation mode."""
     if options.empty:
         raise OptionsChainAdapterError(f"{adapter_name}: options dataframe is empty")
 
-    df = _set_trade_date_index(options)
-    _validate_canonical_df(df, adapter_name=adapter_name, assume_coerced=False)
+    df = _prepare_canonical_df(options, validation_mode=validation_mode)
+    _validate_canonical_df(
+        df,
+        adapter_name=adapter_name,
+        validation_mode=validation_mode,
+    )
     return df
 
 
@@ -161,9 +196,21 @@ def normalize_and_validate_options_chain(
     adapter_name: str = "unknown",
 ) -> pd.DataFrame:
     """Normalize and validate a canonical options-chain dataframe."""
-    if options.empty:
-        raise OptionsChainAdapterError(f"{adapter_name}: options dataframe is empty")
+    return validate_options_chain(
+        options,
+        adapter_name=adapter_name,
+        validation_mode="coerce",
+    )
 
-    df = _normalize_canonical_df(options)
-    _validate_canonical_df(df, adapter_name=adapter_name, assume_coerced=True)
-    return df
+
+def validate_options_chain_contract(
+    options: pd.DataFrame,
+    *,
+    adapter_name: str = "canonical",
+) -> pd.DataFrame:
+    """Validate one trusted canonical options-chain dataframe without coercion."""
+    return validate_options_chain(
+        options,
+        adapter_name=adapter_name,
+        validation_mode="strict",
+    )

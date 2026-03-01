@@ -13,11 +13,14 @@ from .options_chain_adapters import (
     OptionsDxOptionsChainAdapter,
     OratsOptionsChainAdapter,
     YfinanceOptionsChainAdapter,
+    coerce_options_frame_to_pandas,
     normalize_options_chain,
 )
 from .options_chain_pipeline import (
     OptionsChainAdapterError,
+    ValidationMode,
     normalize_and_validate_options_chain,
+    validate_options_chain,
     validate_options_chain_contract,
 )
 
@@ -32,7 +35,10 @@ __all__ = [
     "YfinanceOptionsChainAdapter",
     "ColumnMapOptionsChainAdapter",
     "OptionsDxOptionsChainAdapter",
+    "coerce_options_frame_to_pandas",
     "normalize_and_validate_options_chain",
     "normalize_options_chain",
+    "validate_options_chain",
     "validate_options_chain_contract",
+    "ValidationMode",
 ]

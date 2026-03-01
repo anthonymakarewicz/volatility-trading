@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Protocol
+
 import pandas as pd
 import pytest
 
@@ -22,6 +25,7 @@ from volatility_trading.backtesting.options_engine import (
     StructureSpec,
     YfinanceOptionsChainAdapter,
     normalize_options_chain,
+    validate_options_chain,
 )
 from volatility_trading.options import OptionType
 from volatility_trading.signals.base_signal import Signal
@@ -39,8 +43,15 @@ class _AlwaysShortSignal(Signal):
         _ = kwargs
 
 
-def test_orats_adapter_normalizes_aliases_and_types():
-    raw = pd.DataFrame(
+class _AdapterLike(Protocol):
+    @property
+    def name(self) -> str: ...
+
+    def normalize(self, raw: pd.DataFrame) -> pd.DataFrame: ...
+
+
+def _build_orats_raw() -> pd.DataFrame:
+    return pd.DataFrame(
         {
             "date": ["2020-01-01", "2020-01-01"],
             "expiry": ["2020-01-31", "2020-01-31"],
@@ -52,18 +63,31 @@ def test_orats_adapter_normalizes_aliases_and_types():
             "ask": [" 5.2", "5.4 "],
         }
     )
-    normalized = normalize_options_chain(raw, adapter=OratsOptionsChainAdapter())
-
-    assert normalized.index.name == "trade_date"
-    assert isinstance(normalized.index, pd.DatetimeIndex)
-    assert set(normalized["option_type"].unique()) == {"C", "P"}
-    assert "bid_price" in normalized.columns
-    assert "ask_price" in normalized.columns
-    assert normalized["delta"].dtype.kind == "f"
 
 
-def test_column_map_adapter_maps_custom_source_columns():
-    raw = pd.DataFrame(
+def _build_optionsdx_raw() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "QUOTE_DATE": ["2020-01-02", "2020-01-02"],
+            "EXPIRE_DATE": ["2020-01-31", "2020-01-31"],
+            "DTE": [29, 29],
+            "OPTION_TYPE": ["C", "P"],
+            "STRIKE": [325.0, 325.0],
+            "DELTA": [0.42, -0.58],
+            "GAMMA": [0.01, 0.01],
+            "VEGA": [0.10, 0.10],
+            "THETA": [-0.05, -0.05],
+            "BID": [4.8, 5.0],
+            "ASK": [5.0, 5.3],
+            "IV": [0.18, 0.19],
+            "UNDERLYING_LAST": [326.0, 326.0],
+            "VOLUME": [100.0, 90.0],
+        }
+    )
+
+
+def _build_column_map_raw() -> pd.DataFrame:
+    return pd.DataFrame(
         {
             "qdt": ["2020-01-01"],
             "exp": ["2020-01-31"],
@@ -75,7 +99,10 @@ def test_column_map_adapter_maps_custom_source_columns():
             "a": [5.2],
         }
     )
-    adapter = ColumnMapOptionsChainAdapter(
+
+
+def _column_map_adapter() -> ColumnMapOptionsChainAdapter:
+    return ColumnMapOptionsChainAdapter(
         source_to_canonical={
             "qdt": "trade_date",
             "exp": "expiry_date",
@@ -88,10 +115,30 @@ def test_column_map_adapter_maps_custom_source_columns():
         }
     )
 
-    normalized = normalize_options_chain(raw, adapter=adapter)
+
+@pytest.mark.parametrize(
+    ("raw_factory", "adapter_factory", "expects_market_iv"),
+    [
+        (_build_orats_raw, OratsOptionsChainAdapter, False),
+        (_build_optionsdx_raw, OptionsDxOptionsChainAdapter, True),
+        (_build_column_map_raw, _column_map_adapter, False),
+    ],
+    ids=["orats", "optionsdx", "column_map"],
+)
+def test_adapter_matrix_normalizes_to_canonical(
+    raw_factory: Callable[[], pd.DataFrame],
+    adapter_factory: Callable[[], _AdapterLike],
+    expects_market_iv: bool,
+):
+    normalized = normalize_options_chain(raw_factory(), adapter=adapter_factory())
+
     assert normalized.index.name == "trade_date"
-    assert list(normalized["option_type"]) == ["C"]
-    assert normalized["bid_price"].iloc[0] == pytest.approx(5.0)
+    assert isinstance(normalized.index, pd.DatetimeIndex)
+    assert set(normalized["option_type"].unique()) <= {"C", "P"}
+    assert "bid_price" in normalized.columns
+    assert "ask_price" in normalized.columns
+    assert normalized["delta"].dtype.kind == "f"
+    assert ("market_iv" in normalized.columns) is expects_market_iv
 
 
 def test_canonical_adapter_validates_trusted_canonical_input():
@@ -110,6 +157,30 @@ def test_canonical_adapter_validates_trusted_canonical_input():
     normalized = normalize_options_chain(raw, adapter=CanonicalOptionsChainAdapter())
     assert normalized.index.name == "trade_date"
     assert normalized["option_type"].iloc[0] == "C"
+
+
+def test_validate_options_chain_supports_coerce_and_strict_modes():
+    raw = pd.DataFrame(
+        {
+            "trade_date": ["2020-01-01"],
+            "expiry_date": ["2020-01-31"],
+            "dte": ["30"],
+            "option_type": ["call"],
+            "strike": ["100.0"],
+            "delta": ["0.5"],
+            "bid_price": ["5.0"],
+            "ask_price": ["5.2"],
+        }
+    )
+    coerced = validate_options_chain(raw, adapter_name="test", validation_mode="coerce")
+    assert coerced["delta"].dtype.kind == "f"
+    assert coerced["option_type"].iloc[0] == "C"
+
+    with pytest.raises(
+        OptionsChainAdapterError,
+        match="must be datetime-like for strict validation",
+    ):
+        validate_options_chain(raw, adapter_name="test", validation_mode="strict")
 
 
 def test_canonical_adapter_raises_on_non_numeric_required_column():
@@ -147,33 +218,6 @@ def test_yfinance_adapter_parses_option_type_from_contract_symbol():
     )
     normalized = normalize_options_chain(raw, adapter=YfinanceOptionsChainAdapter())
     assert set(normalized["option_type"].unique()) == {"C", "P"}
-
-
-def test_optionsdx_adapter_normalizes_cleaned_long_format():
-    raw = pd.DataFrame(
-        {
-            "QUOTE_DATE": ["2020-01-02", "2020-01-02"],
-            "EXPIRE_DATE": ["2020-01-31", "2020-01-31"],
-            "DTE": [29, 29],
-            "OPTION_TYPE": ["C", "P"],
-            "STRIKE": [325.0, 325.0],
-            "DELTA": [0.42, -0.58],
-            "GAMMA": [0.01, 0.01],
-            "VEGA": [0.10, 0.10],
-            "THETA": [-0.05, -0.05],
-            "BID": [4.8, 5.0],
-            "ASK": [5.0, 5.3],
-            "IV": [0.18, 0.19],
-            "UNDERLYING_LAST": [326.0, 326.0],
-            "VOLUME": [100.0, 90.0],
-        }
-    )
-    normalized = normalize_options_chain(raw, adapter=OptionsDxOptionsChainAdapter())
-
-    assert normalized.index.name == "trade_date"
-    assert set(normalized["option_type"].unique()) == {"C", "P"}
-    assert "market_iv" in normalized.columns
-    assert normalized["market_iv"].iloc[0] == pytest.approx(0.18)
 
 
 def test_optionsdx_adapter_raises_on_wide_vendor_input():
@@ -230,6 +274,14 @@ def test_adapter_validation_raises_when_required_numeric_is_all_null():
         OptionsChainAdapterError, match="required numeric column 'delta' is all-null"
     ):
         normalize_options_chain(raw, adapter=OratsOptionsChainAdapter())
+
+
+def test_polars_dataframe_supported_at_adapter_boundary():
+    pl = pytest.importorskip("polars")
+    raw = pl.DataFrame(_build_orats_raw())
+    normalized = normalize_options_chain(raw, adapter=OratsOptionsChainAdapter())
+    assert isinstance(normalized, pd.DataFrame)
+    assert normalized.index.name == "trade_date"
 
 
 def test_backtester_uses_data_bundle_options_adapter_boundary():

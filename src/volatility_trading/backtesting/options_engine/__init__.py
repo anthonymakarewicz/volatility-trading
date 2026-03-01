@@ -9,9 +9,12 @@ from ..data_adapters import (
     OptionsChainAdapterError,
     OptionsDxOptionsChainAdapter,
     OratsOptionsChainAdapter,
+    ValidationMode,
     YfinanceOptionsChainAdapter,
+    coerce_options_frame_to_pandas,
     normalize_and_validate_options_chain,
     normalize_options_chain,
+    validate_options_chain,
     validate_options_chain_contract,
 )
 from .adapters import (
@@ -132,7 +135,10 @@ __all__ = [
     "YfinanceOptionsChainAdapter",
     "OptionsDxOptionsChainAdapter",
     "ColumnMapOptionsChainAdapter",
+    "coerce_options_frame_to_pandas",
     "normalize_and_validate_options_chain",
     "normalize_options_chain",
+    "validate_options_chain",
     "validate_options_chain_contract",
+    "ValidationMode",
 ]

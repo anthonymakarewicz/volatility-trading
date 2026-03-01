@@ -25,6 +25,15 @@ Resolution order:
 3. `options_adapter_mode` fallback (`orats` or `canonical`)
 4. `require_explicit` raises if no adapter is supplied
 
+Validation levels:
+- `coerce`: parse/coerce datetime/numeric fields before validation
+- `strict`: validate canonical typed fields without coercion
+
+Public helpers:
+- `validate_options_chain(..., validation_mode="coerce" | "strict")`
+- `normalize_and_validate_options_chain(...)` (coerce wrapper)
+- `validate_options_chain_contract(...)` (strict wrapper)
+
 ## Canonical Options-Chain Contract
 
 Required columns:
@@ -71,6 +80,15 @@ Optional columns:
   - Fast-path contract check for trusted canonical ETL outputs.
   - Skips alias remapping/coercion and enforces schema validation only.
   - Requires canonical typed columns (for example numeric `delta`, datetime `expiry_date`).
+
+## Polars Boundary
+
+`normalize_options_chain(...)` accepts either:
+- `pandas.DataFrame`
+- `polars.DataFrame`
+
+Polars input is converted once at adapter boundary via
+`coerce_options_frame_to_pandas(...)`. Core backtesting runtime remains pandas.
 
 ## Usage
 

@@ -38,6 +38,29 @@ class OptionsChainAdapter(Protocol):
         """Return source data normalized to canonical engine columns."""
 
 
+def coerce_options_frame_to_pandas(options: object) -> pd.DataFrame:
+    """Convert supported tabular inputs to pandas at adapter boundary.
+
+    Supported:
+    - ``pandas.DataFrame`` (returned as-is),
+    - ``polars.DataFrame`` (converted with ``to_pandas()``).
+    """
+    if isinstance(options, pd.DataFrame):
+        return options
+
+    module_root = type(options).__module__.split(".", 1)[0]
+    if module_root == "polars":
+        to_pandas = getattr(options, "to_pandas", None)
+        if callable(to_pandas):
+            converted = to_pandas()
+            if isinstance(converted, pd.DataFrame):
+                return converted
+
+    raise TypeError(
+        "options must be a pandas.DataFrame or polars.DataFrame-compatible object"
+    )
+
+
 def _resolve_alias_column(
     *,
     columns: Sequence[str],
@@ -205,9 +228,13 @@ class OptionsDxOptionsChainAdapter(AliasOptionsChainAdapter):
 
 
 def normalize_options_chain(
-    options: pd.DataFrame,
+    options: object,
     *,
     adapter: OptionsChainAdapter,
 ) -> pd.DataFrame:
-    """Apply adapter boundary before options execution plan compilation."""
-    return adapter.normalize(options)
+    """Apply adapter boundary before options execution plan compilation.
+
+    This function accepts pandas or polars dataframes and normalizes input to
+    pandas before invoking the selected adapter.
+    """
+    return adapter.normalize(coerce_options_frame_to_pandas(options))

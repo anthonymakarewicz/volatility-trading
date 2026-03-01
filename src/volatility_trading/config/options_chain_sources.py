@@ -25,8 +25,8 @@ ORATS_ALIAS_OVERRIDES: dict[str, tuple[str, ...]] = {
     BID_PRICE: ("bid",),
     ASK_PRICE: ("ask",),
     SPOT_PRICE: ("underlying_last", "underlying_price"),
-    MARKET_IV: ("market_iv", "mid_iv", "iv", "smoothed_iv"),
-    MODEL_IV: ("model_iv", "smoothed_iv"),
+    MARKET_IV: ("market_iv", "mid_iv", "iv"),
+    MODEL_IV: ("model_iv",),
     OPEN_INTEREST: ("oi",),
 }
 
@@ -37,7 +37,7 @@ YFINANCE_ALIAS_OVERRIDES: dict[str, tuple[str, ...]] = {
     BID_PRICE: ("bid",),
     ASK_PRICE: ("ask",),
     SPOT_PRICE: ("underlying_price", "underlying_last"),
-    MARKET_IV: ("implied_volatility", "impliedVolatility", "iv", "smoothed_iv"),
+    MARKET_IV: ("implied_volatility", "impliedVolatility", "iv"),
     OPEN_INTEREST: ("openInterest",),
 }
 
@@ -47,7 +47,7 @@ OPTIONSDX_ALIAS_OVERRIDES: dict[str, tuple[str, ...]] = {
     BID_PRICE: ("bid",),
     ASK_PRICE: ("ask",),
     SPOT_PRICE: ("underlying_last", "underlying_price"),
-    MARKET_IV: ("mid_iv", "iv", "smoothed_iv"),
+    MARKET_IV: ("mid_iv", "iv"),
     OPEN_INTEREST: ("oi",),
 }
 
