@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -35,6 +36,8 @@ from .valuation import (
     entry_net_notional,
     greeks_per_contract,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -154,6 +157,11 @@ class PositionLifecycleEngine:
             return forced_outcome
 
         if valuation.has_missing_quote:
+            logger.debug(
+                "Missing quote on %s for position entry=%s; keeping position open",
+                curr_date,
+                position.entry_date,
+            )
             return transition_continue_open(
                 position=position,
                 valuation=valuation,

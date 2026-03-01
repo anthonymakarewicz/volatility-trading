@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 
 from volatility_trading.backtesting.margin import MarginPolicy
@@ -22,6 +23,8 @@ from .valuation import (
     pnl_per_contract_from_exit_prices,
     update_position_mark_state,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def transition_forced_liquidation(
@@ -74,6 +77,13 @@ def transition_forced_liquidation(
     trade_rows: list[TradeRecord] = [trade_row]
 
     if contracts_after == 0:
+        logger.warning(
+            "Forced liquidation (full) date=%s entry_date=%s contracts_closed=%d pnl_net=%.6f",
+            step.curr_date,
+            position.entry_date,
+            contracts_to_close,
+            pnl_net_closed,
+        )
         forced_delta_pnl = (
             pnl_net_closed - valuation.prev_mtm_before
         ) + margin.margin.financing_pnl
@@ -100,6 +110,17 @@ def transition_forced_liquidation(
             trade_rows=trade_rows,
         )
 
+    logger.warning(
+        (
+            "Forced liquidation (partial) date=%s entry_date=%s "
+            "contracts_closed=%d contracts_remaining=%d pnl_net_closed=%.6f"
+        ),
+        step.curr_date,
+        position.entry_date,
+        contracts_to_close,
+        contracts_after,
+        pnl_net_closed,
+    )
     ratio_remaining = contracts_after / position.contracts_open
     pnl_mtm_remaining = valuation.pnl_mtm * ratio_remaining
     forced_delta_pnl = (
@@ -183,6 +204,14 @@ def transition_standard_exit(
         pnl=pnl_net,
         exit_type=exit_type,
         exit_prices=exit_prices,
+    )
+    logger.info(
+        "Position exited date=%s entry_date=%s exit_type=%s contracts=%d pnl_net=%.6f",
+        step.curr_date,
+        position.entry_date,
+        exit_type,
+        position.contracts_open,
+        pnl_net,
     )
 
     mtm_record = apply_closed_position_fields(

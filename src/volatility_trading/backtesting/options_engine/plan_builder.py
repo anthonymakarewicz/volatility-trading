@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import pandas as pd
 
 from ..config import BacktestRunConfig
@@ -20,6 +22,8 @@ from .outputs import build_options_backtest_outputs
 from .sizing import SizingRequest, size_entry_intent
 from .specs import StrategySpec
 
+logger = logging.getLogger(__name__)
+
 
 def build_options_execution_plan(
     *,
@@ -29,6 +33,11 @@ def build_options_execution_plan(
     capital: float,
 ) -> SinglePositionExecutionPlan:
     """Compile one options ``StrategySpec`` into an engine execution plan."""
+    logger.info(
+        "Building options execution plan strategy=%s capital=%.2f",
+        spec.name,
+        float(capital),
+    )
     if spec.sizing.margin_budget_pct is not None and config.broker.margin.model is None:
         raise ValueError(
             "strategy margin_budget_pct requires config.broker.margin.model"
@@ -38,6 +47,12 @@ def build_options_execution_plan(
     options = normalize_options_chain(
         data.options,
         adapter=adapter,
+    )
+    adapter_name = getattr(adapter, "name", type(adapter).__name__)
+    logger.info(
+        "Options chain normalized adapter=%s rows=%d",
+        adapter_name,
+        len(options),
     )
     features = data.features
     hedge_market = data.hedge_market
@@ -61,6 +76,15 @@ def build_options_execution_plan(
             end=end,
         )
 
+    logger.info(
+        "Run window applied start=%s end=%s options_rows=%d features_rows=%s hedge_rows=%s",
+        config.start_date,
+        config.end_date,
+        len(options),
+        len(features) if features is not None else None,
+        len(hedge_market.mid) if hedge_market is not None else None,
+    )
+
     if spec.lifecycle.delta_hedge.enabled and hedge_market is None:
         raise ValueError("enabled delta hedging requires data.hedge_market")
 
@@ -76,6 +100,16 @@ def build_options_execution_plan(
     trading_dates = sorted(options.index.unique())
     direction_by_date = sig_df["entry_direction"].groupby(level=0).last().astype(int)
     active_signal_dates = set(direction_by_date[direction_by_date != 0].index)
+    logger.info(
+        "Signals ready strategy=%s trading_dates=%d active_signal_dates=%d",
+        spec.name,
+        len(trading_dates),
+        len(active_signal_dates),
+    )
+    if not active_signal_dates:
+        logger.warning(
+            "No active signal dates after normalization for strategy=%s", spec.name
+        )
     _validate_hedge_market_coverage(
         trading_dates=trading_dates,
         spec=spec,
@@ -153,6 +187,11 @@ def _prepare_entry_setup(
         fallback_iv_feature_col=fallback_iv_feature_col,
     )
     if intent is None:
+        logger.debug(
+            "Entry setup skipped on %s: no entry intent resolved (direction=%d)",
+            entry_date,
+            entry_direction,
+        )
         return None
 
     if intent.entry_state is None:
@@ -179,6 +218,11 @@ def _prepare_entry_setup(
         )
     )
     if sizing.contracts <= 0:
+        logger.debug(
+            "Entry setup rejected on %s: sizing returned contracts=%d",
+            entry_date,
+            sizing.contracts,
+        )
         return None
 
     return PositionEntrySetup(
@@ -202,13 +246,23 @@ def _resolve_options_adapter(
             "data.options_adapter; set only one adapter source"
         )
     if config.options_adapter is not None:
+        logger.debug(
+            "Using options adapter from config: %s",
+            type(config.options_adapter).__name__,
+        )
         return config.options_adapter
     if data.options_adapter is not None:
+        logger.debug(
+            "Using options adapter from data bundle: %s",
+            type(data.options_adapter).__name__,
+        )
         return data.options_adapter
 
     if config.options_adapter_mode == "orats":
+        logger.debug("Using built-in options adapter mode=orats")
         return OratsOptionsChainAdapter()
     if config.options_adapter_mode == "canonical":
+        logger.debug("Using built-in options adapter mode=canonical")
         return CanonicalOptionsChainAdapter()
     if config.options_adapter_mode == "require_explicit":
         raise ValueError(
