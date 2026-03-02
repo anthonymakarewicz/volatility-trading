@@ -6,7 +6,7 @@ This document defines the release and versioning workflow for this project.
 
 - Package: `volatility-trading`
 - Current phase: pre-`1.0.0` (`0.x.y`)
-- Source of package version: `setup.cfg` (`[metadata].version`)
+- Source of package version: `pyproject.toml` (`[project].version`)
 
 ## Versioning Policy (Pre-1.0)
 
@@ -34,7 +34,7 @@ Avoid direct pushes to `main` for non-trivial changes.
 
 1. Ensure CI is green and local quality gates pass.
 2. Update docs/examples for any API or behavior changes.
-3. Bump version in `setup.cfg`.
+3. Bump version in `pyproject.toml`.
 4. Update `CHANGELOG.md` (create it if missing).
 5. Commit release preparation changes.
 6. Create annotated tag `v0.x.y`.
