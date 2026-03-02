@@ -20,7 +20,7 @@ pip install -e .
 `requirements-dev.txt` includes the runtime dependency set, so installing only
 `requirements-dev.txt` is sufficient for local development.
 
-If you add or change console scripts in `setup.cfg` (`options.entry_points`),
+If you add or change console scripts in `pyproject.toml` (`project.scripts`),
 rerun editable install so new commands are created in `.venv/bin`:
 
 ```bash

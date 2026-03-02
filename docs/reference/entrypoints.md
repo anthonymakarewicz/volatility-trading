@@ -5,7 +5,7 @@ This project exposes console scripts after installation. Run:
 pip install -e .
 ```
 
-If you add or change `options.entry_points` in `setup.cfg`, reinstall to
+If you add or change `project.scripts` in `pyproject.toml`, reinstall to
 regenerate console scripts:
 
 ```bash

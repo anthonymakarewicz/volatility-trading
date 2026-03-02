@@ -2,6 +2,64 @@
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "volatility-trading"
+version = "0.1.0"
+description = "Volatility trading research"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "altair",
+    "exchange-calendars",
+    "fredapi",
+    "joblib",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "polars",
+    "pyarrow",
+    "python-dotenv",
+    "py7zr",
+    "pyyaml",
+    "requests",
+    "scikit-learn",
+    "scipy",
+    "seaborn",
+    "statsmodels",
+    "yfinance",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter",
+    "jupytext",
+    "pandas-stubs",
+    "pip-tools",
+    "pre-commit",
+    "pyright",
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+orats-api-download = "volatility_trading.apps.orats.download_api:main"
+orats-api-extract = "volatility_trading.apps.orats.extract_api:main"
+orats-ftp-download = "volatility_trading.apps.orats.download_ftp:main"
+orats-ftp-extract = "volatility_trading.apps.orats.extract_ftp:main"
+orats-build-options-chain = "volatility_trading.apps.orats.build_options_chain:main"
+orats-build-daily-features = "volatility_trading.apps.orats.build_daily_features:main"
+orats-qc-daily-features = "volatility_trading.apps.orats.qc_daily_features:main"
+orats-qc-options-chain = "volatility_trading.apps.orats.qc_options_chain:main"
+optionsdx-prepare-panel = "volatility_trading.apps.optionsdx.prepare_panel:main"
+fred-sync = "volatility_trading.apps.fred.sync:main"
+yfinance-sync = "volatility_trading.apps.yfinance.sync:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-m 'not integration'"
