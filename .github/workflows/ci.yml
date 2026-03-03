@@ -2,13 +2,14 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
   unit:
+    name: unit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,6 +38,7 @@ jobs:
         run: pytest -q
 
   integration:
+    name: integration
     runs-on: ubuntu-latest
     needs: unit
     steps:
