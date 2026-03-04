@@ -32,6 +32,7 @@ Use this page as the canonical entrypoint for repository documentation.
 ## Notebooks and Reports
 
 - [Notebook Catalog](research/notebooks.md): notebook inventory and published report links.
+- [Research Results](research/results.md): detailed experiment outcomes and strategy result summaries.
 - [Notebook Authoring Guide](contributing/notebook_authoring.md): notebook design standards.
 - [Jupytext Workflow](contributing/jupytext.md): pairing and sync workflow.
 - [Publishing](research/publishing.md): GitHub Pages export and deployment flow.
