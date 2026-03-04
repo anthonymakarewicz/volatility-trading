@@ -1,0 +1,87 @@
+name: Publish to TestPyPI
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+concurrency:
+  group: publish-testpypi-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # REQUIRED for Trusted Publishing (OIDC)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Verify tag matches version
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+
+          tag = os.environ["TAG"]  # e.g. "v0.1.0"
+          tag_ver = tag[1:] if tag.startswith("v") else tag
+
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          pkg_ver = data["project"]["version"]
+
+          assert pkg_ver == tag_ver, f"pyproject version={pkg_ver} != tag={tag_ver}"
+          print("OK:", pkg_ver, "matches tag", tag)
+          PY
+        env:
+          TAG: ${{ github.ref_name }}
+
+      - name: Build distributions
+        run: |
+          python -m pip install -U pip build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Smoke test wheel install (local)
+        run: |
+          python -m venv .venv_smoke
+          source .venv_smoke/bin/activate
+          python -m pip install -U pip
+          python -m pip install dist/*.whl
+          python -c "import volatility_trading as vt; print(vt.__name__)"
+
+      - name: Publish to TestPyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Smoke test install from TestPyPI (end-to-end)
+        run: |
+          python -m venv .venv_testpypi
+          source .venv_testpypi/bin/activate
+          python -m pip install -U pip
+          PKG_VERSION="${TAG#v}"
+          for attempt in 1 2 3 4 5; do
+            if python -m pip install --no-cache-dir -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "volatility-trading==${PKG_VERSION}"; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "TestPyPI package not available after retries: volatility-trading==${PKG_VERSION}" >&2
+              exit 1
+            fi
+            sleep 20
+          done
+          python -c "import volatility_trading as vt; print(vt.__name__)"
+        env:
+          TAG: ${{ github.ref_name }}
