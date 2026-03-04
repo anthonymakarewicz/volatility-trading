@@ -22,22 +22,34 @@ git clone https://github.com/anthonymakarewicz/volatility-trading.git
 cd volatility_trading
 ```
 
-2. Create a virtual environment and install runtime dependencies (Python 3.12+):
+2. Create a virtual environment (Python 3.12+):
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -U pip
 ```
 
-3. Optional (development setup: runtime + dev tools + tests):
+3. Install dependencies:
+
+Primary contributor setup (editable package + dev tooling):
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 ```
 
-`requirements-dev.txt` already includes all runtime dependencies from
-`requirements.txt`.
+Secondary options:
+- Runtime-only install (users running package code without dev tools):
+
+```bash
+pip install .
+```
+
+- Editable runtime-only install (local source edits, no dev tools):
+
+```bash
+pip install -e .
+```
 
 4. Set credentials (ORATS):
 
@@ -163,7 +175,7 @@ GitHub Actions runs:
 - Ruff lint + format checks
 - Pyright type checks
 - Unit tests by default
-- Integration tests on pushes to `main` (and manual runs)
+- Integration tests on PRs and pushes to `main` (and manual runs)
 
 See [CI workflow](.github/workflows/ci.yml).
 

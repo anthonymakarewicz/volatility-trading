@@ -10,7 +10,7 @@ For ORATS pipeline/app-specific failures, see
 - Likely cause: `pip-tools` is not installed in the active virtual environment.
 - Fix:
   - activate your venv (`source .venv/bin/activate`)
-  - install dev dependencies (`pip install -r requirements-dev.txt`)
+  - install dev dependencies (`pip install -e ".[dev]"`)
   - verify with `pip show pip-tools`
 - Related docs:
   - [Development Guide](contributing/development.md)
