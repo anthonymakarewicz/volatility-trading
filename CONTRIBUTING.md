@@ -5,14 +5,14 @@ Thanks for contributing to this repository.
 This project prioritizes correctness, reproducibility, and maintainability.
 Use the docs below as the source of truth for day-to-day workflows:
 
-- Development workflow: `docs/contributing/development.md`
-- Coding style: `docs/contributing/coding_guide.md`
-- Testing standards: `docs/contributing/testing_guide.md`
-- Test authoring: `docs/contributing/test_authoring.md`
-- Docstrings: `docs/contributing/docstrings.md`
-- Notebook workflow: `docs/contributing/notebook_authoring.md`
-- Jupytext sync: `docs/contributing/jupytext.md`
-- Release/versioning process: `docs/contributing/release_process.md`
+- [Development workflow](docs/contributing/development.md)
+- [Coding style](docs/contributing/coding_guide.md)
+- [Testing standards](docs/contributing/testing_guide.md)
+- [Test authoring](docs/contributing/test_authoring.md)
+- [Docstrings](docs/contributing/docstrings.md)
+- [Notebook workflow](docs/contributing/notebook_authoring.md)
+- [Jupytext sync](docs/contributing/jupytext.md)
+- [Release/versioning process](docs/contributing/release_process.md)
 
 ## Branch and PR Workflow
 
@@ -96,8 +96,8 @@ Recommended local pre-checks before opening or updating a PR:
 
 For notebook edits, follow:
 
-- `docs/contributing/notebook_authoring.md`
-- `docs/contributing/jupytext.md`
+- [Notebook Authoring Guide](docs/contributing/notebook_authoring.md)
+- [Jupytext Workflow](docs/contributing/jupytext.md)
 
 ## Commit Messages
 
@@ -122,7 +122,7 @@ Notes:
 - If pre-commit modifies files during `git commit`, run `git add -A` and commit again.
 
 For extended commit guidance and local quality gates, see
-`docs/contributing/development.md`.
+[Development Guide](docs/contributing/development.md).
 
 ## Merge Strategy Policy
 
@@ -131,27 +131,27 @@ For extended commit guidance and local quality gates, see
 
 ## Workflow Trigger Matrix
 
-- PR to `main` -> `.github/workflows/ci.yml`
-- Push to `main` -> `.github/workflows/ci.yml`, `.github/workflows/pages.yml`
-- Tag `v*.*.*` -> `.github/workflows/publish-testpypi.yml`
-- Release published -> `.github/workflows/publish-pypi.yml`
+- PR to `main` -> [.github/workflows/ci.yml](.github/workflows/ci.yml)
+- Push to `main` -> [.github/workflows/ci.yml](.github/workflows/ci.yml), [.github/workflows/pages.yml](.github/workflows/pages.yml)
+- Tag `v*.*.*` -> [.github/workflows/publish-testpypi.yml](.github/workflows/publish-testpypi.yml)
+- Release published -> [.github/workflows/publish-pypi.yml](.github/workflows/publish-pypi.yml)
 
 ## Release Checklist
 
-For releases, follow `docs/contributing/release_process.md`.
+For releases, follow [Release Process](docs/contributing/release_process.md).
 Minimum checklist:
 
 - Ensure working tree is clean and CI is green
 - Update version (`0.x.y` while pre-1.0)
 - Update `CHANGELOG.md`
 - Create an annotated git tag (`v0.x.y`)
-- Push the release tag (`git push origin v0.x.y`) to trigger `.github/workflows/publish-testpypi.yml`
+- Push the release tag (`git push origin v0.x.y`) to trigger [.github/workflows/publish-testpypi.yml](.github/workflows/publish-testpypi.yml)
 - Validate TestPyPI publish and smoke-install workflow run
-- Create/publish GitHub Release to trigger `.github/workflows/publish-pypi.yml`
+- Create/publish GitHub Release to trigger [.github/workflows/publish-pypi.yml](.github/workflows/publish-pypi.yml)
 - Validate PyPI publish workflow run
 
 ## Release Gate Policy
 
 - TestPyPI publish + smoke install must pass before GitHub Release/PyPI publish.
-- Release tag version must match `pyproject.toml` (`[project].version`).
+- Release tag version must match [pyproject.toml](pyproject.toml) (`[project].version`).
 - Package publishing is automated by GitHub Actions workflows, not manual `twine upload`.
