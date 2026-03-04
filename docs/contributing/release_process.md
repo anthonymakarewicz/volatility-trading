@@ -20,16 +20,6 @@ Guideline:
 - If external usage or contracts may change, bump `x`.
 - If behavior is compatible and scope is corrective, bump `y`.
 
-## Branch and PR Expectations
-
-Use a feature branch and PR for release-bound changes:
-
-- `feature/*`, `fix/*`, or `refactor/*` branch from `main`
-- PR into `main`
-- Merge only when required checks pass
-
-Avoid direct pushes to `main` for non-trivial changes.
-
 ## Release Checklist
 
 1. Ensure CI is green and local quality gates pass.
@@ -38,9 +28,10 @@ Avoid direct pushes to `main` for non-trivial changes.
 4. Update `CHANGELOG.md` (create it if missing).
 5. Commit release preparation changes.
 6. Create annotated tag `v0.x.y`.
-7. Create GitHub Release with concise notes.
-8. Publish to TestPyPI and validate install.
-9. Publish to PyPI after TestPyPI validation.
+7. Push tag `v0.x.y` to trigger `.github/workflows/publish-testpypi.yml`.
+8. Validate TestPyPI workflow publish + smoke install.
+9. Create/publish GitHub Release with concise notes to trigger `.github/workflows/publish-pypi.yml`.
+10. Validate PyPI publish workflow run.
 
 ## Suggested Validation Commands
 
@@ -57,25 +48,15 @@ make test
 make ci
 ```
 
-## Packaging and Publish Flow (Example)
+## Packaging and Publish Flow
 
-Build artifacts:
+Publishing is automated via GitHub Actions:
 
-```bash
-python -m build
-```
+- Tag `v*.*.*` push -> `.github/workflows/publish-testpypi.yml`
+- `release: published` event -> `.github/workflows/publish-pypi.yml`
 
-Upload to TestPyPI:
-
-```bash
-python -m twine upload --repository testpypi dist/*
-```
-
-Upload to PyPI:
-
-```bash
-python -m twine upload dist/*
-```
+Both workflows build artifacts and run `twine check` before publishing.
+No manual `twine upload` is required for the standard release path.
 
 ## Notes on Current Library State
 
