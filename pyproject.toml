@@ -8,6 +8,22 @@ version = "0.1.0"
 description = "Volatility trading research"
 readme = "README.md"
 requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Anthony Makarewicz" }
+]
+keywords = ["options", "volatility", "backtesting", "quant", "trading"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering",
+]
 dependencies = [
     "altair",
     "exchange-calendars",
@@ -53,6 +69,14 @@ orats-qc-options-chain = "volatility_trading.apps.orats.qc_options_chain:main"
 optionsdx-prepare-panel = "volatility_trading.apps.optionsdx.prepare_panel:main"
 fred-sync = "volatility_trading.apps.fred.sync:main"
 yfinance-sync = "volatility_trading.apps.yfinance.sync:main"
+
+[project.urls]
+Homepage = "https://github.com/anthonymakarewicz/volatility-trading"
+Documentation = "https://github.com/anthonymakarewicz/volatility-trading/tree/main/docs"
+Reports = "https://anthonymakarewicz.github.io/volatility-trading/"
+Repository = "https://github.com/anthonymakarewicz/volatility-trading"
+Issues = "https://github.com/anthonymakarewicz/volatility-trading/issues"
+Changelog = "https://github.com/anthonymakarewicz/volatility-trading/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
