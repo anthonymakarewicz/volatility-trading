@@ -7,18 +7,21 @@ For common environment/tooling failures, see [Troubleshooting](../troubleshootin
 
 1. Use Python 3.12+.
 2. Create and activate a virtual environment.
-3. Install development dependencies (includes runtime dependencies).
+3. Install dependencies.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -U pip setuptools wheel
-pip install -r requirements-dev.txt
-pip install -e .
+python -m pip install -U pip
+pip install -e ".[dev]"
 ```
 
-`requirements-dev.txt` includes the runtime dependency set, so installing only
-`requirements-dev.txt` is sufficient for local development.
+Primary setup for contributors:
+- `pip install -e ".[dev]"`: editable install + runtime + dev tools.
+
+Secondary install modes:
+- `pip install .`: runtime-only install (useful for users running package code without dev tooling).
+- `pip install -e .`: editable runtime-only install (useful for local source edits without dev tooling).
 
 If you add or change console scripts in `pyproject.toml` (`project.scripts`),
 rerun editable install so new commands are created in `.venv/bin`:
@@ -115,14 +118,16 @@ For full setup and policy (pairing, execution checks, output policy), see
 
 ## Dependency Updates
 
-When dependencies change, recompile `requirements.txt` from `requirements.in`
-using the minimum supported Python version (3.12):
+When dependencies change:
+
+1. Update dependency definitions in `pyproject.toml` (`project.dependencies` or `project.optional-dependencies.dev`).
+2. Reinstall the environment:
 
 ```bash
-pip-compile requirements.in -o requirements.txt
+pip install -e ".[dev]"
 ```
 
-Then run:
+3. Run validation:
 
 ```bash
 make check
@@ -147,4 +152,5 @@ GitHub Actions workflow:
 - runs Ruff lint + format checks on `src/`, `tests/`, and notebook helper modules (`notebooks/**/*.py`, excluding `notebooks/**/notebook.py`)
 - runs Pyright type checks on stable `src/volatility_trading` subpackages plus notebook helper modules (`notebooks/**/*.py`, excluding `notebooks/**/notebook.py`)
 - runs unit tests on PRs and pushes to `main`
-- runs integration tests on pushes to `main` and manual workflow runs
+- runs integration tests on PRs, pushes to `main`, and manual workflow runs
+- runs package build and `twine check` validation on PRs and pushes to `main`
