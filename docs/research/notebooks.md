@@ -4,6 +4,7 @@ This page summarizes research notebooks and links to published HTML reports.
 For pairing and sync instructions, see [Jupytext workflow](../contributing/jupytext.md).
 For notebook design standards, see [Notebook authoring guide](../contributing/notebook_authoring.md).
 For deployment details, see [Publishing](publishing.md).
+For detailed outcomes and metrics, see [Research Results](results.md).
 Published reports are served from GitHub Pages.
 
 Base URL: `https://anthonymakarewicz.github.io/volatility-trading/`

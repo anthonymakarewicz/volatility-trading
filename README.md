@@ -1,11 +1,12 @@
 # **Volatility Trading on Equity Options**
 
-[![CI](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/ci.yml)
-[![Pages](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/pages.yml/badge.svg)](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/pages.yml)
+[![CI](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/ci.yml)
+[![Pages](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/anthonymakarewicz/volatility-trading/actions/workflows/pages.yml)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![Ruff](https://img.shields.io/badge/lint-ruff-46a?logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
 [![Pyright](https://img.shields.io/badge/type%20check-pyright-blue)](https://github.com/microsoft/pyright)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/anthonymakarewicz/volatility-trading/blob/main/LICENSE)
 
 This project develops and evaluates daily options-volatility strategies on index and single-stock underlyings.
 Research spans the full pipeline: data engineering and quality checks, implied-volatility surface modelling, volatility forecasting, and strategy backtesting.
@@ -77,7 +78,7 @@ Use `--dry-run` to validate config, paths, and credentials before running writes
 orats-api-download --config config/orats/api_download.yml --dry-run
 ```
 
-For the full command sequence, see [Data pipeline](docs/reference/data_pipeline.md).
+For the full command sequence, see [Data pipeline](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/data_pipeline.md).
 
 ## **Current Data Support Status**
 
@@ -86,12 +87,33 @@ For the full command sequence, see [Data pipeline](docs/reference/data_pipeline.
 - The options backtesting runtime expects the current project options-chain schema (for example quotes/Greeks fields used by entry, sizing, and lifecycle).
 - You can run backtests with non-ORATS data if it is pre-normalized to the expected schema.
 
+## **Stability**
+
+- Current release line is `0.1.x` (**alpha / pre-1.0**).
+- Public APIs, data contracts, and configuration surfaces may evolve between minor versions.
+- For reproducible research, pin exact package versions and review [CHANGELOG.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/CHANGELOG.md) before upgrading.
+
+## **Data Contract / Supported Inputs**
+
+| Source | Input expected by backtester | Support status | Adapter path |
+|:--|:--|:--|:--|
+| ORATS ETL output | Canonical long-format options chain | First-class | `CanonicalOptionsChainAdapter` (or mode `canonical`) |
+| OptionsDX ETL output | Cleaned long-format panel (`reshape='long'`) | Supported | `OptionsDxOptionsChainAdapter` |
+| Custom/vendor dataset | Long-format panel mapped to canonical fields | Supported with mapping | `ColumnMapOptionsChainAdapter` |
+
+Notes:
+- Raw wide OptionsDX vendor format (`c_*` / `p_*`) is not accepted directly by the backtester.
+- Contract details and adapter behavior: [Options Data Adapters](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/options_data_adapters.md)
+- ORATS pipeline reference: [Data Pipeline](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/data_pipeline.md)
+- OptionsDX onboarding: [OptionsDX Setup](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/optionsdx_setup.md)
+
 ## **Quick VRP Backtest Example**
 
-The snippet below focuses only on running the strategy.
 Assume you already prepared:
 
 - `options`: long-format `pandas` options panel indexed by `trade_date`
+
+1. Import strategy and backtesting types:
 
 ```python
 from volatility_trading.backtesting import (
@@ -109,14 +131,22 @@ from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
+```
 
+2. Build the backtest data bundle:
+
+```python
 hedge_mid = options.groupby(level=0)["spot_price"].first().astype(float)
 data = OptionsBacktestDataBundle(
     options=options,
     features=None,
     hedge_market=HedgeMarketData(mid=hedge_mid),
 )
+```
 
+3. Define strategy spec and run configuration:
+
+```python
 vrp_spec = VRPHarvestingSpec(
     signal=ShortOnlySignal(),
     rebalance_period=10,
@@ -132,7 +162,11 @@ cfg = BacktestRunConfig(
         margin=MarginConfig(model=RegTMarginModel(broad_index=False))
     ),
 )
+```
 
+4. Run the backtest and compute daily MTM/performance metrics:
+
+```python
 bt = Backtester(
     data=data,
     strategy=strategy,
@@ -149,9 +183,9 @@ metrics = print_performance_report(
 ```
 
 For a full scriptable workflow (data loading + backtest run), see
-[VRP end-to-end example](examples/vrp_end_to_end.py).
+[VRP end-to-end example](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/vrp_end_to_end.py).
 For the research-style workflow and reporting exploration, see
-[VRP notebook](notebooks/vrp_harvesting/notebook.py).
+[VRP notebook](https://github.com/anthonymakarewicz/volatility-trading/blob/main/notebooks/vrp_harvesting/notebook.py).
 
 ## **Tests**
 
@@ -167,7 +201,7 @@ Run integration tests:
 pytest -q -m integration
 ```
 
-See [Testing guide](docs/contributing/testing_guide.md) for layout and conventions.
+See [Testing guide](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/contributing/testing_guide.md) for layout and conventions.
 
 ## **Continuous Integration (CI)**
 
@@ -177,7 +211,7 @@ GitHub Actions runs:
 - Unit tests by default
 - Integration tests on PRs and pushes to `main` (and manual runs)
 
-See [CI workflow](.github/workflows/ci.yml).
+See [CI workflow](https://github.com/anthonymakarewicz/volatility-trading/blob/main/.github/workflows/ci.yml).
 
 ## **Developer Workflow**
 
@@ -197,140 +231,28 @@ make ci
 ```
 
 For full setup and tooling details, see the
-[Documentation index](docs/README.md).
+[Documentation index](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/README.md).
 Notebook HTML reports are built in GitHub Actions and published to GitHub Pages.
 
 ## **Docs**
 
-See [Documentation index](docs/README.md) for the full docs map.
+See [Documentation index](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/README.md) for the full docs map.
 Most-used pages:
-- [Development guide](docs/contributing/development.md)
-- [Testing guide](docs/contributing/testing_guide.md)
-- [Notebook catalog](docs/research/notebooks.md)
+- [Development guide](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/contributing/development.md)
+- [Testing guide](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/contributing/testing_guide.md)
+- [Notebook catalog](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/research/notebooks.md)
 
 
-## **Research Notebooks and Results**
+## **Research Highlights**
 
-## **Realized Volatility Forecasting (HAR-RV-VIX vs RF)**
+We publish research notebooks and strategy diagnostics as HTML reports on GitHub Pages.
 
-We build a **21-day realized variance** forecasting model on ES futures (2010–2025) and compare:
+- RV forecasting: HAR-RV-VIX reaches about **30% OOS R²** vs a naive baseline.
+- IV surface modelling: parametric vs non-parametric surface comparison workflows.
+- Skew trading: delta-hedged RR strategy with realistic costs and risk controls.
 
-- **Naive RV benchmark** – carry current 21D RV forward
-- **HAR-RV** – classic daily / weekly / monthly RV lags
-- **HAR-RV-VIX** – HAR-RV + VIX as a forward-looking volatility proxy
-- **Random Forest (RF)** – non-linear benchmark on the same feature set
+Explore details here:
 
-Before model selection, we run a **feature-importance & stability analysis** (SFI, Lasso, RF, permutation importance) to keep only **parsimonious, economically sensible** predictors for the linear and RF models.
-
-![Feature Importance Linear](plots/fi_linear.png)
-
----
-
-### OOS Performance (2021–2025, monthly walk-forward, 3Y rolling window)
-
-All metrics are computed on **log 21D RV**, using an expanding walk-forward with **3-year rolling re-fit** and a **21-day purge**.
-
-| model      |   R²    |   MSE    |  QLIKE   | Var_res | R²_oos|
-|:----------|:-------:|:--------:|:--------:|:-------:|:------:|
-| Naive_RV  | 0.0943  | 0.5078   | 0.2791   | 0.5080  | 0.0000 |
-| HAR-RV    | 0.2920  | 0.3970   | 0.2086   | 0.3920  | 0.2182 |
-| HAR-RV-VIX| 0.3676  | 0.3546   | 0.1788   | 0.3549  | 0.3017 |
-
-
-![alt text](plots/rv_oos_perf.png)
-
----
-
-###  Takeaways
-
-- **HAR-RV-VIX** is the **final candidate model**: it clearly beats both **Naive RV** and **HAR-RV** in OOS $R²$, MSE and QLIKE, and delivers a **~30% $R²_{oos}$** vs the naive benchmark.
-- The **Random Forest** does **not** improve on HAR-RV-VIX in the validation period and is therefore **not carried forward** to the final walk-forward evaluation.
-- All modelling choices (features, models, hyper-parameters) were fixed on **2010–2020**; the **2021–2025** walk-forward backtest is run **once** to avoid backtest-tuning bias.
-
-[Full notebook](notebooks/rv_forecasting/notebook.ipynb)
-
-
-## **Implied Volatility Surface Modelling (Parametric vs Non-Parametric)**
-
-![Iv surface](plots/iv_surface_grid.png)
-
-[Full notebook](notebooks/iv_surface_modelling/notebook.ipynb)
-
-
-## **Skew Volatility Trading (30 DTE / 25 Δ)**
-
-Trade the 30-day to expiry, 25 Delta SPX put–call skew via a delta-hedged risk reversal:
-
-- **Synthetic Skew**
-  – Interpolate across expiries to build a continuous “30 DTE / 25 Δ” skew series.
-
-- **Entry / Exit**
-  – **Short RR** when skew z-score ≥ 1.5 (too steep)
-  – **Long RR** when skew z-score ≤ –1.5 (too flat)
-  – **Exit** when |z-score| ≤ 0.5
-
-![Abs vs Norm Skew](plots/abs_vs_norm_skew.png)
-
----
-
-### **Signal Filters**
-- **VIX Filter:** Block entries if VIX > 30
-- **IV Percentile:** Trade only when ATM IV is within its 20–80 historical percentile
-- **Skew Percentile:** Trade only when skew is below its 30th (for longs) or above its 70th (for shorts) percentile
-
-![Skew Z-score](plots/z_score_signal_vix_filter.png)
-
----
-
-### Backtest Overview
-We run a walk-forward backtest on daily SPX options (2016 – 2023), starting with \$100 000 of capital.
-
-### Configuration
-
-- **Entry Rule**
-50-day z-score mean-reversion on normalized skew (|z| ≥ 1.5 triggers a risk reversal; exit when |z| falls below 0.5)
-
-- **Signal Filters**
-  - **VIX Filter:** Skip trades when VIX > 30
-  - **Skew Percentile:** Only go long when normalized skew falls below its 30th percentile, and short when it rises above its 70th percentile
-
-- **Execution Costs**
-  - **Bid/Ask & Slippage:** Fill sells at the bid, buys at the ask + \$0.01 slippage per leg
-  - **Commissions:** \$1 per option leg
-
-- **Risk Controls**
-  - **Delta Hedging:** E-mini S&P 500 futures (ES=F) used to neutralize net Δ (lot size = 50)
-  - **Position Sizing:** Dynamically scale trade size by signal strength (base 1% of equity at entry-threshold, +0.5% per additional 0.5σ) and cap it at 2%
-  - **Risk Floor:** Enforce a minimum \$750 worst-case risk per contract to prevent oversized position sizing when Greek-based risk is very low
-  - **Stop-Loss & Take-Profit:** SL at 100% of notional, TP at 70% of notional
-  - **Holding Period Cap:** 3 business days (skip negative theta trades on Fridays if 2-day θ decay > 200)
-
-[Full notebook](notebooks/skew_trading/notebook.ipynb)
-
----
-
-### Performance Results
-
-![Backtest](plots/backtest_baseline_realistic.png)
-![alt text](plots/pnl_decomp_basline_realistic.png)
-
----
-
-### 🔍 **Overall Performance Metrics**
-
-| Metric                    | Value          |
-|:--------------------------|:--------------:|
-| **Sharpe Ratio**          | 0.61           |
-| **CAGR**                  | 10.73%         |
-| **Average Drawdown**      | –1.62%         |
-| **Max Drawdown**          | –14.61%        |
-| **Max Drawdown Duration** | 287 days       |
-| **Historical VaR (99%)**  | –0.87%         |
-| **Historical CVaR (99%)** | –2.64%         |
-| **Total P&L**             | \$68,754.99    |
-| **Profit Factor**         | 2.66           |
-| **Trade Frequency**       | 15.2 trades/yr |
-| **Total Trades**          | 78             |
-| **Win Rate**              | 62.82%         |
-| **Avg Win P&L**           | \$2,271.04     |
-| **Avg Loss P&L**          | –\$1,444.52    |
+- [Research results (detailed)](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/research/results.md)
+- [Notebook catalog](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/research/notebooks.md)
+- [Published HTML reports](https://anthonymakarewicz.github.io/volatility-trading/)
