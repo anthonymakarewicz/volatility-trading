@@ -60,7 +60,8 @@ jobs:
       - name: Build package artifacts
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build twine
+          python -m pip install -e ".[release]"
+          rm -rf dist
           python -m build
           python -m twine check dist/*
 

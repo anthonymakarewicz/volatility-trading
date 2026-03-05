@@ -56,6 +56,10 @@ dev = [
     "pytest",
     "ruff",
 ]
+release = [
+    "build",
+    "twine",
+]
 
 [project.scripts]
 orats-api-download = "volatility_trading.apps.orats.download_api:main"
