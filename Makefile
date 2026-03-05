@@ -1,8 +1,9 @@
-.PHONY: help lint format check typecheck test test-unit test-integration ci sync-nb sync-nb-all fred-sync yfinance-sync market-sync
+.PHONY: help lint format check typecheck test test-unit test-integration package-check ci sync-nb sync-nb-all fred-sync yfinance-sync market-sync
 
 NOTEBOOK ?= notebooks/vrp_harvesting/notebook.ipynb
 FRED_CONFIG ?= config/fred/sync.yml
 YFINANCE_CONFIG ?= config/yfinance/time_series_sync.yml
+PYTHON ?= python3
 
 help:
 	@echo "Targets:"
@@ -13,6 +14,7 @@ help:
 	@echo "  make test               Run unit tests (default pytest)"
 	@echo "  make test-unit          Run unit tests only"
 	@echo "  make test-integration   Run integration tests only"
+	@echo "  make package-check      Build distributions and run twine metadata checks"
 	@echo "  make sync-nb            Sync one paired notebook (set NOTEBOOK=path)"
 	@echo "  make sync-nb-all        Sync all notebooks under notebooks/"
 	@echo "  make fred-sync          Sync FRED raw+processed datasets"
@@ -41,6 +43,11 @@ test-unit:
 
 test-integration:
 	pytest -m integration
+
+package-check:
+	rm -rf dist
+	$(PYTHON) -m build
+	$(PYTHON) -m twine check dist/*
 
 ci:
 	ruff check src tests notebooks

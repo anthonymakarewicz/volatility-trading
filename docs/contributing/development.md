@@ -18,6 +18,8 @@ pip install -e ".[dev]"
 
 Primary setup for contributors:
 - `pip install -e ".[dev]"`: editable install + runtime + dev tools.
+- `pip install -e ".[dev,release]"`: contributor + release maintainer setup
+  (includes packaging tools `build` and `twine`).
 
 Secondary install modes:
 - `pip install .`: runtime-only install (useful for users running package code without dev tooling).
@@ -43,12 +45,14 @@ make typecheck
 make test
 make test-unit
 make test-integration
+make package-check
 make sync-nb
 make sync-nb-all
 make ci
 ```
 
 `make ci` mirrors the main local quality gate (lint, format check, typecheck, unit tests).
+`make package-check` mirrors packaging validation (`python -m build` + `twine check`).
 
 ## Pre-commit
 
@@ -121,6 +125,7 @@ For full setup and policy (pairing, execution checks, output policy), see
 When dependencies change:
 
 1. Update dependency definitions in `pyproject.toml` (`project.dependencies` or `project.optional-dependencies.dev`).
+   For packaging/publish tools, update `project.optional-dependencies.release`.
 2. Reinstall the environment:
 
 ```bash
