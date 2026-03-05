@@ -38,12 +38,19 @@ Required updates:
 2. Update `CHANGELOG.md`
 3. Update docs/examples if API/behavior changed
 
+Ensure packaging tools are available in your environment:
+
+```bash
+pip install -e ".[dev,release]"
+```
+
 Run checks:
 
 ```bash
 make check
 make typecheck
 make test-unit
+make package-check
 ```
 
 Then commit and push:
@@ -100,6 +107,7 @@ python -m pip install --index-url https://test.pypi.org/simple/ \
 make check
 make typecheck
 make test-unit
+make package-check
 ```
 
 Optional broader gates:

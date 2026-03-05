@@ -225,6 +225,7 @@ make typecheck
 make test
 make test-unit
 make test-integration
+make package-check
 make sync-nb
 make sync-nb-all
 make ci
