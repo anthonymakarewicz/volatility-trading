@@ -60,21 +60,47 @@ import polars as pl
 
 import volatility_trading.strategies.vrp_harvesting.plotting as ph
 
-from volatility_trading.backtesting import BacktestConfig, to_daily_mtm
 from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting import (
+    BacktestRunConfig,
+    MarginPolicy,
+    to_daily_mtm,
+    print_performance_report
+)
 from volatility_trading.backtesting.reporting import (
+    EXPERIMENT_REPORT_ROOT,
+    build_backtest_report_bundle,
     plot_performance_dashboard,
     plot_pnl_attribution,
+    save_backtest_report_bundle,
 )
-from volatility_trading.backtesting.performance import print_performance_report
 from volatility_trading.datasets import (
     options_chain_wide_to_long,
     scan_daily_features,
     scan_options_chain,
+    read_fred_rates,
+    read_yfinance_time_series,
 )
-from volatility_trading.options import bs_greeks, bs_price
+from volatility_trading.options import bs_greeks, bs_price, RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
-from volatility_trading.strategies import VRPHarvestingStrategy
+from volatility_trading.strategies import make_vrp_strategy, VRPHarvestingSpec
+
+import pandas as pd
+
+from volatility_trading.backtesting import (
+    AccountConfig,
+    BacktestRunConfig,
+    BrokerConfig,
+    ExecutionConfig,
+    MarginConfig,
+    MarginPolicy,
+    OptionsBacktestDataBundle,
+    to_daily_mtm,
+)
+from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.options import RegTMarginModel
+from volatility_trading.signals import ShortOnlySignal
+from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
 
 np.random.seed(42)
 
@@ -471,48 +497,164 @@ options_chain_long = options_chain_long.to_pandas().set_index("trade_date")
 options_chain_long.head()
 
 # %%
-HOLDING_PERIOD = 10
+# --------------------
+# Config
+# --------------------
+REBALANCE_PERIOD = 10
 RISK_BUDGET_PCT = 1.0
+MARGIN_BUDGET_PCT = 0.4
+COMMISSION_PER_LEG = 0.0
 INIT_CAPITAL = 50_000
-START_BACKTEST = "2012"
-END_BACKTEST = "2013"
+START_BACKTEST = "2011-01-01"
+END_BACKTEST = "2017-12-31"
+BENCHMARK_TICKER = "SP500TR"
 
-sig = ShortOnlySignal()
-strat = VRPHarvestingStrategy(signal=sig, holding_period=HOLDING_PERIOD, risk_budget_pct=RISK_BUDGET_PCT)
-cfg = BacktestConfig(initial_capital=INIT_CAPITAL, commission_per_leg=0.0)
+# --------------------
+# Data
+# --------------------
+rf = read_fred_rates(columns=["date", "dgs3mo"])
+rf = rf.to_pandas().set_index("date").squeeze()
+rf.index = pd.to_datetime(rf.index)
+rf /= 100.0
+
+sp500_tr = read_yfinance_time_series(
+    tickers=[BENCHMARK_TICKER],
+    columns=["date", "close"],
+)
+sp500_tr = sp500_tr.to_pandas().set_index("date").squeeze()
+sp500_tr.index = pd.to_datetime(sp500_tr.index)
 
 options_red = options_chain_long.loc[START_BACKTEST:END_BACKTEST]
-data = {
-    "options": options_red,
-    "features": None,
-    "hedge": None
-}
-
-# %%
-bt = Backtester(data=data, strategy=strat, config=cfg)
-trades, mtm = bt.run()
-daily_mtm = to_daily_mtm(mtm, cfg.initial_capital)
-
-# %%
-BENCHMARK_TICKER = "^SP500TR"
-name = BENCHMARK_TICKER.lstrip("^")
-
-sp500_tr = (
-    yf.download(BENCHMARK_TICKER, start=START, end=END, auto_adjust=False)["Close"]
-    .squeeze()
-    .rename(name)
+data = OptionsBacktestDataBundle(
+    options=options_red,
+    features=None,
+    hedge=None,
 )
 
-sp500_tr
+# --------------------
+# Strategy Details
+# --------------------
+margin_model = RegTMarginModel(broad_index=False)
+
+margin_policy = MarginPolicy(
+    maintenance_margin_ratio=0.75,
+    margin_call_grace_days=1,
+    liquidation_mode="full",  # or "target"
+    apply_financing=True,
+    cash_rate_annual=rf,
+    borrow_rate_annual=rf + 0.02,
+)
+
+sig = ShortOnlySignal()
+vrp_spec = VRPHarvestingSpec(
+    signal=sig,
+    rebalance_period=REBALANCE_PERIOD,
+    risk_budget_pct=RISK_BUDGET_PCT,
+    margin_budget_pct=MARGIN_BUDGET_PCT,
+)
+strat = make_vrp_strategy(vrp_spec)
+
+cfg = BacktestRunConfig(
+    account=AccountConfig(initial_capital=INIT_CAPITAL),
+    execution=ExecutionConfig(commission_per_leg=COMMISSION_PER_LEG),
+    broker=BrokerConfig(
+        margin=MarginConfig(
+            model=margin_model,
+            policy=margin_policy,
+        )
+    ),
+    start_date=pd.Timestamp(START_BACKTEST),
+    end_date=pd.Timestamp(END_BACKTEST),
+)
+
+bt = Backtester(data=data, strategy=strat, config=cfg)
+trades, mtm = bt.run()
+daily_mtm = to_daily_mtm(mtm, cfg.account.initial_capital)
 
 # %%
-print_performance_report(trades=trades, mtm_daily=daily_mtm)
+print_performance_report(
+    trades=trades,
+    mtm_daily=daily_mtm,
+    risk_free_rate=rf
+)
 fig = plot_performance_dashboard(
     benchmark=sp500_tr,          # pd.Series
     mtm_daily=daily_mtm,         # pd.DataFrame
     strategy_name="VRP Harvesting",
     benchmark_name="S&P 500 TR",
+    figsize=(14, 12)
 )
 plt.show()
-fig = plot_pnl_attribution(daily_mtm)
+
+fig = plot_pnl_attribution(daily_mtm, figsize=(12, 5))
 plt.show()
+
+# %%
+from dataclasses import asdict, is_dataclass
+
+def _model_config(model):
+    if model is None:
+        return {"class": None, "params": None}
+    return {
+        "class": type(model).__name__,
+        "params": asdict(model) if is_dataclass(model) else None,
+    }
+
+run_config = {
+    "ticker": TICKER,
+    "backtest_start": str(daily_mtm.index.min().date()),
+    "backtest_end": str(daily_mtm.index.max().date()),
+    "strategy": {
+        "class": type(strat).__name__,
+        "signal_class": type(sig).__name__,
+        "holding_period": HOLDING_PERIOD,
+        "target_dte": getattr(strat, "target_dte", None),
+        "max_dte_diff": getattr(strat, "max_dte_diff", None),
+    },
+    "risk": {
+        "risk_budget_pct": RISK_BUDGET_PCT,
+        "risk_model": _model_config(getattr(strat, "risk_estimator", None)),
+        "scenario_generator": type(getattr(strat, "scenario_generator", None)).__name__
+        if getattr(strat, "scenario_generator", None) is not None
+        else None,
+    },
+    """
+    "margin": {
+        "margin_budget_pct": MARGIN_BUDGET_PCT,
+        "entry_margin_model": _model_config(getattr(strat, "margin_model", None)),
+        "lifecycle_policy": asdict(strat.margin_policy) if strat.margin_policy else None,
+        "lifecycle_enabled": strat.margin_policy is not None,
+    },
+    """
+    "execution": {
+        "initial_capital": cfg.initial_capital,
+        "commission_per_leg": cfg.commission_per_leg,
+        "slip_bid": cfg.slip_bid,
+        "slip_ask": cfg.slip_ask,
+        "lot_size": cfg.lot_size,
+    },
+    "benchmark": {"ticker": BENCHMARK_TICKER},
+}
+
+with plt.ioff():
+    bundle = build_backtest_report_bundle(
+        trades=trades,
+        mtm_daily=daily_mtm,
+        benchmark=sp500_tr,
+        risk_free_rate=rf,
+        run_id="05_rf_rate_series_on_MarginPolicy_and_performance",
+        strategy_name="VRP Harvesting",
+        benchmark_name=BENCHMARK_TICKER,
+        run_config=run_config,
+        include_dashboard_plot=True,
+        include_component_plots=True,
+    )
+
+run_dir = save_backtest_report_bundle(bundle, output_root=EXPERIMENT_REPORT_ROOT)
+
+for fig in bundle.figures.values():
+    plt.close(fig)
+
+print(run_dir)
+
+# %%
