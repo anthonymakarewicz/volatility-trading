@@ -14,7 +14,7 @@ start_year: 2010
 end_year: 2023
 low_memory: false
 do_clean: true
-reshape: wide
+reshape: long
 overwrite: true
 verbose: true
 panel_name: null
