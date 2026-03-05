@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "v*.*.*"
-  workflow_dispatch:
 
 concurrency:
   group: publish-testpypi-${{ github.ref_name || github.run_id }}
