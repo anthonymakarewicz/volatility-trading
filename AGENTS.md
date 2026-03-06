@@ -30,6 +30,7 @@ This file defines mandatory, high-level workflow rules for this repository.
   - Read [Development Guide](docs/contributing/development.md).
   - Read [Coding Guide](docs/contributing/coding_guide.md).
   - Read [Docstring Guidelines](docs/contributing/docstrings.md).
+  - If public surface may change, read [API Scope](docs/reference/api_scope.md).
   - Add or update tests under `tests/**` when behavior changes.
 
 - If editing tests (`tests/**`):
@@ -39,12 +40,13 @@ This file defines mandatory, high-level workflow rules for this repository.
   - Prefer shared fixtures in `tests/conftest.py` when setup repeats.
   - Cover edge cases (empty/null/boundary/invalid inputs).
 
-- If editing dependencies (`requirements*.in`, `requirements*.txt`):
+- If editing dependencies (`pyproject.toml`):
   - Follow dependency workflow in [Development Guide](docs/contributing/development.md).
-  - Compile lock files with Python `3.12` to match CI.
+  - Keep dependency source-of-truth in `pyproject.toml` and align CI commands.
 
 - If editing CI/tooling (`.github/workflows/*.yml`, `Makefile`, `pyproject.toml`, `.pre-commit-config.yaml`):
   - Ensure local commands and CI commands stay consistent.
+  - For publish/release flows, read [Release Process](docs/contributing/release_process.md).
 
 - If changing notebook/report names or publishing mapping:
   - Update [Notebook Catalog](docs/research/notebooks.md).
@@ -63,3 +65,9 @@ This file defines mandatory, high-level workflow rules for this repository.
   - 1 recommended commit message using Conventional Commit format
     (`<type>(scope): <summary>`), and
   - 1 optional shorter alternative.
+
+## Branch Suggestion
+
+- When suggesting substantial new work (new feature, major refactor, release prep),
+  also suggest one branch name pattern (for example: `feature/...`,
+  `refactor/...`, `chore/...`, or `release/v0.x.y`).
