@@ -92,6 +92,7 @@ For the full command sequence, see [Data pipeline](https://github.com/anthonymak
 - Current release line is `0.1.x` (**alpha / pre-1.0**).
 - Public APIs, data contracts, and configuration surfaces may evolve between minor versions.
 - For reproducible research, pin exact package versions and review [CHANGELOG.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/CHANGELOG.md) before upgrading.
+- Public vs internal boundaries are defined in [API Scope](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/api_scope.md).
 
 ## **Data Contract / Supported Inputs**
 

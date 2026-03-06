@@ -6,6 +6,7 @@ Use this page as the canonical entrypoint for repository documentation.
 
 - [Development Guide](contributing/development.md): local environment, core workflow, and CI-aligned checks.
 - [Release Process](contributing/release_process.md): versioning policy (`0.x.y`), tags, and publish flow.
+- [API Scope](reference/api_scope.md): explicit public vs internal API boundaries for `0.1.x`.
 - [Troubleshooting](troubleshooting.md): routing page to scoped troubleshooting guides.
 
 ## Engineering Standards

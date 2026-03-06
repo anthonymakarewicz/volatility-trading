@@ -143,6 +143,10 @@ No manual `twine upload` is required for the standard release path.
 - Options ETL/build pipeline is currently ORATS-first.
 - Backtesting runtime is reusable, but options-chain inputs currently assume
   the project's existing options schema conventions.
+- Public API boundaries for `0.1.x` are defined in
+  [API Scope](../reference/api_scope.md).
+- Research-oriented modules (for example `iv_surface`, `rv_forecasting`) are
+  not yet treated as stable library API contracts.
 - If schema boundaries change, document them in release notes and bump version
   according to the policy above.
 
