@@ -20,6 +20,11 @@ Guideline:
 - If external usage or contracts may change, bump `x`.
 - If behavior is compatible and scope is corrective, bump `y`.
 
+## Changelog Flow
+
+- During normal PRs, user-visible changes should be added to `## [Unreleased]` in `CHANGELOG.md`.
+- During release prep, move/copy relevant `Unreleased` bullets into `[0.x.y]`, set the release date, then reset `Unreleased`.
+
 ## Standard Release Workflow (PR-Protected `main`)
 
 ### 1) Create release branch from up-to-date `main`
@@ -35,7 +40,10 @@ git checkout -b release/v0.x.y
 Required updates:
 
 1. Bump version in `pyproject.toml`
-2. Update `CHANGELOG.md`
+2. Finalize `CHANGELOG.md`:
+   - move/copy `Unreleased` entries into `[0.x.y]`
+   - set release date
+   - reset `Unreleased`
 3. Update docs/examples if API/behavior changed
 
 Ensure packaging tools are available in your environment:
