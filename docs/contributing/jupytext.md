@@ -47,6 +47,23 @@ Then run:
 jupytext --sync notebooks/foo.ipynb
 ```
 
+## If Pre-commit Fails on Notebook Pair
+
+- Symptom: Jupytext hook reports paired files inconsistent.
+- Likely cause: `.ipynb` and `.py` are out of sync.
+- Fix:
+  - run `jupytext --sync notebooks/<name>.ipynb`
+  - stage both paired files:
+    - `git add notebooks/<name>.ipynb notebooks/<name>.py`
+
+## If Pre-commit Reports "Git Index Is Outdated"
+
+- Symptom: Jupytext says `git index is outdated` and asks to add paired file.
+- Likely cause: hook updated one file, but the pair is not staged yet.
+- Fix:
+  - stage the updated pair (`git add notebooks/<name>.ipynb notebooks/<name>.py`)
+  - run commit again
+
 ## Optional Checks
 
 Run from a clean kernel to catch hidden state:

@@ -50,7 +50,6 @@ dev = [
     "jupyter",
     "jupytext",
     "pandas-stubs",
-    "pip-tools",
     "pre-commit",
     "pyright",
     "pytest",
