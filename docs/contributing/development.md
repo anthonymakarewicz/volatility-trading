@@ -159,3 +159,36 @@ GitHub Actions workflow:
 - runs unit tests on PRs and pushes to `main`
 - runs integration tests on PRs, pushes to `main`, and manual workflow runs
 - runs package build and `twine check` validation on PRs and pushes to `main`
+
+## Troubleshooting
+
+### Wrong Python Version
+
+- Symptom: dependency resolution mismatch vs CI, or missing wheels.
+- Likely cause: local interpreter is not Python `3.12`.
+- Fix:
+  - check interpreter with `python --version`
+  - recreate `.venv` with Python `3.12`
+  - reinstall dependencies (`pip install -e ".[dev]"`)
+
+### Venv Kernel Missing in Jupyter
+
+- Symptom: `.venv` Python exists in interpreter selection, but not in Jupyter kernel list.
+- Likely cause: kernel spec was not registered for the venv.
+- Fix:
+  - activate venv (`source .venv/bin/activate`)
+  - register kernel:
+    - `python -m ipykernel install --user --name volatility_trading --display-name "Python (.venv) volatility_trading"`
+  - restart VS Code/Jupyter kernel picker if needed
+
+### CI Fails But Local Passes
+
+- Symptom: local checks pass, CI fails on types/deps/hooks.
+- Likely cause:
+  - different Python version
+  - local checks narrower than CI
+- Fix:
+  - run `make ci` locally
+  - run `make package-check` locally for packaging failures
+  - reinstall dependencies in your active venv (`pip install -e ".[dev]"`)
+  - re-run `pre-commit run --all-files`

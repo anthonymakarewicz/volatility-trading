@@ -120,3 +120,23 @@ Pytest configuration lives in `pyproject.toml` under
 
 GitHub Actions runs Ruff + unit tests on every PR/push, and runs integration
 tests on pushes to `main` (or manual workflow runs).
+
+## Troubleshooting
+
+### Pytest Import or Discovery Errors
+
+- Symptom: `ModuleNotFoundError` for `volatility_trading...` or import mismatch.
+- Likely cause:
+  - pytest config not aligned
+  - duplicate test module basenames across directories
+- Fix:
+  - ensure pytest config includes:
+    - `testpaths = ["tests"]`
+    - `pythonpath = ["src"]`
+  - keep test basenames unique across the suite (for example avoid repeated `test_download.py`)
+  - run from repo root with active venv:
+    - `pytest -q`
+    - `pytest -m integration -q`
+- Related docs:
+  - [Test Authoring Guide](test_authoring.md)
+  - [Tests README](../../tests/README.md)
