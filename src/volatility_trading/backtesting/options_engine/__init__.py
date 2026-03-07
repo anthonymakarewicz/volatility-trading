@@ -53,6 +53,7 @@ from .lifecycle import (
     HedgeExecutionModel,
     HedgeExecutionResult,
     HedgeTargetModel,
+    MidNoCostExecutionModel,
     PositionLifecycleEngine,
 )
 from .outputs import build_options_backtest_outputs
@@ -125,6 +126,7 @@ __all__ = [
     "DeltaNeutralHedgeTargetModel",
     "HedgeExecutionResult",
     "HedgeExecutionModel",
+    "MidNoCostExecutionModel",
     "FixedBpsExecutionModel",
     "CANONICAL_REQUIRED_COLUMNS",
     "CANONICAL_OPTIONAL_COLUMNS",
