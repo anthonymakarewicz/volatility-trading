@@ -16,7 +16,6 @@ from volatility_trading.backtesting.options_engine import (
     ExitRuleSet,
     HedgeExecutionModel,
     HedgeExecutionResult,
-    HedgeMarketSnapshot,
     HedgeTargetModel,
     HedgeTriggerPolicy,
     LegSelection,
@@ -717,7 +716,7 @@ def test_mark_position_supports_custom_hedge_models():
             self,
             *,
             trade_qty: float,
-            hedge_market: HedgeMarketSnapshot,
+            hedge_market,
             execution: ExecutionConfig,
         ) -> HedgeExecutionResult:
             _ = (

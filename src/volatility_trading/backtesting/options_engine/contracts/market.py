@@ -1,11 +1,15 @@
-"""Market-facing quote contracts for options-engine runtime components."""
+"""Market-facing contracts for options-engine runtime components."""
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from ...data_contracts import HedgeMarketData
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +88,64 @@ class QuoteSnapshot:
             "open_interest": self.open_interest,
             "volume": self.volume,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class HedgeMarketSnapshot:
+    """Point-in-time hedge market snapshot used by hedging lifecycle logic."""
+
+    mid: float
+    bid: float
+    ask: float
+    contract_multiplier: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.contract_multiplier) or self.contract_multiplier <= 0:
+            raise ValueError("contract_multiplier must be finite and > 0")
+
+    @classmethod
+    def missing(cls) -> HedgeMarketSnapshot:
+        """Return a snapshot with unavailable prices and default scaling."""
+        return cls(
+            mid=float("nan"),
+            bid=float("nan"),
+            ask=float("nan"),
+            contract_multiplier=1.0,
+        )
+
+    @classmethod
+    def from_market_data(
+        cls,
+        *,
+        hedge_market: HedgeMarketData | None,
+        curr_date: pd.Timestamp,
+    ) -> HedgeMarketSnapshot:
+        """Resolve one-date hedge snapshot from user-provided market data."""
+        if hedge_market is None:
+            return cls.missing()
+        return cls(
+            mid=cls._resolve_series_price(series=hedge_market.mid, curr_date=curr_date),
+            bid=cls._resolve_series_price(series=hedge_market.bid, curr_date=curr_date),
+            ask=cls._resolve_series_price(series=hedge_market.ask, curr_date=curr_date),
+            contract_multiplier=float(hedge_market.contract_multiplier),
+        )
+
+    @staticmethod
+    def _resolve_series_price(
+        *, series: pd.Series | None, curr_date: pd.Timestamp
+    ) -> float:
+        """Resolve one hedge series value at one date, defaulting to NaN."""
+        if series is None:
+            return float("nan")
+        try:
+            raw = series.loc[pd.Timestamp(curr_date)]
+        except KeyError:
+            return float("nan")
+        if isinstance(raw, pd.Series):
+            raw = raw.iloc[-1]
+        if pd.isna(raw):
+            return float("nan")
+        return float(raw)
 
 
 def _required_float(value: object, *, field: str) -> float:
