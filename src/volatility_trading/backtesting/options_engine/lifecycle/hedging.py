@@ -9,6 +9,7 @@ from typing import Protocol
 import pandas as pd
 
 from ...config import ExecutionConfig
+from ...data_contracts import HedgeMarketSnapshot
 from ..contracts.runtime import OpenPosition
 from ..specs import DeltaHedgePolicy
 from .runtime_state import HedgeStepSnapshot, HedgeTelemetry, HedgeValuation
@@ -44,7 +45,7 @@ class HedgeExecutionModel(Protocol):
         self,
         *,
         trade_qty: float,
-        hedge_price: float,
+        hedge_market: HedgeMarketSnapshot,
         execution: ExecutionConfig,
     ) -> HedgeExecutionResult:
         """Return execution result for one hedge rebalance trade."""
@@ -75,23 +76,43 @@ class LinearHedgeExecutionModel:
         self,
         *,
         trade_qty: float,
-        hedge_price: float,
+        hedge_market: HedgeMarketSnapshot,
         execution: ExecutionConfig,
     ) -> HedgeExecutionResult:
         if trade_qty == 0.0:
-            return HedgeExecutionResult(fill_price=float(hedge_price), total_cost=0.0)
+            return HedgeExecutionResult(
+                fill_price=float(hedge_market.mid), total_cost=0.0
+            )
+        reference_price = self._resolve_execution_reference_price(
+            trade_qty=trade_qty,
+            hedge_market=hedge_market,
+        )
         slippage = (
             execution.hedge.slip_ask if trade_qty > 0.0 else execution.hedge.slip_bid
         )
         fill_price = (
-            float(hedge_price) + float(slippage)
+            float(reference_price) + float(slippage)
             if trade_qty > 0.0
-            else float(hedge_price) - float(slippage)
+            else float(reference_price) - float(slippage)
         )
+        price_cost_per_unit = abs(float(fill_price) - float(hedge_market.mid))
         total_cost = abs(trade_qty) * (
-            float(slippage) + execution.hedge.commission_per_unit
+            float(hedge_market.contract_multiplier) * price_cost_per_unit
+            + execution.hedge.commission_per_unit
         )
         return HedgeExecutionResult(fill_price=fill_price, total_cost=float(total_cost))
+
+    @staticmethod
+    def _resolve_execution_reference_price(
+        *,
+        trade_qty: float,
+        hedge_market: HedgeMarketSnapshot,
+    ) -> float:
+        if trade_qty > 0.0 and math.isfinite(hedge_market.ask):
+            return float(hedge_market.ask)
+        if trade_qty < 0.0 and math.isfinite(hedge_market.bid):
+            return float(hedge_market.bid)
+        return float(hedge_market.mid)
 
 
 class DeltaHedgeEngine:
@@ -114,13 +135,16 @@ class DeltaHedgeEngine:
         position: OpenPosition,
         curr_date: pd.Timestamp,
         option_delta: float,
-        hedge_price: float,
+        hedge_market: HedgeMarketSnapshot,
         execution: ExecutionConfig,
     ) -> HedgeStepSnapshot:
         """Return one-date hedge snapshot for lifecycle valuation aggregation."""
         hedge_qty_before = float(position.hedge.qty)
-        hedge_price_curr = float(hedge_price)
-        net_delta_before = option_delta + hedge_qty_before
+        hedge_price_curr = float(hedge_market.mid)
+        hedge_delta_per_unit = float(hedge_market.contract_multiplier)
+        if not math.isfinite(hedge_delta_per_unit) or hedge_delta_per_unit <= 0:
+            raise ValueError("hedge_market.contract_multiplier must be finite and > 0")
+        net_delta_before = option_delta + hedge_qty_before * hedge_delta_per_unit
         target_net_delta = self.target_model.target_net_delta(
             policy=self.policy,
             position=position,
@@ -146,7 +170,11 @@ class DeltaHedgeEngine:
             position=position,
             hedge_price_curr=hedge_price_curr,
         )
-        hedge_carry_pnl = hedge_qty_before * (hedge_price_curr - hedge_price_prev)
+        hedge_carry_pnl = (
+            hedge_qty_before
+            * hedge_delta_per_unit
+            * (hedge_price_curr - hedge_price_prev)
+        )
         hedge_pnl = hedge_carry_pnl
         # Persist mark price each day so hedge carry is day-over-day.
         position.hedge.last_price = hedge_price_curr
@@ -168,7 +196,7 @@ class DeltaHedgeEngine:
                 trade_count=0,
             )
 
-        raw_trade_qty = target_net_delta - net_delta_before
+        raw_trade_qty = (target_net_delta - net_delta_before) / hedge_delta_per_unit
         trade_qty = self._bounded_trade_qty(raw_trade_qty)
         if trade_qty == 0.0:
             return self._build_step_snapshot(
@@ -185,7 +213,7 @@ class DeltaHedgeEngine:
 
         exec_result = self.execution_model.execute(
             trade_qty=trade_qty,
-            hedge_price=hedge_price_curr,
+            hedge_market=hedge_market,
             execution=execution,
         )
         trading_cost = exec_result.total_cost
@@ -193,7 +221,9 @@ class DeltaHedgeEngine:
 
         position.hedge.qty = hedge_qty_before + trade_qty
         position.hedge.last_rebalance_date = pd.Timestamp(curr_date)
-        net_delta_after = option_delta + float(position.hedge.qty)
+        net_delta_after = (
+            option_delta + float(position.hedge.qty) * hedge_delta_per_unit
+        )
         return self._build_step_snapshot(
             hedge_price_prev=hedge_price_prev,
             hedge_pnl=hedge_pnl,
