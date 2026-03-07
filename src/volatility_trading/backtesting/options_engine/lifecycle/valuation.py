@@ -17,7 +17,7 @@ from ..contracts.runtime import OpenPosition
 from ..contracts.structures import EntryIntent, LegSelection
 from ..economics import effective_leg_side, leg_units
 from ..entry import chain_for_date
-from .runtime_state import MarkValuationSnapshot
+from .runtime_state import HedgeTelemetry, HedgeValuation, MarkValuationSnapshot
 
 
 def exit_leg_price(quote: QuoteSnapshot, *, side: int, cfg: BacktestRunConfig) -> float:
@@ -273,7 +273,6 @@ def resolve_mark_valuation(
             np.mean([float(quote.market_iv) for quote in complete_leg_quotes])
         )
 
-    hedge_pnl = 0.0
     net_delta = float(greeks.delta)
     delta_pnl_market = pnl_mtm - prev_mtm_before
     market = MarketState(spot=spot_curr, volatility=iv_curr)
@@ -284,7 +283,11 @@ def resolve_mark_valuation(
         complete_leg_quotes=complete_leg_quotes,
         has_missing_quote=has_missing_quote,
         market=market,
-        hedge_pnl=hedge_pnl,
+        hedge=HedgeValuation(
+            price_prev=float(position.hedge.last_price),
+            pnl=0.0,
+            telemetry=HedgeTelemetry(),
+        ),
         net_delta=net_delta,
         delta_pnl_market=delta_pnl_market,
     )

@@ -27,6 +27,10 @@ def build_options_backtest_outputs(
         "vega": "sum",
         "theta": "sum",
         "hedge_pnl": "sum",
+        "hedge_carry_pnl": "sum",
+        "hedge_trade_cost": "sum",
+        "hedge_turnover": "sum",
+        "hedge_trade_count": "sum",
         "S": "first",
         "iv": "first",
     }

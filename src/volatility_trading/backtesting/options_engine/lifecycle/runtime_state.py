@@ -6,7 +6,7 @@ lifecycle helpers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -29,6 +29,25 @@ class EntryMarginSnapshot:
     margin: MarginCore
 
 
+@dataclass(frozen=True, slots=True)
+class HedgeTelemetry:
+    """Per-step hedge telemetry used for diagnostics and aggregation."""
+
+    carry_pnl: float = 0.0
+    trade_cost: float = 0.0
+    turnover: float = 0.0
+    trade_count: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class HedgeValuation:
+    """Per-step hedge valuation and telemetry outputs."""
+
+    price_prev: float
+    pnl: float
+    telemetry: HedgeTelemetry = field(default_factory=HedgeTelemetry)
+
+
 @dataclass(frozen=True)
 class MarkValuationSnapshot:
     """One-date valuation snapshot before margin and exits are applied."""
@@ -39,7 +58,7 @@ class MarkValuationSnapshot:
     complete_leg_quotes: tuple[QuoteSnapshot, ...] | None
     has_missing_quote: bool
     market: MarketState
-    hedge_pnl: float
+    hedge: HedgeValuation
     net_delta: float
     delta_pnl_market: float
 
@@ -48,12 +67,10 @@ class MarkValuationSnapshot:
 class HedgeStepSnapshot:
     """One-date hedge step result applied on top of option valuation."""
 
-    hedge_price_prev: float
-    hedge_pnl: float
+    hedge: HedgeValuation
     net_delta: float
     target_net_delta: float
     trade_qty: float
-    hedge_cost: float
 
 
 @dataclass(frozen=True)

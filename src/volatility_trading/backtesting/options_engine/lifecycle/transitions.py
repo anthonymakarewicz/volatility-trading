@@ -57,7 +57,7 @@ def transition_forced_liquidation(
         exit_prices=exit_prices,
         lot_size=step.lot_size,
     )
-    real_pnl_closed = pnl_per_contract * contracts_to_close + valuation.hedge_pnl
+    real_pnl_closed = pnl_per_contract * contracts_to_close + valuation.hedge.pnl
     pnl_net_closed = real_pnl_closed - (
         step.roundtrip_commission_per_contract * contracts_to_close
     )
@@ -190,7 +190,7 @@ def transition_standard_exit(
         exit_prices=exit_prices,
         lot_size=step.lot_size,
     )
-    real_pnl = pnl_per_contract * position.contracts_open + valuation.hedge_pnl
+    real_pnl = pnl_per_contract * position.contracts_open + valuation.hedge.pnl
     pnl_net = real_pnl - (
         step.roundtrip_commission_per_contract * position.contracts_open
     )
