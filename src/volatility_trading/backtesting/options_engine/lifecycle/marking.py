@@ -9,7 +9,8 @@ import pandas as pd
 from volatility_trading.options import MarginModel, PriceModel
 
 from ...config import BacktestRunConfig
-from ...data_contracts import HedgeMarketData, HedgeMarketSnapshot
+from ...data_contracts import HedgeMarketData
+from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.records import MtmRecord
 from ..contracts.runtime import OpenPosition
 from ..economics import roundtrip_commission_per_structure_contract
@@ -76,7 +77,7 @@ def build_mark_step_snapshots(
         target_model=hedge_target_model,
         execution_model=hedge_execution_model,
     )
-    hedge_market_snapshot = _resolve_hedge_market_snapshot(
+    hedge_market_snapshot = HedgeMarketSnapshot.from_market_data(
         hedge_market=hedge_market,
         curr_date=step.curr_date,
     )
@@ -115,55 +116,3 @@ def build_mark_step_snapshots(
         margin=margin,
     )
     return valuation, margin, mtm_record
-
-
-def _resolve_hedge_market_snapshot(
-    *,
-    hedge_market: HedgeMarketData | None,
-    curr_date: pd.Timestamp,
-) -> HedgeMarketSnapshot:
-    """Resolve one-date hedge market snapshot from hedge market series."""
-    if hedge_market is None:
-        return HedgeMarketSnapshot(
-            mid=float("nan"),
-            bid=float("nan"),
-            ask=float("nan"),
-            contract_multiplier=1.0,
-        )
-    mid = _resolve_hedge_series_price(
-        series=hedge_market.mid,
-        curr_date=curr_date,
-    )
-    bid = _resolve_hedge_series_price(
-        series=hedge_market.bid,
-        curr_date=curr_date,
-    )
-    ask = _resolve_hedge_series_price(
-        series=hedge_market.ask,
-        curr_date=curr_date,
-    )
-    return HedgeMarketSnapshot(
-        mid=mid,
-        bid=bid,
-        ask=ask,
-        contract_multiplier=float(hedge_market.contract_multiplier),
-    )
-
-
-def _resolve_hedge_series_price(
-    *,
-    series: pd.Series | None,
-    curr_date: pd.Timestamp,
-) -> float:
-    """Resolve one hedge market series value for the current mark date."""
-    if series is None:
-        return float("nan")
-    try:
-        raw = series.loc[pd.Timestamp(curr_date)]
-    except KeyError:
-        return float("nan")
-    if isinstance(raw, pd.Series):
-        raw = raw.iloc[-1]
-    if pd.isna(raw):
-        return float("nan")
-    return float(raw)

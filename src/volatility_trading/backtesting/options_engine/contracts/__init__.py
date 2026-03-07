@@ -9,7 +9,7 @@ from .execution import (
     SinglePositionOpenFn,
     SinglePositionPrepareEntryFn,
 )
-from .market import QuoteSnapshot
+from .market import HedgeMarketSnapshot, QuoteSnapshot
 from .records import MtmMargin, MtmRecord, TradeLegRecord, TradeRecord
 from .runtime import HedgeState, LifecycleStepResult, OpenPosition, PositionEntrySetup
 from .structures import EntryIntent, FillPolicy, LegSelection, LegSpec, StructureSpec
@@ -17,6 +17,7 @@ from .structures import EntryIntent, FillPolicy, LegSelection, LegSpec, Structur
 __all__ = [
     "FillPolicy",
     "QuoteSnapshot",
+    "HedgeMarketSnapshot",
     "LegSpec",
     "StructureSpec",
     "LegSelection",

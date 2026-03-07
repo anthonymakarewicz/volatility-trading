@@ -17,7 +17,6 @@ from ..data_adapters import (
     validate_options_chain,
     validate_options_chain_contract,
 )
-from ..data_contracts import HedgeMarketSnapshot
 from .adapters import (
     normalize_chain_option_type,
     option_type_to_chain_label,
@@ -124,7 +123,6 @@ __all__ = [
     "DeltaHedgeEngine",
     "HedgeTargetModel",
     "DeltaNeutralHedgeTargetModel",
-    "HedgeMarketSnapshot",
     "HedgeExecutionResult",
     "HedgeExecutionModel",
     "LinearHedgeExecutionModel",

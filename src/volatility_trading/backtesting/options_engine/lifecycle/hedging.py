@@ -9,7 +9,7 @@ from typing import Protocol
 import pandas as pd
 
 from ...config import ExecutionConfig
-from ...data_contracts import HedgeMarketSnapshot
+from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.runtime import OpenPosition
 from ..specs import DeltaHedgePolicy
 from .runtime_state import HedgeStepSnapshot, HedgeTelemetry, HedgeValuation

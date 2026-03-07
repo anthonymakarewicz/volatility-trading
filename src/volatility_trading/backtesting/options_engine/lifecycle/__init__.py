@@ -1,6 +1,5 @@
 """Lifecycle package for options position open/mark/close execution."""
 
-from ...data_contracts import HedgeMarketSnapshot
 from .engine import PositionLifecycleEngine
 from .hedging import (
     DeltaHedgeEngine,
@@ -16,7 +15,6 @@ __all__ = [
     "DeltaHedgeEngine",
     "HedgeTargetModel",
     "DeltaNeutralHedgeTargetModel",
-    "HedgeMarketSnapshot",
     "HedgeExecutionResult",
     "HedgeExecutionModel",
     "LinearHedgeExecutionModel",
