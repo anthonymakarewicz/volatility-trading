@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -22,8 +23,22 @@ class HedgeMarketData:
     contract_multiplier: float = 1.0
 
     def __post_init__(self) -> None:
-        if self.contract_multiplier <= 0:
-            raise ValueError("contract_multiplier must be > 0")
+        if not math.isfinite(self.contract_multiplier) or self.contract_multiplier <= 0:
+            raise ValueError("contract_multiplier must be finite and > 0")
+
+
+@dataclass(frozen=True, slots=True)
+class HedgeMarketSnapshot:
+    """Point-in-time hedge market snapshot used for one rebalance decision."""
+
+    mid: float
+    bid: float
+    ask: float
+    contract_multiplier: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.contract_multiplier) or self.contract_multiplier <= 0:
+            raise ValueError("contract_multiplier must be finite and > 0")
 
 
 @dataclass(frozen=True)

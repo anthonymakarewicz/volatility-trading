@@ -292,6 +292,11 @@ def plot_pnl_attribution(
     return fig
 
 
+# TODO(reporting): add optional hedge decomposition panel
+# (cum_hedge_carry, cum_hedge_cost, cum_net_hedge, cum_hedging_effect)
+# in follow-up branch: feature/hedge-attribution-reporting.
+
+
 def _resolve_stress_columns(
     stressed_mtm: pd.DataFrame,
     scenarios: Mapping[str, object] | Sequence[str],
