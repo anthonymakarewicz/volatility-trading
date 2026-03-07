@@ -442,6 +442,10 @@ def test_mark_position_applies_delta_band_hedging_and_updates_net_delta():
     assert mtm_record.hedge_qty == pytest.approx(0.5)
     assert mtm_record.net_delta == pytest.approx(0.0)
     assert mtm_record.hedge_pnl == pytest.approx(0.0)
+    assert mtm_record.hedge_carry_pnl == pytest.approx(0.0)
+    assert mtm_record.hedge_trade_cost == pytest.approx(0.0)
+    assert mtm_record.hedge_turnover == pytest.approx(0.5)
+    assert mtm_record.hedge_trade_count == 1
     assert updated_position.hedge.qty == pytest.approx(0.5)
     assert updated_position.last_net_delta == pytest.approx(0.0)
     assert updated_position.hedge.last_price == pytest.approx(101.0)
@@ -488,6 +492,8 @@ def test_mark_position_applies_time_based_hedging_trigger():
     assert position_day2 is not None
     assert day2.mtm_record.hedge_qty == pytest.approx(0.0)
     assert day2.mtm_record.net_delta == pytest.approx(-0.5)
+    assert day2.mtm_record.hedge_trade_count == 0
+    assert day2.mtm_record.hedge_turnover == pytest.approx(0.0)
 
     day3 = engine.mark_position(
         position=position_day2,
@@ -503,7 +509,67 @@ def test_mark_position_applies_time_based_hedging_trigger():
     assert position_day3 is not None
     assert day3.mtm_record.hedge_qty == pytest.approx(0.5)
     assert day3.mtm_record.net_delta == pytest.approx(0.0)
+    assert day3.mtm_record.hedge_trade_count == 1
+    assert day3.mtm_record.hedge_turnover == pytest.approx(0.5)
     assert position_day3.hedge.last_rebalance_date == pd.Timestamp("2020-01-03")
+
+
+def test_mark_position_records_hedge_carry_pnl_without_rebalance_trade():
+    setup = _make_setup(contracts=1)
+    cfg = _make_cfg()
+    engine = _make_engine(
+        rebalance_period=10,
+        delta_hedge_policy=DeltaHedgePolicy(
+            enabled=True,
+            target_net_delta=0.0,
+            trigger=HedgeTriggerPolicy(
+                delta_band_abs=0.1,
+                rebalance_every_n_days=None,
+            ),
+        ),
+        hedge_market=_make_hedge_market(
+            {
+                "2020-01-02": 101.0,
+                "2020-01-03": 102.0,
+            }
+        ),
+    )
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    day2 = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-02",
+            spot_price=101.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+    position_day2 = day2.position
+    assert position_day2 is not None
+
+    day3 = engine.mark_position(
+        position=position_day2,
+        curr_date=pd.Timestamp("2020-01-03"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-03",
+            spot_price=102.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0 + float(day2.mtm_record.delta_pnl),
+    )
+
+    assert day3.mtm_record.hedge_qty == pytest.approx(0.5)
+    assert day3.mtm_record.hedge_carry_pnl == pytest.approx(0.5)
+    assert day3.mtm_record.hedge_trade_cost == pytest.approx(0.0)
+    assert day3.mtm_record.hedge_turnover == pytest.approx(0.0)
+    assert day3.mtm_record.hedge_trade_count == 0
+    assert day3.mtm_record.hedge_pnl == pytest.approx(0.5)
 
 
 def test_mark_position_supports_custom_hedge_models():
@@ -571,4 +637,8 @@ def test_mark_position_supports_custom_hedge_models():
     assert updated_position is not None
     assert step_result.mtm_record.hedge_qty == pytest.approx(0.75)
     assert step_result.mtm_record.net_delta == pytest.approx(0.25)
+    assert step_result.mtm_record.hedge_carry_pnl == pytest.approx(0.0)
+    assert step_result.mtm_record.hedge_trade_cost == pytest.approx(0.075)
+    assert step_result.mtm_record.hedge_turnover == pytest.approx(0.75)
+    assert step_result.mtm_record.hedge_trade_count == 1
     assert step_result.mtm_record.hedge_pnl == pytest.approx(-0.075)

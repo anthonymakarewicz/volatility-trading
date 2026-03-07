@@ -92,15 +92,22 @@ from volatility_trading.backtesting import (
     BacktestRunConfig,
     BrokerConfig,
     ExecutionConfig,
+    HedgeExecutionConfig,
+    HedgeMarketData,
     MarginConfig,
     MarginPolicy,
     OptionsBacktestDataBundle,
     to_daily_mtm,
 )
 from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting.options_engine import (
+    DeltaHedgePolicy,
+    HedgeTriggerPolicy,
+)
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
+
 
 np.random.seed(42)
 
@@ -497,6 +504,9 @@ options_chain_long = options_chain_long.to_pandas().set_index("trade_date")
 options_chain_long.head()
 
 # %%
+from volatility_trading.backtesting.data_adapters import CanonicalOptionsChainAdapter
+
+# %%
 # --------------------
 # Config
 # --------------------
@@ -508,6 +518,12 @@ INIT_CAPITAL = 50_000
 START_BACKTEST = "2011-01-01"
 END_BACKTEST = "2017-12-31"
 BENCHMARK_TICKER = "SP500TR"
+
+# Delta hedging
+HEDGE_TARGET_NET_DELTA = 0.0
+HEDGE_DELTA_BAND_ABS = 25.0
+HEDGE_REBALANCE_EVERY_N_DAYS = 5
+HEDGE_COMBINE_MODE = "or"  # "or" or "and"
 
 # --------------------
 # Data
@@ -525,21 +541,26 @@ sp500_tr = sp500_tr.to_pandas().set_index("date").squeeze()
 sp500_tr.index = pd.to_datetime(sp500_tr.index)
 
 options_red = options_chain_long.loc[START_BACKTEST:END_BACKTEST]
+
+# Align hedge market to options trading dates (strict hedge coverage).
+trading_dates = pd.Index(options_red.index.unique()).sort_values()
+hedge_mid = sp500_tr.loc[START_BACKTEST:END_BACKTEST].reindex(trading_dates).ffill()
+
 data = OptionsBacktestDataBundle(
     options=options_red,
     features=None,
-    hedge=None,
+    hedge_market=HedgeMarketData(
+        mid=hedge_mid,
+        symbol=BENCHMARK_TICKER,
+    ),
+    options_adapter=CanonicalOptionsChainAdapter()
 )
 
 # --------------------
 # Strategy Details
 # --------------------
 margin_model = RegTMarginModel(broad_index=False)
-
 margin_policy = MarginPolicy(
-    maintenance_margin_ratio=0.75,
-    margin_call_grace_days=1,
-    liquidation_mode="full",  # or "target"
     apply_financing=True,
     cash_rate_annual=rf,
     borrow_rate_annual=rf + 0.02,
@@ -551,12 +572,26 @@ vrp_spec = VRPHarvestingSpec(
     rebalance_period=REBALANCE_PERIOD,
     risk_budget_pct=RISK_BUDGET_PCT,
     margin_budget_pct=MARGIN_BUDGET_PCT,
+    delta_hedge=DeltaHedgePolicy(
+        enabled=True,
+        target_net_delta=HEDGE_TARGET_NET_DELTA,
+        trigger=HedgeTriggerPolicy(
+            delta_band_abs=HEDGE_DELTA_BAND_ABS,
+            rebalance_every_n_days=HEDGE_REBALANCE_EVERY_N_DAYS,
+            combine_mode=HEDGE_COMBINE_MODE,
+        ),
+        allow_missing_hedge_price=False,
+        min_rebalance_qty=1.0,
+        max_rebalance_qty=None,
+    ),
 )
 strat = make_vrp_strategy(vrp_spec)
 
 cfg = BacktestRunConfig(
     account=AccountConfig(initial_capital=INIT_CAPITAL),
-    execution=ExecutionConfig(commission_per_leg=COMMISSION_PER_LEG),
+    execution=ExecutionConfig(
+        commission_per_leg=COMMISSION_PER_LEG,
+    ),
     broker=BrokerConfig(
         margin=MarginConfig(
             model=margin_model,
@@ -570,6 +605,24 @@ cfg = BacktestRunConfig(
 bt = Backtester(data=data, strategy=strat, config=cfg)
 trades, mtm = bt.run()
 daily_mtm = to_daily_mtm(mtm, cfg.account.initial_capital)
+
+# %%
+print_performance_report(
+    trades=trades,
+    mtm_daily=daily_mtm,
+    risk_free_rate=rf
+)
+fig = plot_performance_dashboard(
+    benchmark=sp500_tr,          # pd.Series
+    mtm_daily=daily_mtm,         # pd.DataFrame
+    strategy_name="VRP Harvesting",
+    benchmark_name="S&P 500 TR",
+    figsize=(14, 12)
+)
+plt.show()
+
+fig = plot_pnl_attribution(daily_mtm, figsize=(12, 5))
+plt.show()
 
 # %%
 print_performance_report(

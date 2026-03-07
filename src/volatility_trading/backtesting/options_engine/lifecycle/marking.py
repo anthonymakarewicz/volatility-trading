@@ -89,10 +89,10 @@ def build_mark_step_snapshots(
     )
     valuation = replace(
         valuation,
-        hedge_pnl=hedge_step.hedge_pnl,
+        hedge=hedge_step.hedge,
         net_delta=hedge_step.net_delta,
         delta_pnl_market=(valuation.pnl_mtm - valuation.prev_mtm_before)
-        + hedge_step.hedge_pnl,
+        + hedge_step.hedge.pnl,
     )
     maybe_refresh_margin_per_contract(
         position=position,
@@ -113,7 +113,6 @@ def build_mark_step_snapshots(
         curr_date=step.curr_date,
         valuation=valuation,
         margin=margin,
-        hedge_price_prev=hedge_step.hedge_price_prev,
     )
     return valuation, margin, mtm_record
 
