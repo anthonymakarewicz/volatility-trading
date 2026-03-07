@@ -33,6 +33,10 @@ class MtmRecord:
     hedge_pnl: float
     open_contracts: int
     margin: MtmMargin
+    hedge_carry_pnl: float = 0.0
+    hedge_trade_cost: float = 0.0
+    hedge_turnover: float = 0.0
+    hedge_trade_count: int = 0
 
     def to_dict(self) -> dict[str, object]:
         """Flatten the MTM record into the canonical tabular row schema."""
@@ -49,6 +53,10 @@ class MtmRecord:
             "hedge_qty": self.hedge_qty,
             "hedge_price_prev": self.hedge_price_prev,
             "hedge_pnl": self.hedge_pnl,
+            "hedge_carry_pnl": self.hedge_carry_pnl,
+            "hedge_trade_cost": self.hedge_trade_cost,
+            "hedge_turnover": self.hedge_turnover,
+            "hedge_trade_count": self.hedge_trade_count,
             "open_contracts": self.open_contracts,
             "margin_per_contract": self.margin.per_contract,
             "initial_margin_requirement": self.margin.initial_requirement,

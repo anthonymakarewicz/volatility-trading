@@ -4,10 +4,11 @@ from .engine import PositionLifecycleEngine
 from .hedging import (
     DeltaHedgeEngine,
     DeltaNeutralHedgeTargetModel,
+    FixedBpsExecutionModel,
     HedgeExecutionModel,
     HedgeExecutionResult,
     HedgeTargetModel,
-    LinearHedgeExecutionModel,
+    MidNoCostExecutionModel,
 )
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "DeltaNeutralHedgeTargetModel",
     "HedgeExecutionResult",
     "HedgeExecutionModel",
-    "LinearHedgeExecutionModel",
+    "MidNoCostExecutionModel",
+    "FixedBpsExecutionModel",
 ]

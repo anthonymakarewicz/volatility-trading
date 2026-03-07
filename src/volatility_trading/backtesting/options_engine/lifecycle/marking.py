@@ -10,6 +10,7 @@ from volatility_trading.options import MarginModel, PriceModel
 
 from ...config import BacktestRunConfig
 from ...data_contracts import HedgeMarketData
+from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.records import MtmRecord
 from ..contracts.runtime import OpenPosition
 from ..economics import roundtrip_commission_per_structure_contract
@@ -76,7 +77,7 @@ def build_mark_step_snapshots(
         target_model=hedge_target_model,
         execution_model=hedge_execution_model,
     )
-    hedge_price = _resolve_hedge_price(
+    hedge_market_snapshot = HedgeMarketSnapshot.from_market_data(
         hedge_market=hedge_market,
         curr_date=step.curr_date,
     )
@@ -84,15 +85,15 @@ def build_mark_step_snapshots(
         position=position,
         curr_date=step.curr_date,
         option_delta=float(valuation.greeks.delta),
-        hedge_price=hedge_price,
+        hedge_market=hedge_market_snapshot,
         execution=step.cfg.execution,
     )
     valuation = replace(
         valuation,
-        hedge_pnl=hedge_step.hedge_pnl,
+        hedge=hedge_step.hedge,
         net_delta=hedge_step.net_delta,
         delta_pnl_market=(valuation.pnl_mtm - valuation.prev_mtm_before)
-        + hedge_step.hedge_pnl,
+        + hedge_step.hedge.pnl,
     )
     maybe_refresh_margin_per_contract(
         position=position,
@@ -113,25 +114,5 @@ def build_mark_step_snapshots(
         curr_date=step.curr_date,
         valuation=valuation,
         margin=margin,
-        hedge_price_prev=hedge_step.hedge_price_prev,
     )
     return valuation, margin, mtm_record
-
-
-def _resolve_hedge_price(
-    *,
-    hedge_market: HedgeMarketData | None,
-    curr_date: pd.Timestamp,
-) -> float:
-    """Resolve hedge mid price for one date from typed hedge market data."""
-    if hedge_market is None:
-        return float("nan")
-    try:
-        raw = hedge_market.mid.loc[pd.Timestamp(curr_date)]
-    except KeyError:
-        return float("nan")
-    if isinstance(raw, pd.Series):
-        raw = raw.iloc[-1]
-    if pd.isna(raw):
-        return float("nan")
-    return float(raw)

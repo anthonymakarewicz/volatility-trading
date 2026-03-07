@@ -49,10 +49,11 @@ from .exit_rules import (
 from .lifecycle import (
     DeltaHedgeEngine,
     DeltaNeutralHedgeTargetModel,
+    FixedBpsExecutionModel,
     HedgeExecutionModel,
     HedgeExecutionResult,
     HedgeTargetModel,
-    LinearHedgeExecutionModel,
+    MidNoCostExecutionModel,
     PositionLifecycleEngine,
 )
 from .outputs import build_options_backtest_outputs
@@ -125,7 +126,8 @@ __all__ = [
     "DeltaNeutralHedgeTargetModel",
     "HedgeExecutionResult",
     "HedgeExecutionModel",
-    "LinearHedgeExecutionModel",
+    "MidNoCostExecutionModel",
+    "FixedBpsExecutionModel",
     "CANONICAL_REQUIRED_COLUMNS",
     "CANONICAL_OPTIONAL_COLUMNS",
     "OptionsChainAdapterError",

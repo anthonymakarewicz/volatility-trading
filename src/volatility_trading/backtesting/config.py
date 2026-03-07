@@ -55,15 +55,15 @@ class HedgeExecutionConfig:
 
     slip_ask: float = 0.0
     slip_bid: float = 0.0
-    commission_per_unit: float = 0.0
+    fee_bps: float = 1.0
 
     def __post_init__(self) -> None:
         if self.slip_ask < 0:
             raise ValueError("hedge.slip_ask must be >= 0")
         if self.slip_bid < 0:
             raise ValueError("hedge.slip_bid must be >= 0")
-        if self.commission_per_unit < 0:
-            raise ValueError("hedge.commission_per_unit must be >= 0")
+        if self.fee_bps < 0:
+            raise ValueError("hedge.fee_bps must be >= 0")
 
 
 @dataclass(frozen=True)
