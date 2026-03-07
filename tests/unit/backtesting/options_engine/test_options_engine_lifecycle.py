@@ -14,13 +14,13 @@ from volatility_trading.backtesting.options_engine import (
     DeltaNeutralHedgeTargetModel,
     EntryIntent,
     ExitRuleSet,
+    FixedBpsExecutionModel,
     HedgeExecutionModel,
     HedgeExecutionResult,
     HedgeTargetModel,
     HedgeTriggerPolicy,
     LegSelection,
     LegSpec,
-    LinearHedgeExecutionModel,
     PositionEntrySetup,
     PositionLifecycleEngine,
     QuoteSnapshot,
@@ -48,7 +48,7 @@ def _make_cfg(
     commission_per_leg: float = 0.0,
     hedge_slip_ask: float = 0.0,
     hedge_slip_bid: float = 0.0,
-    hedge_commission_per_unit: float = 0.0,
+    hedge_fee_bps: float = 0.0,
 ) -> BacktestRunConfig:
     return BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
@@ -60,7 +60,7 @@ def _make_cfg(
             hedge=HedgeExecutionConfig(
                 slip_ask=hedge_slip_ask,
                 slip_bid=hedge_slip_bid,
-                commission_per_unit=hedge_commission_per_unit,
+                fee_bps=hedge_fee_bps,
             ),
         ),
     )
@@ -214,7 +214,7 @@ def _make_engine(
         delta_hedge_policy=delta_hedge_policy or DeltaHedgePolicy(),
         hedge_market=hedge_market,
         hedge_target_model=hedge_target_model or DeltaNeutralHedgeTargetModel(),
-        hedge_execution_model=hedge_execution_model or LinearHedgeExecutionModel(),
+        hedge_execution_model=hedge_execution_model or FixedBpsExecutionModel(),
     )
 
 
@@ -695,6 +695,48 @@ def test_mark_position_uses_bid_ask_hedge_cost_when_quotes_available():
     assert step_result.mtm_record.hedge_trade_cost == pytest.approx(0.5)
     assert step_result.mtm_record.hedge_pnl == pytest.approx(-0.5)
     assert step_result.mtm_record.net_delta == pytest.approx(0.0)
+
+
+def test_mark_position_applies_fixed_bps_fee_on_hedge_notional():
+    setup = _make_setup(contracts=1)
+    cfg = _make_cfg(hedge_fee_bps=10.0)
+    engine = _make_engine(
+        rebalance_period=10,
+        delta_hedge_policy=DeltaHedgePolicy(
+            enabled=True,
+            target_net_delta=0.0,
+            trigger=HedgeTriggerPolicy(
+                delta_band_abs=0.1,
+                rebalance_every_n_days=None,
+            ),
+        ),
+        hedge_market=_make_hedge_market(
+            {"2020-01-02": 100.0},
+            bid_prices={"2020-01-02": 99.0},
+            ask_prices={"2020-01-02": 101.0},
+        ),
+    )
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    step_result = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-02",
+            spot_price=100.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    # Trade qty=0.5, fill=101, mid=100 -> spread/slippage cost = 0.5.
+    # Fee = 10 bps * (0.5 * 101) = 0.0505. Total = 0.5505.
+    assert step_result.mtm_record.hedge_trade_cost == pytest.approx(0.5505)
+    assert step_result.mtm_record.hedge_pnl == pytest.approx(-0.5505)
 
 
 def test_mark_position_supports_custom_hedge_models():

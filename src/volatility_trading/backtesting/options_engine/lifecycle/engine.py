@@ -19,9 +19,9 @@ from ..exit_rules import ExitRuleSet
 from ..specs import DeltaHedgePolicy
 from .hedging import (
     DeltaNeutralHedgeTargetModel,
+    FixedBpsExecutionModel,
     HedgeExecutionModel,
     HedgeTargetModel,
-    LinearHedgeExecutionModel,
 )
 from .margining import evaluate_entry_margin
 from .marking import build_mark_step_context, build_mark_step_snapshots
@@ -56,7 +56,7 @@ class PositionLifecycleEngine:
         default_factory=DeltaNeutralHedgeTargetModel
     )
     hedge_execution_model: HedgeExecutionModel = field(
-        default_factory=LinearHedgeExecutionModel
+        default_factory=FixedBpsExecutionModel
     )
 
     def open_position(
