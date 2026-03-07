@@ -69,6 +69,21 @@ class DeltaNeutralHedgeTargetModel:
 
 
 @dataclass(frozen=True, slots=True)
+class MidNoCostExecutionModel:
+    """Baseline hedge model filling at mid with zero explicit trade costs."""
+
+    def execute(
+        self,
+        *,
+        trade_qty: float,
+        hedge_market: HedgeMarketSnapshot,
+        execution: ExecutionConfig,
+    ) -> HedgeExecutionResult:
+        _ = (trade_qty, execution)
+        return HedgeExecutionResult(fill_price=float(hedge_market.mid), total_cost=0.0)
+
+
+@dataclass(frozen=True, slots=True)
 class FixedBpsExecutionModel:
     """Hedge execution model using spread/slippage plus fixed bps notional fees."""
 
