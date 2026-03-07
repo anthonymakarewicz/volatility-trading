@@ -169,7 +169,7 @@ def main() -> None:
             hedge=HedgeExecutionConfig(
                 slip_ask=0.0,
                 slip_bid=0.0,
-                commission_per_unit=0.0,
+                fee_bps=0.0,
             ),
         ),
         broker=BrokerConfig(

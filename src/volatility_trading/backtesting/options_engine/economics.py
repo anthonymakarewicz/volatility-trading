@@ -29,4 +29,6 @@ def roundtrip_commission_per_structure_contract(
     legs: Sequence[LegSelection],
 ) -> float:
     """Return roundtrip commission for one opened structure contract."""
-    return 2.0 * float(commission_per_leg) * float(len(legs))
+    return (
+        2.0 * float(commission_per_leg) * float(len(legs))
+    )  # TODO: Shoudl remove the 2*

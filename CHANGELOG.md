@@ -9,6 +9,13 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+### Breaking changes
+- Replaced hedge execution config field `execution.hedge.commission_per_unit` with `execution.hedge.fee_bps`.
+- Removed `LinearHedgeExecutionModel` and made `FixedBpsExecutionModel` the default hedge execution model.
+
+### Changed
+- Hedge execution cost accounting now uses spread/slippage plus fixed-bps notional fees for rebalancing trades.
+
 ## [0.1.0] - 2026-03-06
 
 ### Added

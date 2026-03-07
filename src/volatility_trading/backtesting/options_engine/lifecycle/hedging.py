@@ -69,8 +69,8 @@ class DeltaNeutralHedgeTargetModel:
 
 
 @dataclass(frozen=True, slots=True)
-class LinearHedgeExecutionModel:
-    """Linear hedge execution model using configured slippage and commissions."""
+class FixedBpsExecutionModel:
+    """Hedge execution model using spread/slippage plus fixed bps notional fees."""
 
     def execute(
         self,
@@ -96,9 +96,11 @@ class LinearHedgeExecutionModel:
             else float(reference_price) - float(slippage)
         )
         price_cost_per_unit = abs(float(fill_price) - float(hedge_market.mid))
-        total_cost = abs(trade_qty) * (
-            float(hedge_market.contract_multiplier) * price_cost_per_unit
-            + execution.hedge.commission_per_unit
+        fee_per_unit = abs(float(fill_price)) * (execution.hedge.fee_bps / 10_000.0)
+        total_cost = (
+            abs(trade_qty)
+            * float(hedge_market.contract_multiplier)
+            * (price_cost_per_unit + fee_per_unit)
         )
         return HedgeExecutionResult(fill_price=fill_price, total_cost=float(total_cost))
 
@@ -127,7 +129,7 @@ class DeltaHedgeEngine:
     ):
         self.policy = policy
         self.target_model = target_model or DeltaNeutralHedgeTargetModel()
-        self.execution_model = execution_model or LinearHedgeExecutionModel()
+        self.execution_model = execution_model or FixedBpsExecutionModel()
 
     def apply(
         self,
