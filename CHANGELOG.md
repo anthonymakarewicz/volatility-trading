@@ -9,6 +9,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-08
+
 ### Added
 - Added `MidNoCostExecutionModel` as a hedge execution baseline (`fill=mid`, `total_cost=0`) for debugging and benchmarking.
 - Added dynamic hedge band models: `FixedDeltaBandModel` and `WWDeltaBandModel`.
