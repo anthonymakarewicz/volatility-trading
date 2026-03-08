@@ -9,6 +9,36 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-08
+
+### Added
+- Added option-leg execution contracts and models in the options lifecycle:
+  `OptionExecutionModel`, `OptionExecutionOrder`, `OptionExecutionResult`,
+  `BidAskFeeOptionExecutionModel` (default), and `MidNoCostOptionExecutionModel`.
+- Added explicit option attribution fields to runtime outputs:
+  `MtmRecord.option_market_pnl`, `MtmRecord.option_trade_cost`,
+  `TradeRecord.option_entry_cost`, `TradeRecord.option_exit_cost`,
+  `TradeLegRecord.entry_mid_price`, and `TradeLegRecord.exit_mid_price`.
+- Added dedicated option execution documentation:
+  `docs/reference/backtesting/option_execution.md`.
+
+### Changed
+- Entry, standard exit, and forced-liquidation option fills now execute through
+  `OptionExecutionModel` with consistent leg-level fill/cost behavior.
+- Option accounting now separates market movement from transaction costs:
+  entry and exit costs are charged on their actual lifecycle dates.
+- `Backtester` keeps a stable high-level surface; advanced option execution
+  overrides are injected at plan-build time via
+  `build_options_execution_plan(..., option_execution_model=...)`.
+- Updated architecture and README documentation to reflect option execution
+  model semantics and the current injection boundary.
+
+### Breaking changes
+- Option PnL attribution semantics changed: `delta_pnl` now reflects separated
+  option market movement plus explicit option trade-cost booking.
+- Downstream consumers should account for new/updated option attribution output
+  fields in MTM and trade tables.
+
 ## [0.2.1] - 2026-03-08
 
 ### Added

@@ -89,7 +89,7 @@ For the full command sequence, see [Data pipeline](https://github.com/anthonymak
 
 ## **Stability**
 
-- Current release line is `0.1.x` (**alpha / pre-1.0**).
+- Current release line is `0.3.x` (**alpha / pre-1.0**).
 - Public APIs, data contracts, and configuration surfaces may evolve between minor versions.
 - For reproducible research, pin exact package versions and review [CHANGELOG.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/CHANGELOG.md) before upgrading.
 - Public vs internal boundaries are defined in [API Scope](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/api_scope.md).
@@ -189,8 +189,35 @@ For focused hedging configuration examples (fixed band, WW band, cost baselines)
 [examples/README.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/README.md).
 For hedging model semantics and WW/fixed-band configuration details, see
 [hedging.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/backtesting/hedging.md).
+For option execution model behavior and option-cost attribution fields, see
+[option_execution.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/backtesting/option_execution.md).
 For the research-style workflow and reporting exploration, see
 [VRP notebook](https://github.com/anthonymakarewicz/volatility-trading/blob/main/notebooks/vrp_harvesting/notebook.py).
+
+## **Advanced Option Execution Injection**
+
+`Backtester` intentionally keeps a stable high-level API and does not expose an
+`option_execution_model` argument.
+
+If you want to override option execution behavior, inject the model at plan-build
+time:
+
+```python
+from volatility_trading.backtesting.engine import run_backtest_execution_plan
+from volatility_trading.backtesting.options_engine import (
+    MidNoCostOptionExecutionModel,
+    build_options_execution_plan,
+)
+
+plan = build_options_execution_plan(
+    spec=strategy,
+    data=data,
+    config=cfg,
+    capital=cfg.account.initial_capital,
+    option_execution_model=MidNoCostOptionExecutionModel(),
+)
+trades, mtm = run_backtest_execution_plan(plan)
+```
 
 ## **Tests**
 
