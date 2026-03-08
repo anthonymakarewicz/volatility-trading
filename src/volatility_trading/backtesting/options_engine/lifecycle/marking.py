@@ -17,6 +17,7 @@ from ..economics import roundtrip_commission_per_structure_contract
 from ..specs import DeltaHedgePolicy
 from .hedging import (
     DeltaHedgeEngine,
+    HedgeApplyContext,
     HedgeExecutionModel,
     HedgeTargetModel,
 )
@@ -83,12 +84,14 @@ def build_mark_step_snapshots(
     )
     hedge_step = hedger.apply(
         position=position,
-        curr_date=step.curr_date,
-        option_delta=float(valuation.greeks.delta),
-        option_gamma=float(valuation.greeks.gamma),
-        option_volatility=float(valuation.market.volatility),
-        hedge_market=hedge_market_snapshot,
-        execution=step.cfg.execution,
+        context=HedgeApplyContext(
+            curr_date=step.curr_date,
+            option_delta=float(valuation.greeks.delta),
+            option_gamma=float(valuation.greeks.gamma),
+            option_volatility=float(valuation.market.volatility),
+            hedge_market=hedge_market_snapshot,
+            execution=step.cfg.execution,
+        ),
     )
     valuation = replace(
         valuation,

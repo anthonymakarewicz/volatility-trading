@@ -11,7 +11,8 @@ import pandas as pd
 from ...config import ExecutionConfig
 from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.runtime import OpenPosition
-from ..specs import DeltaHedgePolicy, FixedDeltaBandModel, WWDeltaBandModel
+from ..specs import DeltaHedgePolicy
+from .hedge_policies import HedgeBandContext, evaluate_band_target
 from .runtime_state import HedgeStepSnapshot, HedgeTelemetry, HedgeValuation
 
 
@@ -35,6 +36,18 @@ class HedgeDecision:
     band_half_width: float | None = None
     band_lower: float | None = None
     band_upper: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class HedgeApplyContext:
+    """One-date external inputs consumed by the hedge apply step."""
+
+    curr_date: pd.Timestamp
+    option_delta: float
+    option_gamma: float
+    option_volatility: float
+    hedge_market: HedgeMarketSnapshot
+    execution: ExecutionConfig
 
 
 class HedgeTargetModel(Protocol):
@@ -159,11 +172,8 @@ class HedgeDecisionEngine:
         position: OpenPosition,
         curr_date: pd.Timestamp,
         option_delta: float,
-        option_gamma: float,
-        option_volatility: float,
         net_delta_before: float,
-        hedge_price: float,
-        execution: ExecutionConfig,
+        band_context: HedgeBandContext,
     ) -> HedgeDecision:
         center_target_net_delta = self.target_model.target_net_delta(
             policy=self.policy,
@@ -172,120 +182,26 @@ class HedgeDecisionEngine:
             option_delta=option_delta,
             net_delta_before=net_delta_before,
         )
-        (
-            target_net_delta,
-            delta_trigger,
-            band_half_width,
-            band_lower,
-            band_upper,
-        ) = self._resolve_target_net_delta(
+        band_decision = evaluate_band_target(
+            policy=self.policy,
             center_target_net_delta=center_target_net_delta,
             net_delta_before=net_delta_before,
-            option_gamma=option_gamma,
-            option_volatility=option_volatility,
-            hedge_price=hedge_price,
-            execution=execution,
+            context=band_context,
         )
         should_rebalance, time_trigger = self._resolve_rebalance_decision(
             curr_date=curr_date,
-            delta_trigger=delta_trigger,
+            delta_trigger=band_decision.delta_trigger,
             position=position,
         )
         return HedgeDecision(
             center_target_net_delta=float(center_target_net_delta),
-            target_net_delta=float(target_net_delta),
-            delta_trigger=delta_trigger,
+            target_net_delta=float(band_decision.target_net_delta),
+            delta_trigger=band_decision.delta_trigger,
             time_trigger=time_trigger,
             should_rebalance=should_rebalance,
-            band_half_width=band_half_width,
-            band_lower=band_lower,
-            band_upper=band_upper,
-        )
-
-    def _resolve_target_net_delta(
-        self,
-        *,
-        center_target_net_delta: float,
-        net_delta_before: float,
-        option_gamma: float,
-        option_volatility: float,
-        hedge_price: float,
-        execution: ExecutionConfig,
-    ) -> tuple[float, bool | None, float | None, float | None, float | None]:
-        band_model = self.policy.trigger.band_model
-        center_target = float(center_target_net_delta)
-        if band_model is None:
-            return center_target, None, None, None, None
-
-        band_half_width = self._resolve_band_half_width(
-            band_model=band_model,
-            option_gamma=option_gamma,
-            option_volatility=option_volatility,
-            hedge_price=hedge_price,
-            execution=execution,
-        )
-        if not math.isfinite(band_half_width) or band_half_width < 0:
-            return center_target, None, None, None, None
-
-        lower = center_target - band_half_width
-        upper = center_target + band_half_width
-
-        if self.policy.rebalance_to == "nearest_boundary":
-            if net_delta_before < lower:
-                return lower, True, band_half_width, lower, upper
-            if net_delta_before > upper:
-                return upper, True, band_half_width, lower, upper
-            return net_delta_before, False, band_half_width, lower, upper
-
-        delta_trigger = not (lower <= net_delta_before <= upper)
-        return center_target, delta_trigger, band_half_width, lower, upper
-
-    @staticmethod
-    def _resolve_band_half_width(
-        *,
-        band_model: FixedDeltaBandModel | WWDeltaBandModel,
-        option_gamma: float,
-        option_volatility: float,
-        hedge_price: float,
-        execution: ExecutionConfig,
-    ) -> float:
-        if isinstance(band_model, FixedDeltaBandModel):
-            return float(band_model.half_width_abs)
-
-        fee_bps = (
-            band_model.fee_bps_override
-            if band_model.fee_bps_override is not None
-            else execution.hedge.fee_bps
-        )
-        fee_rate = float(fee_bps) / 10_000.0
-        if not math.isfinite(fee_rate) or fee_rate <= 0:
-            return 0.0
-
-        gamma_eff = (
-            max(abs(float(option_gamma)), band_model.gamma_floor)
-            if math.isfinite(option_gamma)
-            else float(band_model.gamma_floor)
-        )
-        sigma_eff = (
-            max(float(option_volatility), band_model.sigma_floor)
-            if math.isfinite(option_volatility)
-            else float(band_model.sigma_floor)
-        )
-        spot_eff = (
-            max(float(hedge_price), band_model.spot_floor)
-            if math.isfinite(hedge_price)
-            else float(band_model.spot_floor)
-        )
-        raw_band = band_model.calibration_c * (
-            fee_rate / (gamma_eff * sigma_eff * spot_eff * spot_eff)
-        ) ** (1.0 / 3.0)
-        if not math.isfinite(raw_band):
-            return float(band_model.max_band_abs)
-        return float(
-            max(
-                band_model.min_band_abs,
-                min(band_model.max_band_abs, raw_band),
-            )
+            band_half_width=band_decision.band_half_width,
+            band_lower=band_decision.band_lower,
+            band_upper=band_decision.band_upper,
         )
 
     def _resolve_rebalance_decision(
@@ -347,14 +263,13 @@ class DeltaHedgeEngine:
         self,
         *,
         position: OpenPosition,
-        curr_date: pd.Timestamp,
-        option_delta: float,
-        option_gamma: float,
-        option_volatility: float,
-        hedge_market: HedgeMarketSnapshot,
-        execution: ExecutionConfig,
+        context: HedgeApplyContext,
     ) -> HedgeStepSnapshot:
         """Return one-date hedge snapshot for lifecycle valuation aggregation."""
+        curr_date = pd.Timestamp(context.curr_date)
+        option_delta = float(context.option_delta)
+        hedge_market = context.hedge_market
+        execution = context.execution
         hedge_qty_before = float(position.hedge.qty)
         hedge_price_curr = float(hedge_market.mid)
         hedge_delta_per_unit = float(hedge_market.contract_multiplier)
@@ -365,11 +280,13 @@ class DeltaHedgeEngine:
             position=position,
             curr_date=curr_date,
             option_delta=option_delta,
-            option_gamma=option_gamma,
-            option_volatility=option_volatility,
             net_delta_before=net_delta_before,
-            hedge_price=hedge_price_curr,
-            execution=execution,
+            band_context=HedgeBandContext(
+                option_gamma=float(context.option_gamma),
+                option_volatility=float(context.option_volatility),
+                hedge_price=hedge_price_curr,
+                execution=execution,
+            ),
         )
 
         if not math.isfinite(hedge_price_curr):
@@ -436,7 +353,7 @@ class DeltaHedgeEngine:
         hedge_pnl -= trading_cost
 
         position.hedge.qty = hedge_qty_before + trade_qty
-        position.hedge.last_rebalance_date = pd.Timestamp(curr_date)
+        position.hedge.last_rebalance_date = curr_date
         net_delta_after = (
             option_delta + float(position.hedge.qty) * hedge_delta_per_unit
         )

@@ -5,6 +5,7 @@ from .hedging import (
     DeltaHedgeEngine,
     DeltaNeutralHedgeTargetModel,
     FixedBpsExecutionModel,
+    HedgeApplyContext,
     HedgeExecutionModel,
     HedgeExecutionResult,
     HedgeTargetModel,
@@ -14,6 +15,7 @@ from .hedging import (
 __all__ = [
     "PositionLifecycleEngine",
     "DeltaHedgeEngine",
+    "HedgeApplyContext",
     "HedgeTargetModel",
     "DeltaNeutralHedgeTargetModel",
     "HedgeExecutionResult",
