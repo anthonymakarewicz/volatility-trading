@@ -1,4 +1,10 @@
-"""Dynamic delta-hedging logic used during lifecycle mark valuation."""
+"""Orchestrate one-date hedge decision, execution, and PnL accounting.
+
+This module is the runtime bridge between:
+- decision logic (target/trigger computation),
+- execution logic (fill/cost assumptions), and
+- lifecycle state mutation (hedge qty/mark timestamps).
+"""
 
 from __future__ import annotations
 
@@ -39,7 +45,7 @@ __all__ = [
 
 @dataclass(frozen=True, slots=True)
 class HedgeApplyContext:
-    """One-date external inputs consumed by the hedge apply step."""
+    """One-date external inputs consumed by ``DeltaHedgeEngine.apply``."""
 
     curr_date: pd.Timestamp
     option_delta: float
@@ -50,7 +56,7 @@ class HedgeApplyContext:
 
 
 class DeltaHedgeEngine:
-    """Apply one-date delta hedging decisions for an open position."""
+    """Apply one-date hedging updates to an open position state."""
 
     def __init__(
         self,
@@ -73,7 +79,13 @@ class DeltaHedgeEngine:
         position: OpenPosition,
         context: HedgeApplyContext,
     ) -> HedgeStepSnapshot:
-        """Return one-date hedge snapshot for lifecycle valuation aggregation."""
+        """Evaluate and apply one hedge step.
+
+        Side effects:
+            - updates ``position.hedge.last_price`` each mark date when price is finite.
+            - updates ``position.hedge.qty`` and ``last_rebalance_date`` when a trade
+              is executed.
+        """
         curr_date = pd.Timestamp(context.curr_date)
         option_delta = float(context.option_delta)
         hedge_market = context.hedge_market
@@ -98,6 +110,7 @@ class DeltaHedgeEngine:
         )
 
         if not math.isfinite(hedge_price_curr):
+            # Without a finite hedge mark, skip carry and trading but keep a snapshot.
             return self._build_step_snapshot(
                 hedge_price_prev=float(position.hedge.last_price),
                 hedge_pnl=0.0,
@@ -114,6 +127,7 @@ class DeltaHedgeEngine:
             position=position,
             hedge_price_curr=hedge_price_curr,
         )
+        # Carry is realized on inventory held coming into the date (pre-trade qty).
         hedge_carry_pnl = (
             hedge_qty_before
             * hedge_delta_per_unit
@@ -190,6 +204,7 @@ class DeltaHedgeEngine:
         turnover: float,
         trade_count: int,
     ) -> HedgeStepSnapshot:
+        """Build canonical hedge step output consumed by record builders."""
         return HedgeStepSnapshot(
             hedge=HedgeValuation(
                 price_prev=hedge_price_prev,
@@ -207,6 +222,7 @@ class DeltaHedgeEngine:
         )
 
     def _bounded_trade_qty(self, trade_qty: float) -> float:
+        """Apply max-qty clipping and min-qty deadband to proposed trade size."""
         bounded_qty = float(trade_qty)
         max_qty = self.policy.max_rebalance_qty
         if max_qty is not None:
@@ -221,6 +237,7 @@ class DeltaHedgeEngine:
         position: OpenPosition,
         hedge_price_curr: float,
     ) -> float:
+        """Return previous mark price, defaulting to current when unavailable."""
         hedge_prev = float(position.hedge.last_price)
         if math.isfinite(hedge_prev):
             return hedge_prev

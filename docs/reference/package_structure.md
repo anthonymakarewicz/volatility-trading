@@ -13,15 +13,15 @@ src/volatility_trading
 │   │   ├── __init__.py
 │   │   └── prepare_panel.py
 │   ├── orats
-│       ├── __init__.py
-│       ├── build_daily_features.py
-│       ├── build_options_chain.py
-│       ├── download_api.py
-│       ├── download_ftp.py
-│       ├── extract_api.py
-│       ├── extract_ftp.py
-│       ├── qc_daily_features.py
-│       └── qc_options_chain.py
+│   │   ├── __init__.py
+│   │   ├── build_daily_features.py
+│   │   ├── build_options_chain.py
+│   │   ├── download_api.py
+│   │   ├── download_ftp.py
+│   │   ├── extract_api.py
+│   │   ├── extract_ftp.py
+│   │   ├── qc_daily_features.py
+│   │   └── qc_options_chain.py
 │   └── yfinance
 │       ├── __init__.py
 │       └── sync.py
@@ -53,16 +53,19 @@ src/volatility_trading
 │   │   ├── lifecycle
 │   │   │   ├── __init__.py
 │   │   │   ├── engine.py
-│   │   │   ├── hedging.py
-│   │   │   ├── marking.py
+│   │   │   ├── hedge_decision.py
+│   │   │   ├── hedge_engine.py
+│   │   │   ├── hedge_execution.py
+│   │   │   ├── hedge_policies.py
 │   │   │   ├── margining.py
+│   │   │   ├── marking.py
 │   │   │   ├── opening.py
 │   │   │   ├── record_builders.py
 │   │   │   ├── runtime_state.py
 │   │   │   ├── transitions.py
 │   │   │   └── valuation.py
-│   │   ├── plan_builder.py
 │   │   ├── outputs.py
+│   │   ├── plan_builder.py
 │   │   ├── selectors.py
 │   │   ├── sizing.py
 │   │   └── specs.py
@@ -72,14 +75,15 @@ src/volatility_trading
 │   │   ├── console.py
 │   │   ├── schemas.py
 │   │   └── tables.py
-│   ├── reporting
-│   │   ├── __init__.py
-│   │   ├── builders.py
-│   │   ├── constants.py
-│   │   ├── plots.py
-│   │   ├── schemas.py
-│   │   ├── service.py
-│   │   └── writers.py
+│   ├── rates.py
+│   └── reporting
+│       ├── __init__.py
+│       ├── builders.py
+│       ├── constants.py
+│       ├── plots.py
+│       ├── schemas.py
+│       ├── service.py
+│       └── writers.py
 ├── cli
 │   ├── __init__.py
 │   ├── config.py
@@ -120,143 +124,143 @@ src/volatility_trading
 │   │   ├── __init__.py
 │   │   └── panel.py
 │   ├── orats
-│       ├── __init__.py
-│       ├── api
-│       │   ├── __init__.py
-│       │   ├── _client_helpers.py
-│       │   ├── api.py
-│       │   ├── client.py
-│       │   ├── download
-│       │   │   ├── __init__.py
-│       │   │   ├── _handlers.py
-│       │   │   ├── _helpers.py
-│       │   │   └── run.py
-│       │   ├── endpoints.py
-│       │   ├── extract
-│       │   │   ├── __init__.py
-│       │   │   ├── _handlers.py
-│       │   │   ├── _helpers.py
-│       │   │   └── run.py
-│       │   ├── io.py
-│       │   └── types.py
-│       ├── ftp
-│       │   ├── __init__.py
-│       │   ├── api.py
-│       │   ├── download
-│       │   │   ├── __init__.py
-│       │   │   ├── _helpers.py
-│       │   │   └── run.py
-│       │   ├── extract
-│       │   │   ├── __init__.py
-│       │   │   ├── _helpers.py
-│       │   │   └── run.py
-│       │   └── types.py
-│       ├── processed
-│       │   ├── __init__.py
-│       │   ├── daily_features
-│       │   │   ├── __init__.py
-│       │   │   ├── api.py
-│       │   │   ├── config.py
-│       │   │   ├── manifest.py
-│       │   │   ├── steps
-│       │   │   │   ├── __init__.py
-│       │   │   │   ├── bounds.py
-│       │   │   │   ├── canonicalize.py
-│       │   │   │   ├── dedupe.py
-│       │   │   │   ├── join.py
-│       │   │   │   ├── output.py
-│       │   │   │   └── scan.py
-│       │   │   ├── transforms.py
-│       │   │   └── types.py
-│       │   ├── options_chain
-│       │   │   ├── __init__.py
-│       │   │   ├── api.py
-│       │   │   ├── config.py
-│       │   │   ├── io.py
-│       │   │   ├── manifest.py
-│       │   │   ├── steps
-│       │   │   │   ├── __init__.py
-│       │   │   │   ├── bounds.py
-│       │   │   │   ├── dedupe.py
-│       │   │   │   ├── enrich.py
-│       │   │   │   ├── features.py
-│       │   │   │   ├── filters.py
-│       │   │   │   ├── greeks.py
-│       │   │   │   ├── output.py
-│       │   │   │   └── scan.py
-│       │   │   ├── transforms.py
-│       │   │   └── types.py
-│       │   └── shared
-│       │       ├── __init__.py
-│       │       ├── bounds.py
-│       │       ├── io.py
-│       │       ├── log_fmt.py
-│       │       ├── manifest.py
-│       │       └── stats.py
-│       └── qc
-│           ├── __init__.py
-│           ├── api.py
-│           ├── common_helpers.py
-│           ├── daily_features
-│           │   ├── __init__.py
-│           │   ├── hard
-│           │   │   ├── __init__.py
-│           │   │   └── specs.py
-│           │   ├── info
-│           │   │   ├── __init__.py
-│           │   │   └── specs.py
-│           │   ├── runner.py
-│           │   ├── soft
-│           │   │   ├── __init__.py
-│           │   │   └── specs.py
-│           │   └── specs_base.py
-│           ├── hard
-│           │   ├── __init__.py
-│           │   ├── exprs.py
-│           │   ├── spec_types.py
-│           │   └── suite.py
-│           ├── info
-│           │   ├── __init__.py
-│           │   ├── spec_types.py
-│           │   ├── suite.py
-│           │   └── summarizers.py
-│           ├── options_chain
-│           │   ├── __init__.py
-│           │   ├── hard
-│           │   │   ├── __init__.py
-│           │   │   └── specs.py
-│           │   ├── helpers.py
-│           │   ├── info
-│           │   │   ├── __init__.py
-│           │   │   └── specs.py
-│           │   ├── runner.py
-│           │   └── soft
-│           │       ├── __init__.py
-│           │       └── specs.py
-│           ├── reporting.py
-│           ├── runners.py
-│           ├── serialization.py
-│           ├── soft
-│           │   ├── __init__.py
-│           │   ├── dataset_checks
-│           │   │   ├── __init__.py
-│           │   │   ├── calendar_xnys.py
-│           │   │   ├── rates.py
-│           │   │   └── underlying_prices.py
-│           │   ├── row_checks
-│           │   │   ├── __init__.py
-│           │   │   ├── arbitrage_bounds.py
-│           │   │   ├── arbitrage_monotonicity.py
-│           │   │   ├── arbitrage_parity.py
-│           │   │   ├── expr_helpers.py
-│           │   │   ├── greeks_iv.py
-│           │   │   ├── quotes.py
-│           │   │   └── volume_oi.py
-│           │   ├── spec_types.py
-│           │   ├── suite.py
-│           │   ├── summarizers.py
-│           │   └── utils.py
-│           └── types.py
+│   │   ├── __init__.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   ├── _client_helpers.py
+│   │   │   ├── api.py
+│   │   │   ├── client.py
+│   │   │   ├── download
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── _handlers.py
+│   │   │   │   ├── _helpers.py
+│   │   │   │   └── run.py
+│   │   │   ├── endpoints.py
+│   │   │   ├── extract
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── _handlers.py
+│   │   │   │   ├── _helpers.py
+│   │   │   │   └── run.py
+│   │   │   ├── io.py
+│   │   │   └── types.py
+│   │   ├── ftp
+│   │   │   ├── __init__.py
+│   │   │   ├── api.py
+│   │   │   ├── download
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── _helpers.py
+│   │   │   │   └── run.py
+│   │   │   ├── extract
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── _helpers.py
+│   │   │   │   └── run.py
+│   │   │   └── types.py
+│   │   ├── processed
+│   │   │   ├── __init__.py
+│   │   │   ├── daily_features
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── api.py
+│   │   │   │   ├── config.py
+│   │   │   │   ├── manifest.py
+│   │   │   │   ├── steps
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── bounds.py
+│   │   │   │   │   ├── canonicalize.py
+│   │   │   │   │   ├── dedupe.py
+│   │   │   │   │   ├── join.py
+│   │   │   │   │   ├── output.py
+│   │   │   │   │   └── scan.py
+│   │   │   │   ├── transforms.py
+│   │   │   │   └── types.py
+│   │   │   ├── options_chain
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── api.py
+│   │   │   │   ├── config.py
+│   │   │   │   ├── io.py
+│   │   │   │   ├── manifest.py
+│   │   │   │   ├── steps
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── bounds.py
+│   │   │   │   │   ├── dedupe.py
+│   │   │   │   │   ├── enrich.py
+│   │   │   │   │   ├── features.py
+│   │   │   │   │   ├── filters.py
+│   │   │   │   │   ├── greeks.py
+│   │   │   │   │   ├── output.py
+│   │   │   │   │   └── scan.py
+│   │   │   │   ├── transforms.py
+│   │   │   │   └── types.py
+│   │   │   └── shared
+│   │   │       ├── __init__.py
+│   │   │       ├── bounds.py
+│   │   │       ├── io.py
+│   │   │       ├── log_fmt.py
+│   │   │       ├── manifest.py
+│   │   │       └── stats.py
+│   │   └── qc
+│   │       ├── __init__.py
+│   │       ├── api.py
+│   │       ├── common_helpers.py
+│   │       ├── daily_features
+│   │       │   ├── __init__.py
+│   │       │   ├── hard
+│   │       │   │   ├── __init__.py
+│   │       │   │   └── specs.py
+│   │       │   ├── info
+│   │       │   │   ├── __init__.py
+│   │       │   │   └── specs.py
+│   │       │   ├── runner.py
+│   │       │   ├── soft
+│   │       │   │   ├── __init__.py
+│   │       │   │   └── specs.py
+│   │       │   └── specs_base.py
+│   │       ├── hard
+│   │       │   ├── __init__.py
+│   │       │   ├── exprs.py
+│   │       │   ├── spec_types.py
+│   │       │   └── suite.py
+│   │       ├── info
+│   │       │   ├── __init__.py
+│   │       │   ├── spec_types.py
+│   │       │   ├── suite.py
+│   │       │   └── summarizers.py
+│   │       ├── options_chain
+│   │       │   ├── __init__.py
+│   │       │   ├── hard
+│   │       │   │   ├── __init__.py
+│   │       │   │   └── specs.py
+│   │       │   ├── helpers.py
+│   │       │   ├── info
+│   │       │   │   ├── __init__.py
+│   │       │   │   └── specs.py
+│   │       │   ├── runner.py
+│   │       │   └── soft
+│   │       │       ├── __init__.py
+│   │       │       └── specs.py
+│   │       ├── reporting.py
+│   │       ├── runners.py
+│   │       ├── serialization.py
+│   │       ├── soft
+│   │       │   ├── __init__.py
+│   │       │   ├── dataset_checks
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── calendar_xnys.py
+│   │       │   │   ├── rates.py
+│   │       │   │   └── underlying_prices.py
+│   │       │   ├── row_checks
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── arbitrage_bounds.py
+│   │       │   │   ├── arbitrage_monotonicity.py
+│   │       │   │   ├── arbitrage_parity.py
+│   │       │   │   ├── expr_helpers.py
+│   │       │   │   ├── greeks_iv.py
+│   │       │   │   ├── quotes.py
+│   │       │   │   └── volume_oi.py
+│   │       │   ├── spec_types.py
+│   │       │   ├── suite.py
+│   │       │   ├── summarizers.py
+│   │       │   └── utils.py
+│   │       └── types.py
 │   └── yfinance
 │       ├── __init__.py
 │       └── sync.py
@@ -331,5 +335,5 @@ src/volatility_trading
     ├── __init__.py
     └── logging_config.py
 
-59 directories, 257 files
-```
+63 directories, 270 files
+````

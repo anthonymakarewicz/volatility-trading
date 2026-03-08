@@ -1,4 +1,8 @@
-"""Runtime evaluators for hedge no-trade-band policies."""
+"""Runtime evaluators for hedge no-trade-band policies.
+
+These helpers convert strategy policy settings into a per-date hedge
+target/trigger decision, including fixed and Whalley-Wilmott-style bands.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +20,7 @@ from ..specs import (
 
 @dataclass(frozen=True, slots=True)
 class HedgeBandContext:
-    """Runtime inputs used to evaluate a hedge no-trade band."""
+    """Runtime market/greek inputs used to evaluate a no-trade band."""
 
     option_gamma: float
     option_volatility: float
@@ -42,7 +46,12 @@ def evaluate_band_target(
     net_delta_before: float,
     context: HedgeBandContext,
 ) -> HedgeBandDecision:
-    """Evaluate one hedge target under the policy band model."""
+    """Evaluate one hedge target under the configured band policy.
+
+    In ``center`` mode, target stays at the center and only trigger changes.
+    In ``nearest_boundary`` mode, the target snaps to a boundary when outside
+    the band and stays at current net delta when already inside.
+    """
     band_model = policy.trigger.band_model
     center_target = float(center_target_net_delta)
     if band_model is None:
@@ -72,6 +81,7 @@ def evaluate_band_target(
                 band_lower=lower,
                 band_upper=upper,
             )
+        # Inside the band: keep current net delta to avoid unnecessary recentering.
         return HedgeBandDecision(
             target_net_delta=float(net_delta_before),
             delta_trigger=False,
@@ -102,6 +112,7 @@ def evaluate_band_half_width(
 def _evaluate_ww_band_half_width(
     *, band_model: WWDeltaBandModel, context: HedgeBandContext
 ) -> float:
+    """Evaluate Whalley-Wilmott-style half-width with strict numeric guardrails."""
     fee_bps = (
         band_model.fee_bps_override
         if band_model.fee_bps_override is not None
@@ -111,6 +122,7 @@ def _evaluate_ww_band_half_width(
     if not math.isfinite(fee_rate) or fee_rate <= 0:
         return 0.0
 
+    # Floors keep the expression stable near expiry / tiny spot / tiny vol/gamma.
     gamma_eff = (
         max(abs(float(context.option_gamma)), band_model.gamma_floor)
         if math.isfinite(context.option_gamma)
@@ -131,6 +143,7 @@ def _evaluate_ww_band_half_width(
     ) ** (1.0 / 3.0)
     if not math.isfinite(raw_band):
         return float(band_model.max_band_abs)
+    # Hard clamp keeps runtime behavior bounded and predictable.
     return float(
         max(
             band_model.min_band_abs,

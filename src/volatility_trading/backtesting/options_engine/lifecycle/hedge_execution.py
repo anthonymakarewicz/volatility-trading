@@ -1,4 +1,9 @@
-"""Execution-model contracts and implementations for dynamic hedging."""
+"""Execution-model contracts and implementations for dynamic hedging.
+
+Execution models map a desired hedge quantity into:
+- a fill price assumption used for diagnostics, and
+- an explicit trade cost deducted from hedge PnL.
+"""
 
 from __future__ import annotations
 
@@ -33,7 +38,7 @@ class HedgeExecutionModel(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class MidNoCostExecutionModel:
-    """Baseline hedge model filling at mid with zero explicit trade costs."""
+    """Baseline model: fill at mid and charge zero explicit trade cost."""
 
     def execute(
         self,
@@ -48,7 +53,7 @@ class MidNoCostExecutionModel:
 
 @dataclass(frozen=True, slots=True)
 class FixedBpsExecutionModel:
-    """Hedge execution model using spread/slippage plus fixed bps notional fees."""
+    """Execution model using spread/slippage plus fixed-bps notional fee."""
 
     def execute(
         self,
@@ -57,10 +62,12 @@ class FixedBpsExecutionModel:
         hedge_market: HedgeMarketSnapshot,
         execution: ExecutionConfig,
     ) -> HedgeExecutionResult:
+        """Map one hedge order into fill and explicit trading cost."""
         if trade_qty == 0.0:
             return HedgeExecutionResult(
                 fill_price=float(hedge_market.mid), total_cost=0.0
             )
+        # Reference the side-specific quote when available (buy->ask, sell->bid).
         reference_price = self._resolve_execution_reference_price(
             trade_qty=trade_qty,
             hedge_market=hedge_market,
@@ -73,6 +80,7 @@ class FixedBpsExecutionModel:
             if trade_qty > 0.0
             else float(reference_price) - float(slippage)
         )
+        # Cost is measured as distance from mid plus explicit bps fee on notional.
         price_cost_per_unit = abs(float(fill_price) - float(hedge_market.mid))
         fee_per_unit = abs(float(fill_price)) * (execution.hedge.fee_bps / 10_000.0)
         total_cost = (
