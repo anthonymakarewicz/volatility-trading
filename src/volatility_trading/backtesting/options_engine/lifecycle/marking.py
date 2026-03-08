@@ -19,7 +19,6 @@ from .hedge_engine import (
     DeltaHedgeEngine,
     HedgeApplyContext,
     HedgeExecutionModel,
-    HedgeTargetModel,
 )
 from .margining import (
     evaluate_mark_margin,
@@ -63,7 +62,6 @@ def build_mark_step_snapshots(
     pricer: PriceModel,
     delta_hedge_policy: DeltaHedgePolicy,
     hedge_market: HedgeMarketData | None,
-    hedge_target_model: HedgeTargetModel,
     hedge_execution_model: HedgeExecutionModel,
 ) -> tuple[MarkValuationSnapshot, MarkMarginSnapshot, MtmRecord]:
     """Build valuation, margin, and base MTM snapshots for one mark date."""
@@ -75,7 +73,6 @@ def build_mark_step_snapshots(
     )
     hedger = DeltaHedgeEngine(
         delta_hedge_policy,
-        target_model=hedge_target_model,
         execution_model=hedge_execution_model,
     )
     hedge_market_snapshot = HedgeMarketSnapshot.from_market_data(
