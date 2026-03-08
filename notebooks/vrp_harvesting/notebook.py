@@ -10,7 +10,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: .venv (3.12.8)
 #     language: python
 #     name: python3
 # ---
@@ -84,9 +84,6 @@ from volatility_trading.datasets import (
 from volatility_trading.options import bs_greeks, bs_price, RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import make_vrp_strategy, VRPHarvestingSpec
-
-import pandas as pd
-
 from volatility_trading.backtesting import (
     AccountConfig,
     BacktestRunConfig,
@@ -99,15 +96,16 @@ from volatility_trading.backtesting import (
     OptionsBacktestDataBundle,
     to_daily_mtm,
 )
+from volatility_trading.backtesting.data_adapters import CanonicalOptionsChainAdapter
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
+    FixedDeltaBandModel,
     HedgeTriggerPolicy,
 )
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
-
 
 np.random.seed(42)
 
@@ -499,12 +497,9 @@ print("Short iron fly: mean P&L =", round(np.mean(pnl_iron_short), dec),
 #
 
 # %%
-options_chain_long = options_chain_wide_to_long(options_chain).collect()
-options_chain_long = options_chain_long.to_pandas().set_index("trade_date")
-options_chain_long.head()
-
-# %%
-from volatility_trading.backtesting.data_adapters import CanonicalOptionsChainAdapter
+options_chain = options_chain_wide_to_long(options_chain).collect()
+options_chain = options_chain.to_pandas().set_index("trade_date")
+options_chain.head()
 
 # %%
 # --------------------
@@ -540,17 +535,13 @@ sp500_tr = read_yfinance_time_series(
 sp500_tr = sp500_tr.to_pandas().set_index("date").squeeze()
 sp500_tr.index = pd.to_datetime(sp500_tr.index)
 
-options_red = options_chain_long.loc[START_BACKTEST:END_BACKTEST]
-
-# Align hedge market to options trading dates (strict hedge coverage).
-trading_dates = pd.Index(options_red.index.unique()).sort_values()
-hedge_mid = sp500_tr.loc[START_BACKTEST:END_BACKTEST].reindex(trading_dates).ffill()
+spot_series = options_chain.groupby("trade_date")["spot_price"].first().sort_index()
 
 data = OptionsBacktestDataBundle(
-    options=options_red,
+    options=options_chain,
     features=None,
     hedge_market=HedgeMarketData(
-        mid=hedge_mid,
+        mid=spot_series,
         symbol=BENCHMARK_TICKER,
     ),
     options_adapter=CanonicalOptionsChainAdapter()
@@ -576,14 +567,12 @@ vrp_spec = VRPHarvestingSpec(
         enabled=True,
         target_net_delta=HEDGE_TARGET_NET_DELTA,
         trigger=HedgeTriggerPolicy(
-            delta_band_abs=HEDGE_DELTA_BAND_ABS,
+            band_model=FixedDeltaBandModel(half_width_abs=HEDGE_DELTA_BAND_ABS),
             rebalance_every_n_days=HEDGE_REBALANCE_EVERY_N_DAYS,
             combine_mode=HEDGE_COMBINE_MODE,
         ),
-        allow_missing_hedge_price=False,
         min_rebalance_qty=1.0,
-        max_rebalance_qty=None,
-    ),
+    )
 )
 strat = make_vrp_strategy(vrp_spec)
 
@@ -591,6 +580,9 @@ cfg = BacktestRunConfig(
     account=AccountConfig(initial_capital=INIT_CAPITAL),
     execution=ExecutionConfig(
         commission_per_leg=COMMISSION_PER_LEG,
+        hedge=HedgeExecutionConfig(
+            fee_bps=0.0,
+        ),
     ),
     broker=BrokerConfig(
         margin=MarginConfig(

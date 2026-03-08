@@ -5,7 +5,9 @@ stack. It explains how modules interact, which dataclasses cross boundaries,
 and why the current architecture is organized this way.
 
 For a shorter overview, see
-[`docs/reference/options_backtesting_architecture_overview.md`](options_backtesting_architecture_overview.md).
+[`docs/reference/backtesting/architecture_overview.md`](architecture_overview.md).
+For hedging policy usage (fixed band vs WW), see
+[`docs/reference/backtesting/hedging.md`](hedging.md).
 
 ## Scope
 
@@ -144,6 +146,8 @@ flowchart LR
 - Hedge transaction-cost assumptions belong to run config (`ExecutionConfig.hedge`).
 - Hedge market prices are data inputs (`OptionsBacktestDataBundle.hedge_market`).
 - When delta hedging is enabled, the plan builder enforces hedge market availability.
+- Hedge model behavior and examples are documented in
+  [`docs/reference/backtesting/hedging.md`](hedging.md).
 
 ### Dataclass Composition Map
 
