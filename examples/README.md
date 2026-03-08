@@ -43,3 +43,8 @@ The full end-to-end script also supports:
 - `--rebalance-period`
 - `--risk-budget-pct`
 - `--margin-budget-pct`
+
+## More Details
+
+- WW/fixed-band hedging guide:
+  - `docs/reference/backtesting/hedging.md`

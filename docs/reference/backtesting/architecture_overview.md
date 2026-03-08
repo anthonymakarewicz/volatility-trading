@@ -4,7 +4,9 @@ This document describes how the current options backtesting stack is wired, from
 `Backtester` orchestration to strategy-specific presets such as VRP harvesting.
 
 For a deeper module-by-module and dataclass-level view, see
-[`docs/reference/options_backtesting_architecture_internals.md`](options_backtesting_architecture_internals.md).
+[`docs/reference/backtesting/architecture_internals.md`](architecture_internals.md).
+For hedging policy usage (fixed band vs WW), see
+[`docs/reference/backtesting/hedging.md`](hedging.md).
 
 ## Scope
 
@@ -161,6 +163,8 @@ stateDiagram-v2
 - Dynamic delta hedging is strategy policy (`StrategySpec.lifecycle.delta_hedge`),
   while hedge execution costs are run-level (`BacktestRunConfig.execution.hedge`).
 - If dynamic hedging is enabled, `data.hedge_market` is required.
+- Hedge model behavior and examples are documented in
+  [`docs/reference/backtesting/hedging.md`](hedging.md).
 
 ## Strategy Preset Pattern
 

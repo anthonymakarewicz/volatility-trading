@@ -187,6 +187,8 @@ For a full scriptable workflow (data loading + backtest run), see
 [VRP end-to-end example](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/vrp_end_to_end.py).
 For focused hedging configuration examples (fixed band, WW band, cost baselines), see
 [examples/README.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/README.md).
+For hedging model semantics and WW/fixed-band configuration details, see
+[hedging.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/backtesting/hedging.md).
 For the research-style workflow and reporting exploration, see
 [VRP notebook](https://github.com/anthonymakarewicz/volatility-trading/blob/main/notebooks/vrp_harvesting/notebook.py).
 
