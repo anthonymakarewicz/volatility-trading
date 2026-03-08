@@ -14,6 +14,7 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 ### Added
 - Added `MidNoCostExecutionModel` as a hedge execution baseline (`fill=mid`, `total_cost=0`) for debugging and benchmarking.
 - Added dynamic hedge band models: `FixedDeltaBandModel` and `WWDeltaBandModel`.
+- Added focused hedging examples (fixed band, WW band, and cost baseline comparison) plus shared `examples/core` helper utilities.
 
 ### Breaking changes
 - Replaced hedge execution config field `execution.hedge.commission_per_unit` with `execution.hedge.fee_bps`.
