@@ -11,13 +11,17 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ### Added
 - Added `MidNoCostExecutionModel` as a hedge execution baseline (`fill=mid`, `total_cost=0`) for debugging and benchmarking.
+- Added dynamic hedge band models: `FixedDeltaBandModel` and `WWDeltaBandModel`.
 
 ### Breaking changes
 - Replaced hedge execution config field `execution.hedge.commission_per_unit` with `execution.hedge.fee_bps`.
 - Removed `LinearHedgeExecutionModel` and made `FixedBpsExecutionModel` the default hedge execution model.
+- Replaced `HedgeTriggerPolicy.delta_band_abs` with `HedgeTriggerPolicy.band_model`.
+- Added `DeltaHedgePolicy.rebalance_to` and enforce `WWDeltaBandModel` with `rebalance_to='nearest_boundary'`.
 
 ### Changed
 - Hedge execution cost accounting now uses spread/slippage plus fixed-bps notional fees for rebalancing trades.
+- Delta hedging now supports Whalley-Wilmott-style dynamic no-trade bands with nearest-boundary rebalancing.
 
 ## [0.1.0] - 2026-03-06
 

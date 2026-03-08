@@ -71,11 +71,14 @@ from .sizing import (
     size_entry_intent,
 )
 from .specs import (
+    DeltaBandModel,
     DeltaHedgePolicy,
+    FixedDeltaBandModel,
     HedgeTriggerPolicy,
     LifecycleConfig,
     SizingPolicyConfig,
     StrategySpec,
+    WWDeltaBandModel,
 )
 
 __all__ = [
@@ -90,7 +93,10 @@ __all__ = [
     "quote_to_option_spec",
     "quote_to_option_leg",
     "StrategySpec",
+    "DeltaBandModel",
     "DeltaHedgePolicy",
+    "FixedDeltaBandModel",
+    "WWDeltaBandModel",
     "HedgeTriggerPolicy",
     "LifecycleConfig",
     "SizingPolicyConfig",

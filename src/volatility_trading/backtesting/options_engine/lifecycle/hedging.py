@@ -11,7 +11,7 @@ import pandas as pd
 from ...config import ExecutionConfig
 from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.runtime import OpenPosition
-from ..specs import DeltaHedgePolicy
+from ..specs import DeltaHedgePolicy, FixedDeltaBandModel, WWDeltaBandModel
 from .runtime_state import HedgeStepSnapshot, HedgeTelemetry, HedgeValuation
 
 
@@ -152,6 +152,8 @@ class DeltaHedgeEngine:
         position: OpenPosition,
         curr_date: pd.Timestamp,
         option_delta: float,
+        option_gamma: float,
+        option_volatility: float,
         hedge_market: HedgeMarketSnapshot,
         execution: ExecutionConfig,
     ) -> HedgeStepSnapshot:
@@ -162,12 +164,20 @@ class DeltaHedgeEngine:
         if not math.isfinite(hedge_delta_per_unit) or hedge_delta_per_unit <= 0:
             raise ValueError("hedge_market.contract_multiplier must be finite and > 0")
         net_delta_before = option_delta + hedge_qty_before * hedge_delta_per_unit
-        target_net_delta = self.target_model.target_net_delta(
+        center_target_net_delta = self.target_model.target_net_delta(
             policy=self.policy,
             position=position,
             curr_date=curr_date,
             option_delta=option_delta,
             net_delta_before=net_delta_before,
+        )
+        target_net_delta, delta_trigger = self._resolve_target_net_delta(
+            center_target_net_delta=center_target_net_delta,
+            net_delta_before=net_delta_before,
+            option_gamma=option_gamma,
+            option_volatility=option_volatility,
+            hedge_price=hedge_price_curr,
+            execution=execution,
         )
 
         if not math.isfinite(hedge_price_curr):
@@ -197,8 +207,7 @@ class DeltaHedgeEngine:
         position.hedge.last_price = hedge_price_curr
         if not self._should_rebalance(
             curr_date=curr_date,
-            net_delta_before=net_delta_before,
-            target_net_delta=target_net_delta,
+            delta_trigger=delta_trigger,
             position=position,
         ):
             return self._build_step_snapshot(
@@ -253,6 +262,92 @@ class DeltaHedgeEngine:
             trade_count=1,
         )
 
+    def _resolve_target_net_delta(
+        self,
+        *,
+        center_target_net_delta: float,
+        net_delta_before: float,
+        option_gamma: float,
+        option_volatility: float,
+        hedge_price: float,
+        execution: ExecutionConfig,
+    ) -> tuple[float, bool | None]:
+        band_model = self.policy.trigger.band_model
+        center_target = float(center_target_net_delta)
+        if band_model is None:
+            return center_target, None
+
+        band_half_width = self._resolve_band_half_width(
+            band_model=band_model,
+            option_gamma=option_gamma,
+            option_volatility=option_volatility,
+            hedge_price=hedge_price,
+            execution=execution,
+        )
+        if not math.isfinite(band_half_width) or band_half_width < 0:
+            return center_target, None
+
+        lower = center_target - band_half_width
+        upper = center_target + band_half_width
+
+        if self.policy.rebalance_to == "nearest_boundary":
+            if net_delta_before < lower:
+                return lower, True
+            if net_delta_before > upper:
+                return upper, True
+            return net_delta_before, False
+
+        delta_trigger = not (lower <= net_delta_before <= upper)
+        return center_target, delta_trigger
+
+    @staticmethod
+    def _resolve_band_half_width(
+        *,
+        band_model: FixedDeltaBandModel | WWDeltaBandModel,
+        option_gamma: float,
+        option_volatility: float,
+        hedge_price: float,
+        execution: ExecutionConfig,
+    ) -> float:
+        if isinstance(band_model, FixedDeltaBandModel):
+            return float(band_model.half_width_abs)
+
+        fee_bps = (
+            band_model.fee_bps_override
+            if band_model.fee_bps_override is not None
+            else execution.hedge.fee_bps
+        )
+        fee_rate = float(fee_bps) / 10_000.0
+        if not math.isfinite(fee_rate) or fee_rate <= 0:
+            return 0.0
+
+        gamma_eff = (
+            max(abs(float(option_gamma)), band_model.gamma_floor)
+            if math.isfinite(option_gamma)
+            else float(band_model.gamma_floor)
+        )
+        sigma_eff = (
+            max(float(option_volatility), band_model.sigma_floor)
+            if math.isfinite(option_volatility)
+            else float(band_model.sigma_floor)
+        )
+        spot_eff = (
+            max(float(hedge_price), band_model.spot_floor)
+            if math.isfinite(hedge_price)
+            else float(band_model.spot_floor)
+        )
+        raw_band = band_model.calibration_c * (
+            fee_rate / (gamma_eff * sigma_eff * spot_eff * spot_eff)
+        ) ** (1.0 / 3.0)
+        if not math.isfinite(raw_band):
+            return float(band_model.max_band_abs)
+        return float(
+            max(
+                band_model.min_band_abs,
+                min(band_model.max_band_abs, raw_band),
+            )
+        )
+
     @staticmethod
     def _build_step_snapshot(
         *,
@@ -286,17 +381,11 @@ class DeltaHedgeEngine:
         self,
         *,
         curr_date: pd.Timestamp,
-        net_delta_before: float,
-        target_net_delta: float,
+        delta_trigger: bool | None,
         position: OpenPosition,
     ) -> bool:
         if not self.policy.enabled:
             return False
-
-        delta_trigger: bool | None = None
-        if self.policy.trigger.delta_band_abs is not None:
-            delta_gap = net_delta_before - target_net_delta
-            delta_trigger = abs(delta_gap) >= self.policy.trigger.delta_band_abs
 
         time_trigger: bool | None = None
         if self.policy.trigger.rebalance_every_n_days is not None:
