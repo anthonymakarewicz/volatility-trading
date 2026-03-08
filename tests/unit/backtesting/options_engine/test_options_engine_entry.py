@@ -8,6 +8,7 @@ from volatility_trading.backtesting import (
 )
 from volatility_trading.backtesting.options_engine import (
     LegSpec,
+    OptionExecutionResult,
     StructureSpec,
     build_entry_intent_from_structure,
     normalize_signals_to_on,
@@ -210,6 +211,39 @@ def test_build_entry_intent_min_ratio_allows_partial_fill():
     expiry0 = intent.legs[0].quote.expiry_date
     assert expiry0 is not None
     assert pd.Timestamp(expiry0) == pd.Timestamp("2020-01-31")
+
+
+def test_build_entry_intent_supports_custom_option_execution_model():
+    class _FixedFillOptionExecutionModel:
+        def execute(self, *, order, execution) -> OptionExecutionResult:
+            _ = (order, execution)
+            return OptionExecutionResult(
+                fill_price=9.99,
+                total_cost=0.0,
+                price_cost=0.0,
+                fee_cost=0.0,
+            )
+
+    options = _base_chain()
+    structure = StructureSpec(
+        name="single_leg_custom_exec",
+        dte_target=30,
+        dte_tolerance=2,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.50),),
+    )
+
+    intent = build_entry_intent_from_structure(
+        entry_date=pd.Timestamp("2020-01-01"),
+        options=options,
+        structure_spec=structure,
+        cfg=_base_cfg(),
+        side_resolver=lambda _leg: 1,
+        option_execution_model=_FixedFillOptionExecutionModel(),
+    )
+
+    assert intent is not None
+    assert len(intent.legs) == 1
+    assert intent.legs[0].entry_price == pytest.approx(9.99)
 
 
 def test_normalize_signals_to_on_rejects_on_only_inputs():

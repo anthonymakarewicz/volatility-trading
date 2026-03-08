@@ -17,7 +17,10 @@ from ..data_contracts import HedgeMarketData, OptionsBacktestDataBundle
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .contracts.runtime import PositionEntrySetup
 from .entry import build_entry_intent_from_structure, normalize_signals_to_on
-from .lifecycle import PositionLifecycleEngine
+from .lifecycle import (
+    OptionExecutionModel,
+    PositionLifecycleEngine,
+)
 from .outputs import build_options_backtest_outputs
 from .sizing import SizingRequest, size_entry_intent
 from .specs import StrategySpec
@@ -139,6 +142,7 @@ def build_options_execution_plan(
             features=features,
             equity_running=equity_running,
             cfg=config,
+            option_execution_model=lifecycle_engine.option_execution_model,
             fallback_iv_feature_col=data.fallback_iv_feature_col,
         ),
         open_position=lambda setup, equity_running: lifecycle_engine.open_position(
@@ -168,6 +172,7 @@ def _prepare_entry_setup(
     features: pd.DataFrame | None,
     equity_running: float,
     cfg: BacktestRunConfig,
+    option_execution_model: OptionExecutionModel,
     fallback_iv_feature_col: str,
 ) -> PositionEntrySetup | None:
     """Build one structure entry setup for one date."""
@@ -183,6 +188,7 @@ def _prepare_entry_setup(
             leg_spec,
             entry_direction,
         ),
+        option_execution_model=option_execution_model,
         features=features,
         fallback_iv_feature_col=fallback_iv_feature_col,
     )

@@ -24,6 +24,10 @@ from .hedge_engine import (
 from .margining import evaluate_entry_margin
 from .marking import build_mark_step_context, build_mark_step_snapshots
 from .opening import build_open_position_state
+from .option_execution import (
+    BidAskFeeOptionExecutionModel,
+    OptionExecutionModel,
+)
 from .record_builders import build_entry_record
 from .transitions import (
     transition_continue_open,
@@ -52,6 +56,9 @@ class PositionLifecycleEngine:
     hedge_market: HedgeMarketData | None = None
     hedge_execution_model: HedgeExecutionModel = field(
         default_factory=FixedBpsExecutionModel
+    )
+    option_execution_model: OptionExecutionModel = field(
+        default_factory=BidAskFeeOptionExecutionModel
     )
 
     def open_position(
@@ -146,6 +153,7 @@ class PositionLifecycleEngine:
             margin=margin,
             mtm_record=mtm_record,
             margin_policy=self.margin_policy,
+            option_execution_model=self.option_execution_model,
         )
         if forced_outcome is not None:
             return forced_outcome
@@ -179,4 +187,5 @@ class PositionLifecycleEngine:
             valuation=valuation,
             margin=margin,
             mtm_record=mtm_record,
+            option_execution_model=self.option_execution_model,
         )

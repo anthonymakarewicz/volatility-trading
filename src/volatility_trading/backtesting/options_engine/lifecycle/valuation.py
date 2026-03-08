@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 
-from volatility_trading.backtesting.config import BacktestRunConfig
+from volatility_trading.backtesting.config import ExecutionConfig
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label
@@ -17,16 +17,32 @@ from ..contracts.runtime import OpenPosition
 from ..contracts.structures import EntryIntent, LegSelection
 from ..economics import effective_leg_side, leg_units
 from ..entry import chain_for_date
+from .option_execution import OptionExecutionModel, OptionExecutionOrder
 from .runtime_state import HedgeTelemetry, HedgeValuation, MarkValuationSnapshot
 
 
-def exit_leg_price(quote: QuoteSnapshot, *, side: int, cfg: BacktestRunConfig) -> float:
+def exit_leg_price(
+    quote: QuoteSnapshot,
+    *,
+    side: int,
+    execution: ExecutionConfig,
+    option_execution_model: OptionExecutionModel,
+) -> float:
     """Return executable exit price for one leg given effective side."""
-    if side == -1:
-        return float(quote.ask_price + cfg.execution.slip_ask)
-    if side == 1:
-        return float(quote.bid_price - cfg.execution.slip_bid)
-    raise ValueError("side must be -1 or +1")
+    if side not in (-1, 1):
+        raise ValueError("side must be -1 or +1")
+    # side=-1 (short leg inventory) exits via buy; side=+1 exits via sell.
+    trade_side = 1 if side == -1 else -1
+    exec_result = option_execution_model.execute(
+        order=OptionExecutionOrder(
+            quote=quote,
+            trade_side=trade_side,
+            quantity=1.0,
+            fee_contracts=0.0,
+        ),
+        execution=execution,
+    )
+    return float(exec_result.fill_price)
 
 
 def match_leg_quote(
@@ -312,14 +328,16 @@ def exit_prices_for_position(
     *,
     position: OpenPosition,
     leg_quotes: tuple[QuoteSnapshot, ...],
-    cfg: BacktestRunConfig,
+    execution: ExecutionConfig,
+    option_execution_model: OptionExecutionModel,
 ) -> tuple[float, ...]:
     """Compute executable exit prices for all legs of one open position."""
     return tuple(
         exit_leg_price(
             quote,
             side=effective_leg_side(leg),
-            cfg=cfg,
+            execution=execution,
+            option_execution_model=option_execution_model,
         )
         for leg, quote in zip(position.intent.legs, leg_quotes, strict=True)
     )

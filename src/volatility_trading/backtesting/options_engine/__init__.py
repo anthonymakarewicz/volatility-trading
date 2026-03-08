@@ -47,12 +47,17 @@ from .exit_rules import (
     SameDayReentryPolicy,
 )
 from .lifecycle import (
+    BidAskFeeOptionExecutionModel,
     DeltaHedgeEngine,
     FixedBpsExecutionModel,
     HedgeApplyContext,
     HedgeExecutionModel,
     HedgeExecutionResult,
     MidNoCostExecutionModel,
+    MidNoCostOptionExecutionModel,
+    OptionExecutionModel,
+    OptionExecutionOrder,
+    OptionExecutionResult,
     PositionLifecycleEngine,
 )
 from .outputs import build_options_backtest_outputs
@@ -132,6 +137,11 @@ __all__ = [
     "HedgeExecutionModel",
     "MidNoCostExecutionModel",
     "FixedBpsExecutionModel",
+    "OptionExecutionOrder",
+    "OptionExecutionResult",
+    "OptionExecutionModel",
+    "MidNoCostOptionExecutionModel",
+    "BidAskFeeOptionExecutionModel",
     "CANONICAL_REQUIRED_COLUMNS",
     "CANONICAL_OPTIONAL_COLUMNS",
     "OptionsChainAdapterError",

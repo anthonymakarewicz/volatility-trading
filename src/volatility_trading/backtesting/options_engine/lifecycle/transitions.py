@@ -9,6 +9,7 @@ from volatility_trading.backtesting.margin import MarginPolicy
 
 from ..contracts.records import MtmRecord, TradeRecord
 from ..contracts.runtime import LifecycleStepResult, OpenPosition
+from .option_execution import OptionExecutionModel
 from .record_builders import (
     apply_closed_position_fields,
     build_trade_record,
@@ -35,6 +36,7 @@ def transition_forced_liquidation(
     margin: MarkMarginSnapshot,
     mtm_record: MtmRecord,
     margin_policy: MarginPolicy | None,
+    option_execution_model: OptionExecutionModel,
 ) -> LifecycleStepResult | None:
     """Handle forced margin liquidation and return lifecycle outcome if triggered."""
     if (
@@ -48,7 +50,8 @@ def transition_forced_liquidation(
     exit_prices = exit_prices_for_position(
         position=position,
         leg_quotes=valuation.complete_leg_quotes,
-        cfg=step.cfg,
+        execution=step.cfg.execution,
+        option_execution_model=option_execution_model,
     )
     contracts_to_close = margin.margin_status.contracts_to_liquidate
     contracts_after = position.contracts_open - contracts_to_close
@@ -177,13 +180,15 @@ def transition_standard_exit(
     valuation: MarkValuationSnapshot,
     margin: MarkMarginSnapshot,
     mtm_record: MtmRecord,
+    option_execution_model: OptionExecutionModel,
 ) -> LifecycleStepResult:
     """Close a position on explicit exit rule trigger and build lifecycle outputs."""
     assert valuation.complete_leg_quotes is not None  # nosec B101
     exit_prices = exit_prices_for_position(
         position=position,
         leg_quotes=valuation.complete_leg_quotes,
-        cfg=step.cfg,
+        execution=step.cfg.execution,
+        option_execution_model=option_execution_model,
     )
     pnl_per_contract = pnl_per_contract_from_exit_prices(
         legs=position.intent.legs,
