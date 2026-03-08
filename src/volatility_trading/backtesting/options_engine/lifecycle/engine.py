@@ -17,7 +17,7 @@ from ..contracts.runtime import LifecycleStepResult, OpenPosition, PositionEntry
 from ..economics import roundtrip_commission_per_structure_contract
 from ..exit_rules import ExitRuleSet
 from ..specs import DeltaHedgePolicy
-from .hedging import (
+from .hedge_engine import (
     DeltaNeutralHedgeTargetModel,
     FixedBpsExecutionModel,
     HedgeExecutionModel,
