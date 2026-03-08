@@ -11,7 +11,10 @@ from volatility_trading.backtesting import (
     MarginConfig,
     OptionsBacktestDataBundle,
 )
-from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting.engine import (
+    Backtester,
+    run_backtest_execution_plan,
+)
 from volatility_trading.backtesting.options_engine import (
     ColumnMapOptionsChainAdapter,
     DeltaHedgePolicy,
@@ -19,9 +22,11 @@ from volatility_trading.backtesting.options_engine import (
     HedgeTriggerPolicy,
     LegSpec,
     LifecycleConfig,
+    OptionExecutionResult,
     SizingPolicyConfig,
     StrategySpec,
     StructureSpec,
+    build_options_execution_plan,
 )
 from volatility_trading.options import OptionType
 from volatility_trading.signals.base_signal import Signal
@@ -242,6 +247,10 @@ def test_directional_strategy_outputs_regression_snapshot(
     assert leg["effective_side"] == expected_effective_side
     assert leg["entry_price"] == pytest.approx(expected_entry_price)
     assert leg["exit_price"] == pytest.approx(expected_exit_price)
+    assert leg["entry_mid_price"] == pytest.approx(5.1)
+    assert leg["exit_mid_price"] == pytest.approx(6.1)
+    assert row["option_entry_cost"] == pytest.approx(0.1)
+    assert row["option_exit_cost"] == pytest.approx(0.1)
 
     expected_mtm = pd.DataFrame(
         [
@@ -555,3 +564,64 @@ def test_runtime_adapter_conflict_between_config_and_data_bundle_raises():
         match="options adapter is set in both config.options_adapter and data.options_adapter",
     ):
         bt.run()
+
+
+def test_build_plan_supports_custom_option_execution_model_injection():
+    class _DirectionalCostOptionExecutionModel:
+        def execute(self, *, order, execution):
+            _ = execution
+            if order.trade_side > 0:
+                return OptionExecutionResult(
+                    fill_price=10.0,
+                    total_cost=2.0,
+                    price_cost=2.0,
+                    fee_cost=0.0,
+                )
+            return OptionExecutionResult(
+                fill_price=1.0,
+                total_cost=3.0,
+                price_cost=3.0,
+                fee_cost=0.0,
+            )
+
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="custom_option_exec_injection",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
+    )
+    plan = build_options_execution_plan(
+        spec=spec,
+        data=OptionsBacktestDataBundle(options=_make_options()),
+        config=cfg,
+        capital=10_000.0,
+        option_execution_model=_DirectionalCostOptionExecutionModel(),
+    )
+    trades, mtm = run_backtest_execution_plan(plan)
+
+    assert len(trades) == 1
+    row = trades.iloc[0]
+    leg = row["trade_legs"][0]
+    assert leg["entry_price"] == pytest.approx(10.0)
+    assert leg["exit_price"] == pytest.approx(1.0)
+    assert row["option_entry_cost"] == pytest.approx(2.0)
+    assert row["option_exit_cost"] == pytest.approx(3.0)
+    assert row["pnl"] == pytest.approx(-4.0)
+    assert mtm.loc[pd.Timestamp("2020-01-01"), "option_trade_cost"] == pytest.approx(
+        2.0
+    )

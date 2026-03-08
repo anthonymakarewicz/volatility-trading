@@ -77,6 +77,9 @@ def transition_forced_liquidation(
             else "Margin Call Partial Liquidation"
         ),
         exit_prices=exit_prices,
+        exit_leg_quotes=valuation.complete_leg_quotes,
+        option_entry_cost=entry_cost_closed,
+        option_exit_cost=exit_trade_cost,
     )
     trade_rows: list[TradeRecord] = [trade_row]
 
@@ -211,6 +214,9 @@ def transition_standard_exit(
         pnl=pnl_net,
         exit_type=exit_type,
         exit_prices=exit_prices,
+        exit_leg_quotes=valuation.complete_leg_quotes,
+        option_entry_cost=position.entry_option_trade_cost,
+        option_exit_cost=exit_trade_cost,
     )
     logger.info(
         (

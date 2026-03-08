@@ -34,6 +34,7 @@ def build_options_execution_plan(
     data: OptionsBacktestDataBundle,
     config: BacktestRunConfig,
     capital: float,
+    option_execution_model: OptionExecutionModel | None = None,
 ) -> SinglePositionExecutionPlan:
     """Compile one options ``StrategySpec`` into an engine execution plan."""
     logger.info(
@@ -122,6 +123,7 @@ def build_options_execution_plan(
         spec=spec,
         cfg=config,
         hedge_market=hedge_market,
+        option_execution_model=option_execution_model,
     )
 
     hooks = SinglePositionHooks(
@@ -172,7 +174,7 @@ def _prepare_entry_setup(
     features: pd.DataFrame | None,
     equity_running: float,
     cfg: BacktestRunConfig,
-    option_execution_model: OptionExecutionModel,
+    option_execution_model: OptionExecutionModel | None,
     fallback_iv_feature_col: str,
 ) -> PositionEntrySetup | None:
     """Build one structure entry setup for one date."""
@@ -284,8 +286,12 @@ def _build_lifecycle_engine(
     spec: StrategySpec,
     cfg: BacktestRunConfig,
     hedge_market: HedgeMarketData | None,
+    option_execution_model: OptionExecutionModel | None = None,
 ) -> PositionLifecycleEngine:
     """Build lifecycle engine configured from one strategy spec."""
+    lifecycle_kwargs: dict[str, OptionExecutionModel] = {}
+    if option_execution_model is not None:
+        lifecycle_kwargs["option_execution_model"] = option_execution_model
     return PositionLifecycleEngine(
         rebalance_period=spec.lifecycle.rebalance_period,
         max_holding_period=spec.lifecycle.max_holding_period,
@@ -295,6 +301,7 @@ def _build_lifecycle_engine(
         pricer=cfg.modeling.pricer,
         delta_hedge_policy=spec.lifecycle.delta_hedge,
         hedge_market=hedge_market,
+        **lifecycle_kwargs,
     )
 
 

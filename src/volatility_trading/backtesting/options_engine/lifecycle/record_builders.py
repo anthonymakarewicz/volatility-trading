@@ -9,6 +9,7 @@ import pandas as pd
 
 from volatility_trading.options.types import Greeks, MarketState
 
+from ..contracts.market import QuoteSnapshot
 from ..contracts.records import (
     MtmMargin,
     MtmRecord,
@@ -110,6 +111,9 @@ def build_trade_record(
     pnl: float,
     exit_type: str,
     exit_prices: tuple[float, ...],
+    exit_leg_quotes: tuple[QuoteSnapshot, ...] | None = None,
+    option_entry_cost: float = 0.0,
+    option_exit_cost: float = 0.0,
 ) -> TradeRecord:
     """Build one typed trade ledger record for a close/liquidation action."""
     return TradeRecord(
@@ -126,7 +130,10 @@ def build_trade_record(
         trade_legs=trade_legs_payload(
             legs=position.intent.legs,
             exit_prices=exit_prices,
+            exit_leg_quotes=exit_leg_quotes,
         ),
+        option_entry_cost=option_entry_cost,
+        option_exit_cost=option_exit_cost,
     )
 
 

@@ -231,6 +231,7 @@ def trade_legs_payload(
     *,
     legs: Sequence[LegSelection],
     exit_prices: Sequence[float] | None = None,
+    exit_leg_quotes: Sequence[QuoteSnapshot] | None = None,
 ) -> tuple[TradeLegRecord, ...]:
     """Build per-leg trade payload for durable multi-expiry trade records."""
     payload: list[TradeLegRecord] = []
@@ -244,6 +245,20 @@ def trade_legs_payload(
         exit_price = (
             float(exit_prices[idx])
             if exit_prices is not None and idx < len(exit_prices)
+            else np.nan
+        )
+        entry_mid_price = (
+            float(leg.entry_mid_price)
+            if leg.entry_mid_price is not None
+            else 0.5 * (float(leg.quote.bid_price) + float(leg.quote.ask_price))
+        )
+        exit_mid_price = (
+            0.5
+            * (
+                float(exit_leg_quotes[idx].bid_price)
+                + float(exit_leg_quotes[idx].ask_price)
+            )
+            if exit_leg_quotes is not None and idx < len(exit_leg_quotes)
             else np.nan
         )
         payload.append(
@@ -260,6 +275,8 @@ def trade_legs_payload(
                 delta_target=float(leg.spec.delta_target),
                 delta_tolerance=float(leg.spec.delta_tolerance),
                 expiry_group=leg.spec.expiry_group,
+                entry_mid_price=entry_mid_price,
+                exit_mid_price=exit_mid_price,
             )
         )
     return tuple(payload)
@@ -277,6 +294,7 @@ def intent_with_updated_quotes(
             quote=quote,
             side=leg.side,
             entry_price=leg.entry_price,
+            entry_mid_price=leg.entry_mid_price,
         )
         for leg, quote in zip(intent.legs, leg_quotes, strict=True)
     )

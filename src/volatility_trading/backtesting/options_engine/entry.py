@@ -261,6 +261,7 @@ def build_entry_intent_from_structure(
                     cfg=cfg,
                     option_execution_model=option_execution_model,
                 ),
+                entry_mid_price=0.5 * (float(quote.bid_price) + float(quote.ask_price)),
             )
 
     selected_legs = tuple(

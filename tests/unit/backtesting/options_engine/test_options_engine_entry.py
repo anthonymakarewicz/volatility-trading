@@ -213,6 +213,39 @@ def test_build_entry_intent_min_ratio_allows_partial_fill():
     assert pd.Timestamp(expiry0) == pd.Timestamp("2020-01-31")
 
 
+@pytest.mark.parametrize(
+    ("side", "expected_entry_price"),
+    [
+        (1, 5.2),
+        (-1, 5.0),
+    ],
+)
+def test_build_entry_intent_resolves_side_specific_entry_fill_and_entry_mid(
+    side: int,
+    expected_entry_price: float,
+):
+    options = _base_chain()
+    structure = StructureSpec(
+        name="single_leg_side_fill",
+        dte_target=30,
+        dte_tolerance=2,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.50),),
+    )
+
+    intent = build_entry_intent_from_structure(
+        entry_date=pd.Timestamp("2020-01-01"),
+        options=options,
+        structure_spec=structure,
+        cfg=_base_cfg(),
+        side_resolver=lambda _leg: side,
+    )
+
+    assert intent is not None
+    assert len(intent.legs) == 1
+    assert intent.legs[0].entry_price == pytest.approx(expected_entry_price)
+    assert intent.legs[0].entry_mid_price == pytest.approx(5.1)
+
+
 def test_build_entry_intent_supports_custom_option_execution_model():
     class _FixedFillOptionExecutionModel:
         def execute(self, *, order, execution) -> OptionExecutionResult:
@@ -244,6 +277,7 @@ def test_build_entry_intent_supports_custom_option_execution_model():
     assert intent is not None
     assert len(intent.legs) == 1
     assert intent.legs[0].entry_price == pytest.approx(9.99)
+    assert intent.legs[0].entry_mid_price == pytest.approx(5.1)
 
 
 def test_normalize_signals_to_on_rejects_on_only_inputs():

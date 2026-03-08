@@ -91,6 +91,8 @@ class TradeLegRecord:
     delta_target: float
     delta_tolerance: float
     expiry_group: str
+    entry_mid_price: float = float("nan")
+    exit_mid_price: float = float("nan")
 
     def to_dict(self) -> dict[str, object]:
         """Serialize the per-leg payload into the canonical mapping schema."""
@@ -107,6 +109,8 @@ class TradeLegRecord:
             "delta_target": self.delta_target,
             "delta_tolerance": self.delta_tolerance,
             "expiry_group": self.expiry_group,
+            "entry_mid_price": self.entry_mid_price,
+            "exit_mid_price": self.exit_mid_price,
         }
 
 
@@ -125,6 +129,8 @@ class TradeRecord:
     margin_per_contract: float | None
     exit_type: str
     trade_legs: tuple[TradeLegRecord, ...]
+    option_entry_cost: float = 0.0
+    option_exit_cost: float = 0.0
 
     def to_dict(self) -> dict[str, object]:
         """Flatten trade record into the canonical trades table row."""
@@ -139,5 +145,7 @@ class TradeRecord:
             "risk_worst_scenario": self.risk_worst_scenario,
             "margin_per_contract": self.margin_per_contract,
             "exit_type": self.exit_type,
+            "option_entry_cost": self.option_entry_cost,
+            "option_exit_cost": self.option_exit_cost,
             "trade_legs": [leg.to_dict() for leg in self.trade_legs],
         }
