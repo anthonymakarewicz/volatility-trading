@@ -25,6 +25,7 @@ class EntryMarginSnapshot:
     margin_account: MarginAccount | None
     latest_margin_per_contract: float | None
     initial_margin_requirement: float
+    option_trade_cost: float
     entry_delta_pnl: float
     margin: MarginCore
 
@@ -60,6 +61,7 @@ class MarkValuationSnapshot:
     market: MarketState
     hedge: HedgeValuation
     net_delta: float
+    option_market_pnl: float
     delta_pnl_market: float
 
 
@@ -90,4 +92,3 @@ class LifecycleStepContext:
     cfg: BacktestRunConfig
     equity_running: float
     lot_size: int
-    roundtrip_commission_per_contract: float

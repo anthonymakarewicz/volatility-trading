@@ -16,6 +16,7 @@ def build_open_position_state(
     setup: PositionEntrySetup,
     contracts_open: int,
     net_entry: float,
+    entry_option_trade_cost: float,
     greeks: Greeks,
     net_delta: float,
     margin: EntryMarginSnapshot,
@@ -51,6 +52,7 @@ def build_open_position_state(
         margin_account=margin.margin_account,
         latest_margin_per_contract=margin.latest_margin_per_contract,
         net_entry=net_entry,
+        entry_option_trade_cost=entry_option_trade_cost,
         prev_mtm=0.0,
         hedge=HedgeState(last_rebalance_date=setup.intent.entry_date),
         last_market=(

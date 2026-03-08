@@ -260,7 +260,9 @@ def test_open_position_records_entry_commission_and_greeks():
     assert position.contracts_open == 3
     assert position.prev_mtm == pytest.approx(0.0)
     assert entry_record.open_contracts == 3
-    assert entry_record.delta_pnl == pytest.approx(-6.0)
+    assert entry_record.option_trade_cost == pytest.approx(3.0)
+    assert entry_record.option_market_pnl == pytest.approx(0.0)
+    assert entry_record.delta_pnl == pytest.approx(-3.0)
     assert entry_record.greeks.delta == pytest.approx(-1.5)
     assert entry_record.net_delta == pytest.approx(-1.5)
     assert entry_record.greeks.gamma == pytest.approx(-0.3)
@@ -279,8 +281,9 @@ def test_open_position_commission_scales_with_leg_count():
         equity_running=10_000.0,
     )
 
-    # 2 legs * roundtrip (entry+exit) * $1 commission * 2 contracts.
-    assert entry_record.delta_pnl == pytest.approx(-8.0)
+    # Entry booking only: 2 legs * $1 commission * 2 contracts.
+    assert entry_record.option_trade_cost == pytest.approx(4.0)
+    assert entry_record.delta_pnl == pytest.approx(-4.0)
 
 
 def test_mark_position_with_missing_quotes_keeps_position_open():
@@ -900,10 +903,11 @@ def test_mark_position_supports_custom_option_execution_model():
             execution: ExecutionConfig,
         ) -> OptionExecutionResult:
             _ = (order, execution)
+            price_cost = 4.0 if order.trade_side > 0 else 0.0
             return OptionExecutionResult(
                 fill_price=10.0,
-                total_cost=0.0,
-                price_cost=0.0,
+                total_cost=price_cost,
+                price_cost=price_cost,
                 fee_cost=0.0,
             )
 
@@ -933,7 +937,7 @@ def test_mark_position_supports_custom_option_execution_model():
 
     assert step_result.position is None
     assert len(step_result.trade_rows) == 1
-    # Short entry at 5.0, custom buy-to-close fill at 10.0 => -5.0 per contract.
+    # Short entry at 5.0, mark PnL=-1.0 and buy-side exit cost=4.0 => net -5.0.
     assert step_result.trade_rows[0].pnl == pytest.approx(-5.0)
     assert step_result.mtm_record.delta_pnl == pytest.approx(-5.0)
 

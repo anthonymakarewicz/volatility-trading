@@ -33,6 +33,8 @@ class MtmRecord:
     hedge_pnl: float
     open_contracts: int
     margin: MtmMargin
+    option_market_pnl: float = 0.0
+    option_trade_cost: float = 0.0
     hedge_carry_pnl: float = 0.0
     hedge_trade_cost: float = 0.0
     hedge_turnover: float = 0.0
@@ -53,6 +55,8 @@ class MtmRecord:
             "hedge_qty": self.hedge_qty,
             "hedge_price_prev": self.hedge_price_prev,
             "hedge_pnl": self.hedge_pnl,
+            "option_market_pnl": self.option_market_pnl,
+            "option_trade_cost": self.option_trade_cost,
             "hedge_carry_pnl": self.hedge_carry_pnl,
             "hedge_trade_cost": self.hedge_trade_cost,
             "hedge_turnover": self.hedge_turnover,

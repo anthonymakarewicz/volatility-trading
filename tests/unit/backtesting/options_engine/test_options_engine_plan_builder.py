@@ -199,7 +199,7 @@ def test_config_strategy_uses_short_direction_for_entry_side():
             0.01,
             0.10,
             -0.02,
-            10_000.8,
+            10_000.7,
         ),
         (
             -1,
@@ -212,7 +212,7 @@ def test_config_strategy_uses_short_direction_for_entry_side():
             -0.01,
             -0.10,
             0.02,
-            9_998.8,
+            9_998.7,
         ),
     ],
 )
@@ -247,7 +247,9 @@ def test_directional_strategy_outputs_regression_snapshot(
         [
             {
                 "date": pd.Timestamp("2020-01-01"),
-                "delta_pnl": 0.0,
+                "delta_pnl": -0.1,
+                "option_market_pnl": 0.0,
+                "option_trade_cost": 0.1,
                 "delta": expected_delta,
                 "net_delta": expected_delta,
                 "gamma": expected_gamma,
@@ -256,11 +258,13 @@ def test_directional_strategy_outputs_regression_snapshot(
                 "S": 100.0,
                 "iv": 0.20,
                 "open_contracts": 1,
-                "equity": 10_000.0,
+                "equity": 9_999.9,
             },
             {
                 "date": pd.Timestamp("2020-01-02"),
                 "delta_pnl": expected_trade_pnl,
+                "option_market_pnl": expected_trade_pnl + 0.2,
+                "option_trade_cost": 0.2,
                 "delta": expected_delta,
                 "net_delta": expected_delta,
                 "gamma": expected_gamma,
@@ -277,6 +281,8 @@ def test_directional_strategy_outputs_regression_snapshot(
     mtm_subset = mtm[
         [
             "delta_pnl",
+            "option_market_pnl",
+            "option_trade_cost",
             "delta",
             "net_delta",
             "gamma",

@@ -20,8 +20,7 @@ from .runtime_state import (
     MarkValuationSnapshot,
 )
 from .valuation import (
-    exit_prices_for_position,
-    pnl_per_contract_from_exit_prices,
+    execute_exit_for_position,
     update_position_mark_state,
 )
 
@@ -47,22 +46,24 @@ def transition_forced_liquidation(
     ):
         return None
 
-    exit_prices = exit_prices_for_position(
+    contracts_to_close = margin.margin_status.contracts_to_liquidate
+    exit_prices, exit_trade_cost = execute_exit_for_position(
         position=position,
         leg_quotes=valuation.complete_leg_quotes,
+        contracts_to_close=contracts_to_close,
+        lot_size=step.lot_size,
         execution=step.cfg.execution,
         option_execution_model=option_execution_model,
     )
-    contracts_to_close = margin.margin_status.contracts_to_liquidate
     contracts_after = position.contracts_open - contracts_to_close
-    pnl_per_contract = pnl_per_contract_from_exit_prices(
-        legs=position.intent.legs,
-        exit_prices=exit_prices,
-        lot_size=step.lot_size,
-    )
-    real_pnl_closed = pnl_per_contract * contracts_to_close + valuation.hedge.pnl
-    pnl_net_closed = real_pnl_closed - (
-        step.roundtrip_commission_per_contract * contracts_to_close
+    close_ratio = contracts_to_close / position.contracts_open
+    entry_cost_closed = position.entry_option_trade_cost * close_ratio
+    option_market_pnl_closed = valuation.pnl_mtm * close_ratio
+    pnl_net_closed = (
+        option_market_pnl_closed
+        - entry_cost_closed
+        - exit_trade_cost
+        + valuation.hedge.pnl
     )
 
     trade_row = build_trade_record(
@@ -87,10 +88,12 @@ def transition_forced_liquidation(
             contracts_to_close,
             pnl_net_closed,
         )
-        forced_delta_pnl = (
-            pnl_net_closed - valuation.prev_mtm_before
-        ) + margin.margin.financing_pnl
+        forced_delta_pnl = mtm_record.delta_pnl - exit_trade_cost
         equity_after = step.equity_running + forced_delta_pnl
+        mtm_record = replace(
+            mtm_record,
+            option_trade_cost=exit_trade_cost,
+        )
         mtm_record = apply_closed_position_fields(
             mtm_record,
             delta_pnl=forced_delta_pnl,
@@ -126,14 +129,13 @@ def transition_forced_liquidation(
     )
     ratio_remaining = contracts_after / position.contracts_open
     pnl_mtm_remaining = valuation.pnl_mtm * ratio_remaining
-    forced_delta_pnl = (
-        pnl_net_closed + pnl_mtm_remaining - valuation.prev_mtm_before
-    ) + margin.margin.financing_pnl
+    forced_delta_pnl = mtm_record.delta_pnl - exit_trade_cost
     greeks_remaining = valuation.greeks.scaled(ratio_remaining)
     net_delta_remaining = float(greeks_remaining.delta + position.hedge.qty)
     mtm_record = replace(
         mtm_record,
         delta_pnl=forced_delta_pnl,
+        option_trade_cost=exit_trade_cost,
         greeks=greeks_remaining,
         net_delta=net_delta_remaining,
         open_contracts=contracts_after,
@@ -158,6 +160,7 @@ def transition_forced_liquidation(
     )
     position.contracts_open = contracts_after
     position.net_entry *= ratio_remaining
+    position.entry_option_trade_cost *= ratio_remaining
     update_position_mark_state(
         position=position,
         pnl_mtm=pnl_mtm_remaining,
@@ -184,22 +187,21 @@ def transition_standard_exit(
 ) -> LifecycleStepResult:
     """Close a position on explicit exit rule trigger and build lifecycle outputs."""
     assert valuation.complete_leg_quotes is not None  # nosec B101
-    exit_prices = exit_prices_for_position(
+    exit_prices, exit_trade_cost = execute_exit_for_position(
         position=position,
         leg_quotes=valuation.complete_leg_quotes,
+        contracts_to_close=position.contracts_open,
+        lot_size=step.lot_size,
         execution=step.cfg.execution,
         option_execution_model=option_execution_model,
     )
-    pnl_per_contract = pnl_per_contract_from_exit_prices(
-        legs=position.intent.legs,
-        exit_prices=exit_prices,
-        lot_size=step.lot_size,
+    pnl_net = (
+        valuation.pnl_mtm
+        - position.entry_option_trade_cost
+        - exit_trade_cost
+        + valuation.hedge.pnl
     )
-    real_pnl = pnl_per_contract * position.contracts_open + valuation.hedge.pnl
-    pnl_net = real_pnl - (
-        step.roundtrip_commission_per_contract * position.contracts_open
-    )
-    exit_delta_pnl = (pnl_net - valuation.prev_mtm_before) + margin.margin.financing_pnl
+    exit_delta_pnl = mtm_record.delta_pnl - exit_trade_cost
     equity_after = step.equity_running + exit_delta_pnl
 
     trade_row = build_trade_record(
@@ -211,14 +213,22 @@ def transition_standard_exit(
         exit_prices=exit_prices,
     )
     logger.info(
-        "Position exited date=%s entry_date=%s exit_type=%s contracts=%d pnl_net=%.6f",
+        (
+            "Position exited date=%s entry_date=%s exit_type=%s contracts=%d "
+            "pnl_net=%.6f exit_option_trade_cost=%.6f"
+        ),
         step.curr_date,
         position.entry_date,
         exit_type,
         position.contracts_open,
         pnl_net,
+        exit_trade_cost,
     )
 
+    mtm_record = replace(
+        mtm_record,
+        option_trade_cost=exit_trade_cost,
+    )
     mtm_record = apply_closed_position_fields(
         mtm_record,
         delta_pnl=exit_delta_pnl,

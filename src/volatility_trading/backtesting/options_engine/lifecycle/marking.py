@@ -13,7 +13,6 @@ from ...data_contracts import HedgeMarketData
 from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.records import MtmRecord
 from ..contracts.runtime import OpenPosition
-from ..economics import roundtrip_commission_per_structure_contract
 from ..specs import DeltaHedgePolicy
 from .hedge_engine import (
     DeltaHedgeEngine,
@@ -46,10 +45,6 @@ def build_mark_step_context(
         cfg=cfg,
         equity_running=equity_running,
         lot_size=cfg.execution.lot_size,
-        roundtrip_commission_per_contract=roundtrip_commission_per_structure_contract(
-            commission_per_leg=cfg.execution.commission_per_leg,
-            legs=position.intent.legs,
-        ),
     )
 
 
