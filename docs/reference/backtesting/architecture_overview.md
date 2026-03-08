@@ -7,6 +7,8 @@ For a deeper module-by-module and dataclass-level view, see
 [`docs/reference/backtesting/architecture_internals.md`](architecture_internals.md).
 For hedging policy usage (fixed band vs WW), see
 [`docs/reference/backtesting/hedging.md`](hedging.md).
+For option fill/cost model behavior, see
+[`docs/reference/backtesting/option_execution.md`](option_execution.md).
 
 ## Scope
 
@@ -42,8 +44,10 @@ flowchart TD
 
     F --> J[selectors.py<br/>DTE/delta/liquidity selection]
     F --> K[contracts_structures.py + contracts_market.py<br/>LegSpec/StructureSpec/EntryIntent/QuoteSnapshot]
-    G --> N[economics.py<br/>shared leg math + commission helpers]
+    G --> N[economics.py<br/>shared leg math]
     H --> N
+    F --> X[option_execution.py<br/>OptionExecutionModel + implementations]
+    H --> X
     G --> L[options/*<br/>pricer/risk/margin models]
     H --> M[backtesting/margin.py<br/>margin lifecycle account]
 ```
@@ -120,7 +124,8 @@ stateDiagram-v2
 
 - `open_position`: initializes Greeks, MTM baseline, margin account fields.
 - `mark_position`: daily MTM, Greeks refresh, financing/margin updates.
-- Uses shared commission helpers (`economics.py`) for per-structure costs.
+- Option leg fills/costs are delegated to `OptionExecutionModel`.
+- Option market PnL and option trade costs are attributed separately.
 - Applies exit rules (`exit_rules.py`) and emits trade rows on close.
 - Supports forced partial/full liquidation from margin lifecycle.
 
@@ -162,9 +167,14 @@ stateDiagram-v2
 - Margin model/policy and pricing/risk engines are configured at run level, not preset level.
 - Dynamic delta hedging is strategy policy (`StrategySpec.lifecycle.delta_hedge`),
   while hedge execution costs are run-level (`BacktestRunConfig.execution.hedge`).
+- Option execution slippage/fees are run-level (`BacktestRunConfig.execution`), while
+  option execution model selection defaults in lifecycle and can be overridden at
+  `build_options_execution_plan(..., option_execution_model=...)`.
 - If dynamic hedging is enabled, `data.hedge_market` is required.
 - Hedge model behavior and examples are documented in
   [`docs/reference/backtesting/hedging.md`](hedging.md).
+- Option execution model behavior and attribution fields are documented in
+  [`docs/reference/backtesting/option_execution.md`](option_execution.md).
 
 ## Strategy Preset Pattern
 
@@ -197,6 +207,8 @@ Add new strategy behavior by configuration first:
 - New margin model/policy: set `BacktestRunConfig.broker.margin`
 - Dynamic delta hedging: set `StrategySpec.lifecycle.delta_hedge` and supply
   `OptionsBacktestDataBundle.hedge_market`
+- New option execution behavior: inject custom `OptionExecutionModel` via
+  `build_options_execution_plan(..., option_execution_model=...)`
 
 Only add new engine code when behavior cannot be expressed through these
 contracts.
