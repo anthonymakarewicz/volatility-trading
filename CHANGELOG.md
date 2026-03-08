@@ -9,6 +9,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-08
+
 ### Added
 - Added focused hedging examples (fixed band, WW band, and cost baseline comparison) plus shared `examples/core` helper utilities.
 - Added a dedicated options-engine hedging guide for fixed-band and WW-style policies (`docs/reference/backtesting/hedging.md`).
