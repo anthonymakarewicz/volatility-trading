@@ -13,7 +13,6 @@ from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
     EntryIntent,
     ExitRuleSet,
-    FixedBpsExecutionModel,
     FixedDeltaBandModel,
     HedgeExecutionModel,
     HedgeExecutionResult,
@@ -21,6 +20,8 @@ from volatility_trading.backtesting.options_engine import (
     LegSelection,
     LegSpec,
     MidNoCostExecutionModel,
+    OptionExecutionModel,
+    OptionExecutionResult,
     PositionEntrySetup,
     PositionLifecycleEngine,
     QuoteSnapshot,
@@ -203,7 +204,13 @@ def _make_engine(
     delta_hedge_policy: DeltaHedgePolicy | None = None,
     hedge_market: HedgeMarketData | None = None,
     hedge_execution_model: HedgeExecutionModel | None = None,
+    option_execution_model: OptionExecutionModel | None = None,
 ) -> PositionLifecycleEngine:
+    lifecycle_kwargs = {}
+    if hedge_execution_model is not None:
+        lifecycle_kwargs["hedge_execution_model"] = hedge_execution_model
+    if option_execution_model is not None:
+        lifecycle_kwargs["option_execution_model"] = option_execution_model
     return PositionLifecycleEngine(
         rebalance_period=rebalance_period,
         max_holding_period=None,
@@ -213,7 +220,7 @@ def _make_engine(
         pricer=_NullPricer(),
         delta_hedge_policy=delta_hedge_policy or DeltaHedgePolicy(),
         hedge_market=hedge_market,
-        hedge_execution_model=hedge_execution_model or FixedBpsExecutionModel(),
+        **lifecycle_kwargs,
     )
 
 
@@ -253,7 +260,9 @@ def test_open_position_records_entry_commission_and_greeks():
     assert position.contracts_open == 3
     assert position.prev_mtm == pytest.approx(0.0)
     assert entry_record.open_contracts == 3
-    assert entry_record.delta_pnl == pytest.approx(-6.0)
+    assert entry_record.option_trade_cost == pytest.approx(3.0)
+    assert entry_record.option_market_pnl == pytest.approx(0.0)
+    assert entry_record.delta_pnl == pytest.approx(-3.0)
     assert entry_record.greeks.delta == pytest.approx(-1.5)
     assert entry_record.net_delta == pytest.approx(-1.5)
     assert entry_record.greeks.gamma == pytest.approx(-0.3)
@@ -272,8 +281,9 @@ def test_open_position_commission_scales_with_leg_count():
         equity_running=10_000.0,
     )
 
-    # 2 legs * roundtrip (entry+exit) * $1 commission * 2 contracts.
-    assert entry_record.delta_pnl == pytest.approx(-8.0)
+    # Entry booking only: 2 legs * $1 commission * 2 contracts.
+    assert entry_record.option_trade_cost == pytest.approx(4.0)
+    assert entry_record.delta_pnl == pytest.approx(-4.0)
 
 
 def test_mark_position_with_missing_quotes_keeps_position_open():
@@ -882,6 +892,54 @@ def test_mark_position_supports_custom_hedge_execution_model():
     assert step_result.mtm_record.hedge_turnover == pytest.approx(0.5)
     assert step_result.mtm_record.hedge_trade_count == 1
     assert step_result.mtm_record.hedge_pnl == pytest.approx(-0.05)
+
+
+def test_mark_position_supports_custom_option_execution_model():
+    class _FixedFillOptionExecutionModel:
+        def execute(
+            self,
+            *,
+            order,
+            execution: ExecutionConfig,
+        ) -> OptionExecutionResult:
+            _ = (order, execution)
+            price_cost = 4.0 if order.trade_side > 0 else 0.0
+            return OptionExecutionResult(
+                fill_price=10.0,
+                total_cost=price_cost,
+                price_cost=price_cost,
+                fee_cost=0.0,
+            )
+
+    setup = _make_setup(contracts=1, entry_price=5.0)
+    cfg = _make_cfg()
+    engine = _make_engine(
+        rebalance_period=1,
+        option_execution_model=_FixedFillOptionExecutionModel(),
+    )
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    step_result = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-02",
+            bid_price=6.0,
+            ask_price=6.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    assert step_result.position is None
+    assert len(step_result.trade_rows) == 1
+    # Short entry at 5.0, mark PnL=-1.0 and buy-side exit cost=4.0 => net -5.0.
+    assert step_result.trade_rows[0].pnl == pytest.approx(-5.0)
+    assert step_result.mtm_record.delta_pnl == pytest.approx(-5.0)
 
 
 def test_delta_hedge_policy_rejects_center_rebalance_for_ww_band():

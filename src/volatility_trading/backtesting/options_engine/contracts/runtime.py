@@ -49,6 +49,7 @@ class OpenPosition:
     margin_account: MarginAccount | None
     latest_margin_per_contract: float | None
     net_entry: float
+    entry_option_trade_cost: float
     prev_mtm: float
     hedge: HedgeState
     last_market: MarketState

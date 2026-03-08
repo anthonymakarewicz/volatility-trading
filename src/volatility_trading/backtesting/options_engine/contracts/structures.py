@@ -103,26 +103,31 @@ class LegSelection:
         quote: Typed quote snapshot selected at entry.
         side: Trade side resolved to `PositionSide`.
         entry_price: Executed entry price for that leg after slippage.
+        entry_mid_price: Entry-date quote mid used for market-PnL attribution.
     """
 
     spec: LegSpec
     quote: QuoteSnapshot
     side: PositionSide | int
     entry_price: float
+    entry_mid_price: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.quote, QuoteSnapshot):
             raise ValueError("quote must be QuoteSnapshot")
 
-        if isinstance(self.side, PositionSide):
-            return
-        try:
-            normalized = PositionSide(int(self.side))
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                "side must be PositionSide.SHORT (-1) or PositionSide.LONG (+1)"
-            ) from exc
-        object.__setattr__(self, "side", normalized)
+        if not isinstance(self.side, PositionSide):
+            try:
+                normalized = PositionSide(int(self.side))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "side must be PositionSide.SHORT (-1) or PositionSide.LONG (+1)"
+                ) from exc
+            object.__setattr__(self, "side", normalized)
+
+        if self.entry_mid_price is None:
+            mid = 0.5 * (float(self.quote.bid_price) + float(self.quote.ask_price))
+            object.__setattr__(self, "entry_mid_price", mid)
 
 
 @dataclass(frozen=True)

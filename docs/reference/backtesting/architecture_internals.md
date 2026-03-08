@@ -8,6 +8,8 @@ For a shorter overview, see
 [`docs/reference/backtesting/architecture_overview.md`](architecture_overview.md).
 For hedging policy usage (fixed band vs WW), see
 [`docs/reference/backtesting/hedging.md`](hedging.md).
+For option fill/cost model behavior, see
+[`docs/reference/backtesting/option_execution.md`](option_execution.md).
 
 ## Scope
 
@@ -48,8 +50,9 @@ flowchart LR
         R3[lifecycle/engine.py\nPositionLifecycleEngine\nopen_position/mark_position]
         R4[exit_rules.py\nExitRuleSet / SameDayReentryPolicy]
         R5[selectors.py\nquote/expiry selection]
-        R6[economics.py\neffective side/units\ncommission helpers]
+        R6[economics.py\neffective side/units]
         R7[outputs.py\nbuild_options_backtest_outputs]
+        R8[lifecycle/option_execution.py\nOptionExecutionModel + implementations]
     end
 
     subgraph LifecycleInternals[lifecycle/* Internal Modules]
@@ -86,8 +89,10 @@ flowchart LR
     P1 --> R4
     P1 --> R7
     R1 --> R5
+    R1 --> R8
     R2 --> R6
     R3 --> R6
+    R3 --> R8
     R3 --> L1
     R3 --> L2
     R3 --> L3
@@ -144,10 +149,14 @@ flowchart LR
 
 - Dynamic hedging policy belongs to strategy config (`LifecycleConfig.delta_hedge`).
 - Hedge transaction-cost assumptions belong to run config (`ExecutionConfig.hedge`).
+- Option slippage/commission assumptions belong to run config (`ExecutionConfig`).
 - Hedge market prices are data inputs (`OptionsBacktestDataBundle.hedge_market`).
 - When delta hedging is enabled, the plan builder enforces hedge market availability.
 - Hedge model behavior and examples are documented in
   [`docs/reference/backtesting/hedging.md`](hedging.md).
+- Option execution defaults to `BidAskFeeOptionExecutionModel` in lifecycle and can
+  be injected at plan-build time via
+  `build_options_execution_plan(..., option_execution_model=...)`.
 
 ### Dataclass Composition Map
 
@@ -248,7 +257,8 @@ flowchart TD
 | `options_engine/plan_builder.py` | compile `StrategySpec` into executable plan | strategy execution loop and tabular aggregation |
 | `options_engine/outputs.py` | convert typed records into canonical `trades`/`mtm` DataFrames | signal generation, entry/mark/exit lifecycle logic |
 | `options_engine/entry.py` + `selectors.py` | build `EntryIntent` from chain + structure constraints | account/margin lifecycle |
-| `options_engine/economics.py` | shared leg-side/units and per-structure commission helpers | signal/entry/exit orchestration |
+| `options_engine/economics.py` | shared leg-side/units math | signal/entry/exit orchestration |
+| `options_engine/lifecycle/option_execution.py` | option execution contracts + model implementations (fill + explicit costs) | lifecycle control flow and output aggregation |
 | `options_engine/sizing.py` | contract count decision from risk/margin constraints | position mark/exit loop |
 | `options_engine/lifecycle/engine.py` | open/mark/close logic, forced liquidation, exit handling | signal generation, global orchestration |
 | `options_engine/lifecycle/*` | valuation/margin/record/state internals | plan compilation and outer loop |

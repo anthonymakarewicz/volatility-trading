@@ -26,6 +26,8 @@ def build_options_backtest_outputs(
         "gamma": "sum",
         "vega": "sum",
         "theta": "sum",
+        "option_market_pnl": "sum",
+        "option_trade_cost": "sum",
         "hedge_pnl": "sum",
         "hedge_carry_pnl": "sum",
         "hedge_trade_cost": "sum",

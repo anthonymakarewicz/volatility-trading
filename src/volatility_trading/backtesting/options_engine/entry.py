@@ -10,6 +10,7 @@ The module translates abstract structure templates into concrete, tradable legs:
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -25,6 +26,9 @@ from .contracts.structures import (
     StructureSpec,
 )
 from .selectors import select_best_expiry_for_leg_group
+
+if TYPE_CHECKING:
+    from .lifecycle.option_execution import OptionExecutionModel
 
 
 def chain_for_date(options: pd.DataFrame, trade_date: pd.Timestamp) -> pd.DataFrame:
@@ -107,14 +111,34 @@ def normalize_signals_to_on(
 
 
 def _entry_price_from_side(
-    quote: QuoteSnapshot, *, side: PositionSide, cfg: BacktestRunConfig
+    quote: QuoteSnapshot,
+    *,
+    side: PositionSide,
+    cfg: BacktestRunConfig,
+    option_execution_model: OptionExecutionModel | None,
 ) -> float:
     """Return executable entry price for one leg given target side."""
-    if side == PositionSide.SHORT:
-        return float(quote.bid_price - cfg.execution.slip_bid)
-    if side == PositionSide.LONG:
-        return float(quote.ask_price + cfg.execution.slip_ask)
-    raise ValueError("side must be PositionSide.SHORT or PositionSide.LONG")
+    if option_execution_model is None:
+        if side == PositionSide.SHORT:
+            return float(quote.bid_price - cfg.execution.slip_bid)
+        if side == PositionSide.LONG:
+            return float(quote.ask_price + cfg.execution.slip_ask)
+        raise ValueError("side must be PositionSide.SHORT or PositionSide.LONG")
+
+    # Delay import to avoid importing lifecycle package during module import.
+    from .lifecycle.option_execution import OptionExecutionOrder
+
+    trade_side = 1 if side == PositionSide.LONG else -1
+    exec_result = option_execution_model.execute(
+        order=OptionExecutionOrder(
+            quote=quote,
+            trade_side=trade_side,
+            quantity=1.0,
+            fee_contracts=0.0,
+        ),
+        execution=cfg.execution,
+    )
+    return float(exec_result.fill_price)
 
 
 def _legs_grouped_by_expiry(
@@ -174,6 +198,7 @@ def build_entry_intent_from_structure(
     structure_spec: StructureSpec,
     cfg: BacktestRunConfig,
     side_resolver: Callable[[LegSpec], int | PositionSide],
+    option_execution_model: OptionExecutionModel | None = None,
     features: pd.DataFrame | None = None,
     fallback_iv_feature_col: str = "iv_atm",
 ) -> EntryIntent | None:
@@ -230,7 +255,13 @@ def build_entry_intent_from_structure(
                 spec=leg_spec,
                 quote=quote,
                 side=side,
-                entry_price=_entry_price_from_side(quote, side=side, cfg=cfg),
+                entry_price=_entry_price_from_side(
+                    quote,
+                    side=side,
+                    cfg=cfg,
+                    option_execution_model=option_execution_model,
+                ),
+                entry_mid_price=0.5 * (float(quote.bid_price) + float(quote.ask_price)),
             )
 
     selected_legs = tuple(

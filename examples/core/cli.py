@@ -37,7 +37,7 @@ def _common_parser(description: str) -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--end",
-        default="2017-12-31",
+        default="2015-12-31",
         help="Backtest end date (YYYY or YYYY-MM-DD).",
     )
     parser.add_argument(

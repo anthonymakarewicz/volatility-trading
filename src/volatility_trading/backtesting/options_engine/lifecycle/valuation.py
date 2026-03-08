@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 
-from volatility_trading.backtesting.config import BacktestRunConfig
+from volatility_trading.backtesting.config import ExecutionConfig
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label
@@ -17,16 +17,37 @@ from ..contracts.runtime import OpenPosition
 from ..contracts.structures import EntryIntent, LegSelection
 from ..economics import effective_leg_side, leg_units
 from ..entry import chain_for_date
+from .option_execution import (
+    OptionExecutionModel,
+    OptionExecutionOrder,
+    OptionExecutionResult,
+)
 from .runtime_state import HedgeTelemetry, HedgeValuation, MarkValuationSnapshot
 
 
-def exit_leg_price(quote: QuoteSnapshot, *, side: int, cfg: BacktestRunConfig) -> float:
-    """Return executable exit price for one leg given effective side."""
-    if side == -1:
-        return float(quote.ask_price + cfg.execution.slip_ask)
-    if side == 1:
-        return float(quote.bid_price - cfg.execution.slip_bid)
-    raise ValueError("side must be -1 or +1")
+def execute_exit_leg(
+    *,
+    quote: QuoteSnapshot,
+    side: int,
+    quantity: float,
+    fee_contracts: float,
+    execution: ExecutionConfig,
+    option_execution_model: OptionExecutionModel,
+) -> OptionExecutionResult:
+    """Execute one exit leg and return fill plus explicit transaction costs."""
+    if side not in (-1, 1):
+        raise ValueError("side must be -1 or +1")
+    # side=-1 (short leg inventory) exits via buy; side=+1 exits via sell.
+    trade_side = 1 if side == -1 else -1
+    return option_execution_model.execute(
+        order=OptionExecutionOrder(
+            quote=quote,
+            trade_side=trade_side,
+            quantity=float(quantity),
+            fee_contracts=float(fee_contracts),
+        ),
+        execution=execution,
+    )
 
 
 def match_leg_quote(
@@ -99,6 +120,51 @@ def mark_to_mid(
     return current_value * lot_size * contracts_open - net_entry
 
 
+def entry_market_net_notional(
+    *,
+    legs: Sequence[LegSelection],
+    lot_size: int,
+    contracts: int,
+) -> float:
+    """Return signed entry notional at quote mids for market-PnL attribution."""
+    return sum(
+        effective_leg_side(leg)
+        * (0.5 * (float(leg.quote.bid_price) + float(leg.quote.ask_price)))
+        * leg_units(leg)
+        * lot_size
+        * contracts
+        for leg in legs
+    )
+
+
+def entry_option_trade_cost(
+    *,
+    legs: Sequence[LegSelection],
+    lot_size: int,
+    contracts: int,
+    execution: ExecutionConfig,
+    option_execution_model: OptionExecutionModel,
+) -> float:
+    """Return explicit entry transaction cost for all legs of an opened structure."""
+    total_cost = 0.0
+    contracts_float = float(abs(contracts))
+    for leg in legs:
+        trade_side = int(leg.side)
+        if trade_side not in (-1, 1):
+            raise ValueError("leg.side must be -1 or +1")
+        exec_result = option_execution_model.execute(
+            order=OptionExecutionOrder(
+                quote=leg.quote,
+                trade_side=trade_side,
+                quantity=contracts_float * float(lot_size) * float(leg_units(leg)),
+                fee_contracts=contracts_float,
+            ),
+            execution=execution,
+        )
+        total_cost += float(exec_result.total_cost)
+    return float(total_cost)
+
+
 def pnl_per_contract_from_exit_prices(
     *,
     legs: Sequence[LegSelection],
@@ -165,6 +231,7 @@ def trade_legs_payload(
     *,
     legs: Sequence[LegSelection],
     exit_prices: Sequence[float] | None = None,
+    exit_leg_quotes: Sequence[QuoteSnapshot] | None = None,
 ) -> tuple[TradeLegRecord, ...]:
     """Build per-leg trade payload for durable multi-expiry trade records."""
     payload: list[TradeLegRecord] = []
@@ -178,6 +245,20 @@ def trade_legs_payload(
         exit_price = (
             float(exit_prices[idx])
             if exit_prices is not None and idx < len(exit_prices)
+            else np.nan
+        )
+        entry_mid_price = (
+            float(leg.entry_mid_price)
+            if leg.entry_mid_price is not None
+            else 0.5 * (float(leg.quote.bid_price) + float(leg.quote.ask_price))
+        )
+        exit_mid_price = (
+            0.5
+            * (
+                float(exit_leg_quotes[idx].bid_price)
+                + float(exit_leg_quotes[idx].ask_price)
+            )
+            if exit_leg_quotes is not None and idx < len(exit_leg_quotes)
             else np.nan
         )
         payload.append(
@@ -194,6 +275,8 @@ def trade_legs_payload(
                 delta_target=float(leg.spec.delta_target),
                 delta_tolerance=float(leg.spec.delta_tolerance),
                 expiry_group=leg.spec.expiry_group,
+                entry_mid_price=entry_mid_price,
+                exit_mid_price=exit_mid_price,
             )
         )
     return tuple(payload)
@@ -211,6 +294,7 @@ def intent_with_updated_quotes(
             quote=quote,
             side=leg.side,
             entry_price=leg.entry_price,
+            entry_mid_price=leg.entry_mid_price,
         )
         for leg, quote in zip(intent.legs, leg_quotes, strict=True)
     )
@@ -274,7 +358,8 @@ def resolve_mark_valuation(
         )
 
     net_delta = float(greeks.delta)
-    delta_pnl_market = pnl_mtm - prev_mtm_before
+    option_market_pnl = pnl_mtm - prev_mtm_before
+    delta_pnl_market = option_market_pnl
     market = MarketState(spot=spot_curr, volatility=iv_curr)
     return MarkValuationSnapshot(
         prev_mtm_before=prev_mtm_before,
@@ -289,6 +374,7 @@ def resolve_mark_valuation(
             telemetry=HedgeTelemetry(),
         ),
         net_delta=net_delta,
+        option_market_pnl=option_market_pnl,
         delta_pnl_market=delta_pnl_market,
     )
 
@@ -308,18 +394,28 @@ def update_position_mark_state(
     position.last_net_delta = net_delta
 
 
-def exit_prices_for_position(
+def execute_exit_for_position(
     *,
     position: OpenPosition,
     leg_quotes: tuple[QuoteSnapshot, ...],
-    cfg: BacktestRunConfig,
-) -> tuple[float, ...]:
-    """Compute executable exit prices for all legs of one open position."""
-    return tuple(
-        exit_leg_price(
-            quote,
+    contracts_to_close: int,
+    lot_size: int,
+    execution: ExecutionConfig,
+    option_execution_model: OptionExecutionModel,
+) -> tuple[tuple[float, ...], float]:
+    """Execute all exit legs and return fill prices plus explicit transaction cost."""
+    fill_prices: list[float] = []
+    total_cost = 0.0
+    contracts_float = float(abs(int(contracts_to_close)))
+    for leg, quote in zip(position.intent.legs, leg_quotes, strict=True):
+        exec_result = execute_exit_leg(
+            quote=quote,
             side=effective_leg_side(leg),
-            cfg=cfg,
+            quantity=contracts_float * float(lot_size) * float(leg_units(leg)),
+            fee_contracts=contracts_float,
+            execution=execution,
+            option_execution_model=option_execution_model,
         )
-        for leg, quote in zip(position.intent.legs, leg_quotes, strict=True)
-    )
+        fill_prices.append(float(exec_result.fill_price))
+        total_cost += float(exec_result.total_cost)
+    return tuple(fill_prices), float(total_cost)

@@ -9,6 +9,13 @@ from .hedge_engine import (
     HedgeExecutionResult,
     MidNoCostExecutionModel,
 )
+from .option_execution import (
+    BidAskFeeOptionExecutionModel,
+    MidNoCostOptionExecutionModel,
+    OptionExecutionModel,
+    OptionExecutionOrder,
+    OptionExecutionResult,
+)
 
 __all__ = [
     "PositionLifecycleEngine",
@@ -18,4 +25,9 @@ __all__ = [
     "HedgeExecutionModel",
     "MidNoCostExecutionModel",
     "FixedBpsExecutionModel",
+    "OptionExecutionOrder",
+    "OptionExecutionResult",
+    "OptionExecutionModel",
+    "MidNoCostOptionExecutionModel",
+    "BidAskFeeOptionExecutionModel",
 ]

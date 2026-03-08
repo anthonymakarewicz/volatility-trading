@@ -160,7 +160,14 @@ def test_mtm_delta_pnl_matches_trade_pnl_on_holding_period_exit():
         ]
     )
 
-    trades, mtm = _run_backtest(options, rebalance_period=2)
+    trades, mtm = _run_backtest(
+        options,
+        rebalance_period=2,
+        strategy_kwargs={
+            "allow_same_day_reentry_on_rebalance": False,
+            "allow_same_day_reentry_on_max_holding": False,
+        },
+    )
 
     assert len(trades) == 1
     assert trades["pnl"].sum() == pytest.approx(-3.0)
@@ -359,6 +366,8 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
         strategy_kwargs={
             "risk_budget_pct": 0.10,
             "min_contracts": 0,
+            "allow_same_day_reentry_on_rebalance": False,
+            "allow_same_day_reentry_on_max_holding": False,
         },
         run_config_kwargs={
             "modeling": ModelingConfig(

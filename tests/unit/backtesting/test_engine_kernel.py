@@ -80,6 +80,7 @@ def _make_open_position(setup: PositionEntrySetup) -> OpenPosition:
         margin_account=None,
         latest_margin_per_contract=setup.margin_per_contract,
         net_entry=0.0,
+        entry_option_trade_cost=0.0,
         prev_mtm=0.0,
         hedge=HedgeState(last_rebalance_date=setup.intent.entry_date),
         last_market=setup.intent.entry_state or MarketState(spot=100.0, volatility=0.2),

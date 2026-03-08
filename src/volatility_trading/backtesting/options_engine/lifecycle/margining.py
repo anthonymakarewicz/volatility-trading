@@ -24,14 +24,15 @@ def evaluate_entry_margin(
     setup: PositionEntrySetup,
     equity_running: float,
     contracts_open: int,
-    roundtrip_commission_per_contract: float,
+    entry_option_trade_cost: float,
     margin_policy: MarginPolicy | None,
 ) -> EntryMarginSnapshot:
     """Evaluate entry-day margin and financing state for one opened position."""
     margin_account = MarginAccount(margin_policy) if margin_policy is not None else None
     latest_margin_per_contract = setup.margin_per_contract
     initial_margin_requirement = (latest_margin_per_contract or 0.0) * contracts_open
-    entry_delta_pnl = -(roundtrip_commission_per_contract * contracts_open)
+    option_trade_cost = float(entry_option_trade_cost)
+    entry_delta_pnl = -option_trade_cost
     margin_core = MarginCore.empty()
 
     if margin_account is not None:
@@ -48,6 +49,7 @@ def evaluate_entry_margin(
         margin_account=margin_account,
         latest_margin_per_contract=latest_margin_per_contract,
         initial_margin_requirement=initial_margin_requirement,
+        option_trade_cost=option_trade_cost,
         entry_delta_pnl=entry_delta_pnl,
         margin=margin_core,
     )

@@ -9,6 +9,7 @@ import pandas as pd
 
 from volatility_trading.options.types import Greeks, MarketState
 
+from ..contracts.market import QuoteSnapshot
 from ..contracts.records import (
     MtmMargin,
     MtmRecord,
@@ -52,6 +53,8 @@ def build_entry_record(
         hedge_qty=0.0,
         hedge_price_prev=np.nan,
         hedge_pnl=0.0,
+        option_market_pnl=0.0,
+        option_trade_cost=margin.option_trade_cost,
         open_contracts=contracts_open,
         margin=MtmMargin(
             per_contract=margin.latest_margin_per_contract,
@@ -73,7 +76,9 @@ def build_mark_record(
     margin: MarkMarginSnapshot,
 ) -> MtmRecord:
     """Build one-date MTM record before forced close or standard exits."""
-    delta_pnl = valuation.delta_pnl_market + margin.margin.financing_pnl
+    delta_pnl = (
+        valuation.option_market_pnl + valuation.hedge.pnl + margin.margin.financing_pnl
+    )
     return MtmRecord(
         date=curr_date,
         market=valuation.market,
@@ -83,6 +88,8 @@ def build_mark_record(
         hedge_qty=position.hedge.qty,
         hedge_price_prev=valuation.hedge.price_prev,
         hedge_pnl=valuation.hedge.pnl,
+        option_market_pnl=valuation.option_market_pnl,
+        option_trade_cost=0.0,
         open_contracts=position.contracts_open,
         margin=MtmMargin(
             per_contract=position.latest_margin_per_contract,
@@ -104,6 +111,9 @@ def build_trade_record(
     pnl: float,
     exit_type: str,
     exit_prices: tuple[float, ...],
+    exit_leg_quotes: tuple[QuoteSnapshot, ...] | None = None,
+    option_entry_cost: float = 0.0,
+    option_exit_cost: float = 0.0,
 ) -> TradeRecord:
     """Build one typed trade ledger record for a close/liquidation action."""
     return TradeRecord(
@@ -120,7 +130,10 @@ def build_trade_record(
         trade_legs=trade_legs_payload(
             legs=position.intent.legs,
             exit_prices=exit_prices,
+            exit_leg_quotes=exit_leg_quotes,
         ),
+        option_entry_cost=option_entry_cost,
+        option_exit_cost=option_exit_cost,
     )
 
 

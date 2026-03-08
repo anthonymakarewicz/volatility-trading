@@ -14,7 +14,6 @@ from ...data_contracts import HedgeMarketData
 from ...margin import MarginPolicy
 from ..contracts.records import MtmRecord
 from ..contracts.runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
-from ..economics import roundtrip_commission_per_structure_contract
 from ..exit_rules import ExitRuleSet
 from ..specs import DeltaHedgePolicy
 from .hedge_engine import (
@@ -24,6 +23,10 @@ from .hedge_engine import (
 from .margining import evaluate_entry_margin
 from .marking import build_mark_step_context, build_mark_step_snapshots
 from .opening import build_open_position_state
+from .option_execution import (
+    BidAskFeeOptionExecutionModel,
+    OptionExecutionModel,
+)
 from .record_builders import build_entry_record
 from .transitions import (
     transition_continue_open,
@@ -31,7 +34,8 @@ from .transitions import (
     transition_standard_exit,
 )
 from .valuation import (
-    entry_net_notional,
+    entry_market_net_notional,
+    entry_option_trade_cost,
     greeks_per_contract,
 )
 
@@ -53,6 +57,9 @@ class PositionLifecycleEngine:
     hedge_execution_model: HedgeExecutionModel = field(
         default_factory=FixedBpsExecutionModel
     )
+    option_execution_model: OptionExecutionModel = field(
+        default_factory=BidAskFeeOptionExecutionModel
+    )
 
     def open_position(
         self,
@@ -64,11 +71,14 @@ class PositionLifecycleEngine:
         """Open one position and emit its entry-day MTM accounting record."""
         contracts_open = int(setup.contracts)
         lot_size = cfg.execution.lot_size
-        roundtrip_commission_per_contract = roundtrip_commission_per_structure_contract(
-            commission_per_leg=cfg.execution.commission_per_leg,
+        entry_trade_cost = entry_option_trade_cost(
             legs=setup.intent.legs,
+            lot_size=lot_size,
+            contracts=contracts_open,
+            execution=cfg.execution,
+            option_execution_model=self.option_execution_model,
         )
-        net_entry = entry_net_notional(
+        net_entry = entry_market_net_notional(
             legs=setup.intent.legs,
             lot_size=lot_size,
             contracts=contracts_open,
@@ -84,7 +94,7 @@ class PositionLifecycleEngine:
             setup=setup,
             equity_running=equity_running,
             contracts_open=contracts_open,
-            roundtrip_commission_per_contract=roundtrip_commission_per_contract,
+            entry_option_trade_cost=entry_trade_cost,
             margin_policy=self.margin_policy,
         )
         entry_record = build_entry_record(
@@ -98,6 +108,7 @@ class PositionLifecycleEngine:
             setup=setup,
             contracts_open=contracts_open,
             net_entry=net_entry,
+            entry_option_trade_cost=entry_trade_cost,
             greeks=greeks,
             net_delta=net_delta,
             margin=margin,
@@ -146,6 +157,7 @@ class PositionLifecycleEngine:
             margin=margin,
             mtm_record=mtm_record,
             margin_policy=self.margin_policy,
+            option_execution_model=self.option_execution_model,
         )
         if forced_outcome is not None:
             return forced_outcome
@@ -179,4 +191,5 @@ class PositionLifecycleEngine:
             valuation=valuation,
             margin=margin,
             mtm_record=mtm_record,
+            option_execution_model=self.option_execution_model,
         )
