@@ -85,6 +85,8 @@ def build_mark_step_snapshots(
         position=position,
         curr_date=step.curr_date,
         option_delta=float(valuation.greeks.delta),
+        option_gamma=float(valuation.greeks.gamma),
+        option_volatility=float(valuation.market.volatility),
         hedge_market=hedge_market_snapshot,
         execution=step.cfg.execution,
     )

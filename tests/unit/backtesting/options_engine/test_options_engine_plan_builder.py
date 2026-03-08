@@ -15,6 +15,7 @@ from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
     ColumnMapOptionsChainAdapter,
     DeltaHedgePolicy,
+    FixedDeltaBandModel,
     HedgeTriggerPolicy,
     LegSpec,
     LifecycleConfig,
@@ -347,7 +348,9 @@ def test_enabled_delta_hedging_requires_hedge_market_data():
             rebalance_period=1,
             delta_hedge=DeltaHedgePolicy(
                 enabled=True,
-                trigger=HedgeTriggerPolicy(delta_band_abs=0.1),
+                trigger=HedgeTriggerPolicy(
+                    band_model=FixedDeltaBandModel(half_width_abs=0.1)
+                ),
             ),
         ),
     )
@@ -388,7 +391,9 @@ def test_enabled_delta_hedging_accepts_complete_hedge_market_data():
             rebalance_period=1,
             delta_hedge=DeltaHedgePolicy(
                 enabled=True,
-                trigger=HedgeTriggerPolicy(delta_band_abs=0.1),
+                trigger=HedgeTriggerPolicy(
+                    band_model=FixedDeltaBandModel(half_width_abs=0.1)
+                ),
             ),
         ),
     )

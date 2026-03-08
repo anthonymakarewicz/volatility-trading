@@ -32,6 +32,7 @@ from volatility_trading.backtesting import (
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
+    FixedDeltaBandModel,
     HedgeTriggerPolicy,
 )
 from volatility_trading.datasets import (
@@ -153,7 +154,7 @@ def main() -> None:
             enabled=True,
             target_net_delta=0.0,
             trigger=HedgeTriggerPolicy(
-                delta_band_abs=25.0,
+                band_model=FixedDeltaBandModel(half_width_abs=25.0),
                 rebalance_every_n_days=5,
                 combine_mode="or",
             ),

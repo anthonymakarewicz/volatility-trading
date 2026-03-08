@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias
@@ -66,16 +67,61 @@ def _default_side_resolver(_leg: LegSpec, entry_direction: int) -> int:
 
 
 @dataclass(frozen=True)
+class FixedDeltaBandModel:
+    """Static absolute half-width around the frictionless delta target."""
+
+    half_width_abs: float
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.half_width_abs) or self.half_width_abs < 0:
+            raise ValueError("half_width_abs must be >= 0")
+
+
+@dataclass(frozen=True)
+class WWDeltaBandModel:
+    """Whalley-Wilmott-inspired dynamic delta no-trade band configuration."""
+
+    calibration_c: float = 1.0
+    min_band_abs: float = 0.0
+    max_band_abs: float = 10.0
+    gamma_floor: float = 1e-8
+    sigma_floor: float = 1e-6
+    spot_floor: float = 1e-8
+    fee_bps_override: float | None = None
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.calibration_c) or self.calibration_c <= 0:
+            raise ValueError("calibration_c must be > 0")
+        if not math.isfinite(self.min_band_abs) or self.min_band_abs < 0:
+            raise ValueError("min_band_abs must be >= 0")
+        if not math.isfinite(self.max_band_abs) or self.max_band_abs <= 0:
+            raise ValueError("max_band_abs must be > 0")
+        if self.max_band_abs < self.min_band_abs:
+            raise ValueError("max_band_abs must be >= min_band_abs")
+        if not math.isfinite(self.gamma_floor) or self.gamma_floor <= 0:
+            raise ValueError("gamma_floor must be > 0")
+        if not math.isfinite(self.sigma_floor) or self.sigma_floor <= 0:
+            raise ValueError("sigma_floor must be > 0")
+        if not math.isfinite(self.spot_floor) or self.spot_floor <= 0:
+            raise ValueError("spot_floor must be > 0")
+        if self.fee_bps_override is not None and (
+            not math.isfinite(self.fee_bps_override) or self.fee_bps_override < 0
+        ):
+            raise ValueError("fee_bps_override must be >= 0 when provided")
+
+
+DeltaBandModel: TypeAlias = FixedDeltaBandModel | WWDeltaBandModel
+
+
+@dataclass(frozen=True)
 class HedgeTriggerPolicy:
     """Trigger policy deciding when to rebalance the dynamic hedge."""
 
-    delta_band_abs: float | None = None
+    band_model: DeltaBandModel | None = None
     rebalance_every_n_days: int | None = None
     combine_mode: Literal["or", "and"] = "or"
 
     def __post_init__(self) -> None:
-        if self.delta_band_abs is not None and self.delta_band_abs < 0:
-            raise ValueError("delta_band_abs must be >= 0 when provided")
         if self.rebalance_every_n_days is not None and self.rebalance_every_n_days <= 0:
             raise ValueError("rebalance_every_n_days must be > 0 when provided")
         if self.combine_mode not in {"or", "and"}:
@@ -89,6 +135,7 @@ class DeltaHedgePolicy:
     enabled: bool = False
     target_net_delta: float = 0.0
     trigger: HedgeTriggerPolicy = field(default_factory=HedgeTriggerPolicy)
+    rebalance_to: Literal["center", "nearest_boundary"] = "center"
     allow_missing_hedge_price: bool = False
     min_rebalance_qty: float = 0.0
     max_rebalance_qty: float | None = None
@@ -105,12 +152,21 @@ class DeltaHedgePolicy:
             raise ValueError("max_rebalance_qty must be >= min_rebalance_qty")
         if (
             self.enabled
-            and self.trigger.delta_band_abs is None
+            and self.trigger.band_model is None
             and self.trigger.rebalance_every_n_days is None
         ):
             raise ValueError(
-                "enabled delta hedging requires delta_band_abs and/or "
+                "enabled delta hedging requires trigger.band_model and/or "
                 "rebalance_every_n_days"
+            )
+        if self.rebalance_to not in {"center", "nearest_boundary"}:
+            raise ValueError("rebalance_to must be 'center' or 'nearest_boundary'")
+        if (
+            isinstance(self.trigger.band_model, WWDeltaBandModel)
+            and self.rebalance_to != "nearest_boundary"
+        ):
+            raise ValueError(
+                "WWDeltaBandModel requires rebalance_to='nearest_boundary'"
             )
 
 
