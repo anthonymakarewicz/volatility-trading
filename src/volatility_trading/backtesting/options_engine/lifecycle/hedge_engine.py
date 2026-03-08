@@ -18,9 +18,7 @@ from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.runtime import OpenPosition
 from ..specs import DeltaHedgePolicy
 from .hedge_decision import (
-    DeltaNeutralHedgeTargetModel,
     HedgeDecisionEngine,
-    HedgeTargetModel,
 )
 from .hedge_execution import (
     FixedBpsExecutionModel,
@@ -34,8 +32,6 @@ from .runtime_state import HedgeStepSnapshot, HedgeTelemetry, HedgeValuation
 __all__ = [
     "DeltaHedgeEngine",
     "HedgeApplyContext",
-    "HedgeTargetModel",
-    "DeltaNeutralHedgeTargetModel",
     "HedgeExecutionResult",
     "HedgeExecutionModel",
     "MidNoCostExecutionModel",
@@ -62,15 +58,10 @@ class DeltaHedgeEngine:
         self,
         policy: DeltaHedgePolicy,
         *,
-        target_model: HedgeTargetModel | None = None,
         execution_model: HedgeExecutionModel | None = None,
     ):
         self.policy = policy
-        self.target_model = target_model or DeltaNeutralHedgeTargetModel()
-        self.decision_engine = HedgeDecisionEngine(
-            policy=self.policy,
-            target_model=self.target_model,
-        )
+        self.decision_engine = HedgeDecisionEngine(policy=self.policy)
         self.execution_model = execution_model or FixedBpsExecutionModel()
 
     def apply(
@@ -99,7 +90,6 @@ class DeltaHedgeEngine:
         decision = self.decision_engine.decide(
             position=position,
             curr_date=curr_date,
-            option_delta=option_delta,
             net_delta_before=net_delta_before,
             band_context=HedgeBandContext(
                 option_gamma=float(context.option_gamma),

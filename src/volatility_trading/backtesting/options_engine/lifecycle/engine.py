@@ -18,10 +18,8 @@ from ..economics import roundtrip_commission_per_structure_contract
 from ..exit_rules import ExitRuleSet
 from ..specs import DeltaHedgePolicy
 from .hedge_engine import (
-    DeltaNeutralHedgeTargetModel,
     FixedBpsExecutionModel,
     HedgeExecutionModel,
-    HedgeTargetModel,
 )
 from .margining import evaluate_entry_margin
 from .marking import build_mark_step_context, build_mark_step_snapshots
@@ -52,9 +50,6 @@ class PositionLifecycleEngine:
     pricer: PriceModel
     delta_hedge_policy: DeltaHedgePolicy
     hedge_market: HedgeMarketData | None = None
-    hedge_target_model: HedgeTargetModel = field(
-        default_factory=DeltaNeutralHedgeTargetModel
-    )
     hedge_execution_model: HedgeExecutionModel = field(
         default_factory=FixedBpsExecutionModel
     )
@@ -141,7 +136,6 @@ class PositionLifecycleEngine:
             pricer=self.pricer,
             delta_hedge_policy=self.delta_hedge_policy,
             hedge_market=self.hedge_market,
-            hedge_target_model=self.hedge_target_model,
             hedge_execution_model=self.hedge_execution_model,
         )
 

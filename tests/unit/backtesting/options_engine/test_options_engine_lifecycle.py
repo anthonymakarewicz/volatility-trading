@@ -11,14 +11,12 @@ from volatility_trading.backtesting import (
 )
 from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
-    DeltaNeutralHedgeTargetModel,
     EntryIntent,
     ExitRuleSet,
     FixedBpsExecutionModel,
     FixedDeltaBandModel,
     HedgeExecutionModel,
     HedgeExecutionResult,
-    HedgeTargetModel,
     HedgeTriggerPolicy,
     LegSelection,
     LegSpec,
@@ -204,7 +202,6 @@ def _make_engine(
     margin_model=None,
     delta_hedge_policy: DeltaHedgePolicy | None = None,
     hedge_market: HedgeMarketData | None = None,
-    hedge_target_model: HedgeTargetModel | None = None,
     hedge_execution_model: HedgeExecutionModel | None = None,
 ) -> PositionLifecycleEngine:
     return PositionLifecycleEngine(
@@ -216,7 +213,6 @@ def _make_engine(
         pricer=_NullPricer(),
         delta_hedge_policy=delta_hedge_policy or DeltaHedgePolicy(),
         hedge_market=hedge_market,
-        hedge_target_model=hedge_target_model or DeltaNeutralHedgeTargetModel(),
         hedge_execution_model=hedge_execution_model or FixedBpsExecutionModel(),
     )
 
@@ -827,20 +823,7 @@ def test_mark_position_supports_mid_no_cost_execution_model():
     assert step_result.mtm_record.net_delta == pytest.approx(0.0)
 
 
-def test_mark_position_supports_custom_hedge_models():
-    class _ShiftedTargetModel:
-        def target_net_delta(
-            self,
-            *,
-            policy: DeltaHedgePolicy,
-            position,
-            curr_date: pd.Timestamp,
-            option_delta: float,
-            net_delta_before: float,
-        ) -> float:
-            _ = (policy, position, curr_date, option_delta, net_delta_before)
-            return 0.25
-
+def test_mark_position_supports_custom_hedge_execution_model():
     class _FixedCostExecutionModel:
         def execute(
             self,
@@ -871,7 +854,6 @@ def test_mark_position_supports_custom_hedge_models():
             ),
         ),
         hedge_market=_make_hedge_market({"2020-01-02": 101.0}),
-        hedge_target_model=_ShiftedTargetModel(),
         hedge_execution_model=_FixedCostExecutionModel(),
     )
     position, _ = engine.open_position(
@@ -893,13 +875,13 @@ def test_mark_position_supports_custom_hedge_models():
 
     updated_position = step_result.position
     assert updated_position is not None
-    assert step_result.mtm_record.hedge_qty == pytest.approx(0.75)
-    assert step_result.mtm_record.net_delta == pytest.approx(0.25)
+    assert step_result.mtm_record.hedge_qty == pytest.approx(0.5)
+    assert step_result.mtm_record.net_delta == pytest.approx(0.0)
     assert step_result.mtm_record.hedge_carry_pnl == pytest.approx(0.0)
-    assert step_result.mtm_record.hedge_trade_cost == pytest.approx(0.075)
-    assert step_result.mtm_record.hedge_turnover == pytest.approx(0.75)
+    assert step_result.mtm_record.hedge_trade_cost == pytest.approx(0.05)
+    assert step_result.mtm_record.hedge_turnover == pytest.approx(0.5)
     assert step_result.mtm_record.hedge_trade_count == 1
-    assert step_result.mtm_record.hedge_pnl == pytest.approx(-0.075)
+    assert step_result.mtm_record.hedge_pnl == pytest.approx(-0.05)
 
 
 def test_delta_hedge_policy_rejects_center_rebalance_for_ww_band():

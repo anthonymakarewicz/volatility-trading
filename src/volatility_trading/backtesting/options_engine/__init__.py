@@ -48,12 +48,10 @@ from .exit_rules import (
 )
 from .lifecycle import (
     DeltaHedgeEngine,
-    DeltaNeutralHedgeTargetModel,
     FixedBpsExecutionModel,
     HedgeApplyContext,
     HedgeExecutionModel,
     HedgeExecutionResult,
-    HedgeTargetModel,
     MidNoCostExecutionModel,
     PositionLifecycleEngine,
 )
@@ -130,8 +128,6 @@ __all__ = [
     "PositionLifecycleEngine",
     "DeltaHedgeEngine",
     "HedgeApplyContext",
-    "HedgeTargetModel",
-    "DeltaNeutralHedgeTargetModel",
     "HedgeExecutionResult",
     "HedgeExecutionModel",
     "MidNoCostExecutionModel",

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
 
 import pandas as pd
 
@@ -17,7 +16,7 @@ class HedgeDecision:
     """One-date hedge decision computed before any trade execution.
 
     ``center_target_net_delta`` is the frictionless center target from
-    ``HedgeTargetModel``. ``target_net_delta`` may differ when policy chooses
+    ``policy.target_net_delta``. ``target_net_delta`` may differ when policy chooses
     nearest-boundary behavior for no-trade bands.
     """
 
@@ -31,62 +30,22 @@ class HedgeDecision:
     band_upper: float | None = None
 
 
-class HedgeTargetModel(Protocol):
-    """Target model converting position state into a desired net delta."""
-
-    def target_net_delta(
-        self,
-        *,
-        policy: DeltaHedgePolicy,
-        position: OpenPosition,
-        curr_date: pd.Timestamp,
-        option_delta: float,
-        net_delta_before: float,
-    ) -> float:
-        """Return desired net delta after hedging."""
-
-
-@dataclass(frozen=True, slots=True)
-class DeltaNeutralHedgeTargetModel:
-    """Baseline target model using policy target net delta as-is."""
-
-    def target_net_delta(
-        self,
-        *,
-        policy: DeltaHedgePolicy,
-        position: OpenPosition,
-        curr_date: pd.Timestamp,
-        option_delta: float,
-        net_delta_before: float,
-    ) -> float:
-        _ = (position, curr_date, option_delta, net_delta_before)
-        return float(policy.target_net_delta)
-
-
 class HedgeDecisionEngine:
     """Decision-only component for one-date hedge targeting and triggers."""
 
-    def __init__(self, *, policy: DeltaHedgePolicy, target_model: HedgeTargetModel):
+    def __init__(self, *, policy: DeltaHedgePolicy):
         self.policy = policy
-        self.target_model = target_model
 
     def decide(
         self,
         *,
         position: OpenPosition,
         curr_date: pd.Timestamp,
-        option_delta: float,
         net_delta_before: float,
         band_context: HedgeBandContext,
     ) -> HedgeDecision:
         """Resolve center target, policy-adjusted target, and rebalance trigger."""
-        center_target_net_delta = self.target_model.target_net_delta(
-            policy=self.policy,
-            position=position,
-            curr_date=curr_date,
-            option_delta=option_delta,
-            net_delta_before=net_delta_before,
-        )
+        center_target_net_delta = float(self.policy.target_net_delta)
         band_decision = evaluate_band_target(
             policy=self.policy,
             center_target_net_delta=center_target_net_delta,
