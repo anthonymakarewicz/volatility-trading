@@ -1,4 +1,4 @@
-"""Decision-model contracts and trigger logic for dynamic hedging."""
+"""Decision contracts and trigger logic for dynamic hedge rebalancing."""
 
 from __future__ import annotations
 
@@ -14,7 +14,12 @@ from .hedge_policies import HedgeBandContext, evaluate_band_target
 
 @dataclass(frozen=True, slots=True)
 class HedgeDecision:
-    """One-date hedge decision computed before any trade execution."""
+    """One-date hedge decision computed before any trade execution.
+
+    ``center_target_net_delta`` is the frictionless center target from
+    ``HedgeTargetModel``. ``target_net_delta`` may differ when policy chooses
+    nearest-boundary behavior for no-trade bands.
+    """
 
     center_target_net_delta: float
     target_net_delta: float
@@ -74,6 +79,7 @@ class HedgeDecisionEngine:
         net_delta_before: float,
         band_context: HedgeBandContext,
     ) -> HedgeDecision:
+        """Resolve center target, policy-adjusted target, and rebalance trigger."""
         center_target_net_delta = self.target_model.target_net_delta(
             policy=self.policy,
             position=position,
@@ -110,6 +116,7 @@ class HedgeDecisionEngine:
         delta_trigger: bool | None,
         position: OpenPosition,
     ) -> tuple[bool, bool | None]:
+        """Combine delta/time triggers using policy ``combine_mode`` semantics."""
         if not self.policy.enabled:
             return False, None
 
@@ -129,10 +136,12 @@ class HedgeDecisionEngine:
     def _resolve_time_trigger(
         self, *, curr_date: pd.Timestamp, position: OpenPosition
     ) -> bool | None:
+        """Return periodic trigger state, or ``None`` when disabled."""
         if self.policy.trigger.rebalance_every_n_days is None:
             return None
         last_date = position.hedge.last_rebalance_date
         if last_date is None:
+            # First eligible date can rebalance immediately when time trigger is used.
             return True
         elapsed_days = (
             pd.Timestamp(curr_date).normalize() - pd.Timestamp(last_date).normalize()
