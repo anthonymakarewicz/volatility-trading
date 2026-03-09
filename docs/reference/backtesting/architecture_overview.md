@@ -168,8 +168,8 @@ stateDiagram-v2
 - Dynamic delta hedging is strategy policy (`StrategySpec.lifecycle.delta_hedge`),
   while hedge execution costs are run-level (`BacktestRunConfig.execution.hedge`).
 - Option execution slippage/fees are run-level (`BacktestRunConfig.execution`), while
-  option execution model selection defaults in lifecycle and can be overridden at
-  `build_options_execution_plan(..., option_execution_model=...)`.
+  option execution model is configured via
+  `BacktestRunConfig.execution.option_execution_model`.
 - If dynamic hedging is enabled, `data.hedge_market` is required.
 - Hedge model behavior and examples are documented in
   [`docs/reference/backtesting/hedging.md`](hedging.md).
@@ -208,7 +208,7 @@ Add new strategy behavior by configuration first:
 - Dynamic delta hedging: set `StrategySpec.lifecycle.delta_hedge` and supply
   `OptionsBacktestDataBundle.hedge_market`
 - New option execution behavior: inject custom `OptionExecutionModel` via
-  `build_options_execution_plan(..., option_execution_model=...)`
+  `BacktestRunConfig.execution.option_execution_model`
 
 Only add new engine code when behavior cannot be expressed through these
 contracts.

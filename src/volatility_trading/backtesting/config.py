@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     )
 
     from .margin import MarginPolicy
+    from .options_engine.lifecycle import OptionExecutionModel
 
 OptionsAdapterMode = Literal["orats", "canonical", "require_explicit"]
 
@@ -74,6 +75,7 @@ class ExecutionConfig:
     slip_ask: float = 0.01
     slip_bid: float = 0.01
     commission_per_leg: float = 1.0
+    option_execution_model: OptionExecutionModel | None = None
     hedge: HedgeExecutionConfig = field(default_factory=HedgeExecutionConfig)
 
     def __post_init__(self) -> None:
@@ -85,6 +87,18 @@ class ExecutionConfig:
             raise ValueError("slip_bid must be >= 0")
         if self.commission_per_leg < 0:
             raise ValueError("commission_per_leg must be >= 0")
+        if self.option_execution_model is None:
+            from .options_engine.lifecycle import BidAskFeeOptionExecutionModel
+
+            object.__setattr__(
+                self,
+                "option_execution_model",
+                BidAskFeeOptionExecutionModel(
+                    slip_ask=float(self.slip_ask),
+                    slip_bid=float(self.slip_bid),
+                    commission_per_leg=float(self.commission_per_leg),
+                ),
+            )
 
 
 @dataclass(frozen=True)

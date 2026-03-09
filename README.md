@@ -199,24 +199,26 @@ For the research-style workflow and reporting exploration, see
 `Backtester` intentionally keeps a stable high-level API and does not expose an
 `option_execution_model` argument.
 
-If you want to override option execution behavior, inject the model at plan-build
-time:
+If you want to override option execution behavior, set it on
+`BacktestRunConfig.execution.option_execution_model`:
 
 ```python
-from volatility_trading.backtesting.engine import run_backtest_execution_plan
-from volatility_trading.backtesting.options_engine import (
-    MidNoCostOptionExecutionModel,
-    build_options_execution_plan,
-)
+from volatility_trading.backtesting import BacktestRunConfig, ExecutionConfig
+from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting.options_engine import MidNoCostOptionExecutionModel
 
-plan = build_options_execution_plan(
-    spec=strategy,
-    data=data,
-    config=cfg,
-    capital=cfg.account.initial_capital,
-    option_execution_model=MidNoCostOptionExecutionModel(),
+cfg = BacktestRunConfig(
+    execution=ExecutionConfig(
+        lot_size=100,
+        option_execution_model=MidNoCostOptionExecutionModel(),
+    ),
 )
-trades, mtm = run_backtest_execution_plan(plan)
+bt = Backtester(
+    data=data,
+    strategy=strategy,
+    config=cfg,
+)
+trades, mtm = bt.run()
 ```
 
 ## **Tests**

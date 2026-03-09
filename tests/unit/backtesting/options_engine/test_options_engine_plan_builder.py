@@ -603,6 +603,7 @@ def test_build_plan_supports_custom_option_execution_model_injection():
             slip_ask=0.0,
             slip_bid=0.0,
             commission_per_leg=0.0,
+            option_execution_model=_DirectionalCostOptionExecutionModel(),
         ),
     )
     plan = build_options_execution_plan(
@@ -610,7 +611,6 @@ def test_build_plan_supports_custom_option_execution_model_injection():
         data=OptionsBacktestDataBundle(options=_make_options()),
         config=cfg,
         capital=10_000.0,
-        option_execution_model=_DirectionalCostOptionExecutionModel(),
     )
     trades, mtm = run_backtest_execution_plan(plan)
 

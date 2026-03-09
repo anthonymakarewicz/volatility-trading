@@ -114,17 +114,10 @@ def _entry_price_from_side(
     quote: QuoteSnapshot,
     *,
     side: PositionSide,
+    option_execution_model: OptionExecutionModel,
     cfg: BacktestRunConfig,
-    option_execution_model: OptionExecutionModel | None,
 ) -> float:
     """Return executable entry price for one leg given target side."""
-    if option_execution_model is None:
-        if side == PositionSide.SHORT:
-            return float(quote.bid_price - cfg.execution.slip_bid)
-        if side == PositionSide.LONG:
-            return float(quote.ask_price + cfg.execution.slip_ask)
-        raise ValueError("side must be PositionSide.SHORT or PositionSide.LONG")
-
     # Delay import to avoid importing lifecycle package during module import.
     from .lifecycle.option_execution import OptionExecutionOrder
 
@@ -212,6 +205,10 @@ def build_entry_intent_from_structure(
     - apply structure-level fill policy (`all_or_none` or `min_ratio`)
     """
     chain = chain_for_date(options, entry_date)
+    if option_execution_model is None:
+        option_execution_model = cfg.execution.option_execution_model
+    if option_execution_model is None:
+        raise ValueError("cfg.execution.option_execution_model must be configured")
     total_legs = len(structure_spec.legs)
     selected_by_index: dict[int, LegSelection] = {}
     group_results: dict[str, tuple[pd.Timestamp, int]] = {}
@@ -258,8 +255,8 @@ def build_entry_intent_from_structure(
                 entry_price=_entry_price_from_side(
                     quote,
                     side=side,
-                    cfg=cfg,
                     option_execution_model=option_execution_model,
+                    cfg=cfg,
                 ),
                 entry_mid_price=0.5 * (float(quote.bid_price) + float(quote.ask_price)),
             )

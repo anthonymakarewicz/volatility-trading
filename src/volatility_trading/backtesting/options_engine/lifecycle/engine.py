@@ -24,7 +24,6 @@ from .margining import evaluate_entry_margin
 from .marking import build_mark_step_context, build_mark_step_snapshots
 from .opening import build_open_position_state
 from .option_execution import (
-    BidAskFeeOptionExecutionModel,
     OptionExecutionModel,
 )
 from .record_builders import build_entry_record
@@ -57,9 +56,7 @@ class PositionLifecycleEngine:
     hedge_execution_model: HedgeExecutionModel = field(
         default_factory=FixedBpsExecutionModel
     )
-    option_execution_model: OptionExecutionModel = field(
-        default_factory=BidAskFeeOptionExecutionModel
-    )
+    option_execution_model: OptionExecutionModel | None = None
 
     def open_position(
         self,
@@ -69,6 +66,11 @@ class PositionLifecycleEngine:
         equity_running: float,
     ) -> tuple[OpenPosition, MtmRecord]:
         """Open one position and emit its entry-day MTM accounting record."""
+        option_execution_model = (
+            self.option_execution_model or cfg.execution.option_execution_model
+        )
+        if option_execution_model is None:
+            raise ValueError("cfg.execution.option_execution_model must be configured")
         contracts_open = int(setup.contracts)
         lot_size = cfg.execution.lot_size
         entry_trade_cost = entry_option_trade_cost(
@@ -76,7 +78,7 @@ class PositionLifecycleEngine:
             lot_size=lot_size,
             contracts=contracts_open,
             execution=cfg.execution,
-            option_execution_model=self.option_execution_model,
+            option_execution_model=option_execution_model,
         )
         net_entry = entry_market_net_notional(
             legs=setup.intent.legs,
@@ -138,6 +140,11 @@ class PositionLifecycleEngine:
             cfg=cfg,
             equity_running=equity_running,
         )
+        option_execution_model = (
+            self.option_execution_model or cfg.execution.option_execution_model
+        )
+        if option_execution_model is None:
+            raise ValueError("cfg.execution.option_execution_model must be configured")
 
         valuation, margin, mtm_record = build_mark_step_snapshots(
             position=position,
@@ -157,7 +164,7 @@ class PositionLifecycleEngine:
             margin=margin,
             mtm_record=mtm_record,
             margin_policy=self.margin_policy,
-            option_execution_model=self.option_execution_model,
+            option_execution_model=option_execution_model,
         )
         if forced_outcome is not None:
             return forced_outcome
@@ -191,5 +198,5 @@ class PositionLifecycleEngine:
             valuation=valuation,
             margin=margin,
             mtm_record=mtm_record,
-            option_execution_model=self.option_execution_model,
+            option_execution_model=option_execution_model,
         )
