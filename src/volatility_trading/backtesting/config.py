@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     )
 
     from .margin import MarginPolicy
-    from .options_engine.lifecycle import OptionExecutionModel
+    from .options_engine.lifecycle import HedgeExecutionModel, OptionExecutionModel
 
 OptionsAdapterMode = Literal["orats", "canonical", "require_explicit"]
 
@@ -51,23 +51,6 @@ class AccountConfig:
 
 
 @dataclass(frozen=True)
-class HedgeExecutionConfig:
-    """Execution assumptions used by dynamic hedge rebalancing trades."""
-
-    slip_ask: float = 0.0
-    slip_bid: float = 0.0
-    fee_bps: float = 1.0
-
-    def __post_init__(self) -> None:
-        if self.slip_ask < 0:
-            raise ValueError("hedge.slip_ask must be >= 0")
-        if self.slip_bid < 0:
-            raise ValueError("hedge.slip_bid must be >= 0")
-        if self.fee_bps < 0:
-            raise ValueError("hedge.fee_bps must be >= 0")
-
-
-@dataclass(frozen=True)
 class ExecutionConfig:
     """Execution assumptions used by entry/exit lifecycle pricing."""
 
@@ -76,7 +59,10 @@ class ExecutionConfig:
     slip_bid: float = 0.01
     commission_per_leg: float = 1.0
     option_execution_model: OptionExecutionModel | None = None
-    hedge: HedgeExecutionConfig = field(default_factory=HedgeExecutionConfig)
+    hedge_slip_ask: float = 0.0
+    hedge_slip_bid: float = 0.0
+    hedge_fee_bps: float = 1.0
+    hedge_execution_model: HedgeExecutionModel | None = None
 
     def __post_init__(self) -> None:
         if self.lot_size <= 0:
@@ -87,6 +73,12 @@ class ExecutionConfig:
             raise ValueError("slip_bid must be >= 0")
         if self.commission_per_leg < 0:
             raise ValueError("commission_per_leg must be >= 0")
+        if self.hedge_slip_ask < 0:
+            raise ValueError("hedge_slip_ask must be >= 0")
+        if self.hedge_slip_bid < 0:
+            raise ValueError("hedge_slip_bid must be >= 0")
+        if self.hedge_fee_bps < 0:
+            raise ValueError("hedge_fee_bps must be >= 0")
         if self.option_execution_model is None:
             from .options_engine.lifecycle import BidAskFeeOptionExecutionModel
 
@@ -97,6 +89,18 @@ class ExecutionConfig:
                     slip_ask=float(self.slip_ask),
                     slip_bid=float(self.slip_bid),
                     commission_per_leg=float(self.commission_per_leg),
+                ),
+            )
+        if self.hedge_execution_model is None:
+            from .options_engine.lifecycle import FixedBpsExecutionModel
+
+            object.__setattr__(
+                self,
+                "hedge_execution_model",
+                FixedBpsExecutionModel(
+                    slip_ask=float(self.hedge_slip_ask),
+                    slip_bid=float(self.hedge_slip_bid),
+                    fee_bps=float(self.hedge_fee_bps),
                 ),
             )
 

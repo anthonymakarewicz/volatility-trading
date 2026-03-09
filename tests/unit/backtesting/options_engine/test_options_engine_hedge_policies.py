@@ -1,6 +1,6 @@
 import pytest
 
-from volatility_trading.backtesting import ExecutionConfig, HedgeExecutionConfig
+from volatility_trading.backtesting import ExecutionConfig
 from volatility_trading.backtesting.options_engine.lifecycle.hedge_policies import (
     HedgeBandContext,
     evaluate_band_target,
@@ -24,11 +24,7 @@ def _make_band_context(
         option_gamma=option_gamma,
         option_volatility=option_volatility,
         hedge_price=hedge_price,
-        execution=ExecutionConfig(
-            hedge=HedgeExecutionConfig(
-                fee_bps=fee_bps,
-            )
-        ),
+        execution=ExecutionConfig(hedge_fee_bps=fee_bps),
     )
 
 
