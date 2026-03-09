@@ -17,14 +17,17 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 ### Changed
 - `OptionsBacktestDataBundle` now consumes `options_market` directly and no
   longer mixes raw options-frame and adapter wiring at the bundle top level.
-- Adapter resolution now uses `data.options_market.options_adapter` when a
-  data-bundle adapter is supplied.
+- Adapter resolution is now data-owned:
+  `data.options_market.options_adapter` when provided, otherwise built-in ORATS
+  adapter default.
 
 ### Breaking changes
 - Removed `OptionsBacktestDataBundle(options=...)` constructor support.
 - Removed `OptionsBacktestDataBundle(options_adapter=...)` constructor support.
   Use `OptionsBacktestDataBundle(options_market=OptionsMarketData(...))` and
   set the scoped adapter on `OptionsMarketData.options_adapter`.
+- Removed `BacktestRunConfig.options_adapter_mode`.
+- Removed `BacktestRunConfig.options_adapter`.
 
 ## [0.3.0] - 2026-03-08
 

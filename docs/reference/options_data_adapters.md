@@ -16,16 +16,12 @@ Provider-specific alias/rename mappings live in
 `volatility_trading.config.options_chain_sources`.
 
 Runtime adapter resolution is configured via:
-- `options_adapter_mode`: `orats` | `canonical` | `require_explicit`
-- `options_adapter`: optional explicit adapter instance at run config level
 - `data.options_market.options_adapter`: optional adapter scoped to one
   options market dataset
 
 Resolution order:
-1. `config.options_adapter` (if set)
-2. `data.options_market.options_adapter` (if set)
-3. `options_adapter_mode` fallback (`orats` or `canonical`)
-4. `require_explicit` raises if no adapter is supplied
+1. `data.options_market.options_adapter` (if set)
+2. built-in `OratsOptionsChainAdapter` default
 
 Validation levels:
 - `coerce`: parse/coerce datetime/numeric fields before validation
@@ -62,7 +58,7 @@ Optional columns:
 ## Built-in Adapters
 
 - `OratsOptionsChainAdapter`
-  - Default adapter when no adapter is supplied and `options_adapter_mode='orats'`.
+  - Default adapter when no scoped adapter is supplied.
   - Handles common ORATS-style aliases (for example `date`, `expiry`, `bid`, `ask`).
 
 - `YfinanceOptionsChainAdapter`

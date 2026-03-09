@@ -8,7 +8,6 @@ import pandas as pd
 
 from ..config import BacktestRunConfig
 from ..data_adapters import (
-    CanonicalOptionsChainAdapter,
     OptionsChainAdapter,
     OratsOptionsChainAdapter,
     normalize_options_chain,
@@ -240,19 +239,9 @@ def _resolve_options_adapter(
     data: OptionsBacktestDataBundle,
     config: BacktestRunConfig,
 ) -> OptionsChainAdapter:
-    """Resolve one options adapter from run config and data bundle contracts."""
+    """Resolve one options adapter from options-market data contracts."""
+    _ = config
     data_adapter = data.options_market.options_adapter
-    if config.options_adapter is not None and data_adapter is not None:
-        raise ValueError(
-            "options adapter is set in both config.options_adapter and "
-            "data.options_market.options_adapter; set only one adapter source"
-        )
-    if config.options_adapter is not None:
-        logger.debug(
-            "Using options adapter from config: %s",
-            type(config.options_adapter).__name__,
-        )
-        return config.options_adapter
     if data_adapter is not None:
         logger.debug(
             "Using options adapter from data.options_market: %s",
@@ -260,20 +249,8 @@ def _resolve_options_adapter(
         )
         return data_adapter
 
-    if config.options_adapter_mode == "orats":
-        logger.debug("Using built-in options adapter mode=orats")
-        return OratsOptionsChainAdapter()
-    if config.options_adapter_mode == "canonical":
-        logger.debug("Using built-in options adapter mode=canonical")
-        return CanonicalOptionsChainAdapter()
-    if config.options_adapter_mode == "require_explicit":
-        raise ValueError(
-            "options adapter is required: set config.options_adapter, "
-            "data.options_market.options_adapter, or use "
-            "options_adapter_mode='orats'/'canonical'"
-        )
-
-    raise ValueError(f"unsupported options_adapter_mode: {config.options_adapter_mode}")
+    logger.debug("Using built-in options adapter default=orats")
+    return OratsOptionsChainAdapter()
 
 
 def _build_lifecycle_engine(
