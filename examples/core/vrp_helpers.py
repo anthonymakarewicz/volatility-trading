@@ -9,7 +9,6 @@ from volatility_trading.backtesting import (
     BacktestRunConfig,
     BrokerConfig,
     ExecutionConfig,
-    HedgeExecutionConfig,
     HedgeMarketData,
     MarginConfig,
     MarginPolicy,
@@ -74,11 +73,9 @@ def build_run_config(
         account=AccountConfig(initial_capital=initial_capital),
         execution=ExecutionConfig(
             commission_per_leg=commission_per_leg,
-            hedge=HedgeExecutionConfig(
-                slip_ask=hedge_slip_ask,
-                slip_bid=hedge_slip_bid,
-                fee_bps=hedge_fee_bps,
-            ),
+            hedge_slip_ask=hedge_slip_ask,
+            hedge_slip_bid=hedge_slip_bid,
+            hedge_fee_bps=hedge_fee_bps,
         ),
         broker=BrokerConfig(
             margin=MarginConfig(model=RegTMarginModel(broad_index=broad_index), policy=margin_policy)

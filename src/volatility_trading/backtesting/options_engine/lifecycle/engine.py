@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import pandas as pd
 
@@ -16,10 +16,7 @@ from ..contracts.records import MtmRecord
 from ..contracts.runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
 from ..exit_rules import ExitRuleSet
 from ..specs import DeltaHedgePolicy
-from .hedge_engine import (
-    FixedBpsExecutionModel,
-    HedgeExecutionModel,
-)
+from .hedge_engine import HedgeExecutionModel
 from .margining import evaluate_entry_margin
 from .marking import build_mark_step_context, build_mark_step_snapshots
 from .opening import build_open_position_state
@@ -53,9 +50,7 @@ class PositionLifecycleEngine:
     pricer: PriceModel
     delta_hedge_policy: DeltaHedgePolicy
     hedge_market: HedgeMarketData | None = None
-    hedge_execution_model: HedgeExecutionModel = field(
-        default_factory=FixedBpsExecutionModel
-    )
+    hedge_execution_model: HedgeExecutionModel | None = None
     option_execution_model: OptionExecutionModel | None = None
 
     def open_position(
@@ -145,6 +140,11 @@ class PositionLifecycleEngine:
         )
         if option_execution_model is None:
             raise ValueError("cfg.execution.option_execution_model must be configured")
+        hedge_execution_model = (
+            self.hedge_execution_model or cfg.execution.hedge_execution_model
+        )
+        if hedge_execution_model is None:
+            raise ValueError("cfg.execution.hedge_execution_model must be configured")
 
         valuation, margin, mtm_record = build_mark_step_snapshots(
             position=position,
@@ -154,7 +154,7 @@ class PositionLifecycleEngine:
             pricer=self.pricer,
             delta_hedge_policy=self.delta_hedge_policy,
             hedge_market=self.hedge_market,
-            hedge_execution_model=self.hedge_execution_model,
+            hedge_execution_model=hedge_execution_model,
         )
 
         forced_outcome = transition_forced_liquidation(

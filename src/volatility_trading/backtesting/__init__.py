@@ -4,7 +4,6 @@ from .config import (
     BacktestRunConfig,
     BrokerConfig,
     ExecutionConfig,
-    HedgeExecutionConfig,
     MarginConfig,
     ModelingConfig,
     OptionsAdapterMode,
@@ -38,7 +37,6 @@ from .reporting.plots import (
 __all__ = [
     "AccountConfig",
     "ExecutionConfig",
-    "HedgeExecutionConfig",
     "MarginConfig",
     "BrokerConfig",
     "ModelingConfig",

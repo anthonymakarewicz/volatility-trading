@@ -116,7 +116,7 @@ def _evaluate_ww_band_half_width(
     fee_bps = (
         band_model.fee_bps_override
         if band_model.fee_bps_override is not None
-        else context.execution.hedge.fee_bps
+        else context.execution.hedge_fee_bps
     )
     fee_rate = float(fee_bps) / 10_000.0
     if not math.isfinite(fee_rate) or fee_rate <= 0:
