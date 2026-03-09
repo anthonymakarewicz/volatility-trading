@@ -170,9 +170,13 @@ For quick local test commands, see [Tests README](../../tests/README.md).
 ## CI Behavior
 
 GitHub Actions workflow:
-- runs Ruff lint + format checks on `src/`, `tests/`, and notebook helper modules (`notebooks/**/*.py`, excluding `notebooks/**/notebook.py`)
-- runs Pyright type checks on stable `src/volatility_trading` subpackages plus notebook helper modules (`notebooks/**/*.py`, excluding `notebooks/**/notebook.py`)
-- runs unit tests on PRs and pushes to `main`
+- runs a dedicated `quality` job for Ruff lint + format checks on `src/`,
+  `tests/`, and notebook helper modules (`notebooks/**/*.py`, excluding
+  `notebooks/**/notebook.py`)
+- the same `quality` job also runs Pyright type checks on stable
+  `src/volatility_trading` subpackages plus notebook helper modules
+  (`notebooks/**/*.py`, excluding `notebooks/**/notebook.py`)
+- runs a dedicated `unit` job with unit tests on PRs and pushes to `main`
 - runs integration tests on PRs, pushes to `main`, and manual workflow runs
 - runs package build and `twine check` validation on PRs and pushes to `main`
 
