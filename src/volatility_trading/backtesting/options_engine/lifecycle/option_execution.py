@@ -22,7 +22,8 @@ class OptionExecutionOrder:
         quote: Current quote snapshot for the leg.
         trade_side: Signed trade direction (`+1` buy, `-1` sell).
         quantity: Price-scaled quantity used for spread/slippage cost
-            (`contracts * lot_size * abs(weight)` in current lifecycle accounting).
+            (`contracts * option_contract_multiplier * abs(weight)` in current
+            lifecycle accounting).
         fee_contracts: Contract count used for per-leg commission charging.
     """
 

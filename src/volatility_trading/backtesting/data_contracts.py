@@ -57,14 +57,13 @@ class OptionsBacktestDataBundle:
     """Typed input datasets consumed by options backtesting runtime.
 
     ``options_market`` carries the options chain plus optional chain-level
-    metadata (symbol, default multiplier, scoped adapter). Run-level adapter
-    configuration can also be set in ``BacktestRunConfig``.
+    metadata (symbol, default multiplier, scoped adapter).
     """
 
     options_market: OptionsMarketData
     features: pd.DataFrame | None = None
     hedge_market: HedgeMarketData | None = None
-    fallback_iv_feature_col: str = "iv_atm"
+    fallback_iv_feature_col: str = "iv_atm"  # TODO: Remove it
 
     @property
     def options_frame(self) -> pd.DataFrame:

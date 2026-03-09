@@ -13,7 +13,6 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from ...config import ExecutionConfig
 from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.runtime import OpenPosition
 from ..specs import DeltaHedgePolicy
@@ -48,7 +47,6 @@ class HedgeApplyContext:
     option_gamma: float
     option_volatility: float
     hedge_market: HedgeMarketSnapshot
-    execution: ExecutionConfig
 
 
 class DeltaHedgeEngine:
@@ -80,7 +78,6 @@ class DeltaHedgeEngine:
         curr_date = pd.Timestamp(context.curr_date)
         option_delta = float(context.option_delta)
         hedge_market = context.hedge_market
-        execution = context.execution
         hedge_qty_before = float(position.hedge.qty)
         hedge_price_curr = float(hedge_market.mid)
         hedge_delta_per_unit = float(hedge_market.contract_multiplier)
@@ -95,7 +92,7 @@ class DeltaHedgeEngine:
                 option_gamma=float(context.option_gamma),
                 option_volatility=float(context.option_volatility),
                 hedge_price=hedge_price_curr,
-                execution=execution,
+                hedge_fee_bps=self._resolve_execution_fee_bps(),
             ),
         )
 
@@ -231,3 +228,14 @@ class DeltaHedgeEngine:
         if math.isfinite(hedge_prev):
             return hedge_prev
         return hedge_price_curr
+
+    def _resolve_execution_fee_bps(self) -> float:
+        """Read fee-bps from the configured execution model when available."""
+        fee_bps = getattr(self.execution_model, "fee_bps", 0.0)
+        try:
+            fee_bps_value = float(fee_bps)
+        except (TypeError, ValueError):
+            return 0.0
+        if not math.isfinite(fee_bps_value) or fee_bps_value < 0:
+            return 0.0
+        return fee_bps_value

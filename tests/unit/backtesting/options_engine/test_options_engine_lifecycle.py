@@ -290,6 +290,37 @@ def test_open_position_commission_scales_with_leg_count():
     assert entry_record.delta_pnl == pytest.approx(-4.0)
 
 
+def test_option_contract_multiplier_scales_option_pnl_and_trade_pnl():
+    setup = _make_setup(contracts=2)
+    cfg = _make_cfg()
+    engine = _make_engine(
+        rebalance_period=1,
+        option_contract_multiplier=50.0,
+    )
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    step_result = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            bid_price=6.0,
+            ask_price=6.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    assert step_result.position is None
+    assert len(step_result.trade_rows) == 1
+    assert step_result.trade_rows[0].pnl == pytest.approx(-100.0)
+    assert step_result.mtm_record.option_market_pnl == pytest.approx(-100.0)
+    assert step_result.mtm_record.delta_pnl == pytest.approx(-100.0)
+
+
 def test_mark_position_with_missing_quotes_keeps_position_open():
     setup = _make_setup(contracts=1)
     cfg = _make_cfg()
@@ -957,7 +988,7 @@ def test_delta_hedge_policy_rejects_center_rebalance_for_ww_band():
 
 def test_mark_position_ww_band_rebalances_to_nearest_boundary():
     setup = _make_setup(contracts=1)
-    cfg = _make_cfg(hedge_fee_bps=10.0)
+    cfg = _make_cfg(hedge_fee_bps=50.0)
     ww_band = WWDeltaBandModel(
         calibration_c=1.0,
         min_band_abs=0.0,
@@ -979,7 +1010,11 @@ def test_mark_position_ww_band_rebalances_to_nearest_boundary():
             bid_prices={"2020-01-02": 100.0},
             ask_prices={"2020-01-02": 100.0},
         ),
-        hedge_execution_model=MidNoCostExecutionModel(),
+        hedge_execution_model=FixedBpsExecutionModel(
+            slip_ask=0.0,
+            slip_bid=0.0,
+            fee_bps=10.0,
+        ),
     )
     position, _ = engine.open_position(
         setup=setup,

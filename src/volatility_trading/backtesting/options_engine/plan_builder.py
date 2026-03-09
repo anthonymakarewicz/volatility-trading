@@ -42,7 +42,7 @@ def build_options_execution_plan(
             "strategy margin_budget_pct requires config.broker.margin.model"
         )
 
-    adapter = _resolve_options_adapter(data=data, config=config)
+    adapter = _resolve_options_adapter(data=data)
     options = normalize_options_chain(
         data.options_frame,
         adapter=adapter,
@@ -207,7 +207,7 @@ def _prepare_entry_setup(
     sizing = size_entry_intent(
         SizingRequest(
             intent=intent,
-            lot_size=option_contract_multiplier,
+            option_contract_multiplier=option_contract_multiplier,
             spot=spot_entry,
             volatility=iv_entry,
             equity=float(equity_running),
@@ -241,10 +241,8 @@ def _prepare_entry_setup(
 def _resolve_options_adapter(
     *,
     data: OptionsBacktestDataBundle,
-    config: BacktestRunConfig,
 ) -> OptionsChainAdapter:
     """Resolve one options adapter from options-market data contracts."""
-    _ = config
     data_adapter = data.options_market.options_adapter
     if data_adapter is not None:
         logger.debug(

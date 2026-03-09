@@ -45,7 +45,7 @@ def build_mark_step_context(
         curr_date=curr_date,
         cfg=cfg,
         equity_running=equity_running,
-        lot_size=float(option_contract_multiplier),
+        option_contract_multiplier=float(option_contract_multiplier),
     )
 
 
@@ -65,7 +65,7 @@ def build_mark_step_snapshots(
         position=position,
         curr_date=step.curr_date,
         options=options,
-        lot_size=step.lot_size,
+        option_contract_multiplier=step.option_contract_multiplier,
     )
     hedger = DeltaHedgeEngine(
         delta_hedge_policy,
@@ -83,7 +83,6 @@ def build_mark_step_snapshots(
             option_gamma=float(valuation.greeks.gamma),
             option_volatility=float(valuation.market.volatility),
             hedge_market=hedge_market_snapshot,
-            execution=step.cfg.execution,
         ),
     )
     valuation = replace(
@@ -96,7 +95,7 @@ def build_mark_step_snapshots(
     maybe_refresh_margin_per_contract(
         position=position,
         curr_date=step.curr_date,
-        lot_size=step.lot_size,
+        option_contract_multiplier=step.option_contract_multiplier,
         valuation=valuation,
         margin_model=margin_model,
         pricer=pricer,

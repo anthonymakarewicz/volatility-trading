@@ -1,9 +1,5 @@
 """Shared execution economics helpers for options lifecycle and sizing."""
 
-from __future__ import annotations
-
-from collections.abc import Sequence
-
 from .contracts.structures import LegSelection
 
 
@@ -18,17 +14,8 @@ def leg_units(leg: LegSelection) -> int:
     return abs(int(leg.spec.weight))
 
 
-def leg_contract_multiplier(leg: LegSelection, *, lot_size: float) -> float:
-    """Return cash multiplier for one leg including lot size and ratio units."""
-    return float(lot_size * leg_units(leg))
-
-
-def roundtrip_commission_per_structure_contract(
-    *,
-    commission_per_leg: float,
-    legs: Sequence[LegSelection],
+def leg_contract_multiplier(
+    leg: LegSelection, *, option_contract_multiplier: float
 ) -> float:
-    """Return roundtrip commission for one opened structure contract."""
-    return (
-        2.0 * float(commission_per_leg) * float(len(legs))
-    )  # TODO: Shoudl remove the 2*
+    """Return cash multiplier for one leg including contract multiplier and ratio."""
+    return float(option_contract_multiplier * leg_units(leg))
