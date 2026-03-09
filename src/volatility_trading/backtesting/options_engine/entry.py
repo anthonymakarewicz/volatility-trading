@@ -115,7 +115,6 @@ def _entry_price_from_side(
     *,
     side: PositionSide,
     option_execution_model: OptionExecutionModel,
-    cfg: BacktestRunConfig,
 ) -> float:
     """Return executable entry price for one leg given target side."""
     # Delay import to avoid importing lifecycle package during module import.
@@ -129,7 +128,6 @@ def _entry_price_from_side(
             quantity=1.0,
             fee_contracts=0.0,
         ),
-        execution=cfg.execution,
     )
     return float(exec_result.fill_price)
 
@@ -256,7 +254,6 @@ def build_entry_intent_from_structure(
                     quote,
                     side=side,
                     option_execution_model=option_execution_model,
-                    cfg=cfg,
                 ),
                 entry_mid_price=0.5 * (float(quote.bid_price) + float(quote.ask_price)),
             )

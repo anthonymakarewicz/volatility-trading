@@ -1,7 +1,6 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting import ExecutionConfig
 from volatility_trading.backtesting.options_engine import (
     BidAskFeeOptionExecutionModel,
     MidNoCostOptionExecutionModel,
@@ -25,10 +24,6 @@ def _make_quote(*, bid_price: float = 4.0, ask_price: float = 6.0):
             }
         )
     )
-
-
-def _make_execution() -> ExecutionConfig:
-    return ExecutionConfig(lot_size=1)
 
 
 def test_option_execution_order_rejects_invalid_trade_side():
@@ -74,7 +69,6 @@ def test_mid_no_cost_option_execution_model_fills_at_mid_and_charges_no_cost():
             quantity=10.0,
             fee_contracts=3.0,
         ),
-        execution=_make_execution(),
     )
 
     assert result.fill_price == pytest.approx(5.0)
@@ -96,7 +90,6 @@ def test_bid_ask_fee_option_execution_model_buy_side_applies_slippage_and_fees()
             quantity=10.0,
             fee_contracts=2.0,
         ),
-        execution=_make_execution(),
     )
 
     # mid=5.0, buy fill=ask+slip=6.25 => price_cost=(1.25*10)=12.5
@@ -120,7 +113,6 @@ def test_bid_ask_fee_option_execution_model_sell_side_applies_bid_and_slippage()
             quantity=3.0,
             fee_contracts=0.0,
         ),
-        execution=_make_execution(),
     )
 
     # mid=5.0, sell fill=bid-slip=3.9 => price_cost=(1.1*3)=3.3
@@ -143,7 +135,6 @@ def test_bid_ask_fee_option_execution_model_charges_fee_even_without_price_quant
             quantity=0.0,
             fee_contracts=2.0,
         ),
-        execution=_make_execution(),
     )
 
     assert result.fill_price == pytest.approx(6.25)

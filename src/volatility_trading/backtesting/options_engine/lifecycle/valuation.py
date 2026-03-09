@@ -7,7 +7,6 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 
-from volatility_trading.backtesting.config import ExecutionConfig
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..adapters import option_type_to_chain_label
@@ -31,7 +30,6 @@ def execute_exit_leg(
     side: int,
     quantity: float,
     fee_contracts: float,
-    execution: ExecutionConfig,
     option_execution_model: OptionExecutionModel,
 ) -> OptionExecutionResult:
     """Execute one exit leg and return fill plus explicit transaction costs."""
@@ -46,7 +44,6 @@ def execute_exit_leg(
             quantity=float(quantity),
             fee_contracts=float(fee_contracts),
         ),
-        execution=execution,
     )
 
 
@@ -142,7 +139,6 @@ def entry_option_trade_cost(
     legs: Sequence[LegSelection],
     lot_size: int,
     contracts: int,
-    execution: ExecutionConfig,
     option_execution_model: OptionExecutionModel,
 ) -> float:
     """Return explicit entry transaction cost for all legs of an opened structure."""
@@ -159,7 +155,6 @@ def entry_option_trade_cost(
                 quantity=contracts_float * float(lot_size) * float(leg_units(leg)),
                 fee_contracts=contracts_float,
             ),
-            execution=execution,
         )
         total_cost += float(exec_result.total_cost)
     return float(total_cost)
@@ -400,7 +395,6 @@ def execute_exit_for_position(
     leg_quotes: tuple[QuoteSnapshot, ...],
     contracts_to_close: int,
     lot_size: int,
-    execution: ExecutionConfig,
     option_execution_model: OptionExecutionModel,
 ) -> tuple[tuple[float, ...], float]:
     """Execute all exit legs and return fill prices plus explicit transaction cost."""
@@ -413,7 +407,6 @@ def execute_exit_for_position(
             side=effective_leg_side(leg),
             quantity=contracts_float * float(lot_size) * float(leg_units(leg)),
             fee_contracts=contracts_float,
-            execution=execution,
             option_execution_model=option_execution_model,
         )
         fill_prices.append(float(exec_result.fill_price))

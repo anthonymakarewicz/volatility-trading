@@ -159,7 +159,6 @@ class DeltaHedgeEngine:
         exec_result = self.execution_model.execute(
             trade_qty=trade_qty,
             hedge_market=hedge_market,
-            execution=execution,
         )
         trading_cost = exec_result.total_cost
         hedge_pnl -= trading_cost

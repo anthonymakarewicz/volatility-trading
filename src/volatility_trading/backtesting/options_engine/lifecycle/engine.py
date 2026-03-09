@@ -72,7 +72,6 @@ class PositionLifecycleEngine:
             legs=setup.intent.legs,
             lot_size=lot_size,
             contracts=contracts_open,
-            execution=cfg.execution,
             option_execution_model=option_execution_model,
         )
         net_entry = entry_market_net_notional(

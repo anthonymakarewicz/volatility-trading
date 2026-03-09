@@ -625,8 +625,7 @@ def test_runtime_adapter_from_options_market_data_is_used_when_provided():
 
 def test_build_plan_supports_custom_option_execution_model_injection():
     class _DirectionalCostOptionExecutionModel:
-        def execute(self, *, order, execution):
-            _ = execution
+        def execute(self, *, order):
             if order.trade_side > 0:
                 return OptionExecutionResult(
                     fill_price=10.0,
