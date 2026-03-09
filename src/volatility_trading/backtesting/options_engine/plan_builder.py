@@ -45,7 +45,7 @@ def build_options_execution_plan(
 
     adapter = _resolve_options_adapter(data=data, config=config)
     options = normalize_options_chain(
-        data.options,
+        data.options_frame,
         adapter=adapter,
     )
     adapter_name = getattr(adapter, "name", type(adapter).__name__)
@@ -241,10 +241,11 @@ def _resolve_options_adapter(
     config: BacktestRunConfig,
 ) -> OptionsChainAdapter:
     """Resolve one options adapter from run config and data bundle contracts."""
-    if config.options_adapter is not None and data.options_adapter is not None:
+    data_adapter = data.options_market.options_adapter
+    if config.options_adapter is not None and data_adapter is not None:
         raise ValueError(
             "options adapter is set in both config.options_adapter and "
-            "data.options_adapter; set only one adapter source"
+            "data.options_market.options_adapter; set only one adapter source"
         )
     if config.options_adapter is not None:
         logger.debug(
@@ -252,12 +253,12 @@ def _resolve_options_adapter(
             type(config.options_adapter).__name__,
         )
         return config.options_adapter
-    if data.options_adapter is not None:
+    if data_adapter is not None:
         logger.debug(
-            "Using options adapter from data bundle: %s",
-            type(data.options_adapter).__name__,
+            "Using options adapter from data.options_market: %s",
+            type(data_adapter).__name__,
         )
-        return data.options_adapter
+        return data_adapter
 
     if config.options_adapter_mode == "orats":
         logger.debug("Using built-in options adapter mode=orats")
@@ -268,7 +269,8 @@ def _resolve_options_adapter(
     if config.options_adapter_mode == "require_explicit":
         raise ValueError(
             "options adapter is required: set config.options_adapter, "
-            "data.options_adapter, or use options_adapter_mode='orats'/'canonical'"
+            "data.options_market.options_adapter, or use "
+            "options_adapter_mode='orats'/'canonical'"
         )
 
     raise ValueError(f"unsupported options_adapter_mode: {config.options_adapter_mode}")

@@ -125,6 +125,7 @@ from volatility_trading.backtesting import (
     HedgeMarketData,
     MarginConfig,
     OptionsBacktestDataBundle,
+    OptionsMarketData,
     print_performance_report,
     to_daily_mtm,
 )
@@ -139,7 +140,9 @@ from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
 ```python
 hedge_mid = options.groupby(level=0)["spot_price"].first().astype(float)
 data = OptionsBacktestDataBundle(
-    options=options,
+    options_market=OptionsMarketData(
+        chain=options,
+    ),
     features=None,
     hedge_market=HedgeMarketData(mid=hedge_mid),
 )

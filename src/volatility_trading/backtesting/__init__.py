@@ -8,7 +8,11 @@ from .config import (
     ModelingConfig,
     OptionsAdapterMode,
 )
-from .data_contracts import HedgeMarketData, OptionsBacktestDataBundle
+from .data_contracts import (
+    HedgeMarketData,
+    OptionsBacktestDataBundle,
+    OptionsMarketData,
+)
 from .margin import MarginAccount, MarginPolicy, MarginStatus
 from .margin_types import MarginCore
 from .performance import (
@@ -43,6 +47,7 @@ __all__ = [
     "OptionsAdapterMode",
     "BacktestRunConfig",
     "OptionsBacktestDataBundle",
+    "OptionsMarketData",
     "HedgeMarketData",
     "MarginCore",
     "to_daily_mtm",

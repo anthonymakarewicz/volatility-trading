@@ -10,6 +10,7 @@ from volatility_trading.backtesting import (
     MarginPolicy,
     ModelingConfig,
     OptionsBacktestDataBundle,
+    OptionsMarketData,
 )
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import time_to_expiry_years
@@ -50,7 +51,7 @@ def _run_backtest(
     )
     strat = make_vrp_strategy(spec)
     bt = Backtester(
-        data=OptionsBacktestDataBundle(options=options),
+        data=OptionsBacktestDataBundle(options_market=OptionsMarketData(chain=options)),
         strategy=strat,
         config=cfg,
     )

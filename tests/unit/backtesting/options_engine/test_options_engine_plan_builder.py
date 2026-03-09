@@ -10,6 +10,7 @@ from volatility_trading.backtesting import (
     HedgeMarketData,
     MarginConfig,
     OptionsBacktestDataBundle,
+    OptionsMarketData,
 )
 from volatility_trading.backtesting.engine import (
     Backtester,
@@ -117,7 +118,9 @@ def _run_strategy(direction: int):
         ),
     )
     bt = Backtester(
-        data=OptionsBacktestDataBundle(options=_make_options()),
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(chain=_make_options())
+        ),
         strategy=spec,
         config=cfg,
     )
@@ -337,7 +340,9 @@ def test_margin_budget_requires_broker_margin_model():
         broker=BrokerConfig(margin=MarginConfig(model=None)),
     )
     bt = Backtester(
-        data=OptionsBacktestDataBundle(options=_make_options()),
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(chain=_make_options())
+        ),
         strategy=spec,
         config=cfg,
     )
@@ -379,7 +384,9 @@ def test_enabled_delta_hedging_requires_hedge_market_data():
         ),
     )
     bt = Backtester(
-        data=OptionsBacktestDataBundle(options=_make_options()),
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(chain=_make_options())
+        ),
         strategy=spec,
         config=cfg,
     )
@@ -423,7 +430,7 @@ def test_enabled_delta_hedging_accepts_complete_hedge_market_data():
     )
     bt = Backtester(
         data=OptionsBacktestDataBundle(
-            options=options,
+            options_market=OptionsMarketData(chain=options),
             hedge_market=_make_hedge_market(options),
         ),
         strategy=spec,
@@ -459,7 +466,9 @@ def test_require_explicit_adapter_mode_raises_without_adapter():
         options_adapter_mode="require_explicit",
     )
     bt = Backtester(
-        data=OptionsBacktestDataBundle(options=_make_options()),
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(chain=_make_options())
+        ),
         strategy=spec,
         config=cfg,
     )
@@ -506,7 +515,9 @@ def test_runtime_config_options_adapter_is_used_when_provided():
         ),
     )
     bt = Backtester(
-        data=OptionsBacktestDataBundle(options=_make_options_alias_columns()),
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(chain=_make_options_alias_columns())
+        ),
         strategy=spec,
         config=cfg,
     )
@@ -553,17 +564,75 @@ def test_runtime_adapter_conflict_between_config_and_data_bundle_raises():
     )
     bt = Backtester(
         data=OptionsBacktestDataBundle(
-            options=_make_options_alias_columns(),
-            options_adapter=adapter,
+            options_market=OptionsMarketData(
+                chain=_make_options_alias_columns(),
+                options_adapter=adapter,
+            ),
         ),
         strategy=spec,
         config=cfg,
     )
     with pytest.raises(
         ValueError,
-        match="options adapter is set in both config.options_adapter and data.options_adapter",
+        match=(
+            "options adapter is set in both config.options_adapter and "
+            "data.options_market.options_adapter"
+        ),
     ):
         bt.run()
+
+
+def test_runtime_adapter_from_options_market_data_is_used_when_provided():
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="runtime_adapter_from_options_market_data",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
+    )
+    adapter = ColumnMapOptionsChainAdapter(
+        source_to_canonical={
+            "date": "trade_date",
+            "expiry": "expiry_date",
+            "dte": "dte",
+            "option_type": "option_type",
+            "strike": "strike",
+            "delta": "delta",
+            "bid": "bid_price",
+            "ask": "ask_price",
+        }
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            lot_size=1,
+            slip_ask=0.0,
+            slip_bid=0.0,
+            commission_per_leg=0.0,
+        ),
+        options_adapter_mode="require_explicit",
+    )
+    bt = Backtester(
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(
+                chain=_make_options_alias_columns(),
+                symbol="SPY",
+                default_contract_multiplier=100.0,
+                options_adapter=adapter,
+            ),
+        ),
+        strategy=spec,
+        config=cfg,
+    )
+    trades, mtm = bt.run()
+
+    assert len(trades) == 1
+    assert len(mtm) == 2
 
 
 def test_build_plan_supports_custom_option_execution_model_injection():
@@ -608,7 +677,9 @@ def test_build_plan_supports_custom_option_execution_model_injection():
     )
     plan = build_options_execution_plan(
         spec=spec,
-        data=OptionsBacktestDataBundle(options=_make_options()),
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(chain=_make_options())
+        ),
         config=cfg,
         capital=10_000.0,
     )

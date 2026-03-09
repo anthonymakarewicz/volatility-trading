@@ -160,8 +160,8 @@ stateDiagram-v2
 - `BacktestRunConfig` carries run-time environment assumptions:
   account, execution, broker margin rules, pricing/risk engines, optional date window.
 - `OptionsBacktestDataBundle` carries market inputs:
-  options panel, optional features panel, optional `hedge_market`, and optional
-  `options_adapter`.
+  `options_market` (chain + optional metadata, including optional scoped
+  adapter), optional features panel, and optional `hedge_market`.
 - Options data is normalized/validated by adapter boundary before strategy plan
   compilation.
 - Margin model/policy and pricing/risk engines are configured at run level, not preset level.
