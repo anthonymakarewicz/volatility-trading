@@ -89,17 +89,17 @@ class MidNoCostOptionExecutionModel:
 class BidAskFeeOptionExecutionModel:
     """Execution model using bid/ask plus slippage and per-leg commissions."""
 
-    slip_ask: float | None = None
-    slip_bid: float | None = None
-    commission_per_leg: float | None = None
+    slip_ask: float = 0.01
+    slip_bid: float = 0.01
+    commission_per_leg: float = 1.0
 
     def __post_init__(self) -> None:
-        if self.slip_ask is not None and self.slip_ask < 0:
-            raise ValueError("slip_ask must be >= 0 when provided")
-        if self.slip_bid is not None and self.slip_bid < 0:
-            raise ValueError("slip_bid must be >= 0 when provided")
-        if self.commission_per_leg is not None and self.commission_per_leg < 0:
-            raise ValueError("commission_per_leg must be >= 0 when provided")
+        if self.slip_ask < 0:
+            raise ValueError("slip_ask must be >= 0")
+        if self.slip_bid < 0:
+            raise ValueError("slip_bid must be >= 0")
+        if self.commission_per_leg < 0:
+            raise ValueError("commission_per_leg must be >= 0")
 
     def execute(
         self,
@@ -108,6 +108,7 @@ class BidAskFeeOptionExecutionModel:
         execution: ExecutionConfig,
     ) -> OptionExecutionResult:
         """Map one option-leg order into fill and explicit trade cost."""
+        _ = execution
         bid = float(order.quote.bid_price)
         ask = float(order.quote.ask_price)
         mid = 0.5 * (bid + ask)
@@ -125,29 +126,16 @@ class BidAskFeeOptionExecutionModel:
             ask=ask,
             mid=mid,
         )
-        slip_ask = (
-            float(self.slip_ask)
-            if self.slip_ask is not None
-            else float(execution.slip_ask)
+        slippage = (
+            float(self.slip_ask) if order.trade_side > 0 else float(self.slip_bid)
         )
-        slip_bid = (
-            float(self.slip_bid)
-            if self.slip_bid is not None
-            else float(execution.slip_bid)
-        )
-        commission_per_leg = (
-            float(self.commission_per_leg)
-            if self.commission_per_leg is not None
-            else float(execution.commission_per_leg)
-        )
-        slippage = slip_ask if order.trade_side > 0 else slip_bid
         fill_price = (
             float(reference_price) + slippage
             if order.trade_side > 0
             else float(reference_price) - slippage
         )
         price_cost = abs(fill_price - mid) * float(order.quantity)
-        fee_cost = commission_per_leg * float(order.fee_contracts)
+        fee_cost = float(self.commission_per_leg) * float(order.fee_contracts)
         total_cost = price_cost + fee_cost
         return OptionExecutionResult(
             fill_price=float(fill_price),

@@ -9,9 +9,11 @@ from volatility_trading.backtesting import (
     MarginPolicy,
 )
 from volatility_trading.backtesting.options_engine import (
+    BidAskFeeOptionExecutionModel,
     DeltaHedgePolicy,
     EntryIntent,
     ExitRuleSet,
+    FixedBpsExecutionModel,
     FixedDeltaBandModel,
     HedgeExecutionModel,
     HedgeExecutionResult,
@@ -55,12 +57,16 @@ def _make_cfg(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=commission_per_leg,
-            hedge_slip_ask=hedge_slip_ask,
-            hedge_slip_bid=hedge_slip_bid,
-            hedge_fee_bps=hedge_fee_bps,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=commission_per_leg,
+            ),
+            hedge_execution_model=FixedBpsExecutionModel(
+                slip_ask=hedge_slip_ask,
+                slip_bid=hedge_slip_bid,
+                fee_bps=hedge_fee_bps,
+            ),
         ),
     )
 

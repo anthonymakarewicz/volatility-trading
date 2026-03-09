@@ -116,7 +116,7 @@ def _evaluate_ww_band_half_width(
     fee_bps = (
         band_model.fee_bps_override
         if band_model.fee_bps_override is not None
-        else context.execution.hedge_fee_bps
+        else _resolve_execution_fee_bps(context.execution)
     )
     fee_rate = float(fee_bps) / 10_000.0
     if not math.isfinite(fee_rate) or fee_rate <= 0:
@@ -150,3 +150,15 @@ def _evaluate_ww_band_half_width(
             min(band_model.max_band_abs, raw_band),
         )
     )
+
+
+def _resolve_execution_fee_bps(execution: ExecutionConfig) -> float:
+    """Read hedge fee-bps from configured hedge execution model when available."""
+    fee_bps = getattr(execution.hedge_execution_model, "fee_bps", 0.0)
+    try:
+        fee_bps_value = float(fee_bps)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(fee_bps_value) or fee_bps_value < 0:
+        return 0.0
+    return fee_bps_value

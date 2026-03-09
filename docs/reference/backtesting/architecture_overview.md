@@ -166,10 +166,9 @@ stateDiagram-v2
   compilation.
 - Margin model/policy and pricing/risk engines are configured at run level, not preset level.
 - Dynamic delta hedging is strategy policy (`StrategySpec.lifecycle.delta_hedge`),
-  while hedge execution costs are run-level
-  (`BacktestRunConfig.execution.hedge_fee_bps` and slippage fields).
-- Option execution slippage/fees are run-level (`BacktestRunConfig.execution`), while
-  option execution model is configured via
+  while hedge execution behavior is run-level via
+  `BacktestRunConfig.execution.hedge_execution_model`.
+- Option execution behavior is run-level via
   `BacktestRunConfig.execution.option_execution_model`.
 - If dynamic hedging is enabled, `data.hedge_market` is required.
 - Hedge model behavior and examples are documented in

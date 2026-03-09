@@ -147,9 +147,10 @@ flowchart LR
 ```
 
 - Dynamic hedging policy belongs to strategy config (`LifecycleConfig.delta_hedge`).
-- Hedge transaction-cost assumptions belong to run config
-  (`ExecutionConfig.hedge_fee_bps` and slippage fields).
-- Option slippage/commission assumptions belong to run config (`ExecutionConfig`).
+- Hedge execution behavior belongs to run config
+  (`ExecutionConfig.hedge_execution_model`).
+- Option execution behavior belongs to run config
+  (`ExecutionConfig.option_execution_model`).
 - Hedge market prices are data inputs (`OptionsBacktestDataBundle.hedge_market`).
 - When delta hedging is enabled, the plan builder enforces hedge market availability.
 - Hedge model behavior and examples are documented in

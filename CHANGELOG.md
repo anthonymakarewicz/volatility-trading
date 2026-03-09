@@ -20,6 +20,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Adapter resolution is now data-owned:
   `data.options_market.options_adapter` when provided, otherwise built-in ORATS
   adapter default.
+- `ExecutionConfig` is now model-owned for runtime fills:
+  `option_execution_model` and `hedge_execution_model` are the source of truth
+  for option and hedge execution behavior.
 
 ### Breaking changes
 - Removed `OptionsBacktestDataBundle(options=...)` constructor support.
@@ -28,6 +31,10 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   set the scoped adapter on `OptionsMarketData.options_adapter`.
 - Removed `BacktestRunConfig.options_adapter_mode`.
 - Removed `BacktestRunConfig.options_adapter`.
+- Removed legacy `ExecutionConfig` scalar execution fields:
+  `slip_ask`, `slip_bid`, `commission_per_leg`,
+  `hedge_slip_ask`, `hedge_slip_bid`, `hedge_fee_bps`.
+  Configure execution via model instances instead.
 
 ## [0.3.0] - 2026-03-08
 
