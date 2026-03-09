@@ -28,7 +28,7 @@ class SizingRequest:
     """Inputs required to size one entry intent from risk/margin constraints."""
 
     intent: EntryIntent
-    lot_size: int
+    lot_size: float
     spot: float
     volatility: float
     equity: float
@@ -67,7 +67,7 @@ def _build_option_legs(
     entry_date: pd.Timestamp,
     default_expiry_date: pd.Timestamp | None,
     legs: Sequence[LegSelection],
-    lot_size: int,
+    lot_size: float,
 ):
     """Convert selected strategy legs into option-risk engine ``OptionLeg`` rows.
 
@@ -109,7 +109,7 @@ def estimate_entry_intent_margin_per_contract(
     *,
     intent: EntryIntent,
     as_of_date: pd.Timestamp | None,
-    lot_size: int,
+    lot_size: float,
     spot: float,
     volatility: float,
     margin_model: MarginModel | None,

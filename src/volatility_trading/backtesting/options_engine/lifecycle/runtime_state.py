@@ -91,4 +91,4 @@ class LifecycleStepContext:
     curr_date: pd.Timestamp
     cfg: BacktestRunConfig
     equity_running: float
-    lot_size: int
+    lot_size: float

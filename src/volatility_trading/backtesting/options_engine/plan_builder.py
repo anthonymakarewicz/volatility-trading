@@ -86,6 +86,7 @@ def build_options_execution_plan(
 
     if spec.lifecycle.delta_hedge.enabled and hedge_market is None:
         raise ValueError("enabled delta hedging requires data.hedge_market")
+    option_contract_multiplier = float(data.option_contract_multiplier)
 
     signal_input = spec.signal_input_builder(options, features, hedge_market)
     signals = spec.signal.generate_signals(signal_input)
@@ -118,6 +119,7 @@ def build_options_execution_plan(
         spec=spec,
         cfg=config,
         hedge_market=hedge_market,
+        option_contract_multiplier=option_contract_multiplier,
     )
 
     hooks = SinglePositionHooks(
@@ -138,6 +140,7 @@ def build_options_execution_plan(
             features=features,
             equity_running=equity_running,
             cfg=config,
+            option_contract_multiplier=option_contract_multiplier,
             fallback_iv_feature_col=data.fallback_iv_feature_col,
         ),
         open_position=lambda setup, equity_running: lifecycle_engine.open_position(
@@ -167,6 +170,7 @@ def _prepare_entry_setup(
     features: pd.DataFrame | None,
     equity_running: float,
     cfg: BacktestRunConfig,
+    option_contract_multiplier: float,
     fallback_iv_feature_col: str,
 ) -> PositionEntrySetup | None:
     """Build one structure entry setup for one date."""
@@ -203,7 +207,7 @@ def _prepare_entry_setup(
     sizing = size_entry_intent(
         SizingRequest(
             intent=intent,
-            lot_size=cfg.execution.lot_size,
+            lot_size=option_contract_multiplier,
             spot=spot_entry,
             volatility=iv_entry,
             equity=float(equity_running),
@@ -258,6 +262,7 @@ def _build_lifecycle_engine(
     spec: StrategySpec,
     cfg: BacktestRunConfig,
     hedge_market: HedgeMarketData | None,
+    option_contract_multiplier: float,
 ) -> PositionLifecycleEngine:
     """Build lifecycle engine configured from one strategy spec."""
     return PositionLifecycleEngine(
@@ -269,6 +274,7 @@ def _build_lifecycle_engine(
         pricer=cfg.modeling.pricer,
         delta_hedge_policy=spec.lifecycle.delta_hedge,
         hedge_market=hedge_market,
+        option_contract_multiplier=option_contract_multiplier,
     )
 
 

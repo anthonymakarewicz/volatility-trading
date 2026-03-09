@@ -49,6 +49,7 @@ class PositionLifecycleEngine:
     margin_model: MarginModel | None
     pricer: PriceModel
     delta_hedge_policy: DeltaHedgePolicy
+    option_contract_multiplier: float
     hedge_market: HedgeMarketData | None = None
     hedge_execution_model: HedgeExecutionModel | None = None
     option_execution_model: OptionExecutionModel | None = None
@@ -67,7 +68,7 @@ class PositionLifecycleEngine:
         if option_execution_model is None:
             raise ValueError("cfg.execution.option_execution_model must be configured")
         contracts_open = int(setup.contracts)
-        lot_size = cfg.execution.lot_size
+        lot_size = float(self.option_contract_multiplier)
         entry_trade_cost = entry_option_trade_cost(
             legs=setup.intent.legs,
             lot_size=lot_size,
@@ -133,6 +134,7 @@ class PositionLifecycleEngine:
             curr_date=curr_date,
             cfg=cfg,
             equity_running=equity_running,
+            option_contract_multiplier=self.option_contract_multiplier,
         )
         option_execution_model = (
             self.option_execution_model or cfg.execution.option_execution_model

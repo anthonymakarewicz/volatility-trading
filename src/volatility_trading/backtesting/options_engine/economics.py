@@ -18,7 +18,7 @@ def leg_units(leg: LegSelection) -> int:
     return abs(int(leg.spec.weight))
 
 
-def leg_contract_multiplier(leg: LegSelection, *, lot_size: int) -> float:
+def leg_contract_multiplier(leg: LegSelection, *, lot_size: float) -> float:
     """Return cash multiplier for one leg including lot size and ratio units."""
     return float(lot_size * leg_units(leg))
 

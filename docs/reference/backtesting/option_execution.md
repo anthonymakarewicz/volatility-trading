@@ -51,7 +51,6 @@ from volatility_trading.backtesting.options_engine import MidNoCostOptionExecuti
 
 run_config = BacktestRunConfig(
     execution=ExecutionConfig(
-        lot_size=100,
         option_execution_model=MidNoCostOptionExecutionModel(),
     ),
 )

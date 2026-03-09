@@ -39,7 +39,6 @@ def _run_backtest(
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -56,7 +55,11 @@ def _run_backtest(
     )
     strat = make_vrp_strategy(spec)
     bt = Backtester(
-        data=OptionsBacktestDataBundle(options_market=OptionsMarketData(chain=options)),
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(
+                chain=options, default_contract_multiplier=1.0
+            )
+        ),
         strategy=strat,
         config=cfg,
     )

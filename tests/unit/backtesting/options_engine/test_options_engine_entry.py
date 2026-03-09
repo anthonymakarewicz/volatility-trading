@@ -21,7 +21,6 @@ def _base_cfg() -> BacktestRunConfig:
     return BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
