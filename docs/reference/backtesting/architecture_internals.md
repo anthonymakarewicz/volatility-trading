@@ -154,9 +154,7 @@ flowchart LR
 - When delta hedging is enabled, the plan builder enforces hedge market availability.
 - Hedge model behavior and examples are documented in
   [`docs/reference/backtesting/hedging.md`](hedging.md).
-- Option execution defaults to `BidAskFeeOptionExecutionModel` in lifecycle and can
-  be injected at plan-build time via
-  `build_options_execution_plan(..., option_execution_model=...)`.
+- Option execution is configured via `BacktestRunConfig.execution.option_execution_model`.
 
 ### Dataclass Composition Map
 

@@ -6,7 +6,15 @@ execution models can be injected.
 
 ## Default Behavior
 
-`PositionLifecycleEngine` uses `BidAskFeeOptionExecutionModel` by default.
+`ExecutionConfig` resolves an option execution model at config construction.
+
+Default resolution behavior:
+
+- if `execution.option_execution_model` is provided, that model is used
+- otherwise config builds `BidAskFeeOptionExecutionModel` from:
+  - `ExecutionConfig.slip_ask`
+  - `ExecutionConfig.slip_bid`
+  - `ExecutionConfig.commission_per_leg`
 
 That model applies:
 
@@ -38,24 +46,26 @@ This keeps market-PnL attribution distinct from execution friction.
 
 Custom option execution is injected at the plan-builder boundary:
 
-- `build_options_execution_plan(..., option_execution_model=...)`
-- run with `run_backtest_execution_plan(plan)`
+- `BacktestRunConfig.execution.option_execution_model=...`
 
 ```python
-from volatility_trading.backtesting.engine import run_backtest_execution_plan
-from volatility_trading.backtesting.options_engine import (
-    MidNoCostOptionExecutionModel,
-    build_options_execution_plan,
+from volatility_trading.backtesting import BacktestRunConfig, ExecutionConfig
+from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting.options_engine import MidNoCostOptionExecutionModel
+
+run_config = BacktestRunConfig(
+    execution=ExecutionConfig(
+        lot_size=100,
+        option_execution_model=MidNoCostOptionExecutionModel(),
+    ),
 )
 
-plan = build_options_execution_plan(
-    spec=strategy,
+bt = Backtester(
     data=data_bundle,
+    strategy=strategy,
     config=run_config,
-    capital=run_config.account.initial_capital,
-    option_execution_model=MidNoCostOptionExecutionModel(),
 )
-trades, mtm = run_backtest_execution_plan(plan)
+trades, mtm = bt.run()
 ```
 
 ## Notes
