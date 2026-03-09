@@ -311,7 +311,6 @@ def resolve_mark_valuation(
     position: OpenPosition,
     curr_date: pd.Timestamp,
     options: pd.DataFrame,
-    option_contract_multiplier: float,
 ) -> MarkValuationSnapshot:
     """Resolve one-date MTM and Greeks snapshot before margin/exit handling."""
     chain_all = chain_for_date(options, curr_date)
@@ -327,6 +326,7 @@ def resolve_mark_valuation(
         complete_leg_quotes: tuple[QuoteSnapshot, ...] | None = None
     else:
         complete_leg_quotes = tuple(quote for quote in leg_quotes if quote is not None)
+        option_contract_multiplier = float(position.option_contract_multiplier)
         pnl_mtm = mark_to_mid(
             legs=position.intent.legs,
             leg_quotes=complete_leg_quotes,
@@ -398,13 +398,13 @@ def execute_exit_for_position(
     position: OpenPosition,
     leg_quotes: tuple[QuoteSnapshot, ...],
     contracts_to_close: int,
-    option_contract_multiplier: float,
     option_execution_model: OptionExecutionModel,
 ) -> tuple[tuple[float, ...], float]:
     """Execute all exit legs and return fill prices plus explicit transaction cost."""
     fill_prices: list[float] = []
     total_cost = 0.0
     contracts_float = float(abs(int(contracts_to_close)))
+    option_contract_multiplier = float(position.option_contract_multiplier)
     for leg, quote in zip(position.intent.legs, leg_quotes, strict=True):
         exec_result = execute_exit_leg(
             quote=quote,

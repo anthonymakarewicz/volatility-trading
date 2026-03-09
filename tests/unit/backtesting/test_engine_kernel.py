@@ -75,6 +75,7 @@ def _make_open_position(setup: PositionEntrySetup) -> OpenPosition:
         max_hold_date=None,
         intent=setup.intent,
         contracts_open=setup.contracts,
+        option_contract_multiplier=100.0,
         risk_per_contract=setup.risk_per_contract,
         risk_worst_scenario=setup.risk_worst_scenario,
         margin_account=None,

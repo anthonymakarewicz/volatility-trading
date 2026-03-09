@@ -34,18 +34,15 @@ from .valuation import resolve_mark_valuation
 
 def build_mark_step_context(
     *,
-    position: OpenPosition,
     curr_date: pd.Timestamp,
     cfg: BacktestRunConfig,
     equity_running: float,
-    option_contract_multiplier: float,
 ) -> LifecycleStepContext:
     """Build shared one-date execution context for mark transitions."""
     return LifecycleStepContext(
         curr_date=curr_date,
         cfg=cfg,
         equity_running=equity_running,
-        option_contract_multiplier=float(option_contract_multiplier),
     )
 
 
@@ -65,7 +62,6 @@ def build_mark_step_snapshots(
         position=position,
         curr_date=step.curr_date,
         options=options,
-        option_contract_multiplier=step.option_contract_multiplier,
     )
     hedger = DeltaHedgeEngine(
         delta_hedge_policy,
@@ -95,7 +91,6 @@ def build_mark_step_snapshots(
     maybe_refresh_margin_per_contract(
         position=position,
         curr_date=step.curr_date,
-        option_contract_multiplier=step.option_contract_multiplier,
         valuation=valuation,
         margin_model=margin_model,
         pricer=pricer,

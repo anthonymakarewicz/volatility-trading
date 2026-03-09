@@ -104,6 +104,7 @@ class PositionLifecycleEngine:
         position = build_open_position_state(
             setup=setup,
             contracts_open=contracts_open,
+            option_contract_multiplier=option_contract_multiplier,
             net_entry=net_entry,
             entry_option_trade_cost=entry_trade_cost,
             greeks=greeks,
@@ -130,11 +131,9 @@ class PositionLifecycleEngine:
             and emitted trade rows.
         """
         step = build_mark_step_context(
-            position=position,
             curr_date=curr_date,
             cfg=cfg,
             equity_running=equity_running,
-            option_contract_multiplier=self.option_contract_multiplier,
         )
         option_execution_model = (
             self.option_execution_model or cfg.execution.option_execution_model
