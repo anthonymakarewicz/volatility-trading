@@ -9,6 +9,7 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-09
 ### Added
 - Added `OptionsMarketData` and made it the canonical options input wrapper for
   options chain data plus chain-level metadata (`symbol`,
