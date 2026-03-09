@@ -190,8 +190,6 @@ def build_entry_intent_from_structure(
     cfg: BacktestRunConfig,
     side_resolver: Callable[[LegSpec], int | PositionSide],
     option_execution_model: OptionExecutionModel | None = None,
-    features: pd.DataFrame | None = None,
-    fallback_iv_feature_col: str = "iv_atm",
 ) -> EntryIntent | None:
     """Build one `EntryIntent` from chain data and structure constraints.
 
@@ -286,12 +284,6 @@ def build_entry_intent_from_structure(
             sum(float(leg.quote.market_iv) for leg in selected_legs)
             / len(selected_legs)
         )
-    elif (
-        features is not None
-        and entry_date in features.index
-        and fallback_iv_feature_col in features.columns
-    ):
-        iv_entry = float(features.loc[entry_date, fallback_iv_feature_col])
     else:
         iv_entry = float("nan")
 

@@ -10,10 +10,6 @@ from volatility_trading.options.types import OptionTypeInput
 
 from .contracts.market import QuoteSnapshot
 
-# TODO: We thread `contract_multiplier` explicitly at runtime.
-# Consider promoting multiplier metadata to quote/leg contracts directly so it
-# does not need to be wired via sizing/lifecycle call chains.
-
 
 def normalize_chain_option_type(option_type: OptionTypeInput) -> OptionType:
     """Normalize vendor option side labels to canonical OptionType enum."""

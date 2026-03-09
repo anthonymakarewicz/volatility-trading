@@ -40,7 +40,7 @@ This keeps market-PnL attribution distinct from execution friction.
 
 `Backtester` does not expose an `option_execution_model` argument.
 
-Custom option execution is injected at the plan-builder boundary:
+Custom option execution is configured through run config:
 
 - `BacktestRunConfig.execution.option_execution_model=...`
 

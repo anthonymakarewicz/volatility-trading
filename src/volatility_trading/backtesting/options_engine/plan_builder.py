@@ -137,11 +137,9 @@ def build_options_execution_plan(
             entry_date=entry_date,
             entry_direction=int(direction_by_date.get(entry_date, 0)),
             options=options,
-            features=features,
             equity_running=equity_running,
             cfg=config,
             option_contract_multiplier=option_contract_multiplier,
-            fallback_iv_feature_col=data.fallback_iv_feature_col,
         ),
         open_position=lambda setup, equity_running: lifecycle_engine.open_position(
             setup=setup,
@@ -167,11 +165,9 @@ def _prepare_entry_setup(
     entry_date: pd.Timestamp,
     entry_direction: int,
     options: pd.DataFrame,
-    features: pd.DataFrame | None,
     equity_running: float,
     cfg: BacktestRunConfig,
     option_contract_multiplier: float,
-    fallback_iv_feature_col: str,
 ) -> PositionEntrySetup | None:
     """Build one structure entry setup for one date."""
     if entry_direction == 0:
@@ -187,8 +183,6 @@ def _prepare_entry_setup(
             entry_direction,
         ),
         option_execution_model=cfg.execution.option_execution_model,
-        features=features,
-        fallback_iv_feature_col=fallback_iv_feature_col,
     )
     if intent is None:
         logger.debug(
