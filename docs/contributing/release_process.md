@@ -46,11 +46,16 @@ Required updates:
    - reset `Unreleased`
 3. Update docs/examples if API/behavior changed
 
-Ensure packaging tools are available in your environment:
+Ensure `uv` and packaging tools are available in your environment:
 
 ```bash
-pip install -e ".[dev,release]"
+uv venv --python 3.12 .venv
+source .venv/bin/activate
+uv pip install -e ".[dev,release]"
 ```
+
+`pip` remains a fallback if you do not want to use `uv`
+(`pip install -e ".[dev,release]"`).
 
 Run checks:
 

@@ -23,12 +23,12 @@ git clone https://github.com/anthonymakarewicz/volatility-trading.git
 cd volatility_trading
 ```
 
-2. Create a virtual environment (Python 3.12+):
+2. Install `uv` and create a virtual environment (Python 3.12+):
 
 ```bash
-python -m venv .venv
+brew install uv  # or: pipx install uv
+uv venv --python 3.12 .venv
 source .venv/bin/activate
-pip install -U pip
 ```
 
 3. Install dependencies:
@@ -36,29 +36,40 @@ pip install -U pip
 Primary contributor setup (editable package + dev tooling):
 
 ```bash
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 ```
 
 Secondary options:
 - Runtime-only install (users running package code without dev tools):
 
 ```bash
-pip install .
+uv pip install .
 ```
 
 - Editable runtime-only install (local source edits, no dev tools):
 
 ```bash
-pip install -e .
+uv pip install -e .
 ```
 
-4. Set credentials (ORATS):
+`pip` remains supported as a fallback if you do not want to use `uv`:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+pip install -e ".[dev]"
+```
+
+4. Optional: set credentials for ORATS data access:
 
 ```bash
 cp .env.example .env
 ```
 
-Then set `ORATS_API_KEY`, `ORATS_FTP_USER`, and `ORATS_FTP_PASS` in `.env`.
+Then set `ORATS_API_KEY`, `ORATS_FTP_USER`, and `ORATS_FTP_PASS` in `.env`
+if you plan to run the ORATS download/extract pipeline. You can skip this if
+you are using already-prepared data or a different options data source.
 
 ## **ORATS ETL Pipeline (End-to-End)**
 

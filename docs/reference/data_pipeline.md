@@ -222,4 +222,5 @@ Provider-specific column alias/rename maps are defined in
 - Use `--dry-run` to validate config/paths/creds before executing.
 - Use `--print-config` to see the final merged config.
 - QC exits non-zero if a dataset fails checks (useful for cron/CI).
-- Install console scripts first if needed: `pip install -e .`
+- Install console scripts first if needed: `uv pip install -e .`
+  (`pip install -e .` remains a fallback).
