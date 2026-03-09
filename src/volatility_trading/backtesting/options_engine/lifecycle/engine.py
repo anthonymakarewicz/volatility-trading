@@ -68,21 +68,21 @@ class PositionLifecycleEngine:
         if option_execution_model is None:
             raise ValueError("cfg.execution.option_execution_model must be configured")
         contracts_open = int(setup.contracts)
-        lot_size = float(self.option_contract_multiplier)
+        option_contract_multiplier = float(self.option_contract_multiplier)
         entry_trade_cost = entry_option_trade_cost(
             legs=setup.intent.legs,
-            lot_size=lot_size,
+            option_contract_multiplier=option_contract_multiplier,
             contracts=contracts_open,
             option_execution_model=option_execution_model,
         )
         net_entry = entry_market_net_notional(
             legs=setup.intent.legs,
-            lot_size=lot_size,
+            option_contract_multiplier=option_contract_multiplier,
             contracts=contracts_open,
         )
         greeks_pc = greeks_per_contract(
             leg_quotes=tuple((leg, leg.quote) for leg in setup.intent.legs),
-            lot_size=lot_size,
+            option_contract_multiplier=option_contract_multiplier,
         )
         greeks = greeks_pc.scaled(contracts_open)
         net_delta = greeks.delta

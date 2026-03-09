@@ -28,7 +28,7 @@ class SizingRequest:
     """Inputs required to size one entry intent from risk/margin constraints."""
 
     intent: EntryIntent
-    lot_size: float
+    option_contract_multiplier: float
     spot: float
     volatility: float
     equity: float
@@ -67,7 +67,7 @@ def _build_option_legs(
     entry_date: pd.Timestamp,
     default_expiry_date: pd.Timestamp | None,
     legs: Sequence[LegSelection],
-    lot_size: float,
+    option_contract_multiplier: float,
 ):
     """Convert selected strategy legs into option-risk engine ``OptionLeg`` rows.
 
@@ -98,7 +98,7 @@ def _build_option_legs(
                 side=effective_leg_side(leg),
                 contract_multiplier=leg_contract_multiplier(
                     leg,
-                    lot_size=lot_size,
+                    option_contract_multiplier=option_contract_multiplier,
                 ),
             )
         )
@@ -109,7 +109,7 @@ def estimate_entry_intent_margin_per_contract(
     *,
     intent: EntryIntent,
     as_of_date: pd.Timestamp | None,
-    lot_size: float,
+    option_contract_multiplier: float,
     spot: float,
     volatility: float,
     margin_model: MarginModel | None,
@@ -127,7 +127,7 @@ def estimate_entry_intent_margin_per_contract(
         entry_date=as_of_date or intent.entry_date,
         default_expiry_date=intent.expiry_date,
         legs=intent.legs,
-        lot_size=lot_size,
+        option_contract_multiplier=option_contract_multiplier,
     )
     state = MarketState(spot=float(spot), volatility=float(volatility))
     return margin_model.initial_margin_requirement(
@@ -158,7 +158,7 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
         entry_date=request.intent.entry_date,
         default_expiry_date=request.intent.expiry_date,
         legs=request.intent.legs,
-        lot_size=request.lot_size,
+        option_contract_multiplier=request.option_contract_multiplier,
     )
     state = MarketState(spot=float(request.spot), volatility=float(request.volatility))
 

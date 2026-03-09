@@ -10,8 +10,9 @@ from volatility_trading.options.types import OptionTypeInput
 
 from .contracts.market import QuoteSnapshot
 
-# TODO: Here we pass the lot_size (aka contratc multiplier around) but why not part it part of OptionLeg ?
-# namely not a backtest parameter but tied to the dataclass itself (same with lot size for the hedgign instrument)
+# TODO: We thread `contract_multiplier` explicitly at runtime.
+# Consider promoting multiplier metadata to quote/leg contracts directly so it
+# does not need to be wired via sizing/lifecycle call chains.
 
 
 def normalize_chain_option_type(option_type: OptionTypeInput) -> OptionType:

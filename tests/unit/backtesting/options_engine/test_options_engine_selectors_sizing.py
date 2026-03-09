@@ -137,7 +137,7 @@ def test_size_entry_intent_uses_risk_and_margin_caps():
     decision = size_entry_intent(
         SizingRequest(
             intent=_short_straddle_intent(),
-            lot_size=1,
+            option_contract_multiplier=1,
             spot=100.0,
             volatility=0.2,
             equity=10_000.0,
@@ -172,7 +172,7 @@ def test_estimate_entry_intent_margin_per_contract():
     margin_pc = estimate_entry_intent_margin_per_contract(
         intent=_short_straddle_intent(),
         as_of_date=pd.Timestamp("2020-01-01"),
-        lot_size=1,
+        option_contract_multiplier=1,
         spot=100.0,
         volatility=0.2,
         margin_model=ConstantMarginModel(),
@@ -230,7 +230,7 @@ def test_estimate_entry_intent_margin_uses_each_leg_expiry_when_available():
     margin_pc = estimate_entry_intent_margin_per_contract(
         intent=intent,
         as_of_date=pd.Timestamp("2020-01-01"),
-        lot_size=1,
+        option_contract_multiplier=1,
         spot=100.0,
         volatility=0.2,
         margin_model=margin_model,

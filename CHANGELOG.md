@@ -23,6 +23,11 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - `ExecutionConfig` is now model-owned for runtime fills:
   `option_execution_model` and `hedge_execution_model` are the source of truth
   for option and hedge execution behavior.
+- Whalley-Wilmott hedge band evaluation now reads effective fee assumptions
+  directly from the configured hedge execution model, rather than carrying full
+  `ExecutionConfig` through band-policy context.
+- Internal option multiplier plumbing now uses the explicit
+  `option_contract_multiplier` name across sizing and lifecycle valuation.
 
 ### Breaking changes
 - Removed `OptionsBacktestDataBundle(options=...)` constructor support.
@@ -37,6 +42,10 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   Configure execution via model instances instead.
 - Removed `ExecutionConfig.lot_size`. Option contract multiplier is now sourced
   from `OptionsMarketData.default_contract_multiplier`.
+- Renamed options sizing API fields from `lot_size` to
+  `option_contract_multiplier`:
+  `SizingRequest.option_contract_multiplier` and
+  `estimate_entry_intent_margin_per_contract(..., option_contract_multiplier=...)`.
 
 ## [0.3.0] - 2026-03-08
 

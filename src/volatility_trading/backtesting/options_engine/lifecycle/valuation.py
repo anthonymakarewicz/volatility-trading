@@ -84,7 +84,7 @@ def match_leg_quote(
 def greeks_per_contract(
     *,
     leg_quotes: Sequence[tuple[LegSelection, QuoteSnapshot]],
-    lot_size: float,
+    option_contract_multiplier: float,
 ) -> Greeks:
     """Aggregate structure Greeks for one strategy contract unit."""
     delta = 0.0
@@ -94,10 +94,10 @@ def greeks_per_contract(
     for leg, quote in leg_quotes:
         side = effective_leg_side(leg)
         units = leg_units(leg)
-        delta += side * float(quote.delta) * units * lot_size
-        gamma += side * float(quote.gamma) * units * lot_size
-        vega += side * float(quote.vega) * units * lot_size
-        theta += side * float(quote.theta) * units * lot_size
+        delta += side * float(quote.delta) * units * option_contract_multiplier
+        gamma += side * float(quote.gamma) * units * option_contract_multiplier
+        vega += side * float(quote.vega) * units * option_contract_multiplier
+        theta += side * float(quote.theta) * units * option_contract_multiplier
     return Greeks(delta=delta, gamma=gamma, vega=vega, theta=theta)
 
 
@@ -105,7 +105,7 @@ def mark_to_mid(
     *,
     legs: Sequence[LegSelection],
     leg_quotes: Sequence[QuoteSnapshot],
-    lot_size: float,
+    option_contract_multiplier: float,
     contracts_open: int,
     net_entry: float,
 ) -> float:
@@ -114,13 +114,13 @@ def mark_to_mid(
     for leg, quote in zip(legs, leg_quotes, strict=True):
         mid = 0.5 * (float(quote.bid_price) + float(quote.ask_price))
         current_value += effective_leg_side(leg) * mid * leg_units(leg)
-    return current_value * lot_size * contracts_open - net_entry
+    return current_value * option_contract_multiplier * contracts_open - net_entry
 
 
 def entry_market_net_notional(
     *,
     legs: Sequence[LegSelection],
-    lot_size: float,
+    option_contract_multiplier: float,
     contracts: int,
 ) -> float:
     """Return signed entry notional at quote mids for market-PnL attribution."""
@@ -128,7 +128,7 @@ def entry_market_net_notional(
         effective_leg_side(leg)
         * (0.5 * (float(leg.quote.bid_price) + float(leg.quote.ask_price)))
         * leg_units(leg)
-        * lot_size
+        * option_contract_multiplier
         * contracts
         for leg in legs
     )
@@ -137,7 +137,7 @@ def entry_market_net_notional(
 def entry_option_trade_cost(
     *,
     legs: Sequence[LegSelection],
-    lot_size: float,
+    option_contract_multiplier: float,
     contracts: int,
     option_execution_model: OptionExecutionModel,
 ) -> float:
@@ -152,7 +152,11 @@ def entry_option_trade_cost(
             order=OptionExecutionOrder(
                 quote=leg.quote,
                 trade_side=trade_side,
-                quantity=contracts_float * float(lot_size) * float(leg_units(leg)),
+                quantity=(
+                    contracts_float
+                    * float(option_contract_multiplier)
+                    * float(leg_units(leg))
+                ),
                 fee_contracts=contracts_float,
             ),
         )
@@ -164,7 +168,7 @@ def pnl_per_contract_from_exit_prices(
     *,
     legs: Sequence[LegSelection],
     exit_prices: Sequence[float],
-    lot_size: float,
+    option_contract_multiplier: float,
 ) -> float:
     """Return realized PnL for one strategy contract at given exit prices."""
     pnl_pc = 0.0
@@ -173,7 +177,7 @@ def pnl_per_contract_from_exit_prices(
             effective_leg_side(leg)
             * (float(exit_price) - float(leg.entry_price))
             * leg_units(leg)
-            * lot_size
+            * option_contract_multiplier
         )
     return pnl_pc
 
@@ -181,7 +185,7 @@ def pnl_per_contract_from_exit_prices(
 def entry_net_notional(
     *,
     legs: Sequence[LegSelection],
-    lot_size: float,
+    option_contract_multiplier: float,
     contracts: int,
 ) -> float:
     """Return signed entry premium of the full opened structure."""
@@ -189,7 +193,7 @@ def entry_net_notional(
         effective_leg_side(leg)
         * float(leg.entry_price)
         * leg_units(leg)
-        * lot_size
+        * option_contract_multiplier
         * contracts
         for leg in legs
     )
@@ -307,7 +311,7 @@ def resolve_mark_valuation(
     position: OpenPosition,
     curr_date: pd.Timestamp,
     options: pd.DataFrame,
-    lot_size: float,
+    option_contract_multiplier: float,
 ) -> MarkValuationSnapshot:
     """Resolve one-date MTM and Greeks snapshot before margin/exit handling."""
     chain_all = chain_for_date(options, curr_date)
@@ -326,7 +330,7 @@ def resolve_mark_valuation(
         pnl_mtm = mark_to_mid(
             legs=position.intent.legs,
             leg_quotes=complete_leg_quotes,
-            lot_size=lot_size,
+            option_contract_multiplier=option_contract_multiplier,
             contracts_open=position.contracts_open,
             net_entry=position.net_entry,
         )
@@ -334,7 +338,7 @@ def resolve_mark_valuation(
             leg_quotes=tuple(
                 zip(position.intent.legs, complete_leg_quotes, strict=True)
             ),
-            lot_size=lot_size,
+            option_contract_multiplier=option_contract_multiplier,
         )
         greeks = greeks_pc.scaled(position.contracts_open)
 
@@ -394,7 +398,7 @@ def execute_exit_for_position(
     position: OpenPosition,
     leg_quotes: tuple[QuoteSnapshot, ...],
     contracts_to_close: int,
-    lot_size: float,
+    option_contract_multiplier: float,
     option_execution_model: OptionExecutionModel,
 ) -> tuple[tuple[float, ...], float]:
     """Execute all exit legs and return fill prices plus explicit transaction cost."""
@@ -405,7 +409,11 @@ def execute_exit_for_position(
         exec_result = execute_exit_leg(
             quote=quote,
             side=effective_leg_side(leg),
-            quantity=contracts_float * float(lot_size) * float(leg_units(leg)),
+            quantity=(
+                contracts_float
+                * float(option_contract_multiplier)
+                * float(leg_units(leg))
+            ),
             fee_contracts=contracts_float,
             option_execution_model=option_execution_model,
         )
