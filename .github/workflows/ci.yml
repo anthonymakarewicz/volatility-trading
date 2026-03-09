@@ -12,10 +12,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  unit:
-    name: unit
+  quality:
+    name: quality
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,13 +42,34 @@ jobs:
       - name: Type check (Pyright)
         run: pyright
 
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.10.9"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+
       - name: Unit tests
         run: pytest -q
 
   package:
     name: package
     runs-on: ubuntu-latest
-    needs: unit
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -82,7 +103,6 @@ jobs:
   integration:
     name: integration
     runs-on: ubuntu-latest
-    needs: unit
     timeout-minutes: 30
     steps:
       - name: Checkout

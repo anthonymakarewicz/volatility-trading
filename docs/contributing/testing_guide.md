@@ -118,8 +118,9 @@ Pytest configuration lives in `pyproject.toml` under
 
 ## CI
 
-GitHub Actions runs Ruff + unit tests on every PR/push, and runs integration
-tests on pushes to `main` (or manual workflow runs).
+GitHub Actions runs a dedicated `quality` job (Ruff + Pyright) and a dedicated
+`unit` job on every PR/push, and runs integration tests on PRs, pushes to
+`main`, and manual workflow runs.
 
 ## Troubleshooting
 
