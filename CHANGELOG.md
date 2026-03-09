@@ -8,6 +8,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - `y` (patch): bug fixes, docs/tests updates, and non-breaking internal changes
 
 ## [Unreleased]
+### Changed
+- Standardized project setup and contributor installs on `uv`; `pip` remains
+  supported as a fallback.
 
 ## [0.4.0] - 2026-03-09
 ### Added

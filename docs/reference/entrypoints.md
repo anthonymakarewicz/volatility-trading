@@ -2,14 +2,16 @@
 
 This project exposes console scripts after installation. Run:
 ```bash
-pip install -e .
+uv pip install -e .
 ```
+
+`pip install -e .` remains a supported fallback.
 
 If you add or change `project.scripts` in `pyproject.toml`, reinstall to
 regenerate console scripts:
 
 ```bash
-python -m pip install -e . --no-build-isolation --no-deps
+uv pip install -e .
 rehash  # zsh: refresh command lookup
 ```
 

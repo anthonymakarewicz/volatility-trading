@@ -6,8 +6,30 @@ For common environment/tooling failures, see [Troubleshooting](../troubleshootin
 ## Environment Setup
 
 1. Use Python 3.12+.
-2. Create and activate a virtual environment.
-3. Install dependencies.
+2. Install `uv` (for example via Homebrew, `pipx`, or the official installer).
+3. Create and activate a virtual environment.
+4. Install dependencies.
+
+```bash
+uv venv --python 3.12 .venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+Primary setup for contributors:
+- `uv pip install -e ".[dev]"`: editable install + runtime + dev tools.
+- `uv pip install -e ".[dev,release]"`: contributor + release maintainer setup
+  (includes packaging tools `build` and `twine`).
+
+Secondary install modes:
+- `uv pip install .`: runtime-only install (useful for users running package code without dev tooling).
+- `uv pip install -e .`: editable runtime-only install (useful for local source edits without dev tooling).
+
+This repo uses `uv` as the standard environment/install tool. `pip` remains a
+fallback if you do not want to install `uv`:
+
+- The repo currently uses `uv`'s `pip`-compatible interface rather than
+  `uv sync`; there is no committed `uv.lock` yet.
 
 ```bash
 python -m venv .venv
@@ -16,20 +38,11 @@ python -m pip install -U pip
 pip install -e ".[dev]"
 ```
 
-Primary setup for contributors:
-- `pip install -e ".[dev]"`: editable install + runtime + dev tools.
-- `pip install -e ".[dev,release]"`: contributor + release maintainer setup
-  (includes packaging tools `build` and `twine`).
-
-Secondary install modes:
-- `pip install .`: runtime-only install (useful for users running package code without dev tooling).
-- `pip install -e .`: editable runtime-only install (useful for local source edits without dev tooling).
-
 If you add or change console scripts in `pyproject.toml` (`project.scripts`),
 rerun editable install so new commands are created in `.venv/bin`:
 
 ```bash
-python -m pip install -e . --no-build-isolation --no-deps
+uv pip install -e .
 rehash  # zsh: refresh command lookup
 ```
 
@@ -38,6 +51,9 @@ rehash  # zsh: refresh command lookup
 Use the `Makefile` targets:
 
 ```bash
+make venv
+make sync
+make sync-release
 make lint
 make format
 make check
@@ -129,7 +145,7 @@ When dependencies change:
 2. Reinstall the environment:
 
 ```bash
-pip install -e ".[dev]"
+make sync
 ```
 
 3. Run validation:
@@ -169,7 +185,7 @@ GitHub Actions workflow:
 - Fix:
   - check interpreter with `python --version`
   - recreate `.venv` with Python `3.12`
-  - reinstall dependencies (`pip install -e ".[dev]"`)
+  - reinstall dependencies (`make sync` or `uv pip install -e ".[dev]"`)
 
 ### Venv Kernel Missing in Jupyter
 
@@ -190,5 +206,5 @@ GitHub Actions workflow:
 - Fix:
   - run `make ci` locally
   - run `make package-check` locally for packaging failures
-  - reinstall dependencies in your active venv (`pip install -e ".[dev]"`)
+  - reinstall dependencies in your active venv (`make sync` or `uv pip install -e ".[dev]"`)
   - re-run `pre-commit run --all-files`
