@@ -18,6 +18,10 @@ from volatility_trading.backtesting import (
     to_daily_mtm,
 )
 from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting.options_engine import (
+    BidAskFeeOptionExecutionModel,
+    FixedBpsExecutionModel,
+)
 from volatility_trading.datasets import (
     options_chain_wide_to_long,
     read_fred_rates,
@@ -76,10 +80,14 @@ def build_run_config(
     return BacktestRunConfig(
         account=AccountConfig(initial_capital=initial_capital),
         execution=ExecutionConfig(
-            commission_per_leg=commission_per_leg,
-            hedge_slip_ask=hedge_slip_ask,
-            hedge_slip_bid=hedge_slip_bid,
-            hedge_fee_bps=hedge_fee_bps,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                commission_per_leg=commission_per_leg
+            ),
+            hedge_execution_model=FixedBpsExecutionModel(
+                slip_ask=hedge_slip_ask,
+                slip_bid=hedge_slip_bid,
+                fee_bps=hedge_fee_bps,
+            ),
         ),
         broker=BrokerConfig(
             margin=MarginConfig(model=RegTMarginModel(broad_index=broad_index), policy=margin_policy)

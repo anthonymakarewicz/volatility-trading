@@ -40,6 +40,20 @@ def _default_risk_estimator() -> RiskEstimator:
     return StressLossRiskEstimator()
 
 
+def _default_option_execution_model() -> OptionExecutionModel:
+    """Create default option execution model for one backtest run config."""
+    from .options_engine.lifecycle import BidAskFeeOptionExecutionModel
+
+    return BidAskFeeOptionExecutionModel()
+
+
+def _default_hedge_execution_model() -> HedgeExecutionModel:
+    """Create default hedge execution model for one backtest run config."""
+    from .options_engine.lifecycle import FixedBpsExecutionModel
+
+    return FixedBpsExecutionModel()
+
+
 @dataclass(frozen=True)
 class AccountConfig:
     """Account-level capital configuration for one backtest run."""
@@ -52,54 +66,20 @@ class ExecutionConfig:
     """Execution assumptions used by entry/exit lifecycle pricing."""
 
     lot_size: int = 100
-    slip_ask: float = 0.01
-    slip_bid: float = 0.01
-    commission_per_leg: float = 1.0
-    option_execution_model: OptionExecutionModel | None = None
-    hedge_slip_ask: float = 0.0
-    hedge_slip_bid: float = 0.0
-    hedge_fee_bps: float = 1.0
-    hedge_execution_model: HedgeExecutionModel | None = None
+    option_execution_model: OptionExecutionModel = field(
+        default_factory=_default_option_execution_model
+    )
+    hedge_execution_model: HedgeExecutionModel = field(
+        default_factory=_default_hedge_execution_model
+    )
 
     def __post_init__(self) -> None:
         if self.lot_size <= 0:
             raise ValueError("lot_size must be > 0")
-        if self.slip_ask < 0:
-            raise ValueError("slip_ask must be >= 0")
-        if self.slip_bid < 0:
-            raise ValueError("slip_bid must be >= 0")
-        if self.commission_per_leg < 0:
-            raise ValueError("commission_per_leg must be >= 0")
-        if self.hedge_slip_ask < 0:
-            raise ValueError("hedge_slip_ask must be >= 0")
-        if self.hedge_slip_bid < 0:
-            raise ValueError("hedge_slip_bid must be >= 0")
-        if self.hedge_fee_bps < 0:
-            raise ValueError("hedge_fee_bps must be >= 0")
         if self.option_execution_model is None:
-            from .options_engine.lifecycle import BidAskFeeOptionExecutionModel
-
-            object.__setattr__(
-                self,
-                "option_execution_model",
-                BidAskFeeOptionExecutionModel(
-                    slip_ask=float(self.slip_ask),
-                    slip_bid=float(self.slip_bid),
-                    commission_per_leg=float(self.commission_per_leg),
-                ),
-            )
+            raise ValueError("option_execution_model must be configured")
         if self.hedge_execution_model is None:
-            from .options_engine.lifecycle import FixedBpsExecutionModel
-
-            object.__setattr__(
-                self,
-                "hedge_execution_model",
-                FixedBpsExecutionModel(
-                    slip_ask=float(self.hedge_slip_ask),
-                    slip_bid=float(self.hedge_slip_bid),
-                    fee_bps=float(self.hedge_fee_bps),
-                ),
-            )
+            raise ValueError("hedge_execution_model must be configured")
 
 
 @dataclass(frozen=True)

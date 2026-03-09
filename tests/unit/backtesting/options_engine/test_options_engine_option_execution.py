@@ -27,18 +27,8 @@ def _make_quote(*, bid_price: float = 4.0, ask_price: float = 6.0):
     )
 
 
-def _make_execution(
-    *,
-    slip_ask: float = 0.0,
-    slip_bid: float = 0.0,
-    commission_per_leg: float = 0.0,
-) -> ExecutionConfig:
-    return ExecutionConfig(
-        lot_size=1,
-        slip_ask=slip_ask,
-        slip_bid=slip_bid,
-        commission_per_leg=commission_per_leg,
-    )
+def _make_execution() -> ExecutionConfig:
+    return ExecutionConfig(lot_size=1)
 
 
 def test_option_execution_order_rejects_invalid_trade_side():
@@ -84,7 +74,7 @@ def test_mid_no_cost_option_execution_model_fills_at_mid_and_charges_no_cost():
             quantity=10.0,
             fee_contracts=3.0,
         ),
-        execution=_make_execution(slip_ask=0.25, slip_bid=0.25, commission_per_leg=2.0),
+        execution=_make_execution(),
     )
 
     assert result.fill_price == pytest.approx(5.0)
@@ -94,7 +84,11 @@ def test_mid_no_cost_option_execution_model_fills_at_mid_and_charges_no_cost():
 
 
 def test_bid_ask_fee_option_execution_model_buy_side_applies_slippage_and_fees():
-    model = BidAskFeeOptionExecutionModel()
+    model = BidAskFeeOptionExecutionModel(
+        slip_ask=0.25,
+        slip_bid=0.10,
+        commission_per_leg=1.5,
+    )
     result = model.execute(
         order=OptionExecutionOrder(
             quote=_make_quote(bid_price=4.0, ask_price=6.0),
@@ -102,7 +96,7 @@ def test_bid_ask_fee_option_execution_model_buy_side_applies_slippage_and_fees()
             quantity=10.0,
             fee_contracts=2.0,
         ),
-        execution=_make_execution(slip_ask=0.25, slip_bid=0.10, commission_per_leg=1.5),
+        execution=_make_execution(),
     )
 
     # mid=5.0, buy fill=ask+slip=6.25 => price_cost=(1.25*10)=12.5
@@ -114,7 +108,11 @@ def test_bid_ask_fee_option_execution_model_buy_side_applies_slippage_and_fees()
 
 
 def test_bid_ask_fee_option_execution_model_sell_side_applies_bid_and_slippage():
-    model = BidAskFeeOptionExecutionModel()
+    model = BidAskFeeOptionExecutionModel(
+        slip_ask=0.25,
+        slip_bid=0.10,
+        commission_per_leg=1.5,
+    )
     result = model.execute(
         order=OptionExecutionOrder(
             quote=_make_quote(bid_price=4.0, ask_price=6.0),
@@ -122,7 +120,7 @@ def test_bid_ask_fee_option_execution_model_sell_side_applies_bid_and_slippage()
             quantity=3.0,
             fee_contracts=0.0,
         ),
-        execution=_make_execution(slip_ask=0.25, slip_bid=0.10, commission_per_leg=1.5),
+        execution=_make_execution(),
     )
 
     # mid=5.0, sell fill=bid-slip=3.9 => price_cost=(1.1*3)=3.3
@@ -133,7 +131,11 @@ def test_bid_ask_fee_option_execution_model_sell_side_applies_bid_and_slippage()
 
 
 def test_bid_ask_fee_option_execution_model_charges_fee_even_without_price_quantity():
-    model = BidAskFeeOptionExecutionModel()
+    model = BidAskFeeOptionExecutionModel(
+        slip_ask=0.25,
+        slip_bid=0.10,
+        commission_per_leg=1.5,
+    )
     result = model.execute(
         order=OptionExecutionOrder(
             quote=_make_quote(bid_price=4.0, ask_price=6.0),
@@ -141,7 +143,7 @@ def test_bid_ask_fee_option_execution_model_charges_fee_even_without_price_quant
             quantity=0.0,
             fee_contracts=2.0,
         ),
-        execution=_make_execution(slip_ask=0.25, slip_bid=0.10, commission_per_leg=1.5),
+        execution=_make_execution(),
     )
 
     assert result.fill_price == pytest.approx(6.25)

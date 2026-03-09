@@ -15,6 +15,7 @@ from volatility_trading.backtesting import (
 )
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
+    BidAskFeeOptionExecutionModel,
     CanonicalOptionsChainAdapter,
     ColumnMapOptionsChainAdapter,
     LegSpec,
@@ -344,9 +345,11 @@ def test_backtester_uses_data_bundle_options_adapter_boundary():
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=0.0,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
         ),
     )
     data = OptionsBacktestDataBundle(

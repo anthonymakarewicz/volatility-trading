@@ -14,9 +14,6 @@ Delta hedging is configured in strategy lifecycle policy:
 
 Execution cost assumptions are run-level settings:
 
-- `ExecutionConfig.hedge_fee_bps`
-- `ExecutionConfig.hedge_slip_ask`
-- `ExecutionConfig.hedge_slip_bid`
 - `ExecutionConfig.hedge_execution_model`
 
 ## Fixed Band (Static)
@@ -64,7 +61,8 @@ with floors/clamps:
 Fee source:
 
 - `fee_bps_override` from `WWDeltaBandModel`, else
-- `ExecutionConfig.hedge_fee_bps`
+- `ExecutionConfig.hedge_execution_model.fee_bps` when available
+- falls back to `0.0` if the configured hedge model does not expose `fee_bps`
 
 ```python
 from volatility_trading.backtesting.options_engine import (

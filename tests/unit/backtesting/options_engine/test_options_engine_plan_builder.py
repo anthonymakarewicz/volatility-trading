@@ -17,6 +17,7 @@ from volatility_trading.backtesting.engine import (
     run_backtest_execution_plan,
 )
 from volatility_trading.backtesting.options_engine import (
+    BidAskFeeOptionExecutionModel,
     ColumnMapOptionsChainAdapter,
     DeltaHedgePolicy,
     FixedDeltaBandModel,
@@ -113,9 +114,11 @@ def _run_strategy(direction: int):
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=0.0,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
         ),
     )
     bt = Backtester(
@@ -360,9 +363,11 @@ def test_margin_budget_requires_broker_margin_model():
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=0.0,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
         ),
         broker=BrokerConfig(margin=MarginConfig(model=None)),
     )
@@ -405,9 +410,11 @@ def test_enabled_delta_hedging_requires_hedge_market_data():
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=0.0,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
         ),
     )
     bt = Backtester(
@@ -450,9 +457,11 @@ def test_enabled_delta_hedging_accepts_complete_hedge_market_data():
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=0.0,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
         ),
     )
     bt = Backtester(
@@ -486,9 +495,11 @@ def test_default_orats_adapter_raises_on_non_orats_alias_dataset():
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=0.0,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
         ),
     )
     bt = Backtester(
@@ -524,9 +535,11 @@ def test_runtime_data_options_adapter_is_used_when_provided():
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=0.0,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
         ),
     )
     bt = Backtester(
@@ -585,9 +598,11 @@ def test_runtime_adapter_from_options_market_data_is_used_when_provided():
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=0.0,
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
         ),
     )
     bt = Backtester(
@@ -642,9 +657,6 @@ def test_build_plan_supports_custom_option_execution_model_injection():
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
             lot_size=1,
-            slip_ask=0.0,
-            slip_bid=0.0,
-            commission_per_leg=0.0,
             option_execution_model=_DirectionalCostOptionExecutionModel(),
         ),
     )

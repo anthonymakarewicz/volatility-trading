@@ -6,21 +6,17 @@ execution models can be injected.
 
 ## Default Behavior
 
-`ExecutionConfig` resolves an option execution model at config construction.
+`ExecutionConfig` owns option execution through
+`execution.option_execution_model`.
 
-Default resolution behavior:
-
-- if `execution.option_execution_model` is provided, that model is used
-- otherwise config builds `BidAskFeeOptionExecutionModel` from:
-  - `ExecutionConfig.slip_ask`
-  - `ExecutionConfig.slip_bid`
-  - `ExecutionConfig.commission_per_leg`
+Default behavior uses `BidAskFeeOptionExecutionModel()` directly.
 
 That model applies:
 
 - side-aware reference price (`ask` for buys, `bid` for sells, fallback `mid`)
-- side-aware slippage from `ExecutionConfig.slip_ask` / `ExecutionConfig.slip_bid`
-- commission from `ExecutionConfig.commission_per_leg`
+- side-aware slippage from `BidAskFeeOptionExecutionModel.slip_ask` /
+  `BidAskFeeOptionExecutionModel.slip_bid`
+- commission from `BidAskFeeOptionExecutionModel.commission_per_leg`
 
 The engine also exposes `MidNoCostOptionExecutionModel` for baseline runs.
 
