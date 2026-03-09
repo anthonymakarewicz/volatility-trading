@@ -89,11 +89,11 @@ from volatility_trading.backtesting import (
     BacktestRunConfig,
     BrokerConfig,
     ExecutionConfig,
-    HedgeExecutionConfig,
     HedgeMarketData,
     MarginConfig,
     MarginPolicy,
     OptionsBacktestDataBundle,
+    OptionsMarketData,
     to_daily_mtm,
 )
 from volatility_trading.backtesting.data_adapters import CanonicalOptionsChainAdapter
@@ -102,6 +102,8 @@ from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
     FixedDeltaBandModel,
     HedgeTriggerPolicy,
+    BidAskFeeOptionExecutionModel,
+    FixedBpsHedgeExecutionModel,
 )
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
@@ -508,7 +510,7 @@ options_chain.head()
 REBALANCE_PERIOD = 10
 RISK_BUDGET_PCT = 1.0
 MARGIN_BUDGET_PCT = 0.4
-COMMISSION_PER_LEG = 0.0
+COMMISSION_PER_LEG = 1.0
 INIT_CAPITAL = 50_000
 START_BACKTEST = "2011-01-01"
 END_BACKTEST = "2017-12-31"
@@ -537,14 +539,16 @@ sp500_tr.index = pd.to_datetime(sp500_tr.index)
 
 spot_series = options_chain.groupby("trade_date")["spot_price"].first().sort_index()
 
+# %%
 data = OptionsBacktestDataBundle(
-    options=options_chain,
-    features=None,
+    options_market=OptionsMarketData(
+        chain=options_chain,
+        options_adapter=CanonicalOptionsChainAdapter(),
+    ),
     hedge_market=HedgeMarketData(
         mid=spot_series,
         symbol=BENCHMARK_TICKER,
     ),
-    options_adapter=CanonicalOptionsChainAdapter()
 )
 
 # --------------------
@@ -564,7 +568,7 @@ vrp_spec = VRPHarvestingSpec(
     risk_budget_pct=RISK_BUDGET_PCT,
     margin_budget_pct=MARGIN_BUDGET_PCT,
     delta_hedge=DeltaHedgePolicy(
-        enabled=True,
+        enabled=False,
         target_net_delta=HEDGE_TARGET_NET_DELTA,
         trigger=HedgeTriggerPolicy(
             band_model=FixedDeltaBandModel(half_width_abs=HEDGE_DELTA_BAND_ABS),
@@ -572,15 +576,17 @@ vrp_spec = VRPHarvestingSpec(
             combine_mode=HEDGE_COMBINE_MODE,
         ),
         min_rebalance_qty=1.0,
-    )
+    ),
 )
 strat = make_vrp_strategy(vrp_spec)
 
 cfg = BacktestRunConfig(
     account=AccountConfig(initial_capital=INIT_CAPITAL),
     execution=ExecutionConfig(
-        commission_per_leg=COMMISSION_PER_LEG,
-        hedge=HedgeExecutionConfig(
+        option_execution_model=BidAskFeeOptionExecutionModel(
+            commission_per_leg=COMMISSION_PER_LEG,
+        ),
+        hedge_execution_model=FixedBpsHedgeExecutionModel(
             fee_bps=0.0,
         ),
     ),
