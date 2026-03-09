@@ -44,6 +44,7 @@ class OpenPosition:
     max_hold_date: pd.Timestamp | None
     intent: EntryIntent
     contracts_open: int
+    option_contract_multiplier: float
     risk_per_contract: float | None
     risk_worst_scenario: str | None
     margin_account: MarginAccount | None

@@ -59,7 +59,6 @@ def maybe_refresh_margin_per_contract(
     *,
     position: OpenPosition,
     curr_date: pd.Timestamp,
-    option_contract_multiplier: float,
     valuation: MarkValuationSnapshot,
     margin_model: MarginModel | None,
     pricer: PriceModel,
@@ -80,7 +79,7 @@ def maybe_refresh_margin_per_contract(
     margin_pc_curr = estimate_entry_intent_margin_per_contract(
         intent=current_intent,
         as_of_date=curr_date,
-        option_contract_multiplier=option_contract_multiplier,
+        option_contract_multiplier=float(position.option_contract_multiplier),
         spot=float(valuation.market.spot),
         volatility=float(valuation.market.volatility),
         margin_model=margin_model,

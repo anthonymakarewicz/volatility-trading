@@ -23,11 +23,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - `ExecutionConfig` is now model-owned for runtime fills:
   `option_execution_model` and `hedge_execution_model` are the source of truth
   for option and hedge execution behavior.
-- Whalley-Wilmott hedge band evaluation now reads effective fee assumptions
-  directly from the configured hedge execution model, rather than carrying full
-  `ExecutionConfig` through band-policy context.
-- Internal option multiplier plumbing now uses the explicit
-  `option_contract_multiplier` name across sizing and lifecycle valuation.
+- `WWDeltaBandModel` now derives effective fee assumptions from the configured
+  hedge execution model when `fee_bps_override` is not set.
 
 ### Breaking changes
 - Removed `OptionsBacktestDataBundle(options=...)` constructor support.
