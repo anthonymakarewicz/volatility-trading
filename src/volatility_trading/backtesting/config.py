@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 if TYPE_CHECKING:
-    from volatility_trading.backtesting.data_adapters import OptionsChainAdapter
     from volatility_trading.options import (
         MarginModel,
         PriceModel,
@@ -18,8 +17,6 @@ if TYPE_CHECKING:
 
     from .margin import MarginPolicy
     from .options_engine.lifecycle import HedgeExecutionModel, OptionExecutionModel
-
-OptionsAdapterMode = Literal["orats", "canonical", "require_explicit"]
 
 
 def _default_pricer() -> PriceModel:
@@ -139,17 +136,10 @@ class BacktestRunConfig:
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
     broker: BrokerConfig = field(default_factory=BrokerConfig)
     modeling: ModelingConfig = field(default_factory=ModelingConfig)
-    options_adapter_mode: OptionsAdapterMode = "orats"
-    options_adapter: OptionsChainAdapter | None = None
     start_date: pd.Timestamp | None = None
     end_date: pd.Timestamp | None = None
 
     def __post_init__(self) -> None:
-        if self.options_adapter_mode not in ("orats", "canonical", "require_explicit"):
-            raise ValueError(
-                "options_adapter_mode must be one of: "
-                "'orats', 'canonical', 'require_explicit'"
-            )
         if self.start_date is not None and self.end_date is not None:
             if pd.Timestamp(self.start_date) > pd.Timestamp(self.end_date):
                 raise ValueError("start_date must be <= end_date")
