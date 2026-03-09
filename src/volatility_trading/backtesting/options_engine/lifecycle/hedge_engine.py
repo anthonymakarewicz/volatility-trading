@@ -20,10 +20,10 @@ from .hedge_decision import (
     HedgeDecisionEngine,
 )
 from .hedge_execution import (
-    FixedBpsExecutionModel,
+    FixedBpsHedgeExecutionModel,
     HedgeExecutionModel,
     HedgeExecutionResult,
-    MidNoCostExecutionModel,
+    MidNoCostHedgeExecutionModel,
 )
 from .hedge_policies import HedgeBandContext
 from .runtime_state import HedgeStepSnapshot, HedgeTelemetry, HedgeValuation
@@ -33,8 +33,8 @@ __all__ = [
     "HedgeApplyContext",
     "HedgeExecutionResult",
     "HedgeExecutionModel",
-    "MidNoCostExecutionModel",
-    "FixedBpsExecutionModel",
+    "MidNoCostHedgeExecutionModel",
+    "FixedBpsHedgeExecutionModel",
 ]
 
 
@@ -60,7 +60,7 @@ class DeltaHedgeEngine:
     ):
         self.policy = policy
         self.decision_engine = HedgeDecisionEngine(policy=self.policy)
-        self.execution_model = execution_model or FixedBpsExecutionModel()
+        self.execution_model = execution_model or FixedBpsHedgeExecutionModel()
 
     def apply(
         self,

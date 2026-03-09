@@ -20,7 +20,7 @@ from volatility_trading.backtesting import (
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
     BidAskFeeOptionExecutionModel,
-    FixedBpsExecutionModel,
+    FixedBpsHedgeExecutionModel,
 )
 from volatility_trading.datasets import (
     options_chain_wide_to_long,
@@ -83,7 +83,7 @@ def build_run_config(
             option_execution_model=BidAskFeeOptionExecutionModel(
                 commission_per_leg=commission_per_leg
             ),
-            hedge_execution_model=FixedBpsExecutionModel(
+            hedge_execution_model=FixedBpsHedgeExecutionModel(
                 slip_ask=hedge_slip_ask,
                 slip_bid=hedge_slip_bid,
                 fee_bps=hedge_fee_bps,

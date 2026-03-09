@@ -35,7 +35,7 @@ class HedgeExecutionModel(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class MidNoCostExecutionModel:
+class MidNoCostHedgeExecutionModel:
     """Baseline model: fill at mid and charge zero explicit trade cost."""
 
     def execute(
@@ -49,7 +49,7 @@ class MidNoCostExecutionModel:
 
 
 @dataclass(frozen=True, slots=True)
-class FixedBpsExecutionModel:
+class FixedBpsHedgeExecutionModel:
     """Execution model using spread/slippage plus fixed-bps notional fee."""
 
     slip_ask: float = 0.0

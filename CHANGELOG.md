@@ -27,6 +27,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   hedge execution model when `fee_bps_override` is not set.
 
 ### Breaking changes
+- Renamed hedge execution concrete classes:
+  `MidNoCostExecutionModel` -> `MidNoCostHedgeExecutionModel`
+  and `FixedBpsExecutionModel` -> `FixedBpsHedgeExecutionModel`.
 - Removed `OptionsBacktestDataBundle(options=...)` constructor support.
 - Removed `OptionsBacktestDataBundle(options_adapter=...)` constructor support.
   Use `OptionsBacktestDataBundle(options_market=OptionsMarketData(...))` and
