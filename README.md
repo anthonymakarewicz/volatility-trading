@@ -130,6 +130,10 @@ from volatility_trading.backtesting import (
     to_daily_mtm,
 )
 from volatility_trading.backtesting.engine import Backtester
+from volatility_trading.backtesting.options_engine import (
+    BidAskFeeOptionExecutionModel,
+    FixedBpsHedgeExecutionModel,
+)
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
@@ -161,7 +165,14 @@ strategy = make_vrp_strategy(vrp_spec)
 
 cfg = BacktestRunConfig(
     account=AccountConfig(initial_capital=50_000),
-    execution=ExecutionConfig(commission_per_leg=0.0),
+    execution=ExecutionConfig(
+        option_execution_model=BidAskFeeOptionExecutionModel(
+            commission_per_leg=0.0,
+        ),
+        hedge_execution_model=FixedBpsHedgeExecutionModel(
+            fee_bps=0.0,
+        ),
+    ),
     broker=BrokerConfig(
         margin=MarginConfig(model=RegTMarginModel(broad_index=False))
     ),
@@ -212,7 +223,6 @@ from volatility_trading.backtesting.options_engine import MidNoCostOptionExecuti
 
 cfg = BacktestRunConfig(
     execution=ExecutionConfig(
-        lot_size=100,
         option_execution_model=MidNoCostOptionExecutionModel(),
     ),
 )
