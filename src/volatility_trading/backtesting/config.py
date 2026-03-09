@@ -49,9 +49,9 @@ def _default_option_execution_model() -> OptionExecutionModel:
 
 def _default_hedge_execution_model() -> HedgeExecutionModel:
     """Create default hedge execution model for one backtest run config."""
-    from .options_engine.lifecycle import FixedBpsExecutionModel
+    from .options_engine.lifecycle import FixedBpsHedgeExecutionModel
 
-    return FixedBpsExecutionModel()
+    return FixedBpsHedgeExecutionModel()
 
 
 @dataclass(frozen=True)

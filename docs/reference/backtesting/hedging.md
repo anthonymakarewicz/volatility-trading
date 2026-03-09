@@ -121,7 +121,7 @@ Default hedge execution model is fixed-bps with side-aware reference price:
 - slippage from `slip_ask` / `slip_bid`,
 - bps fee from `fee_bps`.
 
-For a baseline/debug run, use `MidNoCostExecutionModel` (fill at mid, no
+For a baseline/debug run, use `MidNoCostHedgeExecutionModel` (fill at mid, no
 explicit trade cost).
 
 ## Related Examples

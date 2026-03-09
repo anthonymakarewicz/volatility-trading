@@ -13,14 +13,14 @@ from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
     EntryIntent,
     ExitRuleSet,
-    FixedBpsExecutionModel,
+    FixedBpsHedgeExecutionModel,
     FixedDeltaBandModel,
     HedgeExecutionModel,
     HedgeExecutionResult,
     HedgeTriggerPolicy,
     LegSelection,
     LegSpec,
-    MidNoCostExecutionModel,
+    MidNoCostHedgeExecutionModel,
     OptionExecutionModel,
     OptionExecutionResult,
     PositionEntrySetup,
@@ -61,7 +61,7 @@ def _make_cfg(
                 slip_bid=0.0,
                 commission_per_leg=commission_per_leg,
             ),
-            hedge_execution_model=FixedBpsExecutionModel(
+            hedge_execution_model=FixedBpsHedgeExecutionModel(
                 slip_ask=hedge_slip_ask,
                 slip_bid=hedge_slip_bid,
                 fee_bps=hedge_fee_bps,
@@ -844,7 +844,7 @@ def test_mark_position_supports_mid_no_cost_execution_model():
             bid_prices={"2020-01-02": 99.0},
             ask_prices={"2020-01-02": 101.0},
         ),
-        hedge_execution_model=MidNoCostExecutionModel(),
+        hedge_execution_model=MidNoCostHedgeExecutionModel(),
     )
     position, _ = engine.open_position(
         setup=setup,
@@ -1010,7 +1010,7 @@ def test_mark_position_ww_band_rebalances_to_nearest_boundary():
             bid_prices={"2020-01-02": 100.0},
             ask_prices={"2020-01-02": 100.0},
         ),
-        hedge_execution_model=FixedBpsExecutionModel(
+        hedge_execution_model=FixedBpsHedgeExecutionModel(
             slip_ask=0.0,
             slip_bid=0.0,
             fee_bps=10.0,
