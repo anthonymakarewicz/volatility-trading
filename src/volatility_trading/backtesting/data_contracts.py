@@ -63,7 +63,6 @@ class OptionsBacktestDataBundle:
     options_market: OptionsMarketData
     features: pd.DataFrame | None = None
     hedge_market: HedgeMarketData | None = None
-    fallback_iv_feature_col: str = "iv_atm"  # TODO: Remove it
 
     @property
     def options_frame(self) -> pd.DataFrame:

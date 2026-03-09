@@ -43,6 +43,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   `option_contract_multiplier`:
   `SizingRequest.option_contract_multiplier` and
   `estimate_entry_intent_margin_per_contract(..., option_contract_multiplier=...)`.
+- Removed `OptionsBacktestDataBundle.fallback_iv_feature_col`.
+  Entry volatility now comes from selected leg quote `market_iv` only (otherwise
+  `NaN`), with no fallback to features columns.
 
 ## [0.3.0] - 2026-03-08
 
