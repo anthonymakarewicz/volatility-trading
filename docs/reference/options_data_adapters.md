@@ -15,13 +15,15 @@ backtesting adapters.
 Provider-specific alias/rename mappings live in
 `volatility_trading.config.options_chain_sources`.
 
-Runtime adapter resolution is configured in `BacktestRunConfig`:
+Runtime adapter resolution is configured via:
 - `options_adapter_mode`: `orats` | `canonical` | `require_explicit`
 - `options_adapter`: optional explicit adapter instance at run config level
+- `data.options_market.options_adapter`: optional adapter scoped to one
+  options market dataset
 
 Resolution order:
 1. `config.options_adapter` (if set)
-2. `data.options_adapter` (if set)
+2. `data.options_market.options_adapter` (if set)
 3. `options_adapter_mode` fallback (`orats` or `canonical`)
 4. `require_explicit` raises if no adapter is supplied
 
@@ -93,7 +95,7 @@ Polars input is converted once at adapter boundary via
 ## Usage
 
 ```python
-from volatility_trading.backtesting import OptionsBacktestDataBundle
+from volatility_trading.backtesting import OptionsBacktestDataBundle, OptionsMarketData
 from volatility_trading.backtesting.options_engine import ColumnMapOptionsChainAdapter
 
 adapter = ColumnMapOptionsChainAdapter(
@@ -110,8 +112,10 @@ adapter = ColumnMapOptionsChainAdapter(
 )
 
 data = OptionsBacktestDataBundle(
-    options=raw_options_df,
-    options_adapter=adapter,
+    options_market=OptionsMarketData(
+        chain=raw_options_df,
+        options_adapter=adapter,
+    ),
 )
 ```
 

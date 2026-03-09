@@ -11,6 +11,7 @@ from volatility_trading.backtesting import (
     BacktestRunConfig,
     ExecutionConfig,
     OptionsBacktestDataBundle,
+    OptionsMarketData,
 )
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
@@ -348,7 +349,12 @@ def test_backtester_uses_data_bundle_options_adapter_boundary():
             commission_per_leg=0.0,
         ),
     )
-    data = OptionsBacktestDataBundle(options=options_raw, options_adapter=adapter)
+    data = OptionsBacktestDataBundle(
+        options_market=OptionsMarketData(
+            chain=options_raw,
+            options_adapter=adapter,
+        )
+    )
     bt = Backtester(data=data, strategy=spec, config=cfg)
     trades, mtm = bt.run()
 

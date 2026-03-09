@@ -9,6 +9,23 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+### Added
+- Added `OptionsMarketData` and made it the canonical options input wrapper for
+  options chain data plus chain-level metadata (`symbol`,
+  `default_contract_multiplier`, optional scoped adapter).
+
+### Changed
+- `OptionsBacktestDataBundle` now consumes `options_market` directly and no
+  longer mixes raw options-frame and adapter wiring at the bundle top level.
+- Adapter resolution now uses `data.options_market.options_adapter` when a
+  data-bundle adapter is supplied.
+
+### Breaking changes
+- Removed `OptionsBacktestDataBundle(options=...)` constructor support.
+- Removed `OptionsBacktestDataBundle(options_adapter=...)` constructor support.
+  Use `OptionsBacktestDataBundle(options_market=OptionsMarketData(...))` and
+  set the scoped adapter on `OptionsMarketData.options_adapter`.
+
 ## [0.3.0] - 2026-03-08
 
 ### Added

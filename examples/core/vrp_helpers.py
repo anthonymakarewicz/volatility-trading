@@ -13,6 +13,7 @@ from volatility_trading.backtesting import (
     MarginConfig,
     MarginPolicy,
     OptionsBacktestDataBundle,
+    OptionsMarketData,
     print_performance_report,
     to_daily_mtm,
 )
@@ -45,7 +46,10 @@ def build_data_bundle(*, options: pd.DataFrame, ticker: str) -> OptionsBacktestD
     """Build one options backtest bundle with a spot-based hedge mid series."""
     hedge_mid = options.groupby(level=0)["spot_price"].first().astype(float)
     return OptionsBacktestDataBundle(
-        options=options,
+        options_market=OptionsMarketData(
+            chain=options,
+            symbol=ticker,
+        ),
         hedge_market=HedgeMarketData(
             mid=hedge_mid,
             symbol=ticker,
