@@ -35,6 +35,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   `slip_ask`, `slip_bid`, `commission_per_leg`,
   `hedge_slip_ask`, `hedge_slip_bid`, `hedge_fee_bps`.
   Configure execution via model instances instead.
+- Removed `ExecutionConfig.lot_size`. Option contract multiplier is now sourced
+  from `OptionsMarketData.default_contract_multiplier`.
 
 ## [0.3.0] - 2026-03-08
 

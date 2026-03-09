@@ -113,7 +113,6 @@ def _run_strategy(direction: int):
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -123,7 +122,9 @@ def _run_strategy(direction: int):
     )
     bt = Backtester(
         data=OptionsBacktestDataBundle(
-            options_market=OptionsMarketData(chain=_make_options())
+            options_market=OptionsMarketData(
+                chain=_make_options(), default_contract_multiplier=1.0
+            )
         ),
         strategy=spec,
         config=cfg,
@@ -362,7 +363,6 @@ def test_margin_budget_requires_broker_margin_model():
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -373,7 +373,9 @@ def test_margin_budget_requires_broker_margin_model():
     )
     bt = Backtester(
         data=OptionsBacktestDataBundle(
-            options_market=OptionsMarketData(chain=_make_options())
+            options_market=OptionsMarketData(
+                chain=_make_options(), default_contract_multiplier=1.0
+            )
         ),
         strategy=spec,
         config=cfg,
@@ -409,7 +411,6 @@ def test_enabled_delta_hedging_requires_hedge_market_data():
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -419,7 +420,9 @@ def test_enabled_delta_hedging_requires_hedge_market_data():
     )
     bt = Backtester(
         data=OptionsBacktestDataBundle(
-            options_market=OptionsMarketData(chain=_make_options())
+            options_market=OptionsMarketData(
+                chain=_make_options(), default_contract_multiplier=1.0
+            )
         ),
         strategy=spec,
         config=cfg,
@@ -456,7 +459,6 @@ def test_enabled_delta_hedging_accepts_complete_hedge_market_data():
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -466,7 +468,9 @@ def test_enabled_delta_hedging_accepts_complete_hedge_market_data():
     )
     bt = Backtester(
         data=OptionsBacktestDataBundle(
-            options_market=OptionsMarketData(chain=options),
+            options_market=OptionsMarketData(
+                chain=options, default_contract_multiplier=1.0
+            ),
             hedge_market=_make_hedge_market(options),
         ),
         strategy=spec,
@@ -494,7 +498,6 @@ def test_default_orats_adapter_raises_on_non_orats_alias_dataset():
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -534,7 +537,6 @@ def test_runtime_data_options_adapter_is_used_when_provided():
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -597,7 +599,6 @@ def test_runtime_adapter_from_options_market_data_is_used_when_provided():
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -655,14 +656,15 @@ def test_build_plan_supports_custom_option_execution_model_injection():
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=_DirectionalCostOptionExecutionModel(),
         ),
     )
     plan = build_options_execution_plan(
         spec=spec,
         data=OptionsBacktestDataBundle(
-            options_market=OptionsMarketData(chain=_make_options())
+            options_market=OptionsMarketData(
+                chain=_make_options(), default_contract_multiplier=1.0
+            )
         ),
         config=cfg,
         capital=10_000.0,

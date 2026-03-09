@@ -84,7 +84,7 @@ def match_leg_quote(
 def greeks_per_contract(
     *,
     leg_quotes: Sequence[tuple[LegSelection, QuoteSnapshot]],
-    lot_size: int,
+    lot_size: float,
 ) -> Greeks:
     """Aggregate structure Greeks for one strategy contract unit."""
     delta = 0.0
@@ -105,7 +105,7 @@ def mark_to_mid(
     *,
     legs: Sequence[LegSelection],
     leg_quotes: Sequence[QuoteSnapshot],
-    lot_size: int,
+    lot_size: float,
     contracts_open: int,
     net_entry: float,
 ) -> float:
@@ -120,7 +120,7 @@ def mark_to_mid(
 def entry_market_net_notional(
     *,
     legs: Sequence[LegSelection],
-    lot_size: int,
+    lot_size: float,
     contracts: int,
 ) -> float:
     """Return signed entry notional at quote mids for market-PnL attribution."""
@@ -137,7 +137,7 @@ def entry_market_net_notional(
 def entry_option_trade_cost(
     *,
     legs: Sequence[LegSelection],
-    lot_size: int,
+    lot_size: float,
     contracts: int,
     option_execution_model: OptionExecutionModel,
 ) -> float:
@@ -164,7 +164,7 @@ def pnl_per_contract_from_exit_prices(
     *,
     legs: Sequence[LegSelection],
     exit_prices: Sequence[float],
-    lot_size: int,
+    lot_size: float,
 ) -> float:
     """Return realized PnL for one strategy contract at given exit prices."""
     pnl_pc = 0.0
@@ -181,7 +181,7 @@ def pnl_per_contract_from_exit_prices(
 def entry_net_notional(
     *,
     legs: Sequence[LegSelection],
-    lot_size: int,
+    lot_size: float,
     contracts: int,
 ) -> float:
     """Return signed entry premium of the full opened structure."""
@@ -307,7 +307,7 @@ def resolve_mark_valuation(
     position: OpenPosition,
     curr_date: pd.Timestamp,
     options: pd.DataFrame,
-    lot_size: int,
+    lot_size: float,
 ) -> MarkValuationSnapshot:
     """Resolve one-date MTM and Greeks snapshot before margin/exit handling."""
     chain_all = chain_for_date(options, curr_date)
@@ -394,7 +394,7 @@ def execute_exit_for_position(
     position: OpenPosition,
     leg_quotes: tuple[QuoteSnapshot, ...],
     contracts_to_close: int,
-    lot_size: int,
+    lot_size: float,
     option_execution_model: OptionExecutionModel,
 ) -> tuple[tuple[float, ...], float]:
     """Execute all exit legs and return fill prices plus explicit transaction cost."""

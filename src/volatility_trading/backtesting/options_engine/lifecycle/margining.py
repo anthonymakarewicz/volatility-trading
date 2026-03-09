@@ -59,7 +59,7 @@ def maybe_refresh_margin_per_contract(
     *,
     position: OpenPosition,
     curr_date: pd.Timestamp,
-    lot_size: int,
+    lot_size: float,
     valuation: MarkValuationSnapshot,
     margin_model: MarginModel | None,
     pricer: PriceModel,

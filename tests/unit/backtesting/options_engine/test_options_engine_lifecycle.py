@@ -56,7 +56,6 @@ def _make_cfg(
     return BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -202,6 +201,7 @@ def _make_options_row_for_date(
 def _make_engine(
     *,
     rebalance_period: int | None = 5,
+    option_contract_multiplier: float = 1.0,
     margin_policy: MarginPolicy | None = None,
     margin_model=None,
     delta_hedge_policy: DeltaHedgePolicy | None = None,
@@ -222,6 +222,7 @@ def _make_engine(
         margin_model=margin_model,
         pricer=_NullPricer(),
         delta_hedge_policy=delta_hedge_policy or DeltaHedgePolicy(),
+        option_contract_multiplier=option_contract_multiplier,
         hedge_market=hedge_market,
         **lifecycle_kwargs,
     )

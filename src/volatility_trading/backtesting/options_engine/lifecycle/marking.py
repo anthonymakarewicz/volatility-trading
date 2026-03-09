@@ -38,13 +38,14 @@ def build_mark_step_context(
     curr_date: pd.Timestamp,
     cfg: BacktestRunConfig,
     equity_running: float,
+    option_contract_multiplier: float,
 ) -> LifecycleStepContext:
     """Build shared one-date execution context for mark transitions."""
     return LifecycleStepContext(
         curr_date=curr_date,
         cfg=cfg,
         equity_running=equity_running,
-        lot_size=cfg.execution.lot_size,
+        lot_size=float(option_contract_multiplier),
     )
 
 

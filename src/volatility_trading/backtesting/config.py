@@ -65,7 +65,6 @@ class AccountConfig:
 class ExecutionConfig:
     """Execution assumptions used by entry/exit lifecycle pricing."""
 
-    lot_size: int = 100
     option_execution_model: OptionExecutionModel = field(
         default_factory=_default_option_execution_model
     )
@@ -74,8 +73,6 @@ class ExecutionConfig:
     )
 
     def __post_init__(self) -> None:
-        if self.lot_size <= 0:
-            raise ValueError("lot_size must be > 0")
         if self.option_execution_model is None:
             raise ValueError("option_execution_model must be configured")
         if self.hedge_execution_model is None:

@@ -344,7 +344,6 @@ def test_backtester_uses_data_bundle_options_adapter_boundary():
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
         execution=ExecutionConfig(
-            lot_size=1,
             option_execution_model=BidAskFeeOptionExecutionModel(
                 slip_ask=0.0,
                 slip_bid=0.0,
@@ -355,6 +354,7 @@ def test_backtester_uses_data_bundle_options_adapter_boundary():
     data = OptionsBacktestDataBundle(
         options_market=OptionsMarketData(
             chain=options_raw,
+            default_contract_multiplier=1.0,
             options_adapter=adapter,
         )
     )
