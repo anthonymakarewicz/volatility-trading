@@ -9,12 +9,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 from ..contracts.market import QuoteSnapshot
-
-if TYPE_CHECKING:
-    from ...config import ExecutionConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,7 +57,6 @@ class OptionExecutionModel(Protocol):
         self,
         *,
         order: OptionExecutionOrder,
-        execution: ExecutionConfig,
     ) -> OptionExecutionResult:
         """Return execution result for one option-leg order."""
 
@@ -73,9 +69,7 @@ class MidNoCostOptionExecutionModel:
         self,
         *,
         order: OptionExecutionOrder,
-        execution: ExecutionConfig,
     ) -> OptionExecutionResult:
-        _ = execution
         mid = 0.5 * (float(order.quote.bid_price) + float(order.quote.ask_price))
         return OptionExecutionResult(
             fill_price=mid,
@@ -105,10 +99,8 @@ class BidAskFeeOptionExecutionModel:
         self,
         *,
         order: OptionExecutionOrder,
-        execution: ExecutionConfig,
     ) -> OptionExecutionResult:
         """Map one option-leg order into fill and explicit trade cost."""
-        _ = execution
         bid = float(order.quote.bid_price)
         ask = float(order.quote.ask_price)
         mid = 0.5 * (bid + ask)

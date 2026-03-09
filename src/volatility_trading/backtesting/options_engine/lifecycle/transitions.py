@@ -52,7 +52,6 @@ def transition_forced_liquidation(
         leg_quotes=valuation.complete_leg_quotes,
         contracts_to_close=contracts_to_close,
         lot_size=step.lot_size,
-        execution=step.cfg.execution,
         option_execution_model=option_execution_model,
     )
     contracts_after = position.contracts_open - contracts_to_close
@@ -195,7 +194,6 @@ def transition_standard_exit(
         leg_quotes=valuation.complete_leg_quotes,
         contracts_to_close=position.contracts_open,
         lot_size=step.lot_size,
-        execution=step.cfg.execution,
         option_execution_model=option_execution_model,
     )
     pnl_net = (

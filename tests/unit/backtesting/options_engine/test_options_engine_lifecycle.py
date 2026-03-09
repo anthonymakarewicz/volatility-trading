@@ -843,12 +843,8 @@ def test_mark_position_supports_custom_hedge_execution_model():
             *,
             trade_qty: float,
             hedge_market,
-            execution: ExecutionConfig,
         ) -> HedgeExecutionResult:
-            _ = (
-                hedge_market,
-                execution,
-            )
+            _ = (hedge_market,)
             return HedgeExecutionResult(
                 fill_price=101.0,
                 total_cost=abs(trade_qty) * 0.1,
@@ -903,9 +899,8 @@ def test_mark_position_supports_custom_option_execution_model():
             self,
             *,
             order,
-            execution: ExecutionConfig,
         ) -> OptionExecutionResult:
-            _ = (order, execution)
+            _ = order
             price_cost = 4.0 if order.trade_side > 0 else 0.0
             return OptionExecutionResult(
                 fill_price=10.0,

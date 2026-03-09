@@ -11,7 +11,6 @@ import math
 from dataclasses import dataclass
 from typing import Protocol
 
-from ...config import ExecutionConfig
 from ..contracts.market import HedgeMarketSnapshot
 
 
@@ -31,7 +30,6 @@ class HedgeExecutionModel(Protocol):
         *,
         trade_qty: float,
         hedge_market: HedgeMarketSnapshot,
-        execution: ExecutionConfig,
     ) -> HedgeExecutionResult:
         """Return execution result for one hedge rebalance trade."""
 
@@ -45,9 +43,8 @@ class MidNoCostExecutionModel:
         *,
         trade_qty: float,
         hedge_market: HedgeMarketSnapshot,
-        execution: ExecutionConfig,
     ) -> HedgeExecutionResult:
-        _ = (trade_qty, execution)
+        _ = trade_qty
         return HedgeExecutionResult(fill_price=float(hedge_market.mid), total_cost=0.0)
 
 
@@ -72,10 +69,8 @@ class FixedBpsExecutionModel:
         *,
         trade_qty: float,
         hedge_market: HedgeMarketSnapshot,
-        execution: ExecutionConfig,
     ) -> HedgeExecutionResult:
         """Map one hedge order into fill and explicit trading cost."""
-        _ = execution
         if trade_qty == 0.0:
             return HedgeExecutionResult(
                 fill_price=float(hedge_market.mid), total_cost=0.0

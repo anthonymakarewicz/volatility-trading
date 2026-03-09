@@ -251,8 +251,8 @@ def test_build_entry_intent_resolves_side_specific_entry_fill_and_entry_mid(
 
 def test_build_entry_intent_supports_custom_option_execution_model():
     class _FixedFillOptionExecutionModel:
-        def execute(self, *, order, execution) -> OptionExecutionResult:
-            _ = (order, execution)
+        def execute(self, *, order) -> OptionExecutionResult:
+            _ = order
             return OptionExecutionResult(
                 fill_price=9.99,
                 total_cost=0.0,
