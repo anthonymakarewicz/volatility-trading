@@ -8,6 +8,11 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - `y` (patch): bug fixes, docs/tests updates, and non-breaking internal changes
 
 ## [Unreleased]
+### Added
+- Added `SkewMispricingSpec` and `make_skew_mispricing_strategy` as a second
+  built-in options strategy preset, using a 25-delta risk reversal selected
+  through the shared options-engine structure logic.
+
 ### Changed
 - Standardized project setup and contributor installs on `uv`; `pip` remains
   supported as a fallback.
@@ -16,6 +21,14 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   advanced namespace.
 - Narrowed `volatility_trading.backtesting.options_engine` re-exports so the
   advanced namespace no longer advertises runtime-internal lifecycle helpers.
+- Options backtests now honor `Signal.exit` as a shared lifecycle close trigger,
+  emitting `Signal Exit` trade rows when a strategy exits via signal mean
+  reversion.
+- `ZScoreSignal` rolling statistics now use only prior observations, removing
+  look-ahead leakage from its z-score computation.
+- Reorganized backtesting examples under strategy-specific entrypoints and
+  renamed the shared example helper module to
+  `examples/core/backtesting_helpers.py`.
 
 ## [0.4.0] - 2026-03-09
 ### Added

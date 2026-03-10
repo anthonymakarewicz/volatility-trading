@@ -44,7 +44,7 @@ def normalize_signals_to_on(
     *,
     strategy_name: str = "Strategy",
 ) -> pd.DataFrame:
-    """Normalize signals to a sorted DataFrame with `on` and `entry_direction`.
+    """Normalize signals to a sorted DataFrame with `on`, `exit`, and direction.
 
     `entry_direction` is normalized to {-1, 0, +1} where:
     - `-1`: short structure entry
@@ -58,15 +58,21 @@ def normalize_signals_to_on(
 
     has_long = "long" in sig_df.columns
     has_short = "short" in sig_df.columns
+    has_exit = "exit" in sig_df.columns
     has_entry_direction = "entry_direction" in sig_df.columns
     long_on = (
-        sig_df["long"].astype(bool)
+        sig_df["long"].fillna(False).astype(bool)
         if has_long
         else pd.Series(False, index=sig_df.index)
     )
     short_on = (
-        sig_df["short"].astype(bool)
+        sig_df["short"].fillna(False).astype(bool)
         if has_short
+        else pd.Series(False, index=sig_df.index)
+    )
+    exit_on = (
+        sig_df["exit"].fillna(False).astype(bool)
+        if has_exit
         else pd.Series(False, index=sig_df.index)
     )
 
@@ -92,7 +98,7 @@ def normalize_signals_to_on(
         )
 
     if "on" in sig_df.columns:
-        sig_df["on"] = sig_df["on"].astype(bool)
+        sig_df["on"] = sig_df["on"].fillna(False).astype(bool)
     elif has_long or has_short:
         sig_df["on"] = long_on | short_on
     else:
@@ -101,6 +107,7 @@ def normalize_signals_to_on(
     # Defensive normalization: never allow direction != 0 when `on` is False.
     direction = direction.where(sig_df["on"], 0).astype(int)
     sig_df["entry_direction"] = direction
+    sig_df["exit"] = exit_on
 
     if bool((sig_df["on"] & (sig_df["entry_direction"] == 0)).any()):
         raise ValueError(
