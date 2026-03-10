@@ -76,7 +76,7 @@ def build_skew_signal_input(
     if missing:
         missing_list = ", ".join(missing)
         raise ValueError(
-            "skew_mispricing requires daily feature columns: " f"{missing_list}"
+            f"skew_mispricing requires daily feature columns: {missing_list}"
         )
 
     feature_frame = features.copy()
