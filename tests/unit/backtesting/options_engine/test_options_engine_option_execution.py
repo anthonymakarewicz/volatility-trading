@@ -5,8 +5,8 @@ from volatility_trading.backtesting.options_engine import (
     BidAskFeeOptionExecutionModel,
     MidNoCostOptionExecutionModel,
     OptionExecutionOrder,
-    QuoteSnapshot,
 )
+from volatility_trading.backtesting.options_engine.contracts.market import QuoteSnapshot
 
 
 def _make_quote(*, bid_price: float = 4.0, ask_price: float = 6.0):

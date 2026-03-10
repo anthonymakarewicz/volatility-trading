@@ -7,11 +7,12 @@ from dataclasses import dataclass
 from core.cli import parse_common_args
 from core.vrp_helpers import build_backtester, load_options_long
 
-from volatility_trading.backtesting import compute_performance_metrics, to_daily_mtm
-from volatility_trading.backtesting.options_engine import (
+from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     FixedDeltaBandModel,
     HedgeTriggerPolicy,
+    compute_performance_metrics,
+    to_daily_mtm,
 )
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy

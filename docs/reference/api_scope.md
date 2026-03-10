@@ -10,7 +10,8 @@ If something is not listed here as public, treat it as internal and subject to c
 
 Public import surfaces are the package entrypoints intended for users:
 
-- `volatility_trading.backtesting`
+- Preferred: `volatility_trading.backtesting`
+- Advanced/domain-specific: `volatility_trading.backtesting.options_engine`
 - `volatility_trading.options`
 - `volatility_trading.strategies`
 - `volatility_trading.signals`
@@ -39,11 +40,28 @@ These are not stable API contracts unless explicitly promoted:
 - `volatility_trading.apps.*` implementation modules
 - internal ETL/QC module internals under `volatility_trading.etl.*`
 - internal helpers and private modules (including `_...` modules)
+- deeper backtesting internals such as:
+  - `volatility_trading.backtesting.options_engine.lifecycle.*`
+  - `volatility_trading.backtesting.options_engine.contracts.*`
+  - `volatility_trading.backtesting.options_engine.entry`
+  - `volatility_trading.backtesting.options_engine.plan_builder`
 - `examples/` code (usage demos, not compatibility contract)
 - research-stage modules and notebook support code under:
   - `volatility_trading.iv_surface.*`
   - `volatility_trading.rv_forecasting.*`
   - `notebooks/`
+
+## Import Guidance
+
+- Prefer `volatility_trading.backtesting` for common runtime configuration,
+  data-bundle setup, hedging policy objects, execution models, and adapter
+  classes.
+- Use `volatility_trading.backtesting.options_engine` when you intentionally
+  want the narrower, engine-specific advanced namespace. That namespace is
+  curated around specs, exit rules, execution models, adapter contracts, and
+  plan-building helpers rather than runtime-internal lifecycle state objects.
+- Avoid importing from deeper backtesting submodules unless you are explicitly
+  working against internal implementation details.
 
 ## Release Policy Tie-In
 

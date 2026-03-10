@@ -11,6 +11,11 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 ### Changed
 - Standardized project setup and contributor installs on `uv`; `pip` remains
   supported as a fallback.
+- Added curated `volatility_trading.backtesting` re-exports for preferred user
+  imports, while keeping `volatility_trading.backtesting.options_engine` as the
+  advanced namespace.
+- Narrowed `volatility_trading.backtesting.options_engine` re-exports so the
+  advanced namespace no longer advertises runtime-internal lifecycle helpers.
 
 ## [0.4.0] - 2026-03-09
 ### Added

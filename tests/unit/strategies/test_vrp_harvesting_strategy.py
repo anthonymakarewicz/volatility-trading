@@ -13,10 +13,8 @@ from volatility_trading.backtesting import (
     OptionsMarketData,
 )
 from volatility_trading.backtesting.engine import Backtester
-from volatility_trading.backtesting.options_engine import (
-    BidAskFeeOptionExecutionModel,
-    time_to_expiry_years,
-)
+from volatility_trading.backtesting.options_engine import BidAskFeeOptionExecutionModel
+from volatility_trading.backtesting.options_engine.adapters import time_to_expiry_years
 from volatility_trading.options import (
     MarketShock,
     StressPoint,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from core.cli import parse_common_args
 from core.vrp_helpers import build_backtester, load_options_long, run_and_report
 
-from volatility_trading.backtesting.options_engine import (
+from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     HedgeTriggerPolicy,
     WWDeltaBandModel,

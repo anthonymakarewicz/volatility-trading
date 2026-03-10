@@ -45,9 +45,12 @@ Custom option execution is configured through run config:
 - `BacktestRunConfig.execution.option_execution_model=...`
 
 ```python
-from volatility_trading.backtesting import BacktestRunConfig, ExecutionConfig
-from volatility_trading.backtesting.engine import Backtester
-from volatility_trading.backtesting.options_engine import MidNoCostOptionExecutionModel
+from volatility_trading.backtesting import (
+    BacktestRunConfig,
+    Backtester,
+    ExecutionConfig,
+    MidNoCostOptionExecutionModel,
+)
 
 run_config = BacktestRunConfig(
     execution=ExecutionConfig(

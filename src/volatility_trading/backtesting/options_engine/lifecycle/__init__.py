@@ -1,4 +1,8 @@
-"""Lifecycle package for options position open/mark/close execution."""
+"""Internal lifecycle subpackage for options position open/mark/close execution.
+
+Most users should prefer imports from ``volatility_trading.backtesting`` or the
+advanced ``volatility_trading.backtesting.options_engine`` namespace.
+"""
 
 from .engine import PositionLifecycleEngine
 from .hedge_engine import (

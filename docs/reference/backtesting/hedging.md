@@ -21,7 +21,7 @@ Execution cost assumptions are run-level settings:
 Use a constant absolute no-trade half-width around `target_net_delta`.
 
 ```python
-from volatility_trading.backtesting.options_engine import (
+from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     FixedDeltaBandModel,
     HedgeTriggerPolicy,
@@ -65,7 +65,7 @@ Fee source:
 - falls back to `0.0` if the configured hedge model does not expose `fee_bps`
 
 ```python
-from volatility_trading.backtesting.options_engine import (
+from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     HedgeTriggerPolicy,
     WWDeltaBandModel,

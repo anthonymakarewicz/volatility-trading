@@ -91,8 +91,11 @@ Polars input is converted once at adapter boundary via
 ## Usage
 
 ```python
-from volatility_trading.backtesting import OptionsBacktestDataBundle, OptionsMarketData
-from volatility_trading.backtesting.options_engine import ColumnMapOptionsChainAdapter
+from volatility_trading.backtesting import (
+    ColumnMapOptionsChainAdapter,
+    OptionsBacktestDataBundle,
+    OptionsMarketData,
+)
 
 adapter = ColumnMapOptionsChainAdapter(
     source_to_canonical={
