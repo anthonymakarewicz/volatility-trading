@@ -99,12 +99,17 @@ def build_options_execution_plan(
     options = options.sort_index()
     trading_dates = sorted(options.index.unique())
     direction_by_date = sig_df["entry_direction"].groupby(level=0).last().astype(int)
+    exit_by_date = sig_df["exit"].groupby(level=0).any().astype(bool)
     active_signal_dates = set(direction_by_date[direction_by_date != 0].index)
     logger.info(
-        "Signals ready strategy=%s trading_dates=%d active_signal_dates=%d",
+        (
+            "Signals ready strategy=%s trading_dates=%d "
+            "active_signal_dates=%d exit_signal_dates=%d"
+        ),
         spec.name,
         len(trading_dates),
         len(active_signal_dates),
+        int(exit_by_date.sum()),
     )
     if not active_signal_dates:
         logger.warning(
@@ -130,6 +135,9 @@ def build_options_execution_plan(
                 options=options,
                 cfg=config,
                 equity_running=equity_running,
+                exit_type_override=(
+                    "Signal Exit" if bool(exit_by_date.get(curr_date, False)) else None
+                ),
             )
         ),
         prepare_entry=lambda entry_date, equity_running: _prepare_entry_setup(
