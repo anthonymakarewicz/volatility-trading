@@ -1,20 +1,26 @@
-"""Focused example: compare realistic bps costs vs zero-cost baseline."""
+"""Focused example: compare realistic hedge costs vs a zero-cost baseline.
+
+Run from repository root with:
+`python -m examples.backtesting.hedging.cost_baselines`
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.cli import parse_common_args
-from core.vrp_helpers import build_backtester, load_options_long
-
-from volatility_trading.backtesting import compute_performance_metrics, to_daily_mtm
-from volatility_trading.backtesting.options_engine import (
+from examples.core.cli import parse_common_args
+from examples.core.vrp_helpers import (
+    build_backtester,
+    build_vrp_strategy,
+    load_options_window,
+)
+from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     FixedDeltaBandModel,
     HedgeTriggerPolicy,
+    compute_performance_metrics,
+    to_daily_mtm,
 )
-from volatility_trading.signals import ShortOnlySignal
-from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
 
 
 @dataclass(frozen=True)
@@ -27,12 +33,12 @@ class Scenario:
     hedge_slip_bid: float
 
 
-def _build_strategy():
-    spec = VRPHarvestingSpec(
-        signal=ShortOnlySignal(),
-        rebalance_period=10,
-        risk_budget_pct=1.0,
-        margin_budget_pct=0.4,
+def main() -> None:
+    args = parse_common_args(
+        "Compare VRP hedge execution cost scenarios (fixed bps vs zero-cost baseline)."
+    )
+    options = load_options_window(ticker=args.ticker, start=args.start, end=args.end)
+    strategy = build_vrp_strategy(
         delta_hedge=DeltaHedgePolicy(
             enabled=True,
             target_net_delta=0.0,
@@ -43,23 +49,8 @@ def _build_strategy():
             ),
             rebalance_to="center",
             min_rebalance_qty=1.0,
-        ),
-    )
-    return make_vrp_strategy(spec)
-
-
-def main() -> None:
-    args = parse_common_args(
-        "Compare VRP hedge execution cost scenarios (fixed bps vs zero-cost baseline)."
-    )
-
-    options_long = load_options_long(args.ticker)
-    options = options_long.loc[args.start : args.end]
-    if options.empty:
-        raise ValueError(
-            f"No options rows for {args.ticker} in range {args.start}:{args.end}"
         )
-    strategy = _build_strategy()
+    )
     scenarios = (
         Scenario(
             name="fixed_bps_costs",
@@ -67,7 +58,6 @@ def main() -> None:
             hedge_slip_ask=0.0,
             hedge_slip_bid=0.0,
         ),
-        # High-level backtester baseline approximation of no-cost hedge execution.
         Scenario(
             name="zero_cost_baseline",
             hedge_fee_bps=0.0,
@@ -76,7 +66,7 @@ def main() -> None:
         ),
     )
 
-    rows: list[dict[str, float | str | None]] = []
+    rows: list[dict[str, float | str]] = []
     for scenario in scenarios:
         bt, rf_series, run_cfg = build_backtester(
             options=options,
@@ -98,11 +88,11 @@ def main() -> None:
         rows.append(
             {
                 "scenario": scenario.name,
-                "total_return": metrics.returns.total_return,
-                "sharpe": metrics.returns.sharpe,
-                "max_drawdown": metrics.drawdown.max_drawdown,
-                "total_pnl": metrics.trades.total_pnl,
-                "trade_count": float(metrics.trades.total_trades),
+                "total_return": f"{metrics.returns.total_return:.4f}",
+                "sharpe": f"{metrics.returns.sharpe:.4f}",
+                "max_drawdown": f"{metrics.drawdown.max_drawdown:.4f}",
+                "total_pnl": f"{metrics.trades.total_pnl:.2f}",
+                "trade_count": str(metrics.trades.total_trades),
             }
         )
 

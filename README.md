@@ -130,8 +130,11 @@ Assume you already prepared:
 ```python
 from volatility_trading.backtesting import (
     AccountConfig,
+    Backtester,
+    BidAskFeeOptionExecutionModel,
     BacktestRunConfig,
     BrokerConfig,
+    FixedBpsHedgeExecutionModel,
     ExecutionConfig,
     HedgeMarketData,
     MarginConfig,
@@ -139,11 +142,6 @@ from volatility_trading.backtesting import (
     OptionsMarketData,
     print_performance_report,
     to_daily_mtm,
-)
-from volatility_trading.backtesting.engine import Backtester
-from volatility_trading.backtesting.options_engine import (
-    BidAskFeeOptionExecutionModel,
-    FixedBpsHedgeExecutionModel,
 )
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
@@ -209,8 +207,8 @@ metrics = print_performance_report(
 ```
 
 For a full scriptable workflow (data loading + backtest run), see
-[VRP end-to-end example](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/vrp_end_to_end.py).
-For focused hedging configuration examples (fixed band, WW band, cost baselines), see
+[VRP end-to-end example](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/backtesting/vrp_end_to_end.py).
+For focused backtesting configuration examples (execution, margin, adapters, hedging), see
 [examples/README.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/README.md).
 For hedging model semantics and WW/fixed-band configuration details, see
 [hedging.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/backtesting/hedging.md).
@@ -218,6 +216,11 @@ For option execution model behavior and option-cost attribution fields, see
 [option_execution.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/backtesting/option_execution.md).
 For the research-style workflow and reporting exploration, see
 [VRP notebook](https://github.com/anthonymakarewicz/volatility-trading/blob/main/notebooks/vrp_harvesting/notebook.py).
+
+Preferred imports for common backtesting usage come from
+`volatility_trading.backtesting`. The narrower
+`volatility_trading.backtesting.options_engine` namespace remains available for
+advanced engine-specific helpers.
 
 ## **Advanced Option Execution Injection**
 
@@ -228,9 +231,12 @@ If you want to override option execution behavior, set it on
 `BacktestRunConfig.execution.option_execution_model`:
 
 ```python
-from volatility_trading.backtesting import BacktestRunConfig, ExecutionConfig
-from volatility_trading.backtesting.engine import Backtester
-from volatility_trading.backtesting.options_engine import MidNoCostOptionExecutionModel
+from volatility_trading.backtesting import (
+    BacktestRunConfig,
+    Backtester,
+    ExecutionConfig,
+    MidNoCostOptionExecutionModel,
+)
 
 cfg = BacktestRunConfig(
     execution=ExecutionConfig(

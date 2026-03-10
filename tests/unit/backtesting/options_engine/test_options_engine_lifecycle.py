@@ -11,22 +11,28 @@ from volatility_trading.backtesting import (
 from volatility_trading.backtesting.options_engine import (
     BidAskFeeOptionExecutionModel,
     DeltaHedgePolicy,
-    EntryIntent,
     ExitRuleSet,
     FixedBpsHedgeExecutionModel,
     FixedDeltaBandModel,
     HedgeExecutionModel,
     HedgeExecutionResult,
     HedgeTriggerPolicy,
-    LegSelection,
     LegSpec,
     MidNoCostHedgeExecutionModel,
     OptionExecutionModel,
     OptionExecutionResult,
-    PositionEntrySetup,
-    PositionLifecycleEngine,
-    QuoteSnapshot,
     WWDeltaBandModel,
+)
+from volatility_trading.backtesting.options_engine.contracts.market import QuoteSnapshot
+from volatility_trading.backtesting.options_engine.contracts.runtime import (
+    PositionEntrySetup,
+)
+from volatility_trading.backtesting.options_engine.contracts.structures import (
+    EntryIntent,
+    LegSelection,
+)
+from volatility_trading.backtesting.options_engine.lifecycle.engine import (
+    PositionLifecycleEngine,
 )
 from volatility_trading.options import MarketState, OptionType
 

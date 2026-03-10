@@ -1,16 +1,15 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting.options_engine import (
-    LegSpec,
-    QuoteSnapshot,
-    StructureSpec,
+from volatility_trading.backtesting.options_engine import LegSpec, StructureSpec
+from volatility_trading.backtesting.options_engine.adapters import (
     normalize_chain_option_type,
     option_type_to_chain_label,
     quote_to_option_leg,
     quote_to_option_spec,
     time_to_expiry_years,
 )
+from volatility_trading.backtesting.options_engine.contracts.market import QuoteSnapshot
 from volatility_trading.options import OptionType, PositionSide
 
 

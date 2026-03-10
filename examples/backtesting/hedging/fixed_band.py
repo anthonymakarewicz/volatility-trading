@@ -1,34 +1,29 @@
-"""Focused example: fixed-band delta hedging with periodic trigger."""
+"""Focused example: fixed-band delta hedging with periodic trigger.
+
+Run from repository root with:
+`python -m examples.backtesting.hedging.fixed_band`
+"""
 
 from __future__ import annotations
 
-from core.cli import parse_common_args
-from core.vrp_helpers import build_backtester, load_options_long, run_and_report
-
-from volatility_trading.backtesting.options_engine import (
+from examples.core.cli import parse_common_args
+from examples.core.vrp_helpers import (
+    build_backtester,
+    build_vrp_strategy,
+    load_options_window,
+    run_and_report,
+)
+from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     FixedDeltaBandModel,
     HedgeTriggerPolicy,
 )
-from volatility_trading.signals import ShortOnlySignal
-from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
 
 
 def main() -> None:
     cfg = parse_common_args("Run VRP with fixed-band delta hedging.")
-
-    options_long = load_options_long(cfg.ticker)
-    options = options_long.loc[cfg.start : cfg.end]
-    if options.empty:
-        raise ValueError(
-            f"No options rows for {cfg.ticker} in range {cfg.start}:{cfg.end}"
-        )
-
-    spec = VRPHarvestingSpec(
-        signal=ShortOnlySignal(),
-        rebalance_period=10,
-        risk_budget_pct=1.0,
-        margin_budget_pct=0.4,
+    options = load_options_window(ticker=cfg.ticker, start=cfg.start, end=cfg.end)
+    strategy = build_vrp_strategy(
         delta_hedge=DeltaHedgePolicy(
             enabled=True,
             target_net_delta=0.0,
@@ -39,9 +34,8 @@ def main() -> None:
             ),
             rebalance_to="center",
             min_rebalance_qty=1.0,
-        ),
+        )
     )
-    strategy = make_vrp_strategy(spec)
     bt, rf_series, _ = build_backtester(
         options=options,
         ticker=cfg.ticker,

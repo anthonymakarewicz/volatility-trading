@@ -11,6 +11,8 @@ from volatility_trading.backtesting.options_engine import (
     LegSpec,
     OptionExecutionResult,
     StructureSpec,
+)
+from volatility_trading.backtesting.options_engine.entry import (
     build_entry_intent_from_structure,
     normalize_signals_to_on,
 )

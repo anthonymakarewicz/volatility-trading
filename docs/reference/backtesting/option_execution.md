@@ -45,9 +45,12 @@ Custom option execution is configured through run config:
 - `BacktestRunConfig.execution.option_execution_model=...`
 
 ```python
-from volatility_trading.backtesting import BacktestRunConfig, ExecutionConfig
-from volatility_trading.backtesting.engine import Backtester
-from volatility_trading.backtesting.options_engine import MidNoCostOptionExecutionModel
+from volatility_trading.backtesting import (
+    BacktestRunConfig,
+    Backtester,
+    ExecutionConfig,
+    MidNoCostOptionExecutionModel,
+)
 
 run_config = BacktestRunConfig(
     execution=ExecutionConfig(
@@ -69,3 +72,7 @@ trades, mtm = bt.run()
   as an upfront roundtrip lump).
 - If same-day reentry is enabled, MTM can include entry costs for a newly opened
   unresolved position while `trades` only includes closed positions.
+
+## Related Example
+
+- [`examples/backtesting/execution/models_and_costs.py`](../../../examples/backtesting/execution/models_and_costs.py)

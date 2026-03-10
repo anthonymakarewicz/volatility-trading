@@ -1,14 +1,18 @@
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting.options_engine import (
+from volatility_trading.backtesting.options_engine import LegSpec
+from volatility_trading.backtesting.options_engine.contracts.market import QuoteSnapshot
+from volatility_trading.backtesting.options_engine.contracts.structures import (
     EntryIntent,
     LegSelection,
-    LegSpec,
-    QuoteSnapshot,
+)
+from volatility_trading.backtesting.options_engine.selectors import (
+    select_best_expiry_for_leg_group,
+)
+from volatility_trading.backtesting.options_engine.sizing import (
     SizingRequest,
     estimate_entry_intent_margin_per_contract,
-    select_best_expiry_for_leg_group,
     size_entry_intent,
 )
 from volatility_trading.options import (

@@ -1,4 +1,9 @@
-"""Public contracts package for options-engine runtime boundaries."""
+"""Internal runtime contracts for options-engine execution boundaries.
+
+These re-exports exist mainly for package-level ergonomics. Most users should
+prefer ``volatility_trading.backtesting`` or
+``volatility_trading.backtesting.options_engine`` imports.
+"""
 
 from .execution import (
     SinglePositionBuildOutputsFn,

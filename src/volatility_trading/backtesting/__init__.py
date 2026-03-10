@@ -1,3 +1,10 @@
+"""Preferred public import surface for backtesting users.
+
+Most user-facing backtesting types should be imported from this package root.
+Engine-specific helpers remain available under
+``volatility_trading.backtesting.options_engine`` for advanced use.
+"""
+
 from .attribution import to_daily_mtm
 from .config import (
     AccountConfig,
@@ -7,13 +14,46 @@ from .config import (
     MarginConfig,
     ModelingConfig,
 )
+from .data_adapters import (
+    AliasOptionsChainAdapter,
+    CanonicalOptionsChainAdapter,
+    ColumnMapOptionsChainAdapter,
+    OptionsChainAdapter,
+    OptionsChainAdapterError,
+    OptionsDxOptionsChainAdapter,
+    OratsOptionsChainAdapter,
+    ValidationMode,
+    YfinanceOptionsChainAdapter,
+)
 from .data_contracts import (
     HedgeMarketData,
     OptionsBacktestDataBundle,
     OptionsMarketData,
 )
+from .engine import Backtester
 from .margin import MarginAccount, MarginPolicy, MarginStatus
 from .margin_types import MarginCore
+from .options_engine import (
+    BidAskFeeOptionExecutionModel,
+    DeltaHedgePolicy,
+    ExitRuleSet,
+    FixedBpsHedgeExecutionModel,
+    FixedDeltaBandModel,
+    HedgeExecutionModel,
+    HedgeTriggerPolicy,
+    LegSpec,
+    LifecycleConfig,
+    MaxHoldingExitRule,
+    MidNoCostHedgeExecutionModel,
+    MidNoCostOptionExecutionModel,
+    OptionExecutionModel,
+    RebalanceExitRule,
+    SameDayReentryPolicy,
+    SizingPolicyConfig,
+    StrategySpec,
+    StructureSpec,
+    WWDeltaBandModel,
+)
 from .performance import (
     compute_performance_metrics,
     format_performance_report,
@@ -44,9 +84,38 @@ __all__ = [
     "BrokerConfig",
     "ModelingConfig",
     "BacktestRunConfig",
+    "Backtester",
     "OptionsBacktestDataBundle",
     "OptionsMarketData",
     "HedgeMarketData",
+    "OptionsChainAdapter",
+    "OptionsChainAdapterError",
+    "AliasOptionsChainAdapter",
+    "CanonicalOptionsChainAdapter",
+    "OratsOptionsChainAdapter",
+    "YfinanceOptionsChainAdapter",
+    "ColumnMapOptionsChainAdapter",
+    "OptionsDxOptionsChainAdapter",
+    "ValidationMode",
+    "StrategySpec",
+    "StructureSpec",
+    "LegSpec",
+    "LifecycleConfig",
+    "SizingPolicyConfig",
+    "ExitRuleSet",
+    "RebalanceExitRule",
+    "MaxHoldingExitRule",
+    "SameDayReentryPolicy",
+    "DeltaHedgePolicy",
+    "HedgeTriggerPolicy",
+    "FixedDeltaBandModel",
+    "WWDeltaBandModel",
+    "HedgeExecutionModel",
+    "MidNoCostHedgeExecutionModel",
+    "FixedBpsHedgeExecutionModel",
+    "OptionExecutionModel",
+    "MidNoCostOptionExecutionModel",
+    "BidAskFeeOptionExecutionModel",
     "MarginCore",
     "to_daily_mtm",
     "MarginPolicy",
