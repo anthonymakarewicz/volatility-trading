@@ -72,3 +72,7 @@ trades, mtm = bt.run()
   as an upfront roundtrip lump).
 - If same-day reentry is enabled, MTM can include entry costs for a newly opened
   unresolved position while `trades` only includes closed positions.
+
+## Related Example
+
+- [`examples/backtesting/execution/models_and_costs.py`](../../../examples/backtesting/execution/models_and_costs.py)

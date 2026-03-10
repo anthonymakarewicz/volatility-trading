@@ -125,3 +125,7 @@ Schema issues raise `OptionsChainAdapterError` with explicit messages, for examp
 - unparseable `trade_date`
 - invalid `option_type` labels
 - required numeric columns becoming all-null after coercion
+
+## Related Example
+
+- [`examples/backtesting/adapters/options_market.py`](../../examples/backtesting/adapters/options_market.py)

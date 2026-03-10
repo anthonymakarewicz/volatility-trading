@@ -3,39 +3,35 @@
 This script demonstrates a minimal pipeline:
 1) load processed options + rates datasets,
 2) build a VRP strategy spec,
-3) configure delta-hedging policy + hedge market feed,
+3) configure delta hedging,
 4) run the backtest,
 5) print performance metrics.
 
-It assumes the processed datasets already exist under `data/processed/`.
+Run from repository root with:
+`python -m examples.backtesting.vrp_end_to_end`
 """
 
 from __future__ import annotations
 
-from core.cli import parse_vrp_args
-from core.vrp_helpers import build_backtester, load_options_long, run_and_report
-
+from examples.core.cli import parse_vrp_args
+from examples.core.vrp_helpers import (
+    build_backtester,
+    build_vrp_strategy,
+    load_options_window,
+    run_and_report,
+)
 from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     FixedDeltaBandModel,
     HedgeTriggerPolicy,
 )
-from volatility_trading.signals import ShortOnlySignal
-from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
 
 
 def main() -> None:
     cfg = parse_vrp_args("Run a minimal VRP E2E backtest.")
+    options = load_options_window(ticker=cfg.ticker, start=cfg.start, end=cfg.end)
 
-    options_long = load_options_long(cfg.ticker)
-    options_red = options_long.loc[cfg.start : cfg.end]
-    if options_red.empty:
-        raise ValueError(
-            f"No options rows for ticker={cfg.ticker} in range {cfg.start}:{cfg.end}"
-        )
-
-    strategy_spec = VRPHarvestingSpec(
-        signal=ShortOnlySignal(),
+    strategy = build_vrp_strategy(
         rebalance_period=cfg.rebalance_period,
         risk_budget_pct=cfg.risk_budget_pct,
         margin_budget_pct=cfg.margin_budget_pct,
@@ -50,16 +46,13 @@ def main() -> None:
             min_rebalance_qty=1.0,
         ),
     )
-    strategy = make_vrp_strategy(strategy_spec)
     bt, rf_series, _ = build_backtester(
-        options=options_red,
+        options=options,
         ticker=cfg.ticker,
         strategy=strategy,
         initial_capital=cfg.initial_capital,
         commission_per_leg=cfg.commission_per_leg,
         hedge_fee_bps=cfg.hedge_fee_bps,
-        hedge_slip_ask=0.0,
-        hedge_slip_bid=0.0,
     )
     run_and_report(
         backtester=bt,

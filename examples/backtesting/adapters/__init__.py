@@ -1,0 +1,1 @@
+"""Focused options-adapter examples."""
