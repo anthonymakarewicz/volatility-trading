@@ -28,7 +28,7 @@ For option fill/cost model behavior, see
 flowchart LR
     subgraph UserLayer[User / Strategy Presets]
         U1[Notebook / Script / CLI]
-        U2[VRPHarvestingSpec\nstrategies/vrp_harvesting/specs.py]
+        U2[VRPHarvestingSpec / SkewMispricingSpec\nstrategies/*/specs.py]
         U3[StrategySpec\noptions_engine/specs.py]
         U4[BacktestRunConfig\nbacktesting/config.py]
     end
@@ -189,7 +189,7 @@ sequenceDiagram
     B->>PB: build_options_execution_plan(spec, data, cfg, capital)
     PB->>PB: signal.generate_signals(...)
     PB->>PB: apply filters
-    PB->>PB: compute trading_dates + active_signal_dates
+    PB->>PB: compute trading_dates + active_signal_dates + exit_signal_dates
     PB->>L: instantiate lifecycle engine
     PB-->>B: SinglePositionExecutionPlan
 
@@ -237,7 +237,7 @@ flowchart TD
     I -- Yes --> J[update_position_mark_state]
     J --> K[return open position + no trade row]
 
-    I -- No --> L[exit_rule_set.evaluate]
+    I -- No --> L[signal exit override or exit_rule_set.evaluate]
     L --> M{Exit triggered?}
     M -- No --> N[update_position_mark_state]
     N --> O[return open position + no trade row]
@@ -292,9 +292,10 @@ flowchart TD
 
 1. One open position max at a time (single-position kernel).
 2. MTM rows are appended daily for open positions and entry dates.
-3. Equity progression is driven by cumulative `delta_pnl`.
-4. Same-day reentry is governed exclusively by `reentry_policy`.
-5. Final outputs are normalized pandas DataFrames (`trades`, `mtm`).
+3. Signals can drive both entry dates and explicit close dates.
+4. Equity progression is driven by cumulative `delta_pnl`.
+5. Same-day reentry is governed exclusively by `reentry_policy`.
+6. Final outputs are normalized pandas DataFrames (`trades`, `mtm`).
 
 ## 8) Extension Playbook
 

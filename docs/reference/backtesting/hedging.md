@@ -126,7 +126,7 @@ explicit trade cost).
 
 ## Related Examples
 
-- [`examples/backtesting/vrp_end_to_end.py`](../../../examples/backtesting/vrp_end_to_end.py)
+- [`examples/backtesting/strategies/vrp_end_to_end.py`](../../../examples/backtesting/strategies/vrp_end_to_end.py)
 - [`examples/backtesting/hedging/configuration.py`](../../../examples/backtesting/hedging/configuration.py)
 - [`examples/backtesting/hedging/fixed_band.py`](../../../examples/backtesting/hedging/fixed_band.py)
 - [`examples/backtesting/hedging/ww_band.py`](../../../examples/backtesting/hedging/ww_band.py)

@@ -21,7 +21,7 @@ The architecture separates:
 
 1. **Backtest orchestration** (engine, execution loop, strategy-spec contract)
 2. **Generic options execution runtime** (entry selection, sizing, lifecycle)
-3. **Strategy presets** (VRP or future skew/IV-RV variants)
+3. **Strategy presets** (VRP, skew, or future IV-RV variants)
 
 This keeps strategy-specific code minimal while reusing the same lifecycle and
 accounting logic across structures (single-leg or multi-leg).
@@ -32,7 +32,9 @@ accounting logic across structures (single-leg or multi-leg).
 flowchart TD
     A[User Entrypoint] --> B[Backtester<br/>backtesting/engine.py]
     A --> C[VRPHarvestingSpec + make_vrp_strategy<br/>strategies/vrp_harvesting/specs.py]
+    A --> C2[SkewMispricingSpec + make_skew_mispricing_strategy<br/>strategies/skew_mispricing/specs.py]
     C --> D[StrategySpec<br/>backtesting/options_engine/specs.py]
+    C2 --> D
     B --> D
     B --> E[build_options_execution_plan<br/>backtesting/options_engine/plan_builder.py]
     B --> O[build_options_backtest_outputs<br/>backtesting/options_engine/outputs.py]
@@ -65,7 +67,7 @@ sequenceDiagram
 
     U->>B: run(data, strategy, config)
     B->>P: build_options_execution_plan(...)
-    P->>P: generate signals + apply filters
+    P->>P: generate signals + apply filters + compile signal exits
     loop each trading date
         alt position open
             B->>L: mark_position(...)
@@ -90,6 +92,7 @@ stateDiagram-v2
     [*] --> Flat
     Flat --> Open: signal on + valid entry intent + contracts > 0
     Open --> Open: daily mark-to-market
+    Open --> Flat: Signal exit
     Open --> Flat: Rebalance exit
     Open --> Flat: Max holding exit
     Open --> Flat: Margin call full liquidation
@@ -126,7 +129,7 @@ stateDiagram-v2
 - `mark_position`: daily MTM, Greeks refresh, financing/margin updates.
 - Option leg fills/costs are delegated to `OptionExecutionModel`.
 - Option market PnL and option trade costs are attributed separately.
-- Applies exit rules (`exit_rules.py`) and emits trade rows on close.
+- Applies signal exits and periodic exit rules, then emits trade rows on close.
 - Supports forced partial/full liquidation from margin lifecycle.
 
 ### 4) Runtime Loop (`engine.py`)
@@ -178,14 +181,13 @@ stateDiagram-v2
 
 ## Strategy Preset Pattern
 
-Current VRP preset:
+Current presets:
 
-- `VRPHarvestingSpec` defines business defaults
-- `make_vrp_strategy(spec)` returns a concrete `StrategySpec`
+- `VRPHarvestingSpec` + `make_vrp_strategy(spec)`
+- `SkewMispricingSpec` + `make_skew_mispricing_strategy(spec)`
 
-This pattern is reusable for future presets:
+This pattern is reusable for future presets such as:
 
-- Skew mispricing
 - IV-RV mispricing
 - Earnings vol-crush/rush structures
 

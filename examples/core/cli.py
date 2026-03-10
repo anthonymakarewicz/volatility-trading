@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class CommonExampleConfig:
-    """Common runtime arguments shared by all VRP example scripts."""
+    """Common runtime arguments shared by end-to-end example scripts."""
 
     ticker: str
     start: str

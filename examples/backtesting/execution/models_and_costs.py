@@ -8,20 +8,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from examples.backtesting.strategies import build_vrp_strategy
+from examples.core.backtesting_helpers import build_backtester, load_options_window
 from examples.core.cli import parse_common_args
-from examples.core.vrp_helpers import (
-    build_backtester,
-    build_vrp_strategy,
-    load_options_window,
-)
 from volatility_trading.backtesting import (
     BidAskFeeOptionExecutionModel,
     DeltaHedgePolicy,
     FixedBpsHedgeExecutionModel,
     FixedDeltaBandModel,
+    HedgeExecutionModel,
     HedgeTriggerPolicy,
     MidNoCostHedgeExecutionModel,
     MidNoCostOptionExecutionModel,
+    OptionExecutionModel,
     compute_performance_metrics,
     to_daily_mtm,
 )
@@ -32,8 +31,8 @@ class Scenario:
     """Execution configuration used in one comparison run."""
 
     name: str
-    option_execution_model: object
-    hedge_execution_model: object
+    option_execution_model: OptionExecutionModel
+    hedge_execution_model: HedgeExecutionModel
 
 
 def main() -> None:

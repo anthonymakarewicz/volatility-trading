@@ -7,8 +7,9 @@ Use these modules as runnable references for options backtesting setup.
 From repository root, run examples with `python -m ...`:
 
 ```bash
-python -m examples.backtesting.minimal_options_backtest
-python -m examples.backtesting.vrp_end_to_end
+python -m examples.backtesting.minimal_vrp_backtest
+python -m examples.backtesting.strategies.vrp_end_to_end
+python -m examples.backtesting.strategies.skew_mispricing_end_to_end
 python -m examples.backtesting.execution.models_and_costs
 python -m examples.backtesting.margin.model_and_financing
 python -m examples.backtesting.margin.policy_accounts
@@ -19,12 +20,14 @@ python -m examples.backtesting.hedging.ww_band
 python -m examples.backtesting.hedging.cost_baselines
 ```
 
-## Minimal / End-to-End
+## Minimal / Strategy End-to-End
 
-- `examples/backtesting/minimal_options_backtest.py`
-  - smallest public-API example showing data bundle, strategy, run config, and reporting
-- `examples/backtesting/vrp_end_to_end.py`
+- `examples/backtesting/minimal_vrp_backtest.py`
+  - smallest public-API VRP example showing data bundle, strategy, run config, and reporting
+- `examples/backtesting/strategies/vrp_end_to_end.py`
   - full VRP workflow (load data, build strategy/config, run, report)
+- `examples/backtesting/strategies/skew_mispricing_end_to_end.py`
+  - full skew workflow (load options + daily features, build strategy, run, report)
 
 ## Focused Execution Example
 
