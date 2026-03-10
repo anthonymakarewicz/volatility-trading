@@ -45,6 +45,7 @@ These are not stable API contracts unless explicitly promoted:
   - `volatility_trading.backtesting.options_engine.contracts.*`
   - `volatility_trading.backtesting.options_engine.entry`
   - `volatility_trading.backtesting.options_engine.plan_builder`
+  - `volatility_trading.backtesting.runner.*`
 - `examples/` code (usage demos, not compatibility contract)
 - research-stage modules and notebook support code under:
   - `volatility_trading.iv_surface.*`
