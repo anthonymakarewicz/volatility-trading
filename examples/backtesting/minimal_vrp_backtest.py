@@ -1,14 +1,14 @@
-"""Minimal public-API example for running one options backtest.
+"""Minimal public-API VRP example for running one options backtest.
 
 Run from repository root with:
-`python -m examples.backtesting.minimal_options_backtest`
+`python -m examples.backtesting.minimal_vrp_backtest`
 """
 
 from __future__ import annotations
 
 import pandas as pd
 
-from examples.core.vrp_helpers import load_options_window, load_rf_series
+from examples.core.backtesting_helpers import load_options_window, load_rf_series
 from volatility_trading.backtesting import (
     AccountConfig,
     Backtester,
