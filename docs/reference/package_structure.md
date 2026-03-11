@@ -79,7 +79,8 @@ src/volatility_trading
 │   ├── runner
 │   │   ├── __init__.py
 │   │   ├── registry.py
-│   │   └── types.py
+│   │   ├── types.py
+│   │   └── workflow_types.py
 │   └── reporting
 │       ├── __init__.py
 │       ├── builders.py
