@@ -235,6 +235,31 @@ def test_build_skew_signal_input_requires_skew_columns():
 
 
 @pytest.mark.parametrize(
+    ("last_value", "expected_column"),
+    [
+        (2.0, "long"),
+        (-1.0, "short"),
+    ],
+)
+def test_skew_default_signal_trades_raw_skew_mean_reversion(
+    last_value: float,
+    expected_column: str,
+) -> None:
+    signal = SkewMispricingSpec().signal
+    history = [0.0, 1.0] * 15
+    skew = pd.Series(
+        history + [last_value],
+        index=pd.date_range("2020-01-01", periods=len(history) + 1, freq="D"),
+        name="skew_rr_30d",
+    )
+
+    signals = signal.generate_signals(skew)
+
+    assert bool(signals.iloc[-1][expected_column])
+    assert not bool(signals.iloc[-1]["exit"])
+
+
+@pytest.mark.parametrize(
     ("signal", "expected_sides"),
     [
         (LongOnlySignal(), (-1, 1)),
