@@ -13,6 +13,10 @@ from volatility_trading.signals import (
     ZScoreSignal,
 )
 from volatility_trading.signals.base_signal import Signal
+from volatility_trading.strategies.skew_mispricing import (
+    SkewMispricingSpec,
+    make_skew_mispricing_strategy,
+)
 from volatility_trading.strategies.vrp_harvesting import (
     VRPHarvestingSpec,
     make_vrp_strategy,
@@ -32,6 +36,11 @@ _SIGNAL_FACTORIES: dict[str, SignalFactory] = {
 _VRP_ALLOWED_PARAMS = tuple(
     field.name
     for field in fields(VRPHarvestingSpec)
+    if field.init and field.name != "signal"
+)
+_SKEW_ALLOWED_PARAMS = tuple(
+    field.name
+    for field in fields(SkewMispricingSpec)
     if field.init and field.name != "signal"
 )
 
@@ -75,9 +84,38 @@ def _unknown_name_error(
 
 def _build_vrp_harvesting(spec: NamedStrategyPresetSpec) -> StrategySpec:
     """Build the current VRP harvesting preset from a named strategy spec."""
-    unexpected = tuple(sorted(set(spec.params) - set(_VRP_ALLOWED_PARAMS)))
+    return _build_dataclass_strategy_preset(
+        spec,
+        preset_factory=VRPHarvestingSpec,
+        strategy_factory=make_vrp_strategy,
+        allowed_params=_VRP_ALLOWED_PARAMS,
+        allow_default_signal=False,
+    )
+
+
+def _build_skew_mispricing(spec: NamedStrategyPresetSpec) -> StrategySpec:
+    """Build the skew mispricing preset from a named strategy spec."""
+    return _build_dataclass_strategy_preset(
+        spec,
+        preset_factory=SkewMispricingSpec,
+        strategy_factory=make_skew_mispricing_strategy,
+        allowed_params=_SKEW_ALLOWED_PARAMS,
+        allow_default_signal=True,
+    )
+
+
+def _build_dataclass_strategy_preset(
+    spec: NamedStrategyPresetSpec,
+    *,
+    preset_factory: Callable[..., Any],
+    strategy_factory: Callable[[Any], StrategySpec],
+    allowed_params: tuple[str, ...],
+    allow_default_signal: bool,
+) -> StrategySpec:
+    """Build one dataclass-backed strategy preset with shared validation."""
+    unexpected = tuple(sorted(set(spec.params) - set(allowed_params)))
     if unexpected:
-        accepted = ", ".join(_VRP_ALLOWED_PARAMS)
+        accepted = ", ".join(allowed_params)
         unexpected_text = ", ".join(unexpected)
         raise ValueError(
             "Invalid parameters for strategy preset "
@@ -85,12 +123,20 @@ def _build_vrp_harvesting(spec: NamedStrategyPresetSpec) -> StrategySpec:
             f"Accepted parameters: {accepted}."
         )
 
-    signal = build_signal(spec.signal)
-    preset = VRPHarvestingSpec(signal=signal, **dict(spec.params))
-    return make_vrp_strategy(preset)
+    params = dict(spec.params)
+    if spec.signal is not None:
+        params["signal"] = build_signal(spec.signal)
+    elif not allow_default_signal:
+        raise ValueError(
+            f"Strategy preset '{spec.name}' requires a signal configuration."
+        )
+
+    preset = preset_factory(**params)
+    return strategy_factory(preset)
 
 
 _STRATEGY_PRESET_BUILDERS: dict[str, StrategyPresetBuilder] = {
+    "skew_mispricing": _build_skew_mispricing,
     "vrp_harvesting": _build_vrp_harvesting,
 }
 

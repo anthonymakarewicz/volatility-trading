@@ -42,7 +42,7 @@ class NamedStrategyPresetSpec:
     """Named strategy preset config used by the future backtest runner."""
 
     name: str
-    signal: NamedSignalSpec
+    signal: NamedSignalSpec | None = None
     params: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

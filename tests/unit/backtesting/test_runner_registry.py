@@ -13,7 +13,10 @@ from volatility_trading.signals import LongOnlySignal, ShortOnlySignal, ZScoreSi
 
 def test_available_runner_registry_names_are_stable() -> None:
     assert available_signal_names() == ("long_only", "short_only", "zscore")
-    assert available_strategy_preset_names() == ("vrp_harvesting",)
+    assert available_strategy_preset_names() == (
+        "skew_mispricing",
+        "vrp_harvesting",
+    )
 
 
 def test_build_signal_builds_short_only_signal() -> None:
@@ -82,6 +85,47 @@ def test_build_strategy_preset_builds_vrp_strategy_with_nested_signal() -> None:
     assert strategy.sizing.risk_sizer.risk_budget_pct == pytest.approx(0.02)
 
 
+def test_build_strategy_preset_requires_signal_when_preset_has_no_default() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Strategy preset 'vrp_harvesting' requires a signal configuration",
+    ):
+        build_strategy_preset(
+            NamedStrategyPresetSpec(
+                name="vrp_harvesting",
+            )
+        )
+
+
+def test_build_strategy_preset_builds_skew_strategy_with_default_signal() -> None:
+    strategy = build_strategy_preset(
+        NamedStrategyPresetSpec(
+            name="skew_mispricing",
+            params={
+                "target_dte": 60,
+                "delta_target_abs": 0.30,
+            },
+        )
+    )
+
+    assert strategy.name == "skew_mispricing"
+    assert strategy.structure_spec.name == "risk_reversal"
+    assert strategy.structure_spec.dte_target == 60
+    assert strategy.structure_spec.legs[0].delta_target == pytest.approx(-0.30)
+    assert strategy.structure_spec.legs[1].delta_target == pytest.approx(0.30)
+
+
+def test_build_strategy_preset_allows_skew_signal_override() -> None:
+    strategy = build_strategy_preset(
+        NamedStrategyPresetSpec(
+            name="skew_mispricing",
+            signal=NamedSignalSpec(name="long_only"),
+        )
+    )
+
+    assert isinstance(strategy.signal, LongOnlySignal)
+
+
 def test_build_strategy_preset_rejects_unknown_name() -> None:
     with pytest.raises(
         ValueError,
@@ -105,6 +149,19 @@ def test_build_strategy_preset_rejects_invalid_params() -> None:
                 name="vrp_harvesting",
                 signal=NamedSignalSpec(name="short_only"),
                 params={"signal": "do_not_allow"},
+            )
+        )
+
+
+def test_build_skew_strategy_preset_rejects_invalid_params() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Invalid parameters for strategy preset 'skew_mispricing'",
+    ):
+        build_strategy_preset(
+            NamedStrategyPresetSpec(
+                name="skew_mispricing",
+                params={"unknown_param": 123},
             )
         )
 
