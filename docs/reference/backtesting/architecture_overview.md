@@ -160,6 +160,8 @@ stateDiagram-v2
 
 - `StrategySpec` carries strategy intent and policy:
   signal/filter wiring, structure selection, lifecycle policy, sizing policy.
+- `LifecycleConfig` can be periodic, signal-driven, or signal-driven with an
+  optional max-holding safety cap.
 - `BacktestRunConfig` carries run-time environment assumptions:
   account, execution, broker margin rules, pricing/risk engines, optional date window.
 - `OptionsBacktestDataBundle` carries market inputs:

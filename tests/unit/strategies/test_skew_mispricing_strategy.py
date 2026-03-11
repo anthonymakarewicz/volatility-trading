@@ -6,6 +6,7 @@ from volatility_trading.backtesting import (
     AccountConfig,
     BacktestRunConfig,
     ExecutionConfig,
+    MaxHoldingExitRule,
     OptionsBacktestDataBundle,
     OptionsMarketData,
 )
@@ -257,6 +258,16 @@ def test_skew_default_signal_trades_raw_skew_mean_reversion(
 
     assert bool(signals.iloc[-1][expected_column])
     assert not bool(signals.iloc[-1]["exit"])
+
+
+def test_skew_default_lifecycle_is_signal_driven_with_max_holding_safety_cap():
+    lifecycle = SkewMispricingSpec().to_strategy_spec().lifecycle
+
+    assert lifecycle.rebalance_period is None
+    assert lifecycle.max_holding_period == 30
+    assert tuple(type(rule) for rule in lifecycle.exit_rule_set.rules) == (
+        MaxHoldingExitRule,
+    )
 
 
 @pytest.mark.parametrize(

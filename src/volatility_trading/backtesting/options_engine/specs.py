@@ -18,7 +18,7 @@ from volatility_trading.signals import Signal
 
 from ..data_contracts import HedgeMarketData
 from .contracts.structures import LegSpec, StructureSpec
-from .exit_rules import ExitRuleSet, SameDayReentryPolicy
+from .exit_rules import ExitRuleSet, MaxHoldingExitRule, SameDayReentryPolicy
 
 SignalInput: TypeAlias = pd.Series | pd.DataFrame
 SignalInputBuilder: TypeAlias = Callable[
@@ -172,13 +172,47 @@ class DeltaHedgePolicy:
 
 @dataclass(frozen=True)
 class LifecycleConfig:
-    """Position lifecycle policy for one strategy."""
+    """Position lifecycle policy for one strategy.
+
+    Periodic exits are optional. Strategies may run in a signal-driven mode
+    with no rebalance or max-holding dates, optionally combined with a safety
+    cap via `LifecycleConfig.signal_driven(max_holding_period=...)`.
+    """
 
     rebalance_period: int | None = 5
     max_holding_period: int | None = None
     exit_rule_set: ExitRuleSet = field(default_factory=ExitRuleSet.period_rules)
     reentry_policy: SameDayReentryPolicy = field(default_factory=SameDayReentryPolicy)
     delta_hedge: DeltaHedgePolicy = field(default_factory=DeltaHedgePolicy)
+
+    @classmethod
+    def signal_driven(
+        cls,
+        *,
+        max_holding_period: int | None = None,
+        reentry_policy: SameDayReentryPolicy | None = None,
+        delta_hedge: DeltaHedgePolicy | None = None,
+        exit_rule_set: ExitRuleSet | None = None,
+    ) -> LifecycleConfig:
+        """Build signal-driven lifecycle with optional max-holding safety cap."""
+        resolved_exit_rule_set = exit_rule_set
+        if resolved_exit_rule_set is None:
+            resolved_exit_rule_set = (
+                ExitRuleSet(rules=(MaxHoldingExitRule(),))
+                if max_holding_period is not None
+                else ExitRuleSet.no_rules()
+            )
+        return cls(
+            rebalance_period=None,
+            max_holding_period=max_holding_period,
+            exit_rule_set=resolved_exit_rule_set,
+            reentry_policy=(
+                reentry_policy if reentry_policy is not None else SameDayReentryPolicy()
+            ),
+            delta_hedge=(
+                delta_hedge if delta_hedge is not None else DeltaHedgePolicy()
+            ),
+        )
 
     def __post_init__(self) -> None:
         for name, period in (
@@ -187,10 +221,6 @@ class LifecycleConfig:
         ):
             if period is not None and period <= 0:
                 raise ValueError(f"{name} must be > 0 when provided")
-        if self.rebalance_period is None and self.max_holding_period is None:
-            raise ValueError(
-                "At least one of rebalance_period or max_holding_period must be set."
-            )
 
 
 @dataclass(frozen=True)
