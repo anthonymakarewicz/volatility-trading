@@ -12,18 +12,20 @@ from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     ExitRuleSet,
     LegSpec,
-    LifecycleConfig,
     SameDayReentryPolicy,
-    SizingPolicyConfig,
     StrategySpec,
     StructureSpec,
 )
 from volatility_trading.filters import Filter
 from volatility_trading.options import (
     OptionType,
-    RiskBudgetSizer,
 )
 from volatility_trading.signals import Signal
+
+from .._preset_helpers import (
+    build_preset_lifecycle_config,
+    build_preset_sizing_config,
+)
 
 
 def _vrp_short_side(_leg_spec: LegSpec, _entry_direction: int) -> int:
@@ -57,19 +59,6 @@ class VRPHarvestingSpec:
 
     def to_strategy_spec(self) -> StrategySpec:
         """Convert this VRP preset into the generic ``StrategySpec`` contract."""
-        risk_sizer = (
-            RiskBudgetSizer(
-                risk_budget_pct=self.risk_budget_pct,
-                min_contracts=self.min_contracts,
-                max_contracts=self.max_contracts,
-            )
-            if self.risk_budget_pct is not None
-            else None
-        )
-        reentry_policy = self.reentry_policy or SameDayReentryPolicy(
-            allow_on_rebalance=self.allow_same_day_reentry_on_rebalance,
-            allow_on_max_holding=self.allow_same_day_reentry_on_max_holding,
-        )
         structure = StructureSpec(
             name="short_atm_straddle",
             dte_target=self.target_dte,
@@ -85,15 +74,17 @@ class VRPHarvestingSpec:
             filters=self.filters,
             structure_spec=structure,
             side_resolver=_vrp_short_side,
-            lifecycle=LifecycleConfig(
+            lifecycle=build_preset_lifecycle_config(
                 rebalance_period=self.rebalance_period,
                 max_holding_period=self.max_holding_period,
                 exit_rule_set=self.exit_rule_set,
-                reentry_policy=reentry_policy,
+                reentry_policy=self.reentry_policy,
+                allow_on_rebalance=self.allow_same_day_reentry_on_rebalance,
+                allow_on_max_holding=self.allow_same_day_reentry_on_max_holding,
                 delta_hedge=self.delta_hedge,
             ),
-            sizing=SizingPolicyConfig(
-                risk_sizer=risk_sizer,
+            sizing=build_preset_sizing_config(
+                risk_budget_pct=self.risk_budget_pct,
                 margin_budget_pct=self.margin_budget_pct,
                 min_contracts=self.min_contracts,
                 max_contracts=self.max_contracts,

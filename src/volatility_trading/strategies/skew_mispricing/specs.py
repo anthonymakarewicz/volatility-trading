@@ -3,26 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-
-import pandas as pd
+from functools import partial
 
 from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     ExitRuleSet,
     LegSpec,
-    LifecycleConfig,
     SameDayReentryPolicy,
-    SizingPolicyConfig,
     StrategySpec,
     StructureSpec,
 )
 from volatility_trading.filters import Filter
 from volatility_trading.options import (
     OptionType,
-    RiskBudgetSizer,
 )
 from volatility_trading.signals import Signal, ZScoreSignal
+from volatility_trading.signals._wrappers import InvertedSignal
 
+from .._preset_helpers import (
+    build_preset_lifecycle_config,
+    build_preset_sizing_config,
+)
 from .features import (
     build_skew_signal_input,
     resolve_orats_summary_tenor_suffix,
@@ -44,26 +45,14 @@ def _risk_reversal_side(leg_spec: LegSpec, entry_direction: int) -> int:
     )
 
 
-class _SkewContrarianZScoreSignal(ZScoreSignal):
-    """Flip z-score entries so raw skew trades mean-revert.
-
-    Raw skew is measured as put-wing IV minus call-wing IV. A high z-score means
-    skew is unusually steep, so the strategy buys the risk reversal to bet on
-    flattening. A low z-score means skew is unusually flat, so the strategy
-    sells the risk reversal to bet on steepening.
-    """
-
-    def generate_signals(self, data: pd.Series | pd.DataFrame) -> pd.DataFrame:
-        signals = super().generate_signals(data).copy()
-        long_entries = signals["long"].copy()
-        signals["long"] = signals["short"]
-        signals["short"] = long_entries
-        return signals
-
-
 def _default_signal() -> Signal:
     """Return the default contrarian z-score signal for raw skew."""
-    return _SkewContrarianZScoreSignal(window=30, entry=1.5, exit=0.5)
+    return InvertedSignal(ZScoreSignal(window=30, entry=1.5, exit=0.5))
+
+
+def _build_skew_signal_input_builder(*, target_dte: int):
+    """Return one signal-input builder bound to a specific skew tenor."""
+    return partial(build_skew_signal_input, target_dte=target_dte)
 
 
 @dataclass
@@ -99,19 +88,6 @@ class SkewMispricingSpec:
 
     def to_strategy_spec(self) -> StrategySpec:
         """Convert this skew preset into the generic ``StrategySpec`` contract."""
-        risk_sizer = (
-            RiskBudgetSizer(
-                risk_budget_pct=self.risk_budget_pct,
-                min_contracts=self.min_contracts,
-                max_contracts=self.max_contracts,
-            )
-            if self.risk_budget_pct is not None
-            else None
-        )
-        reentry_policy = self.reentry_policy or SameDayReentryPolicy(
-            allow_on_rebalance=self.allow_same_day_reentry_on_rebalance,
-            allow_on_max_holding=self.allow_same_day_reentry_on_max_holding,
-        )
         structure = StructureSpec(
             name="risk_reversal",
             dte_target=self.target_dte,
@@ -133,25 +109,22 @@ class SkewMispricingSpec:
             name="skew_mispricing",
             signal=self.signal,
             filters=self.filters,
-            signal_input_builder=lambda options, features, hedge_market: (
-                build_skew_signal_input(
-                    options,
-                    features,
-                    hedge_market,
-                    target_dte=self.target_dte,
-                )
+            signal_input_builder=_build_skew_signal_input_builder(
+                target_dte=self.target_dte
             ),
             structure_spec=structure,
             side_resolver=_risk_reversal_side,
-            lifecycle=LifecycleConfig(
+            lifecycle=build_preset_lifecycle_config(
                 rebalance_period=self.rebalance_period,
                 max_holding_period=self.max_holding_period,
                 exit_rule_set=self.exit_rule_set,
-                reentry_policy=reentry_policy,
+                reentry_policy=self.reentry_policy,
+                allow_on_rebalance=self.allow_same_day_reentry_on_rebalance,
+                allow_on_max_holding=self.allow_same_day_reentry_on_max_holding,
                 delta_hedge=self.delta_hedge,
             ),
-            sizing=SizingPolicyConfig(
-                risk_sizer=risk_sizer,
+            sizing=build_preset_sizing_config(
+                risk_budget_pct=self.risk_budget_pct,
                 margin_budget_pct=self.margin_budget_pct,
                 min_contracts=self.min_contracts,
                 max_contracts=self.max_contracts,
