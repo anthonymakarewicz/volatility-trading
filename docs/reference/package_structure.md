@@ -81,6 +81,7 @@ src/volatility_trading
 │   │   ├── assembly.py
 │   │   ├── config_parser.py
 │   │   ├── registry.py
+│   │   ├── service.py
 │   │   ├── types.py
 │   │   └── workflow_types.py
 │   └── reporting
