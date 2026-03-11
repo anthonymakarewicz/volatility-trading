@@ -58,6 +58,37 @@ class DirectionSignal(Signal):
             self.direction = int(kwargs["direction"])
 
 
+class EntryThenExitSignal(Signal):
+    def __init__(self, *, entry_direction: int):
+        super().__init__()
+        if entry_direction not in (-1, 1):
+            raise ValueError("entry_direction must be -1 or +1")
+        self.entry_direction = entry_direction
+
+    def generate_signals(self, data: pd.Series | pd.DataFrame) -> pd.DataFrame:
+        idx = pd.DatetimeIndex(data.index)
+        signals = pd.DataFrame(
+            {
+                "long": False,
+                "short": False,
+                "exit": False,
+            },
+            index=idx,
+        )
+        entry_column = "long" if self.entry_direction == 1 else "short"
+        signals.at[idx[0], entry_column] = True
+        if len(signals) > 1:
+            signals.at[idx[1], "exit"] = True
+        return signals
+
+    def get_params(self) -> dict:
+        return {"entry_direction": self.entry_direction}
+
+    def set_params(self, **kwargs):
+        if "entry_direction" in kwargs:
+            self.entry_direction = int(kwargs["entry_direction"])
+
+
 def _make_options() -> pd.DataFrame:
     rows = [
         {
@@ -682,3 +713,45 @@ def test_build_plan_supports_custom_option_execution_model_injection():
     assert mtm.loc[pd.Timestamp("2020-01-01"), "option_trade_cost"] == pytest.approx(
         2.0
     )
+
+
+def test_signal_exit_closes_position_without_periodic_exit():
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="signal_exit_strategy",
+        signal=EntryThenExitSignal(entry_direction=-1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig.signal_driven(),
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
+        ),
+    )
+    plan = build_options_execution_plan(
+        spec=spec,
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(
+                chain=_make_options(),
+                default_contract_multiplier=1.0,
+            )
+        ),
+        config=cfg,
+        capital=10_000.0,
+    )
+
+    trades, mtm = run_backtest_execution_plan(plan)
+
+    assert len(trades) == 1
+    assert trades.iloc[0]["exit_type"] == "Signal Exit"
+    assert len(mtm) == 2

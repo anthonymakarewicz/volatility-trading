@@ -123,6 +123,7 @@ class PositionLifecycleEngine:
         options: pd.DataFrame,
         cfg: BacktestRunConfig,
         equity_running: float,
+        exit_type_override: str | None = None,
     ) -> LifecycleStepResult:
         """Revalue one open position for one date and apply exit/liquidation rules.
 
@@ -181,8 +182,9 @@ class PositionLifecycleEngine:
                 mtm_record=mtm_record,
             )
 
-        exit_type = self.exit_rule_set.evaluate(
-            curr_date=step.curr_date, position=position
+        exit_type = exit_type_override or self.exit_rule_set.evaluate(
+            curr_date=step.curr_date,
+            position=position,
         )
         if exit_type is None:
             return transition_continue_open(

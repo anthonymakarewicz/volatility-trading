@@ -248,8 +248,10 @@ def _make_hedge_market(
         series.index = pd.to_datetime(series.index)
         return series.sort_index()
 
+    mid = _to_series(prices)
+    assert mid is not None  # nosec B101 - helper contract requires prices
     return HedgeMarketData(
-        mid=_to_series(prices) if prices is not None else pd.Series(dtype=float),
+        mid=mid,
         bid=_to_series(bid_prices),
         ask=_to_series(ask_prices),
         contract_multiplier=contract_multiplier,
@@ -395,6 +397,34 @@ def test_mark_position_rebalance_exit_closes_position_and_emits_trade():
     assert mtm_record.open_contracts == 0
     assert mtm_record.greeks.delta == pytest.approx(0.0)
     assert mtm_record.net_delta == pytest.approx(0.0)
+
+
+def test_mark_position_signal_exit_override_takes_precedence_over_periodic_exit():
+    setup = _make_setup(contracts=2)
+    cfg = _make_cfg()
+    engine = _make_engine(rebalance_period=1)
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    options = _make_options_row_for_date(
+        bid_price=6.0,
+        ask_price=6.0,
+    )
+    step_result = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=options,
+        cfg=cfg,
+        equity_running=10_000.0,
+        exit_type_override="Signal Exit",
+    )
+
+    assert step_result.position is None
+    assert len(step_result.trade_rows) == 1
+    assert step_result.trade_rows[0].exit_type == "Signal Exit"
 
 
 def test_mark_position_forced_liquidation_full_mode_closes_all_contracts():
@@ -732,6 +762,7 @@ def test_mark_position_scales_hedge_qty_and_pnl_by_contract_multiplier():
     assert day2.mtm_record.hedge_qty == pytest.approx(0.01)
     assert day2.mtm_record.net_delta == pytest.approx(0.0)
     assert day2.mtm_record.hedge_turnover == pytest.approx(0.01)
+    assert day2.position is not None
 
     day3 = engine.mark_position(
         position=day2.position,

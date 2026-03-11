@@ -10,7 +10,6 @@ from volatility_trading.backtesting import (
     BacktestRunConfig,
     BidAskFeeOptionExecutionModel,
     BrokerConfig,
-    DeltaHedgePolicy,
     ExecutionConfig,
     FixedBpsHedgeExecutionModel,
     HedgeExecutionModel,
@@ -27,12 +26,11 @@ from volatility_trading.backtesting import (
 )
 from volatility_trading.datasets import (
     options_chain_wide_to_long,
+    read_daily_features,
     read_fred_rates,
     read_options_chain,
 )
 from volatility_trading.options import MarginModel, RegTMarginModel
-from volatility_trading.signals import ShortOnlySignal
-from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
 
 
 def load_options_long(ticker: str) -> pd.DataFrame:
@@ -51,18 +49,32 @@ def load_options_window(*, ticker: str, start: str, end: str) -> pd.DataFrame:
     return options
 
 
-def load_rf_series(index: pd.DatetimeIndex) -> pd.Series:
+def load_daily_features_window(*, ticker: str, start: str, end: str) -> pd.DataFrame:
+    """Load one ticker daily-features panel and return the requested window."""
+    features = read_daily_features(ticker).to_pandas()
+    features["trade_date"] = pd.to_datetime(features["trade_date"])
+    features = features.set_index("trade_date").sort_index().loc[start:end]
+    if features.empty:
+        raise ValueError(
+            f"No daily-features rows for {ticker} in range {start}:{end}"
+        )
+    return features
+
+
+def load_rf_series(index: pd.Index) -> pd.Series:
     """Load 3M T-bill rate series aligned to one backtest date index."""
     rf_df = read_fred_rates(columns=["date", "dgs3mo"]).to_pandas()
     rf_df["date"] = pd.to_datetime(rf_df["date"])
     rf = rf_df.set_index("date")["dgs3mo"].astype(float).div(100.0)
-    return rf.reindex(index).ffill().fillna(0.0)
+    aligned_index = pd.DatetimeIndex(index)
+    return rf.reindex(aligned_index).ffill().fillna(0.0)
 
 
 def build_data_bundle(
     *,
     options: pd.DataFrame,
     ticker: str,
+    features: pd.DataFrame | None = None,
     options_adapter: OptionsChainAdapter | None = None,
 ) -> OptionsBacktestDataBundle:
     """Build one options backtest bundle with spot-based hedge market data."""
@@ -73,29 +85,11 @@ def build_data_bundle(
             symbol=ticker,
             options_adapter=options_adapter,
         ),
+        features=features,
         hedge_market=HedgeMarketData(
             mid=hedge_mid,
             symbol=ticker,
         ),
-    )
-
-
-def build_vrp_strategy(
-    *,
-    rebalance_period: int = 10,
-    risk_budget_pct: float = 1.0,
-    margin_budget_pct: float = 0.4,
-    delta_hedge: DeltaHedgePolicy | None = None,
-) -> StrategySpec:
-    """Build one baseline VRP strategy used across examples."""
-    return make_vrp_strategy(
-        VRPHarvestingSpec(
-            signal=ShortOnlySignal(),
-            rebalance_period=rebalance_period,
-            risk_budget_pct=risk_budget_pct,
-            margin_budget_pct=margin_budget_pct,
-            delta_hedge=delta_hedge or DeltaHedgePolicy(),
-        )
     )
 
 
@@ -149,6 +143,7 @@ def build_backtester(
     options: pd.DataFrame,
     ticker: str,
     strategy: StrategySpec,
+    features: pd.DataFrame | None = None,
     initial_capital: float,
     commission_per_leg: float,
     hedge_fee_bps: float,
@@ -180,6 +175,7 @@ def build_backtester(
         data=build_data_bundle(
             options=options,
             ticker=ticker,
+            features=features,
             options_adapter=options_adapter,
         ),
         strategy=strategy,

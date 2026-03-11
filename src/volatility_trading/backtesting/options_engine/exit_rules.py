@@ -82,6 +82,11 @@ class ExitRuleSet:
     combined_rebalance_max_hold_type: str = "Rebalance/Max Holding Period"
 
     @classmethod
+    def no_rules(cls) -> ExitRuleSet:
+        """Return an empty rule set for signal-driven lifecycle only."""
+        return cls(rules=())
+
+    @classmethod
     def period_rules(cls) -> ExitRuleSet:
         """Return default periodic exit rules (rebalance + max-holding)."""
         return cls(rules=(RebalanceExitRule(), MaxHoldingExitRule()))

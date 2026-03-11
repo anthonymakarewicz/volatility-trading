@@ -4,6 +4,7 @@ import pandas as pd
 
 from volatility_trading.backtesting.options_engine import (
     ExitRuleSet,
+    LifecycleConfig,
     SameDayReentryPolicy,
 )
 
@@ -38,6 +39,41 @@ def test_period_exit_rules_combined():
         position=position,
     )
     assert exit_type == "Rebalance/Max Holding Period"
+
+
+def test_no_exit_rules_never_trigger():
+    rule_set = ExitRuleSet.no_rules()
+    position = _DummyPosition(
+        rebalance_date=pd.Timestamp("2020-01-10"),
+        max_hold_date=pd.Timestamp("2020-01-20"),
+    )
+    exit_type = rule_set.evaluate(
+        curr_date=pd.Timestamp("2020-01-10"),
+        position=position,
+    )
+    assert exit_type is None
+
+
+def test_signal_driven_lifecycle_with_safety_cap_uses_only_max_holding():
+    lifecycle = LifecycleConfig.signal_driven(max_holding_period=10)
+    position = _DummyPosition(
+        rebalance_date=pd.Timestamp("2020-01-05"),
+        max_hold_date=pd.Timestamp("2020-01-10"),
+    )
+
+    rebalance_exit = lifecycle.exit_rule_set.evaluate(
+        curr_date=pd.Timestamp("2020-01-05"),
+        position=position,
+    )
+    max_hold_exit = lifecycle.exit_rule_set.evaluate(
+        curr_date=pd.Timestamp("2020-01-10"),
+        position=position,
+    )
+
+    assert lifecycle.rebalance_period is None
+    assert lifecycle.max_holding_period == 10
+    assert rebalance_exit is None
+    assert max_hold_exit == "Max Holding Period"
 
 
 def test_same_day_reentry_policy_by_exit_type():

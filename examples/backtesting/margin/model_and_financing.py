@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from examples.core.cli import parse_common_args
-from examples.core.vrp_helpers import (
+from examples.backtesting.strategies import build_vrp_strategy
+from examples.core.backtesting_helpers import (
     build_backtester,
-    build_vrp_strategy,
     load_options_window,
     load_rf_series,
 )
+from examples.core.cli import parse_common_args
 from volatility_trading.backtesting import (
     MarginPolicy,
     compute_performance_metrics,

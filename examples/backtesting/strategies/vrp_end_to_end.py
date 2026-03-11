@@ -8,18 +8,18 @@ This script demonstrates a minimal pipeline:
 5) print performance metrics.
 
 Run from repository root with:
-`python -m examples.backtesting.vrp_end_to_end`
+`python -m examples.backtesting.strategies.vrp_end_to_end`
 """
 
 from __future__ import annotations
 
-from examples.core.cli import parse_vrp_args
-from examples.core.vrp_helpers import (
+from examples.backtesting.strategies import build_vrp_strategy
+from examples.core.backtesting_helpers import (
     build_backtester,
-    build_vrp_strategy,
     load_options_window,
     run_and_report,
 )
+from examples.core.cli import parse_vrp_args
 from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     FixedDeltaBandModel,

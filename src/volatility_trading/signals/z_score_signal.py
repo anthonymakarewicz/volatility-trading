@@ -2,12 +2,10 @@ import pandas as pd
 
 from .base_signal import Signal
 
-# FIXME(STATS): rolling-window features currently include the current day (t), causing leakage.
-# Compute rolling mean/std on [t-window, t-1] by shifting inputs (or outputs) by 1 day.
-
 
 class ZScoreSignal(Signal):
     def __init__(self, window=60, entry=2.0, exit=0.5):
+        super().__init__()
         self.window = window
         self.entry = entry
         self.exit = exit
@@ -86,4 +84,7 @@ class ZScoreSignal(Signal):
 
 
 def compute_zscore(series: pd.Series, window: int = 60) -> pd.Series:
-    return (series - series.rolling(window).mean()) / series.rolling(window).std()
+    history = series.shift(1)
+    rolling_mean = history.rolling(window).mean()
+    rolling_std = history.rolling(window).std()
+    return (series - rolling_mean) / rolling_std

@@ -306,3 +306,20 @@ def test_normalize_signals_to_on_builds_direction_from_long_short_columns():
     out = normalize_signals_to_on(signals)
     assert list(out["on"]) == [True, True, False]
     assert list(out["entry_direction"]) == [1, -1, 0]
+
+
+def test_normalize_signals_to_on_preserves_exit_flags():
+    idx = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03"])
+    signals = pd.DataFrame(
+        {
+            "long": [True, False, False],
+            "short": [False, False, False],
+            "exit": [False, True, False],
+        },
+        index=idx,
+    )
+
+    out = normalize_signals_to_on(signals)
+
+    assert list(out["entry_direction"]) == [1, 0, 0]
+    assert list(out["exit"]) == [False, True, False]
