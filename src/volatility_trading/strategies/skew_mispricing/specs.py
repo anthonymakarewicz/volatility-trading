@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import pandas as pd
+
 from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     ExitRuleSet,
@@ -42,9 +44,26 @@ def _risk_reversal_side(leg_spec: LegSpec, entry_direction: int) -> int:
     )
 
 
+class _SkewContrarianZScoreSignal(ZScoreSignal):
+    """Flip z-score entries so raw skew trades mean-revert.
+
+    Raw skew is measured as put-wing IV minus call-wing IV. A high z-score means
+    skew is unusually steep, so the strategy buys the risk reversal to bet on
+    flattening. A low z-score means skew is unusually flat, so the strategy
+    sells the risk reversal to bet on steepening.
+    """
+
+    def generate_signals(self, data: pd.Series | pd.DataFrame) -> pd.DataFrame:
+        signals = super().generate_signals(data).copy()
+        long_entries = signals["long"].copy()
+        signals["long"] = signals["short"]
+        signals["short"] = long_entries
+        return signals
+
+
 def _default_signal() -> Signal:
-    """Return the default skew z-score signal."""
-    return ZScoreSignal(window=50, entry=1.5, exit=0.5)
+    """Return the default contrarian z-score signal for raw skew."""
+    return _SkewContrarianZScoreSignal(window=30, entry=1.5, exit=0.5)
 
 
 @dataclass
