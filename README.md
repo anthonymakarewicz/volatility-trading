@@ -125,18 +125,12 @@ Assume you already prepared:
 
 - `options`: long-format `pandas` options panel indexed by `trade_date`
 
-1. Import strategy and backtesting types:
-
 ```python
 from volatility_trading.backtesting import (
     AccountConfig,
     Backtester,
-    BidAskFeeOptionExecutionModel,
     BacktestRunConfig,
     BrokerConfig,
-    FixedBpsHedgeExecutionModel,
-    ExecutionConfig,
-    HedgeMarketData,
     MarginConfig,
     OptionsBacktestDataBundle,
     OptionsMarketData,
@@ -146,68 +140,69 @@ from volatility_trading.backtesting import (
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
-```
 
-2. Build the backtest data bundle:
-
-```python
-hedge_mid = options.groupby(level=0)["spot_price"].first().astype(float)
 data = OptionsBacktestDataBundle(
-    options_market=OptionsMarketData(
-        chain=options,
-    ),
-    features=None,
-    hedge_market=HedgeMarketData(mid=hedge_mid),
+    options_market=OptionsMarketData(chain=options),
 )
-```
-
-3. Define strategy spec and run configuration:
-
-```python
-vrp_spec = VRPHarvestingSpec(
-    signal=ShortOnlySignal(),
-    rebalance_period=10,
-    risk_budget_pct=0.03,
-    margin_budget_pct=0.4,
+strategy = make_vrp_strategy(
+    VRPHarvestingSpec(
+        signal=ShortOnlySignal(),
+        rebalance_period=10,
+        risk_budget_pct=0.03,
+        margin_budget_pct=0.4,
+    )
 )
-strategy = make_vrp_strategy(vrp_spec)
-
 cfg = BacktestRunConfig(
     account=AccountConfig(initial_capital=50_000),
-    execution=ExecutionConfig(
-        option_execution_model=BidAskFeeOptionExecutionModel(
-            commission_per_leg=0.0,
-        ),
-        hedge_execution_model=FixedBpsHedgeExecutionModel(
-            fee_bps=0.0,
-        ),
-    ),
     broker=BrokerConfig(
         margin=MarginConfig(model=RegTMarginModel(broad_index=False))
     ),
 )
-```
 
-4. Run the backtest and compute daily MTM/performance metrics:
-
-```python
-bt = Backtester(
-    data=data,
-    strategy=strategy,
-    config=cfg,
-)
+bt = Backtester(data=data, strategy=strategy, config=cfg)
 trades, mtm = bt.run()
 daily_mtm = to_daily_mtm(mtm, cfg.account.initial_capital)
-
-metrics = print_performance_report(
+print_performance_report(
     trades=trades,
     mtm_daily=daily_mtm,
     risk_free_rate=0.02,
 )
 ```
 
+## **Quick Skew Backtest Example**
+
+Assume you also prepared:
+
+- `features`: daily ORATS features indexed by `trade_date`, including
+  `iv_dlt25_30d` and `iv_dlt75_30d`
+
+```python
+from volatility_trading.strategies import (
+    SkewMispricingSpec,
+    make_skew_mispricing_strategy,
+)
+
+data = OptionsBacktestDataBundle(
+    options_market=OptionsMarketData(chain=options),
+    features=features,
+)
+
+strategy = make_skew_mispricing_strategy(
+    SkewMispricingSpec(
+        risk_budget_pct=0.03,
+        margin_budget_pct=0.4,
+        max_holding_period=30,
+    )
+)
+
+bt = Backtester(data=data, strategy=strategy, config=cfg)
+trades, mtm = bt.run()
+```
+
 For a full scriptable workflow (data loading + backtest run), see
 [VRP end-to-end example](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/backtesting/strategies/vrp_end_to_end.py).
+For the skew counterpart using daily features, see
+[Skew end-to-end example](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/backtesting/strategies/skew_mispricing_end_to_end.py).
 For focused backtesting configuration examples (execution, margin, adapters, hedging), see
 [examples/README.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/README.md).
 For hedging model semantics and WW/fixed-band configuration details, see
@@ -222,32 +217,59 @@ Preferred imports for common backtesting usage come from
 `volatility_trading.backtesting.options_engine` namespace remains available for
 advanced engine-specific helpers.
 
-## **Advanced Option Execution Injection**
+## **Advanced Execution And Hedging Setup**
 
-`Backtester` intentionally keeps a stable high-level API and does not expose an
-`option_execution_model` argument.
+`Backtester` intentionally keeps a stable high-level API and does not expose
+execution-model arguments directly.
 
-If you want to override option execution behavior, set it on
-`BacktestRunConfig.execution.option_execution_model`:
+If you want explicit transaction-cost models for both options and hedge trades,
+configure them on `BacktestRunConfig.execution`. If the strategy uses dynamic
+delta hedging, also provide `hedge_market`:
 
 ```python
+# Reuse the imports from the quick VRP example above, then add:
 from volatility_trading.backtesting import (
-    BacktestRunConfig,
-    Backtester,
+    BidAskFeeOptionExecutionModel,
+    DeltaHedgePolicy,
     ExecutionConfig,
-    MidNoCostOptionExecutionModel,
+    FixedDeltaBandModel,
+    FixedBpsHedgeExecutionModel,
+    HedgeMarketData,
+    HedgeTriggerPolicy,
 )
 
+hedge_mid = options.groupby(level=0)["spot_price"].first().astype(float)
+data = OptionsBacktestDataBundle(
+    options_market=OptionsMarketData(chain=options),
+    hedge_market=HedgeMarketData(mid=hedge_mid),
+)
+strategy = make_vrp_strategy(
+    VRPHarvestingSpec(
+        signal=ShortOnlySignal(),
+        rebalance_period=10,
+        delta_hedge=DeltaHedgePolicy(
+            enabled=True,
+            target_net_delta=0.0,
+            trigger=HedgeTriggerPolicy(
+                band_model=FixedDeltaBandModel(half_width_abs=25.0),
+                rebalance_every_n_days=5,
+                combine_mode="or",
+            ),
+            min_rebalance_qty=1.0,
+        ),
+    )
+)
 cfg = BacktestRunConfig(
     execution=ExecutionConfig(
-        option_execution_model=MidNoCostOptionExecutionModel(),
+        option_execution_model=BidAskFeeOptionExecutionModel(
+            commission_per_leg=0.0,
+        ),
+        hedge_execution_model=FixedBpsHedgeExecutionModel(
+            fee_bps=1.0,
+        ),
     ),
 )
-bt = Backtester(
-    data=data,
-    strategy=strategy,
-    config=cfg,
-)
+bt = Backtester(data=data, strategy=strategy, config=cfg)
 trades, mtm = bt.run()
 ```
 

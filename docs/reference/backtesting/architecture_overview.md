@@ -186,6 +186,11 @@ Current presets:
 - `VRPHarvestingSpec` + `make_vrp_strategy(spec)`
 - `SkewMispricingSpec` + `make_skew_mispricing_strategy(spec)`
 
+Skew semantics note:
+- raw skew is defined as `25d put IV - 25d call IV`
+- the default skew preset trades contrarian to that raw skew:
+  unusually steep skew buys the risk reversal, unusually flat skew sells it
+
 This pattern is reusable for future presets such as:
 
 - IV-RV mispricing
