@@ -9,6 +9,7 @@ from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     ExitRuleSet,
     LegSpec,
+    LifecycleConfig,
     SameDayReentryPolicy,
     StrategySpec,
     StructureSpec,
@@ -53,6 +54,35 @@ def _default_signal() -> Signal:
 def _build_skew_signal_input_builder(*, target_dte: int):
     """Return one signal-input builder bound to a specific skew tenor."""
     return partial(build_skew_signal_input, target_dte=target_dte)
+
+
+def _build_skew_lifecycle_config(spec: "SkewMispricingSpec") -> LifecycleConfig:
+    """Build skew lifecycle, preferring signal-driven mode when no rebalance."""
+    if spec.rebalance_period is None:
+        exit_rule_set = spec.exit_rule_set
+        if exit_rule_set == ExitRuleSet.period_rules():
+            exit_rule_set = None
+        return LifecycleConfig.signal_driven(
+            max_holding_period=spec.max_holding_period,
+            exit_rule_set=exit_rule_set,
+            reentry_policy=(
+                spec.reentry_policy
+                or SameDayReentryPolicy(
+                    allow_on_rebalance=spec.allow_same_day_reentry_on_rebalance,
+                    allow_on_max_holding=spec.allow_same_day_reentry_on_max_holding,
+                )
+            ),
+            delta_hedge=spec.delta_hedge,
+        )
+    return build_preset_lifecycle_config(
+        rebalance_period=spec.rebalance_period,
+        max_holding_period=spec.max_holding_period,
+        exit_rule_set=spec.exit_rule_set,
+        reentry_policy=spec.reentry_policy,
+        allow_on_rebalance=spec.allow_same_day_reentry_on_rebalance,
+        allow_on_max_holding=spec.allow_same_day_reentry_on_max_holding,
+        delta_hedge=spec.delta_hedge,
+    )
 
 
 @dataclass
@@ -114,15 +144,7 @@ class SkewMispricingSpec:
             ),
             structure_spec=structure,
             side_resolver=_risk_reversal_side,
-            lifecycle=build_preset_lifecycle_config(
-                rebalance_period=self.rebalance_period,
-                max_holding_period=self.max_holding_period,
-                exit_rule_set=self.exit_rule_set,
-                reentry_policy=self.reentry_policy,
-                allow_on_rebalance=self.allow_same_day_reentry_on_rebalance,
-                allow_on_max_holding=self.allow_same_day_reentry_on_max_holding,
-                delta_hedge=self.delta_hedge,
-            ),
+            lifecycle=_build_skew_lifecycle_config(self),
             sizing=build_preset_sizing_config(
                 risk_budget_pct=self.risk_budget_pct,
                 margin_budget_pct=self.margin_budget_pct,

@@ -726,7 +726,7 @@ def test_signal_exit_closes_position_without_periodic_exit():
         name="signal_exit_strategy",
         signal=EntryThenExitSignal(entry_direction=-1),
         structure_spec=structure,
-        lifecycle=LifecycleConfig(rebalance_period=None, max_holding_period=10),
+        lifecycle=LifecycleConfig.signal_driven(),
     )
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),

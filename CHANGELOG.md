@@ -24,6 +24,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Options backtests now honor `Signal.exit` as a shared lifecycle close trigger,
   emitting `Signal Exit` trade rows when a strategy exits via signal mean
   reversion.
+- `LifecycleConfig` now supports signal-driven mode without periodic exits, and
+  adds `LifecycleConfig.signal_driven(...)` for signal-only lifecycle with an
+  optional max-holding safety cap.
 - `ZScoreSignal` rolling statistics now use only prior observations, removing
   look-ahead leakage from its z-score computation.
 - Reorganized backtesting examples under strategy-specific entrypoints and
