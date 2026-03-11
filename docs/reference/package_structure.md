@@ -78,6 +78,7 @@ src/volatility_trading
 │   ├── rates.py
 │   ├── runner
 │   │   ├── __init__.py
+│   │   ├── assembly.py
 │   │   ├── config_parser.py
 │   │   ├── registry.py
 │   │   ├── types.py

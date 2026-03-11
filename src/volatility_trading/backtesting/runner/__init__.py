@@ -1,5 +1,6 @@
 """Internal building blocks for config-driven backtest workflows."""
 
+from .assembly import ResolvedWorkflowInputs, assemble_workflow_inputs
 from .config_parser import parse_workflow_config
 from .registry import (
     available_signal_names,
@@ -30,6 +31,8 @@ __all__ = [
     "RunWindowSpec",
     "ReportingSpec",
     "BacktestWorkflowSpec",
+    "ResolvedWorkflowInputs",
+    "assemble_workflow_inputs",
     "parse_workflow_config",
     "available_signal_names",
     "available_strategy_preset_names",
