@@ -12,6 +12,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Added `SkewMispricingSpec` and `make_skew_mispricing_strategy` as a second
   built-in options strategy preset, using a 25-delta risk reversal selected
   through the shared options-engine structure logic.
+- Added `backtest-run`, a config-driven workflow CLI for one backtest run with
+  YAML config loading, dry-run validation, and top-level overrides for ticker,
+  run window, and report output.
 
 ### Changed
 - Standardized project setup and contributor installs on `uv`; `pip` remains

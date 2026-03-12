@@ -35,6 +35,27 @@ Example:
 orats-api-download --config config/orats/api_download.yml
 ```
 
+## Backtesting
+
+Commands:
+- `backtest-run`
+
+Example:
+```bash
+backtest-run --config path/to/backtest.yml --dry-run
+```
+
+Notes:
+- Runs one config-driven backtest workflow per invocation.
+- Supports top-level CLI overrides for:
+  - `--ticker`
+  - `--start`
+  - `--end`
+  - `--output-root`
+  - `--run-id`
+- `--dry-run` validates config parsing and local data assembly without
+  executing the backtest.
+
 ## OptionsDX
 
 Commands:
@@ -82,3 +103,14 @@ OptionsDX panel build app uses:
 
 - `paths.raw_root`
 - `paths.proc_root`
+
+Backtest workflow configs use top-level sections instead:
+
+- `data`
+- `strategy`
+- `account`
+- `execution`
+- `broker`
+- `modeling`
+- `run`
+- `reporting`
