@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 
@@ -23,6 +24,7 @@ from volatility_trading.backtesting.data_contracts import (
 from volatility_trading.backtesting.options_engine.specs import StrategySpec
 from volatility_trading.backtesting.rates import RateInput
 from volatility_trading.datasets import (
+    fred_rates_path,
     options_chain_wide_to_long,
     read_daily_features,
     read_fred_rates,
@@ -227,10 +229,11 @@ def _resolve_risk_free_rate(
     if spec.provider != "fred":
         raise ValueError(f"Unsupported rates source provider: {spec.provider}")
 
+    fred_proc_root = _resolve_fred_rates_proc_root(spec.proc_root)
     if spec.proc_root is None:
         frame = read_fred_rates().to_pandas()
     else:
-        frame = read_fred_rates(proc_root=spec.proc_root).to_pandas()
+        frame = read_fred_rates(proc_root=fred_proc_root).to_pandas()
     column = spec.column or str(spec.series_id).lower()
     if column not in frame.columns:
         available = ", ".join(map(str, frame.columns))
@@ -250,6 +253,19 @@ def _resolve_risk_free_rate(
         .sort_index()
     )
     return _slice_series_to_run_window(series, workflow=workflow)
+
+
+def _resolve_fred_rates_proc_root(proc_root: Path | None) -> Path | None:
+    """Accept either a FRED source root or a FRED rates-domain root."""
+    if proc_root is None:
+        return None
+    root = Path(proc_root)
+    if fred_rates_path(root).exists():
+        return root
+    domain_root = root / "rates"
+    if fred_rates_path(domain_root).exists():
+        return domain_root
+    return root
 
 
 def _slice_series_to_run_window(

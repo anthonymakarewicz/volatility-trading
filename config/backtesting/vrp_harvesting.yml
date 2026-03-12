@@ -52,7 +52,7 @@ run:
 
 reporting:
   output_root: reports/backtests
-  run_id: vrp_harvesting_spy
+  run_id: spy_2018_2020
   save_report_bundle: true
   include_dashboard_plot: true
   include_component_plots: false
