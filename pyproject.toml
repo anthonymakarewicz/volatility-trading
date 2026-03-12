@@ -61,6 +61,7 @@ release = [
 ]
 
 [project.scripts]
+backtest-run = "volatility_trading.apps.backtesting.run:main"
 orats-api-download = "volatility_trading.apps.orats.download_api:main"
 orats-api-extract = "volatility_trading.apps.orats.extract_api:main"
 orats-ftp-download = "volatility_trading.apps.orats.download_ftp:main"
