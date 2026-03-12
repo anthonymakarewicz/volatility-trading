@@ -3,11 +3,13 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from volatility_trading.backtesting.margin import MarginPolicy
 from volatility_trading.backtesting.options_engine.lifecycle import (
     FixedBpsHedgeExecutionModel,
     MidNoCostOptionExecutionModel,
 )
 from volatility_trading.backtesting.runner import parse_workflow_config
+from volatility_trading.options import RegTMarginModel
 
 
 def test_parse_workflow_config_builds_minimal_vrp_workflow() -> None:
@@ -79,6 +81,14 @@ def test_parse_workflow_config_builds_skew_workflow_with_defaults_and_execution(
                     "params": {"fee_bps": 0.0},
                 },
             },
+            "broker": {
+                "margin": {
+                    "model": {
+                        "name": "regt",
+                        "params": {"broad_index": False},
+                    }
+                }
+            },
             "run": {
                 "start_date": "2020-01-01",
                 "end_date": "2020-12-31",
@@ -111,6 +121,7 @@ def test_parse_workflow_config_builds_skew_workflow_with_defaults_and_execution(
         workflow.execution.hedge_execution_model,
         FixedBpsHedgeExecutionModel,
     )
+    assert isinstance(workflow.broker.margin.model, RegTMarginModel)
     assert workflow.account.initial_capital == pytest.approx(250_000.0)
     assert workflow.reporting.output_root == Path("/tmp/reports")
     assert workflow.reporting.benchmark_name == "IWM TR"
@@ -181,10 +192,10 @@ def test_parse_workflow_config_rejects_invalid_signal_params() -> None:
         )
 
 
-def test_parse_workflow_config_rejects_non_empty_broker_section_for_now() -> None:
+def test_parse_workflow_config_rejects_unknown_margin_model_name() -> None:
     with pytest.raises(
         ValueError,
-        match="broker contains unsupported keys: margin",
+        match="Unknown broker.margin.model model 'unknown'",
     ):
         parse_workflow_config(
             {
@@ -193,6 +204,42 @@ def test_parse_workflow_config_rejects_non_empty_broker_section_for_now() -> Non
                     "name": "vrp_harvesting",
                     "signal": {"name": "short_only"},
                 },
-                "broker": {"margin": {}},
+                "broker": {
+                    "margin": {
+                        "model": {"name": "unknown"},
+                    }
+                },
             }
         )
+
+
+def test_parse_workflow_config_parses_margin_policy() -> None:
+    workflow = parse_workflow_config(
+        {
+            "data": {"options": {"ticker": "SPX"}},
+            "strategy": {
+                "name": "vrp_harvesting",
+                "signal": {"name": "short_only"},
+            },
+            "broker": {
+                "margin": {
+                    "policy": {
+                        "apply_financing": True,
+                        "cash_rate_annual": 0.01,
+                        "borrow_rate_annual": 0.03,
+                        "maintenance_margin_ratio": 0.8,
+                    }
+                }
+            },
+        }
+    )
+
+    policy = workflow.broker.margin.policy
+
+    assert isinstance(policy, MarginPolicy)
+    assert isinstance(policy.cash_rate_annual, float)
+    assert isinstance(policy.borrow_rate_annual, float)
+    assert policy.apply_financing is True
+    assert policy.cash_rate_annual == pytest.approx(0.01)
+    assert policy.borrow_rate_annual == pytest.approx(0.03)
+    assert policy.maintenance_margin_ratio == pytest.approx(0.8)

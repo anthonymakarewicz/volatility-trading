@@ -18,6 +18,7 @@ def test_vrp_workflow_config_example_parses() -> None:
     assert workflow.strategy.signal is not None
     assert workflow.strategy.signal.name == "short_only"
     assert workflow.data.options.ticker == "SPY"
+    assert workflow.broker.margin.model is not None
 
 
 def test_skew_workflow_config_example_parses() -> None:
@@ -32,3 +33,4 @@ def test_skew_workflow_config_example_parses() -> None:
     assert workflow.strategy.signal is None
     assert workflow.data.features is not None
     assert workflow.data.features.ticker == "SPY"
+    assert workflow.broker.margin.model is not None

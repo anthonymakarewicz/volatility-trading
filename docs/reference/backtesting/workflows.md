@@ -59,8 +59,9 @@ Notes:
 - `logging` is consumed by the CLI app layer, not by the internal runner parser.
 - `dry_run` is a CLI/runtime flag and is normally set through `--dry-run`, not
   in YAML.
-- `broker` and `modeling` are intentionally narrow in the current runner slice.
-  Empty mappings are supported; richer config for those sections is a follow-up.
+- `broker` currently supports only margin configuration.
+- `modeling` remains intentionally narrow in the current runner slice and
+  currently supports only an omitted or empty mapping.
 
 ## Section Reference
 
@@ -226,11 +227,43 @@ Current model names:
 
 ### `broker`
 
-Reserved for future runner expansion.
+Broker and margin configuration.
 
 Current support:
 
-- empty mapping only
+- `margin`
+
+#### `broker.margin`
+
+Supported keys:
+
+- `model`
+- `policy`
+
+#### `broker.margin.model`
+
+Supported keys:
+
+- `name` (required)
+- `params`
+
+Current model names:
+
+- `regt`
+- `portfolio_margin_proxy`
+
+#### `broker.margin.policy`
+
+Supported keys:
+
+- `maintenance_margin_ratio`
+- `margin_call_grace_days`
+- `liquidation_mode`
+- `liquidation_buffer_ratio`
+- `apply_financing`
+- `cash_rate_annual`
+- `borrow_rate_annual`
+- `trading_days_per_year`
 
 ### `modeling`
 
