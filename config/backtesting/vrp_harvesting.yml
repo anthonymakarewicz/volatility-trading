@@ -1,0 +1,52 @@
+# Config-driven VRP harvesting workflow for `backtest-run`.
+logging:
+  level: INFO
+  color: true
+
+data:
+  options:
+    ticker: SPY
+    provider: orats
+    proc_root: data/processed/orats/options_chain
+  rates:
+    provider: constant
+    constant_rate: 0.0
+
+strategy:
+  name: vrp_harvesting
+  signal:
+    name: short_only
+    params: {}
+  params:
+    target_dte: 30
+    max_dte_diff: 7
+    rebalance_period: 5
+    risk_budget_pct: 0.03
+    margin_budget_pct: 0.40
+
+account:
+  initial_capital: 100000.0
+
+execution:
+  option:
+    model: bid_ask_fee
+    params:
+      commission_per_leg: 1.0
+  hedge:
+    model: fixed_bps
+    params:
+      fee_bps: 0.0
+
+broker: {}
+modeling: {}
+
+run:
+  start_date: "2018-01-01"
+  end_date: "2020-12-31"
+
+reporting:
+  output_root: reports/backtests
+  run_id: vrp_harvesting_spy
+  save_report_bundle: true
+  include_dashboard_plot: true
+  include_component_plots: false
