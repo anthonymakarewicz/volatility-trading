@@ -35,7 +35,7 @@ def test_assemble_workflow_inputs_loads_sources_and_builds_runtime_context(
     options_root = tmp_path / "options"
     features_root = tmp_path / "features"
     yfinance_root = tmp_path / "yfinance"
-    fred_root = tmp_path / "fred_rates"
+    fred_root = tmp_path / "fred"
 
     _write_parquet(
         options_chain_path(options_root, "SPX"),
@@ -81,7 +81,7 @@ def test_assemble_workflow_inputs_loads_sources_and_builds_runtime_context(
         ),
     )
     _write_parquet(
-        fred_rates_path(fred_root),
+        fred_rates_path(fred_root / "rates"),
         pl.DataFrame(
             {
                 "date": [pd.Timestamp("2020-01-01")],

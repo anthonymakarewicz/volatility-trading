@@ -67,7 +67,7 @@ run:
 
 reporting:
   output_root: reports/backtests
-  run_id: skew_mispricing_spy
+  run_id: spy_2018_2020
   benchmark_name: SP500TR
   save_report_bundle: true
   include_dashboard_plot: true

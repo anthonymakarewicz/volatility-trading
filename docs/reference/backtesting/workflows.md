@@ -157,6 +157,11 @@ Current support:
 - `provider: constant`
 - `provider: fred`
 
+`proc_root` note for `provider: fred`:
+
+- the runner accepts either the FRED source root (`data/processed/fred`) or the
+  rates-domain root (`data/processed/fred/rates`)
+
 ### `strategy`
 
 Named strategy preset plus preset parameters.
@@ -294,6 +299,12 @@ Supported keys:
 - `include_dashboard_plot`
 - `include_component_plots`
 - `save_report_bundle`
+
+`run_id` guidance:
+
+- `run_id` should identify the specific run, not repeat the strategy name.
+- Report bundles already save under `reports/backtests/<strategy>/<run_id>`.
+- Prefer values such as `spy_2018_2020` over `vrp_harvesting_spy`.
 
 ## Recommended Starting Point
 

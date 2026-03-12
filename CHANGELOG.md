@@ -40,6 +40,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Backtest runner workflow configs now support `broker.margin.model` and
   `broker.margin.policy`, and dry-run assembly fails early when a strategy uses
   `margin_budget_pct` without a configured margin model.
+- Backtest runner FRED rates sources now accept either the FRED source root
+  (`data/processed/fred`) or the rates-domain root (`data/processed/fred/rates`)
+  for `data.rates.proc_root`.
 
 ## [0.4.0] - 2026-03-09
 ### Added
