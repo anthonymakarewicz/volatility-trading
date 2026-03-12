@@ -37,6 +37,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Reorganized backtesting examples under strategy-specific entrypoints and
   renamed the shared example helper module to
   `examples/core/backtesting_helpers.py`.
+- Backtest runner workflow configs now support `broker.margin.model` and
+  `broker.margin.policy`, and dry-run assembly fails early when a strategy uses
+  `margin_budget_pct` without a configured margin model.
 
 ## [0.4.0] - 2026-03-09
 ### Added

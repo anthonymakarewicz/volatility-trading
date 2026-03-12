@@ -12,8 +12,10 @@ from volatility_trading.backtesting.config import (
     AccountConfig,
     BrokerConfig,
     ExecutionConfig,
+    MarginConfig,
     ModelingConfig,
 )
+from volatility_trading.backtesting.margin import MarginPolicy
 from volatility_trading.backtesting.options_engine.lifecycle import (
     BidAskFeeOptionExecutionModel,
     FixedBpsHedgeExecutionModel,
@@ -21,6 +23,11 @@ from volatility_trading.backtesting.options_engine.lifecycle import (
     MidNoCostHedgeExecutionModel,
     MidNoCostOptionExecutionModel,
     OptionExecutionModel,
+)
+from volatility_trading.options import (
+    MarginModel,
+    PortfolioMarginProxyModel,
+    RegTMarginModel,
 )
 
 from .types import NamedSignalSpec, NamedStrategyPresetSpec
@@ -37,6 +44,7 @@ from .workflow_types import (
 
 OptionExecutionFactory: TypeAlias = Callable[..., OptionExecutionModel]
 HedgeExecutionFactory: TypeAlias = Callable[..., HedgeExecutionModel]
+MarginModelFactory: TypeAlias = Callable[..., MarginModel]
 
 _OPTION_EXECUTION_FACTORIES: dict[str, OptionExecutionFactory] = {
     "bid_ask_fee": BidAskFeeOptionExecutionModel,
@@ -45,6 +53,10 @@ _OPTION_EXECUTION_FACTORIES: dict[str, OptionExecutionFactory] = {
 _HEDGE_EXECUTION_FACTORIES: dict[str, HedgeExecutionFactory] = {
     "fixed_bps": FixedBpsHedgeExecutionModel,
     "mid_no_cost": MidNoCostHedgeExecutionModel,
+}
+_MARGIN_MODEL_FACTORIES: dict[str, MarginModelFactory] = {
+    "portfolio_margin_proxy": PortfolioMarginProxyModel,
+    "regt": RegTMarginModel,
 }
 
 
@@ -124,16 +136,17 @@ def _build_model_instance(
 def parse_workflow_config(config: Mapping[str, Any]) -> BacktestWorkflowSpec:
     """Parse one merged config mapping into a typed workflow spec.
 
-    This parser intentionally handles only the first runner slice:
+    This parser intentionally handles the current workflow runner slice:
     - data sources
     - strategy/signal registry specs
     - account config
     - execution model config
+    - broker margin model/policy config
     - run window
     - reporting config
 
-    `broker` and `modeling` currently accept only empty mappings and otherwise
-    stay on existing defaults.
+    Runtime pricing/risk model selection is still deferred; `modeling` therefore
+    accepts only an omitted or empty mapping for now.
     """
     payload = _expect_mapping(config, field_name="workflow config")
     _ensure_keys(
@@ -451,16 +464,82 @@ def _parse_execution_model_section(
 
 
 def _parse_broker_config(payload: Any) -> BrokerConfig:
-    """Parse broker config for the current workflow-parser slice.
-
-    Margin-model and policy parsing is deferred to a later commit. For now, the
-    section can be omitted or present as an empty mapping.
-    """
+    """Parse one optional broker config mapping."""
     if payload is None:
         return BrokerConfig()
     mapping = _expect_mapping(payload, field_name="broker")
-    _ensure_keys(mapping, field_name="broker", allowed=())
-    return BrokerConfig()
+    _ensure_keys(mapping, field_name="broker", allowed=("margin",))
+    return BrokerConfig(margin=_parse_margin_config(mapping.get("margin")))
+
+
+def _parse_margin_config(payload: Any) -> MarginConfig:
+    """Parse one optional broker.margin config mapping."""
+    if payload is None:
+        return MarginConfig()
+    mapping = _expect_mapping(payload, field_name="broker.margin")
+    _ensure_keys(
+        mapping,
+        field_name="broker.margin",
+        allowed=("model", "policy"),
+    )
+    return MarginConfig(
+        model=_parse_margin_model(mapping.get("model")),
+        policy=_parse_margin_policy(mapping.get("policy")),
+    )
+
+
+def _parse_margin_model(payload: Any) -> MarginModel | None:
+    """Parse one optional named margin-model mapping."""
+    if payload is None:
+        return None
+    mapping = _expect_mapping(payload, field_name="broker.margin.model")
+    _ensure_keys(
+        mapping,
+        field_name="broker.margin.model",
+        allowed=("name", "params"),
+        required=("name",),
+    )
+    params = _expect_mapping(
+        mapping.get("params", {}),
+        field_name="broker.margin.model.params",
+    )
+    return _build_model_instance(
+        section_name="broker.margin.model",
+        model_name=str(mapping["name"]),
+        params=params,
+        factories=_MARGIN_MODEL_FACTORIES,
+    )
+
+
+def _parse_margin_policy(payload: Any) -> MarginPolicy | None:
+    """Parse one optional margin-policy mapping."""
+    if payload is None:
+        return None
+    mapping = _expect_mapping(payload, field_name="broker.margin.policy")
+    _ensure_keys(
+        mapping,
+        field_name="broker.margin.policy",
+        allowed=(
+            "apply_financing",
+            "borrow_rate_annual",
+            "cash_rate_annual",
+            "liquidation_buffer_ratio",
+            "liquidation_mode",
+            "maintenance_margin_ratio",
+            "margin_call_grace_days",
+            "trading_days_per_year",
+        ),
+    )
+    return MarginPolicy(
+        maintenance_margin_ratio=float(mapping.get("maintenance_margin_ratio", 0.75)),
+        margin_call_grace_days=int(mapping.get("margin_call_grace_days", 1)),
+        liquidation_mode=str(mapping.get("liquidation_mode", "full")),
+        liquidation_buffer_ratio=float(mapping.get("liquidation_buffer_ratio", 0.0)),
+        apply_financing=bool(mapping.get("apply_financing", False)),
+        cash_rate_annual=float(mapping.get("cash_rate_annual", 0.0)),
+        borrow_rate_annual=float(mapping.get("borrow_rate_annual", 0.0)),
+        trading_days_per_year=int(mapping.get("trading_days_per_year", 252)),
+    )
 
 
 def _parse_modeling_config(payload: Any) -> ModelingConfig:

@@ -37,7 +37,13 @@ execution:
     params:
       fee_bps: 0.0
 
-broker: {}
+broker:
+  margin:
+    model:
+      name: regt
+      params:
+        broad_index: false
+
 modeling: {}
 
 run:

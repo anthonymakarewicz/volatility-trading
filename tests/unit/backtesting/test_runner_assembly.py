@@ -202,3 +202,24 @@ def test_assemble_workflow_inputs_resolves_constant_rate_input() -> None:
 
     assert isinstance(resolved.risk_free_rate, float)
     assert resolved.risk_free_rate == pytest.approx(0.02)
+
+
+def test_assemble_workflow_inputs_requires_margin_model_for_margin_budgeted_strategy() -> (
+    None
+):
+    workflow = BacktestWorkflowSpec(
+        data=BacktestDataSourcesSpec(
+            options=OptionsSourceSpec(ticker="SPX"),
+        ),
+        strategy=NamedStrategyPresetSpec(
+            name="vrp_harvesting",
+            signal=NamedSignalSpec(name="short_only"),
+            params={"margin_budget_pct": 0.4},
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="strategy margin_budget_pct requires broker.margin.model",
+    ):
+        assemble_workflow_inputs(workflow)

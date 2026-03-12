@@ -57,6 +57,13 @@ def assemble_workflow_inputs(
     workflow: BacktestWorkflowSpec,
 ) -> ResolvedWorkflowInputs:
     """Resolve sources and configs into concrete runtime inputs."""
+    strategy = build_strategy_preset(workflow.strategy)
+    run_config = workflow.to_backtest_run_config()
+    _validate_workflow_compatibility(
+        workflow=workflow,
+        strategy=strategy,
+        run_config=run_config,
+    )
     options_market = _load_options_market(workflow.data.options)
     features = _load_features_frame(workflow.data.features)
     hedge_market = _load_hedge_market(workflow.data.hedge)
@@ -68,7 +75,6 @@ def assemble_workflow_inputs(
         workflow.data.rates,
         workflow=workflow,
     )
-    strategy = build_strategy_preset(workflow.strategy)
     data_bundle = OptionsBacktestDataBundle(
         options_market=options_market,
         features=features,
@@ -78,11 +84,31 @@ def assemble_workflow_inputs(
         workflow=workflow,
         strategy=strategy,
         data=data_bundle,
-        run_config=workflow.to_backtest_run_config(),
+        run_config=run_config,
         benchmark=benchmark,
         benchmark_name=_resolve_benchmark_name(workflow),
         risk_free_rate=risk_free_rate,
     )
+
+
+def _validate_workflow_compatibility(
+    *,
+    workflow: BacktestWorkflowSpec,
+    strategy: StrategySpec,
+    run_config: BacktestRunConfig,
+) -> None:
+    """Reject workflow combinations that the engine requires upfront."""
+    if (
+        strategy.sizing.margin_budget_pct is not None
+        and run_config.broker.margin.model is None
+    ):
+        raise ValueError(
+            "strategy margin_budget_pct requires broker.margin.model in the workflow config"
+        )
+    if strategy.lifecycle.delta_hedge.enabled and workflow.data.hedge is None:
+        raise ValueError(
+            "enabled delta hedging requires data.hedge in the workflow config"
+        )
 
 
 def _load_options_market(spec: OptionsSourceSpec) -> OptionsMarketData:
