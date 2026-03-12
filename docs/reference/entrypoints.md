@@ -60,6 +60,8 @@ Notes:
 - The provided workflow configs show:
   - a minimal VRP harvesting run
   - a richer skew-mispricing run with daily features, benchmark, and FRED rates
+- Full YAML schema and template guidance:
+  [`docs/reference/backtesting/workflows.md`](backtesting/workflows.md)
 
 ## OptionsDX
 

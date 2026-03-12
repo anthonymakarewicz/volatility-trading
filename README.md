@@ -204,9 +204,12 @@ For a full scriptable workflow (data loading + backtest run), see
 For the skew counterpart using daily features, see
 [Skew end-to-end example](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/backtesting/strategies/skew_mispricing_end_to_end.py).
 For config-driven CLI runs, see
+[Backtest Runner Workflows](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/backtesting/workflows.md),
+which points to the shipped
 [`config/backtesting/vrp_harvesting.yml`](https://github.com/anthonymakarewicz/volatility-trading/blob/main/config/backtesting/vrp_harvesting.yml)
 and
-[`config/backtesting/skew_mispricing.yml`](https://github.com/anthonymakarewicz/volatility-trading/blob/main/config/backtesting/skew_mispricing.yml).
+[`config/backtesting/skew_mispricing.yml`](https://github.com/anthonymakarewicz/volatility-trading/blob/main/config/backtesting/skew_mispricing.yml)
+templates.
 For focused backtesting configuration examples (execution, margin, adapters, hedging), see
 [examples/README.md](https://github.com/anthonymakarewicz/volatility-trading/blob/main/examples/README.md).
 For hedging model semantics and WW/fixed-band configuration details, see
