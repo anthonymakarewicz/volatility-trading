@@ -38,11 +38,13 @@ orats-api-download --config config/orats/api_download.yml
 ## Backtesting
 
 Commands:
-- `backtest-run`
+- `backtest-run` (configs: `config/backtesting/vrp_harvesting.yml`,
+  `config/backtesting/skew_mispricing.yml`)
 
 Example:
 ```bash
-backtest-run --config path/to/backtest.yml --dry-run
+backtest-run --config config/backtesting/vrp_harvesting.yml --dry-run
+backtest-run --config config/backtesting/skew_mispricing.yml
 ```
 
 Notes:
@@ -55,6 +57,9 @@ Notes:
   - `--run-id`
 - `--dry-run` validates config parsing and local data assembly without
   executing the backtest.
+- The provided workflow configs show:
+  - a minimal VRP harvesting run
+  - a richer skew-mispricing run with daily features, benchmark, and FRED rates
 
 ## OptionsDX
 

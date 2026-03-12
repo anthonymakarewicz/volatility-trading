@@ -15,6 +15,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Added `backtest-run`, a config-driven workflow CLI for one backtest run with
   YAML config loading, dry-run validation, and top-level overrides for ticker,
   run window, and report output.
+- Added example workflow configs under `config/backtesting/` for
+  `vrp_harvesting` and `skew_mispricing`.
 
 ### Changed
 - Standardized project setup and contributor installs on `uv`; `pip` remains

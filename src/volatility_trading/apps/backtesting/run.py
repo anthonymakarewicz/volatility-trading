@@ -169,6 +169,13 @@ def _build_config(args: argparse.Namespace) -> dict[str, Any]:
     return config
 
 
+def _workflow_config_payload(config: dict[str, Any]) -> dict[str, Any]:
+    """Strip app-only keys before handing config to the runner layer."""
+    return {
+        key: value for key, value in config.items() if key not in {"dry_run", "logging"}
+    }
+
+
 def _apply_strategy_defaults(config: dict[str, Any]) -> None:
     """Inject strategy defaults that depend on the selected preset name."""
     strategy = config.get("strategy")
@@ -341,6 +348,7 @@ def main(argv: list[str] | None = None) -> None:
     """Run the config-driven backtest workflow entrypoint."""
     args = _parse_args(argv)
     config = _build_config(args)
+    workflow_config = _workflow_config_payload(config)
 
     if args.print_config:
         print_config(config)
@@ -350,12 +358,12 @@ def main(argv: list[str] | None = None) -> None:
     dry_run = bool(config.get("dry_run", False))
 
     if dry_run:
-        workflow = parse_workflow_config(config)
+        workflow = parse_workflow_config(workflow_config)
         resolved = assemble_workflow_inputs(workflow)
         log_dry_run(logger, _build_dry_run_plan(workflow, resolved))
         return
 
-    result = run_backtest_workflow_config(config)
+    result = run_backtest_workflow_config(workflow_config)
     logger.info(
         "Completed backtest workflow strategy=%s trades=%d mtm_rows=%d report_dir=%s",
         result.workflow.strategy.name,

@@ -115,7 +115,8 @@ def test_dry_run_validates_without_executing(monkeypatch, caplog) -> None:
     caplog.set_level("INFO")
     mod.main(["--dry-run"])
 
-    assert parse_calls["config"]["dry_run"] is True
+    assert "dry_run" not in parse_calls["config"]
+    assert "logging" not in parse_calls["config"]
     assert assemble_calls["workflow"] is workflow
     assert "DRY RUN: no actions were executed." in caplog.text
     assert "backtest_run" in caplog.text
@@ -155,6 +156,8 @@ def test_main_runs_workflow_service_with_merged_config(monkeypatch, caplog) -> N
     )
 
     config = captured["config"]
+    assert "dry_run" not in config
+    assert "logging" not in config
     assert config["data"]["options"]["ticker"] == "IWM"
     assert config["run"]["start_date"] == "2024-01-01"
     assert config["run"]["end_date"] == "2024-12-31"
