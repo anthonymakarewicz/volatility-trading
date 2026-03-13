@@ -9,10 +9,10 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from volatility_trading.backtesting.runner.types import NamedStrategyPresetSpec
 from volatility_trading.backtesting.runner.workflow_types import (
     BacktestDataSourcesSpec,
     BacktestWorkflowSpec,
+    NamedStrategyPresetSpec,
     OptionsSourceSpec,
 )
 

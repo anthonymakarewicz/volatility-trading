@@ -6,7 +6,7 @@ from volatility_trading.backtesting.runner.registry import (
     build_signal,
     build_strategy_preset,
 )
-from volatility_trading.backtesting.runner.types import (
+from volatility_trading.backtesting.runner.workflow_types import (
     NamedSignalSpec,
     NamedStrategyPresetSpec,
 )

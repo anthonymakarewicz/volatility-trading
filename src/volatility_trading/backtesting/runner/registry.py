@@ -23,7 +23,7 @@ from volatility_trading.strategies.vrp_harvesting import (
 )
 
 from ..options_engine.specs import StrategySpec
-from .types import NamedSignalSpec, NamedStrategyPresetSpec
+from .workflow_types import NamedSignalSpec, NamedStrategyPresetSpec
 
 SignalFactory: TypeAlias = Callable[..., Signal]
 StrategyPresetBuilder: TypeAlias = Callable[[NamedStrategyPresetSpec], StrategySpec]
