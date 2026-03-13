@@ -3,7 +3,9 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
-from volatility_trading.backtesting.runner import parse_workflow_config
+import pytest
+
+from volatility_trading.backtesting.runner.config_parser import parse_workflow_config
 
 
 def test_vrp_workflow_config_example_parses() -> None:
@@ -34,3 +36,7 @@ def test_skew_workflow_config_example_parses() -> None:
     assert workflow.data.features is not None
     assert workflow.data.features.ticker == "SPY"
     assert workflow.broker.margin.model is not None
+    assert workflow.broker.margin.policy is not None
+    assert workflow.broker.margin.policy.maintenance_margin_ratio == pytest.approx(0.80)
+    assert workflow.broker.margin.policy.margin_call_grace_days == 2
+    assert workflow.broker.margin.policy.liquidation_mode == "target"

@@ -4,19 +4,23 @@ import pandas as pd
 
 from volatility_trading.backtesting import OptionsMarketData
 from volatility_trading.backtesting.data_contracts import OptionsBacktestDataBundle
-from volatility_trading.backtesting.runner import (
-    BacktestDataSourcesSpec,
-    BacktestWorkflowSpec,
-    NamedSignalSpec,
-    NamedStrategyPresetSpec,
-    OptionsSourceSpec,
-    ReportingSpec,
-    ResolvedWorkflowInputs,
-    RunWindowSpec,
+from volatility_trading.backtesting.runner.assembly import ResolvedWorkflowInputs
+from volatility_trading.backtesting.runner.registry import build_strategy_preset
+from volatility_trading.backtesting.runner.service import (
     run_backtest_workflow,
     run_backtest_workflow_config,
 )
-from volatility_trading.backtesting.runner.registry import build_strategy_preset
+from volatility_trading.backtesting.runner.types import (
+    NamedSignalSpec,
+    NamedStrategyPresetSpec,
+)
+from volatility_trading.backtesting.runner.workflow_types import (
+    BacktestDataSourcesSpec,
+    BacktestWorkflowSpec,
+    OptionsSourceSpec,
+    ReportingSpec,
+    RunWindowSpec,
+)
 
 
 def _sample_workflow(*, save_report_bundle: bool = True) -> BacktestWorkflowSpec:
