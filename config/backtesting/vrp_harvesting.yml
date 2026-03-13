@@ -1,4 +1,4 @@
-# Config-driven VRP harvesting workflow for `backtest-run`.
+# Generic VRP harvesting workflow for `backtest-run`.
 logging:
   level: INFO
   color: true

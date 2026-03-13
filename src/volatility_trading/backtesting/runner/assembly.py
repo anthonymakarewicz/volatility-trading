@@ -3,38 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 import pandas as pd
 
 from volatility_trading.backtesting.config import BacktestRunConfig
-from volatility_trading.backtesting.data_adapters import (
-    CanonicalOptionsChainAdapter,
-    OptionsChainAdapter,
-)
 from volatility_trading.backtesting.data_contracts import (
     HedgeMarketData,
     OptionsBacktestDataBundle,
-    OptionsMarketData,
 )
 from volatility_trading.backtesting.options_engine.specs import StrategySpec
 from volatility_trading.backtesting.rates import RateInput
-from volatility_trading.datasets import (
-    fred_rates_path,
-    options_chain_wide_to_long,
-    read_daily_features,
-    read_fred_rates,
-    read_options_chain,
-    read_yfinance_time_series,
-)
 
-from .catalog import OPTIONS_ADAPTER_FACTORIES, available_names
 from .registry import build_strategy_preset
+from .source_loaders import (
+    load_features_frame,
+    load_options_market,
+    load_rate_input,
+    load_series,
+    slice_series_to_run_window,
+)
 from .workflow_types import (
     BacktestWorkflowSpec,
-    FeaturesSourceSpec,
-    OptionsSourceSpec,
-    RatesSourceSpec,
     SeriesSourceSpec,
 )
 
@@ -63,14 +52,14 @@ def assemble_workflow_inputs(
         strategy=strategy,
         run_config=run_config,
     )
-    options_market = _load_options_market(workflow.data.options)
-    features = _load_features_frame(workflow.data.features)
+    options_market = load_options_market(workflow.data.options)
+    features = load_features_frame(workflow.data.features)
     hedge_market = _load_hedge_market(workflow.data.hedge)
-    benchmark = _slice_series_to_run_window(
-        _load_series(workflow.data.benchmark),
+    benchmark = slice_series_to_run_window(
+        load_series(workflow.data.benchmark),
         workflow=workflow,
     )
-    risk_free_rate = _resolve_risk_free_rate(
+    risk_free_rate = load_rate_input(
         workflow.data.rates,
         workflow=workflow,
     )
@@ -110,61 +99,9 @@ def _validate_workflow_compatibility(
         )
 
 
-def _load_options_market(spec: OptionsSourceSpec) -> OptionsMarketData:
-    """Load and normalize one options market source into canonical long pandas."""
-    if spec.provider != "orats":
-        raise ValueError(f"Unsupported options source provider: {spec.provider}")
-    adapter = _resolve_options_adapter(spec)
-
-    if spec.proc_root is None:
-        wide = read_options_chain(spec.ticker)
-    else:
-        wide = read_options_chain(spec.ticker, proc_root=spec.proc_root)
-    long = options_chain_wide_to_long(wide).collect().to_pandas()
-    long["trade_date"] = pd.to_datetime(long["trade_date"])
-    long = long.set_index("trade_date").sort_index()
-
-    return OptionsMarketData(
-        chain=long,
-        symbol=spec.symbol or spec.ticker,
-        default_contract_multiplier=spec.default_contract_multiplier,
-        options_adapter=adapter,
-    )
-
-
-def _resolve_options_adapter(spec: OptionsSourceSpec) -> OptionsChainAdapter:
-    """Resolve one built-in adapter name for canonicalized options data."""
-    if spec.adapter_name is None:
-        return CanonicalOptionsChainAdapter()
-
-    adapter_name = spec.adapter_name.lower()
-    factory = OPTIONS_ADAPTER_FACTORIES.get(adapter_name)
-    if factory is None:
-        raise ValueError(
-            f"Unknown options adapter_name '{spec.adapter_name}'. "
-            f"Available built-in adapters: {available_names(OPTIONS_ADAPTER_FACTORIES)}."
-        )
-    return factory()
-
-
-def _load_features_frame(spec: FeaturesSourceSpec | None) -> pd.DataFrame | None:
-    """Load one optional daily-features source into pandas."""
-    if spec is None:
-        return None
-    if spec.provider != "orats":
-        raise ValueError(f"Unsupported features source provider: {spec.provider}")
-
-    if spec.proc_root is None:
-        frame = read_daily_features(spec.ticker).to_pandas()
-    else:
-        frame = read_daily_features(spec.ticker, proc_root=spec.proc_root).to_pandas()
-    frame["trade_date"] = pd.to_datetime(frame["trade_date"])
-    return frame.set_index("trade_date").sort_index()
-
-
 def _load_hedge_market(spec: SeriesSourceSpec | None) -> HedgeMarketData | None:
     """Load one optional hedge market source into backtesting market data."""
-    series = _load_series(spec)
+    series = load_series(spec)
     if spec is None or series is None:
         return None
     return HedgeMarketData(
@@ -172,106 +109,6 @@ def _load_hedge_market(spec: SeriesSourceSpec | None) -> HedgeMarketData | None:
         symbol=spec.symbol or spec.ticker,
         contract_multiplier=spec.contract_multiplier,
     )
-
-
-def _load_series(spec: SeriesSourceSpec | None) -> pd.Series | None:
-    """Load one optional market time series from processed yfinance data."""
-    if spec is None:
-        return None
-    if spec.provider != "yfinance":
-        raise ValueError(f"Unsupported series source provider: {spec.provider}")
-
-    if spec.proc_root is None:
-        frame = read_yfinance_time_series(tickers=[spec.ticker]).to_pandas()
-    else:
-        frame = read_yfinance_time_series(
-            proc_root=spec.proc_root,
-            tickers=[spec.ticker],
-        ).to_pandas()
-    if frame.empty:
-        raise ValueError(f"No yfinance rows found for ticker {spec.ticker}")
-    if spec.price_column not in frame.columns:
-        available = ", ".join(map(str, frame.columns))
-        raise ValueError(
-            f"Series source {spec.ticker} requires price_column "
-            f"'{spec.price_column}', but available columns are: {available}"
-        )
-
-    frame["date"] = pd.to_datetime(frame["date"])
-    series = pd.Series(
-        pd.to_numeric(frame[spec.price_column], errors="coerce").values,
-        index=pd.DatetimeIndex(frame["date"]),
-        name=spec.symbol or spec.ticker,
-    )
-    return series.groupby(level=0).last().sort_index()
-
-
-def _resolve_risk_free_rate(
-    spec: RatesSourceSpec | None,
-    *,
-    workflow: BacktestWorkflowSpec,
-) -> RateInput:
-    """Resolve one optional rates source into the reporting/margin rate input."""
-    if spec is None:
-        return 0.0
-    if spec.provider == "constant":
-        return float(spec.constant_rate or 0.0)
-    if spec.provider != "fred":
-        raise ValueError(f"Unsupported rates source provider: {spec.provider}")
-
-    fred_proc_root = _resolve_fred_rates_proc_root(spec.proc_root)
-    if spec.proc_root is None:
-        frame = read_fred_rates().to_pandas()
-    else:
-        frame = read_fred_rates(proc_root=fred_proc_root).to_pandas()
-    column = spec.column or str(spec.series_id).lower()
-    if column not in frame.columns:
-        available = ", ".join(map(str, frame.columns))
-        raise ValueError(
-            f"FRED rates source requires column '{column}', "
-            f"but available columns are: {available}"
-        )
-    frame["date"] = pd.to_datetime(frame["date"])
-    series = (
-        pd.Series(
-            pd.to_numeric(frame[column], errors="coerce").values,
-            index=pd.DatetimeIndex(frame["date"]),
-            name=column,
-        )
-        .groupby(level=0)
-        .last()
-        .sort_index()
-    )
-    return _slice_series_to_run_window(series, workflow=workflow)
-
-
-def _resolve_fred_rates_proc_root(proc_root: Path | None) -> Path | None:
-    """Accept either a FRED source root or a FRED rates-domain root."""
-    if proc_root is None:
-        return None
-    root = Path(proc_root)
-    if fred_rates_path(root).exists():
-        return root
-    domain_root = root / "rates"
-    if fred_rates_path(domain_root).exists():
-        return domain_root
-    return root
-
-
-def _slice_series_to_run_window(
-    series: pd.Series | None,
-    *,
-    workflow: BacktestWorkflowSpec,
-) -> pd.Series | None:
-    """Slice an optional series to the workflow run window."""
-    if series is None:
-        return None
-    out = series.sort_index()
-    if workflow.run.start_date is not None:
-        out = out.loc[out.index >= workflow.run.start_date]
-    if workflow.run.end_date is not None:
-        out = out.loc[out.index <= workflow.run.end_date]
-    return out
 
 
 def _resolve_benchmark_name(workflow: BacktestWorkflowSpec) -> str | None:

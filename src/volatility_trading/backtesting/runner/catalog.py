@@ -31,11 +31,6 @@ HedgeExecutionFactory: TypeAlias = Callable[..., HedgeExecutionModel]
 MarginModelFactory: TypeAlias = Callable[..., MarginModel]
 OptionsAdapterFactory: TypeAlias = Callable[[], OptionsChainAdapter]
 
-OPTIONS_SOURCE_PROVIDERS = ("orats",)
-FEATURES_SOURCE_PROVIDERS = ("orats",)
-SERIES_SOURCE_PROVIDERS = ("yfinance",)
-RATES_SOURCE_PROVIDERS = ("constant", "fred")
-
 OPTION_EXECUTION_MODEL_FACTORIES: dict[str, OptionExecutionFactory] = {
     "bid_ask_fee": BidAskFeeOptionExecutionModel,
     "mid_no_cost": MidNoCostOptionExecutionModel,

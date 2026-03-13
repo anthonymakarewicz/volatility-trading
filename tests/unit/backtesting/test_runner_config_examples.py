@@ -23,6 +23,26 @@ def test_vrp_workflow_config_example_parses() -> None:
     assert workflow.broker.margin.model is not None
 
 
+def test_vrp_workflow_config_example_parses_from_notebook_subdirectory(
+    monkeypatch,
+) -> None:
+    app = importlib.import_module("volatility_trading.apps.backtesting.run")
+    repo_root = Path(__file__).resolve().parents[3]
+    monkeypatch.chdir(repo_root / "notebooks/vrp_harvesting")
+
+    config = app._build_config(
+        app._parse_args(["--config", "config/backtesting/vrp_harvesting.yml"])
+    )
+    workflow = parse_workflow_config(app._workflow_config_payload(config))
+
+    assert workflow.strategy.name == "vrp_harvesting"
+    assert (
+        workflow.data.options.proc_root
+        == repo_root / "data/processed/orats/options_chain"
+    )
+    assert workflow.reporting.output_root == repo_root / "reports/backtests"
+
+
 def test_skew_workflow_config_example_parses() -> None:
     app = importlib.import_module("volatility_trading.apps.backtesting.run")
     config_path = Path("config/backtesting/skew_mispricing.yml")

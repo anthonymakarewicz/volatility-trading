@@ -1,8 +1,8 @@
 # Backtest Runner Workflows
 
-This page documents the YAML workflow schema consumed by `backtest-run` and
-points to the two shipped configs that should be treated as the canonical
-starting templates.
+This page is the source of truth for the YAML workflow schema consumed by
+`backtest-run`. It also points to the two shipped configs that should be
+treated as the canonical starting templates.
 
 ## Command
 
@@ -31,15 +31,20 @@ Common top-level CLI overrides:
 Use these files as the starting point for new runner configs:
 
 - [`config/backtesting/vrp_harvesting.yml`](../../../config/backtesting/vrp_harvesting.yml)
-  - minimal VRP harvesting workflow
-  - constant risk-free rate
-  - no extra features, hedge market, or benchmark inputs
+  - notebook-aligned VRP harvesting workflow
+  - FRED rates source plus scalar financing approximation
+  - benchmark input for reporting
 - [`config/backtesting/skew_mispricing.yml`](../../../config/backtesting/skew_mispricing.yml)
   - richer skew workflow
   - ORATS daily features
   - yfinance hedge and benchmark series
   - FRED risk-free-rate series
   - explicit `broker.margin.policy` example
+
+Repo-style relative paths inside workflow configs, such as `data/...` and
+`reports/...`, are resolved from the current working directory first and then
+fall back to the repository root. That allows the shipped configs to work from
+notebook subdirectories as well as from the repo root.
 
 ## Top-Level YAML Shape
 

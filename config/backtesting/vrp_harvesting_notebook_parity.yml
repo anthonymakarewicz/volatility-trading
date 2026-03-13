@@ -1,0 +1,72 @@
+# Notebook-aligned VRP harvesting workflow for `backtest-run`.
+# This mirrors `notebooks/vrp_harvesting/notebook.py` as closely as runner v1
+# allows. Financing remains scalar-only here; exact series-valued financing is a
+# planned runner v2 parity feature.
+logging:
+  level: INFO
+  color: true
+
+data:
+  options:
+    ticker: SPY
+    provider: orats
+    proc_root: data/processed/orats/options_chain
+  benchmark:
+    ticker: SP500TR
+    provider: yfinance
+    proc_root: data/processed/yfinance/time_series
+    price_column: close
+  rates:
+    provider: fred
+    series_id: DGS3MO
+    proc_root: data/processed/fred
+
+strategy:
+  name: vrp_harvesting
+  signal:
+    name: short_only
+    params: {}
+  params:
+    target_dte: 30
+    max_dte_diff: 7
+    rebalance_period: 10
+    risk_budget_pct: 1.0
+    margin_budget_pct: 0.40
+
+account:
+  initial_capital: 50000.0
+
+execution:
+  option:
+    model: bid_ask_fee
+    params:
+      commission_per_leg: 1.0
+  hedge:
+    model: fixed_bps
+    params:
+      fee_bps: 0.0
+
+broker:
+  margin:
+    model:
+      name: regt
+      params:
+        broad_index: false
+    policy:
+      apply_financing: true
+      cash_rate_annual: 0.0
+      borrow_rate_annual: 0.02
+
+modeling: {}
+
+run:
+  start_date: "2011-01-01"
+  end_date: "2017-12-31"
+
+reporting:
+  output_root: reports/backtests
+  run_id: spy_2011_2017
+  benchmark_name: SP500TR
+  save_report_bundle: true
+  include_dashboard_plot: false
+  include_component_plots: false

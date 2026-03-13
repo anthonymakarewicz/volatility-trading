@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-import os
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, TypeAlias
@@ -16,6 +15,7 @@ from volatility_trading.backtesting.config import (
     ModelingConfig,
 )
 from volatility_trading.backtesting.margin import MarginPolicy
+from volatility_trading.cli.config import resolve_repo_relative_path
 from volatility_trading.options import MarginModel
 
 from .catalog import (
@@ -68,16 +68,6 @@ def _ensure_keys(
             f"{field_name} contains unsupported keys: {unexpected_text}. "
             f"Allowed keys: {allowed_text}."
         )
-
-
-def _resolve_path(value: str | Path | None) -> Path | None:
-    """Resolve optional path-like config strings."""
-    if value is None:
-        return None
-    if isinstance(value, Path):
-        return value
-    expanded = os.path.expandvars(os.path.expanduser(str(value)))
-    return Path(expanded)
 
 
 def _accepted_params_text(factory: Callable[..., Any]) -> str:
@@ -197,7 +187,7 @@ def _parse_options_source_spec(payload: Any) -> OptionsSourceSpec:
     return OptionsSourceSpec(
         ticker=str(mapping["ticker"]),
         provider=str(mapping.get("provider", "orats")),
-        proc_root=_resolve_path(mapping.get("proc_root")),
+        proc_root=resolve_repo_relative_path(mapping.get("proc_root")),
         adapter_name=(
             None
             if mapping.get("adapter_name") is None
@@ -224,7 +214,7 @@ def _parse_features_source_spec(payload: Any) -> FeaturesSourceSpec | None:
     return FeaturesSourceSpec(
         ticker=str(mapping["ticker"]),
         provider=str(mapping.get("provider", "orats")),
-        proc_root=_resolve_path(mapping.get("proc_root")),
+        proc_root=resolve_repo_relative_path(mapping.get("proc_root")),
     )
 
 
@@ -253,7 +243,7 @@ def _parse_series_source_spec(
     return SeriesSourceSpec(
         ticker=str(mapping["ticker"]),
         provider=str(mapping.get("provider", "yfinance")),
-        proc_root=_resolve_path(mapping.get("proc_root")),
+        proc_root=resolve_repo_relative_path(mapping.get("proc_root")),
         price_column=str(mapping.get("price_column", "close")),
         symbol=None if mapping.get("symbol") is None else str(mapping["symbol"]),
         contract_multiplier=float(mapping.get("contract_multiplier", 1.0)),
@@ -281,7 +271,7 @@ def _parse_rates_source_spec(payload: Any) -> RatesSourceSpec | None:
             None if mapping.get("series_id") is None else str(mapping["series_id"])
         ),
         column=None if mapping.get("column") is None else str(mapping["column"]),
-        proc_root=_resolve_path(mapping.get("proc_root")),
+        proc_root=resolve_repo_relative_path(mapping.get("proc_root")),
     )
 
 
@@ -356,7 +346,7 @@ def _parse_reporting_spec(payload: Any) -> ReportingSpec:
         ),
     )
     return ReportingSpec(
-        output_root=_resolve_path(mapping.get("output_root"))
+        output_root=resolve_repo_relative_path(mapping.get("output_root"))
         or Path("reports/backtests"),
         run_id=None if mapping.get("run_id") is None else str(mapping["run_id"]),
         benchmark_name=(

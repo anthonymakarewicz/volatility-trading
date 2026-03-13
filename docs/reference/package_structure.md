@@ -97,6 +97,7 @@ src/volatility_trading
 │       ├── registry.py
 │       ├── serialization.py
 │       ├── service.py
+│       ├── source_loaders.py
 │       └── workflow_types.py
 ├── cli
 │   ├── __init__.py

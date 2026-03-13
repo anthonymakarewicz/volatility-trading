@@ -5,6 +5,7 @@ from .config import (
     build_config,
     load_yaml_config,
     resolve_path,
+    resolve_repo_relative_path,
 )
 from .logging import (
     DEFAULT_LOGGING,
@@ -18,6 +19,7 @@ __all__ = [
     "add_logging_args",
     "build_config",
     "load_yaml_config",
+    "resolve_repo_relative_path",
     "resolve_path",
     "setup_logging_from_config",
 ]
