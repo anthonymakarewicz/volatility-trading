@@ -10,13 +10,11 @@ from volatility_trading.backtesting.runner.service import (
     run_backtest_workflow,
     run_backtest_workflow_config,
 )
-from volatility_trading.backtesting.runner.types import (
-    NamedSignalSpec,
-    NamedStrategyPresetSpec,
-)
 from volatility_trading.backtesting.runner.workflow_types import (
     BacktestDataSourcesSpec,
     BacktestWorkflowSpec,
+    NamedSignalSpec,
+    NamedStrategyPresetSpec,
     OptionsSourceSpec,
     ReportingSpec,
     RunWindowSpec,

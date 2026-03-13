@@ -24,11 +24,12 @@ from .catalog import (
     OPTION_EXECUTION_MODEL_FACTORIES,
 )
 from .registry import apply_strategy_preset_defaults
-from .types import NamedSignalSpec, NamedStrategyPresetSpec
 from .workflow_types import (
     BacktestDataSourcesSpec,
     BacktestWorkflowSpec,
     FeaturesSourceSpec,
+    NamedSignalSpec,
+    NamedStrategyPresetSpec,
     OptionsSourceSpec,
     RatesSourceSpec,
     ReportingSpec,

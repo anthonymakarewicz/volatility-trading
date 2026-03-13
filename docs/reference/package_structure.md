@@ -63,6 +63,7 @@ src/volatility_trading
 │   │   │   ├── margining.py
 │   │   │   ├── marking.py
 │   │   │   ├── opening.py
+│   │   │   ├── option_execution.py
 │   │   │   ├── record_builders.py
 │   │   │   ├── runtime_state.py
 │   │   │   ├── transitions.py
@@ -79,25 +80,24 @@ src/volatility_trading
 │   │   ├── schemas.py
 │   │   └── tables.py
 │   ├── rates.py
-│   ├── runner
+│   ├── reporting
 │   │   ├── __init__.py
-│   │   ├── assembly.py
-│   │   ├── catalog.py
-│   │   ├── config_parser.py
-│   │   ├── defaults.py
-│   │   ├── registry.py
-│   │   ├── serialization.py
+│   │   ├── builders.py
+│   │   ├── constants.py
+│   │   ├── plots.py
+│   │   ├── schemas.py
 │   │   ├── service.py
-│   │   ├── types.py
-│   │   └── workflow_types.py
-│   └── reporting
+│   │   └── writers.py
+│   └── runner
 │       ├── __init__.py
-│       ├── builders.py
-│       ├── constants.py
-│       ├── plots.py
-│       ├── schemas.py
+│       ├── assembly.py
+│       ├── catalog.py
+│       ├── config_parser.py
+│       ├── defaults.py
+│       ├── registry.py
+│       ├── serialization.py
 │       ├── service.py
-│       └── writers.py
+│       └── workflow_types.py
 ├── cli
 │   ├── __init__.py
 │   ├── config.py
@@ -330,11 +330,13 @@ src/volatility_trading
 │   └── vol_estimators.py
 ├── signals
 │   ├── __init__.py
+│   ├── _wrappers.py
 │   ├── always_on_signal.py
 │   ├── base_signal.py
 │   └── z_score_signal.py
 ├── strategies
 │   ├── __init__.py
+│   ├── _preset_helpers.py
 │   ├── skew_mispricing
 │   │   ├── __init__.py
 │   │   ├── features.py
@@ -349,5 +351,5 @@ src/volatility_trading
     ├── __init__.py
     └── logging_config.py
 
-63 directories, 270 files
-````
+65 directories, 285 files
+```

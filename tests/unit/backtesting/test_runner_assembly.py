@@ -6,14 +6,12 @@ import pytest
 
 from volatility_trading.backtesting.data_adapters import CanonicalOptionsChainAdapter
 from volatility_trading.backtesting.runner.assembly import assemble_workflow_inputs
-from volatility_trading.backtesting.runner.types import (
-    NamedSignalSpec,
-    NamedStrategyPresetSpec,
-)
 from volatility_trading.backtesting.runner.workflow_types import (
     BacktestDataSourcesSpec,
     BacktestWorkflowSpec,
     FeaturesSourceSpec,
+    NamedSignalSpec,
+    NamedStrategyPresetSpec,
     OptionsSourceSpec,
     RatesSourceSpec,
     ReportingSpec,

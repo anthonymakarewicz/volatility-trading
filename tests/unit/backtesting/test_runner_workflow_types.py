@@ -4,14 +4,12 @@ import pandas as pd
 import pytest
 
 from volatility_trading.backtesting import AccountConfig
-from volatility_trading.backtesting.runner.types import (
-    NamedSignalSpec,
-    NamedStrategyPresetSpec,
-)
 from volatility_trading.backtesting.runner.workflow_types import (
     BacktestDataSourcesSpec,
     BacktestWorkflowSpec,
     FeaturesSourceSpec,
+    NamedSignalSpec,
+    NamedStrategyPresetSpec,
     OptionsSourceSpec,
     RatesSourceSpec,
     ReportingSpec,
