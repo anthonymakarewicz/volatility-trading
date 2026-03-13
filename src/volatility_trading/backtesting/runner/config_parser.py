@@ -30,6 +30,7 @@ from volatility_trading.options import (
     RegTMarginModel,
 )
 
+from .registry import apply_strategy_preset_defaults
 from .types import NamedSignalSpec, NamedStrategyPresetSpec
 from .workflow_types import (
     BacktestDataSourcesSpec,
@@ -332,13 +333,14 @@ def _parse_named_strategy_preset_spec(payload: Any) -> NamedStrategyPresetSpec:
     )
     params = mapping.get("params", {})
     signal_payload = mapping.get("signal")
-    return NamedStrategyPresetSpec(
+    spec = NamedStrategyPresetSpec(
         name=str(mapping["name"]),
         signal=(
             None if signal_payload is None else _parse_named_signal_spec(signal_payload)
         ),
         params=_expect_mapping(params, field_name="strategy.params"),
     )
+    return apply_strategy_preset_defaults(spec)
 
 
 def _parse_run_window_spec(payload: Any) -> RunWindowSpec:

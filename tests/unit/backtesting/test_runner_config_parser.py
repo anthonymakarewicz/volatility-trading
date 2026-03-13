@@ -12,7 +12,7 @@ from volatility_trading.backtesting.runner import parse_workflow_config
 from volatility_trading.options import RegTMarginModel
 
 
-def test_parse_workflow_config_builds_minimal_vrp_workflow() -> None:
+def test_parse_workflow_config_applies_vrp_default_signal() -> None:
     workflow = parse_workflow_config(
         {
             "data": {
@@ -22,7 +22,6 @@ def test_parse_workflow_config_builds_minimal_vrp_workflow() -> None:
             },
             "strategy": {
                 "name": "vrp_harvesting",
-                "signal": {"name": "short_only"},
             },
         }
     )

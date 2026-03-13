@@ -43,6 +43,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Backtest runner FRED rates sources now accept either the FRED source root
   (`data/processed/fred`) or the rates-domain root (`data/processed/fred/rates`)
   for `data.rates.proc_root`.
+- Backtest runner strategy-preset defaults are now resolved in the runner layer
+  instead of the CLI app, so `backtest-run --print-config` shows the raw merged
+  app config while parsed workflows still receive preset-owned defaults.
 
 ## [0.4.0] - 2026-03-09
 ### Added
