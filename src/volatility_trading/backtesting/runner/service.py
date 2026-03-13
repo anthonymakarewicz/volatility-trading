@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +20,7 @@ from volatility_trading.backtesting.reporting import (
 
 from .assembly import ResolvedWorkflowInputs, assemble_workflow_inputs
 from .config_parser import parse_workflow_config
+from .serialization import build_report_config_payload
 from .workflow_types import BacktestWorkflowSpec
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ def run_backtest_workflow(
     report_bundle = build_backtest_report_bundle(
         trades=trades,
         mtm_daily=daily_mtm,
-        run_config=_build_report_config_payload(workflow, resolved),
+        run_config=build_report_config_payload(workflow, resolved),
         strategy_name=resolved.strategy.name,
         benchmark=resolved.benchmark,
         benchmark_name=resolved.benchmark_name,
@@ -99,48 +100,3 @@ def run_backtest_workflow_config(
     """Parse one config mapping and execute the resulting typed workflow."""
     workflow = parse_workflow_config(config)
     return run_backtest_workflow(workflow)
-
-
-def _build_report_config_payload(
-    workflow: BacktestWorkflowSpec,
-    resolved: ResolvedWorkflowInputs,
-) -> dict[str, Any]:
-    """Build a JSON-serializable config payload for report manifests."""
-    return {
-        "workflow": _serialize_for_report(workflow),
-        "resolved": {
-            "strategy_name": resolved.strategy.name,
-            "benchmark_name": resolved.benchmark_name,
-            "risk_free_rate": _serialize_for_report(resolved.risk_free_rate),
-        },
-    }
-
-
-def _serialize_for_report(value: Any) -> Any:
-    """Convert workflow/runtime objects into manifest-friendly structures."""
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, pd.Timestamp):
-        return value.isoformat()
-    if isinstance(value, pd.Series):
-        first = value.index.min() if not value.empty else None
-        last = value.index.max() if not value.empty else None
-        return {
-            "type": "series",
-            "name": value.name,
-            "rows": int(len(value)),
-            "start": None if first is None else pd.Timestamp(first).isoformat(),
-            "end": None if last is None else pd.Timestamp(last).isoformat(),
-        }
-    if isinstance(value, Mapping):
-        return {str(key): _serialize_for_report(val) for key, val in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_serialize_for_report(item) for item in value]
-    if is_dataclass(value):
-        return {
-            field.name: _serialize_for_report(getattr(value, field.name))
-            for field in fields(value)
-        }
-    return type(value).__name__
