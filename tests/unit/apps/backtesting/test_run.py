@@ -32,7 +32,7 @@ def test_help(capsys) -> None:
     assert "--output-root" in out
 
 
-def test_print_config_applies_ticker_override_and_vrp_signal_default(
+def test_print_config_applies_ticker_override_without_runner_defaults(
     tmp_path: Path,
     capsys,
 ) -> None:
@@ -72,7 +72,7 @@ def test_print_config_applies_ticker_override_and_vrp_signal_default(
     assert printed["data"]["options"]["ticker"] == "QQQ"
     assert printed["data"]["features"]["ticker"] == "QQQ"
     assert printed["data"]["hedge"]["ticker"] == "QQQ"
-    assert printed["strategy"]["signal"]["name"] == "short_only"
+    assert "signal" not in printed["strategy"]
     assert printed["reporting"]["run_id"] == "smoke-run"
 
 
@@ -164,17 +164,3 @@ def test_main_runs_workflow_service_with_merged_config(monkeypatch, caplog) -> N
     assert config["reporting"]["output_root"] == "/tmp/reports"
     assert config["reporting"]["run_id"] == "iwm-2024"
     assert "Completed backtest workflow strategy=skew_mispricing" in caplog.text
-
-
-def test_apply_strategy_defaults_does_not_inject_signal_for_skew() -> None:
-    mod = importlib.import_module("volatility_trading.apps.backtesting.run")
-    config = {
-        "strategy": {
-            "name": "skew_mispricing",
-            "params": {},
-        }
-    }
-
-    mod._apply_strategy_defaults(config)
-
-    assert "signal" not in config["strategy"]

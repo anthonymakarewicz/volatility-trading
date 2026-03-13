@@ -165,7 +165,6 @@ def _build_config(args: argparse.Namespace) -> dict[str, Any]:
     """Build the final merged workflow config for this CLI invocation."""
     config = build_config(DEFAULT_CONFIG, args.config, _build_overrides(args))
     _apply_ticker_override(config, args.ticker)
-    _apply_strategy_defaults(config)
     return config
 
 
@@ -174,20 +173,6 @@ def _workflow_config_payload(config: dict[str, Any]) -> dict[str, Any]:
     return {
         key: value for key, value in config.items() if key not in {"dry_run", "logging"}
     }
-
-
-def _apply_strategy_defaults(config: dict[str, Any]) -> None:
-    """Inject strategy defaults that depend on the selected preset name."""
-    strategy = config.get("strategy")
-    if not isinstance(strategy, dict):
-        return
-
-    strategy_name = str(strategy.get("name", "")).strip().lower()
-    if strategy_name == "vrp_harvesting" and "signal" not in strategy:
-        strategy["signal"] = {
-            "name": "short_only",
-            "params": {},
-        }
 
 
 def _apply_ticker_override(config: dict[str, Any], ticker: str | None) -> None:

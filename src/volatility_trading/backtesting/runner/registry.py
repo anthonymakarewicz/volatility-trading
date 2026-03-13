@@ -33,6 +33,9 @@ _SIGNAL_FACTORIES: dict[str, SignalFactory] = {
     "short_only": ShortOnlySignal,
     "zscore": ZScoreSignal,
 }
+_DEFAULT_STRATEGY_SIGNALS: dict[str, NamedSignalSpec] = {
+    "vrp_harvesting": NamedSignalSpec(name="short_only", params={}),
+}
 _VRP_ALLOWED_PARAMS = tuple(
     field.name
     for field in fields(VRPHarvestingSpec)
@@ -149,6 +152,24 @@ def available_signal_names() -> tuple[str, ...]:
 def available_strategy_preset_names() -> tuple[str, ...]:
     """Return stable sorted strategy preset names supported by the runner."""
     return tuple(sorted(_STRATEGY_PRESET_BUILDERS))
+
+
+def apply_strategy_preset_defaults(
+    spec: NamedStrategyPresetSpec,
+) -> NamedStrategyPresetSpec:
+    """Apply preset-owned config defaults before workflow execution."""
+    if spec.signal is not None:
+        return spec
+
+    default_signal = _DEFAULT_STRATEGY_SIGNALS.get(spec.name)
+    if default_signal is None:
+        return spec
+
+    return NamedStrategyPresetSpec(
+        name=spec.name,
+        signal=default_signal,
+        params=dict(spec.params),
+    )
 
 
 def build_signal(spec: NamedSignalSpec) -> Signal:

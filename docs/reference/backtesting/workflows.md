@@ -179,8 +179,7 @@ Current preset names:
 
 Signal note:
 
-- `vrp_harvesting` requires a signal config; the CLI currently injects
-  `short_only` when the YAML omits it.
+- `vrp_harvesting` defaults to `short_only` when the YAML omits `signal`.
 - `skew_mispricing` can omit `signal` and use its preset default.
 
 Current signal names:
