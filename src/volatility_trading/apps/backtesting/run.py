@@ -54,10 +54,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "proc_root": None,
         },
     },
-    "strategy": {
-        "name": "vrp_harvesting",
-        "params": {},
-    },
     "account": {
         "initial_capital": 100_000.0,
     },

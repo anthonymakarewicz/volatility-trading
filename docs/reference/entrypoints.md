@@ -49,6 +49,7 @@ backtest-run --config config/backtesting/skew_mispricing.yml
 
 Notes:
 - Runs one config-driven backtest workflow per invocation.
+- Strategy selection is explicit; workflow YAML must provide `strategy.name`.
 - Supports top-level CLI overrides for:
   - `--ticker`
   - `--start`
