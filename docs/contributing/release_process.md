@@ -25,6 +25,34 @@ Guideline:
 - During normal PRs, user-visible changes should be added to `## [Unreleased]` in `CHANGELOG.md`.
 - During release prep, move/copy relevant `Unreleased` bullets into `[0.x.y]`, set the release date, then reset `Unreleased`.
 
+## GitHub Release Notes Template
+
+Use this as the default release description skeleton when publishing a GitHub
+Release:
+
+```md
+## v0.x.y (YYYY-MM-DD)
+
+### Highlights
+- item
+- item
+
+### Breaking Changes
+- none
+
+### Behavior Changes
+- item
+
+### Migration Notes
+- item
+```
+
+Guidance:
+
+- keep this aligned with `CHANGELOG.md`
+- describe changes relative to the previous release, not intermediate branch states
+- use `Breaking Changes` only for real user-facing migration impact
+
 ## Standard Release Workflow (PR-Protected `main`)
 
 ### 1) Create release branch from up-to-date `main`
@@ -156,7 +184,7 @@ No manual `twine upload` is required for the standard release path.
 - Options ETL/build pipeline is currently ORATS-first.
 - Backtesting runtime is reusable, but options-chain inputs currently assume
   the project's existing options schema conventions.
-- Public API boundaries for `0.4.x` are defined in
+- Public API boundaries for `0.5.x` are defined in
   [API Scope](../reference/api_scope.md).
 - Research-oriented modules (for example `iv_surface`, `rv_forecasting`) are
   not yet treated as stable library API contracts.

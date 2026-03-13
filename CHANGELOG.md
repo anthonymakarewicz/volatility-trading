@@ -8,13 +8,17 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - `y` (patch): bug fixes, docs/tests updates, and non-breaking internal changes
 
 ## [Unreleased]
+
+## [0.5.0] - 2026-03-13
 ### Added
 - Added `SkewMispricingSpec` and `make_skew_mispricing_strategy` as a second
   built-in options strategy preset, using a 25-delta risk reversal selected
   through the shared options-engine structure logic.
 - Added `backtest-run`, a config-driven workflow CLI for one backtest run with
-  YAML config loading, dry-run validation, and top-level overrides for ticker,
-  run window, and report output.
+  YAML config loading, dry-run validation, top-level overrides for ticker,
+  run window, and report output, plus typed workflow support for options,
+  benchmark, and rates data sources as well as broker margin model/policy
+  configuration.
 - Added example workflow configs under `config/backtesting/` for
   `vrp_harvesting` and `skew_mispricing`.
 
@@ -24,8 +28,6 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Added curated `volatility_trading.backtesting` re-exports for preferred user
   imports, while keeping `volatility_trading.backtesting.options_engine` as the
   advanced namespace.
-- Narrowed `volatility_trading.backtesting.options_engine` re-exports so the
-  advanced namespace no longer advertises runtime-internal lifecycle helpers.
 - Options backtests now honor `Signal.exit` as a shared lifecycle close trigger,
   emitting `Signal Exit` trade rows when a strategy exits via signal mean
   reversion.
@@ -34,20 +36,13 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   optional max-holding safety cap.
 - `ZScoreSignal` rolling statistics now use only prior observations, removing
   look-ahead leakage from its z-score computation.
-- Reorganized backtesting examples under strategy-specific entrypoints and
-  renamed the shared example helper module to
-  `examples/core/backtesting_helpers.py`.
-- Backtest runner workflow configs now support `broker.margin.model` and
-  `broker.margin.policy`, and dry-run assembly fails early when a strategy uses
-  `margin_budget_pct` without a configured margin model.
-- Backtest runner FRED rates sources now accept either the FRED source root
-  (`data/processed/fred`) or the rates-domain root (`data/processed/fred/rates`)
-  for `data.rates.proc_root`.
-- Backtest runner strategy-preset defaults are now resolved in the runner layer
-  instead of the CLI app, so `backtest-run --print-config` shows the raw merged
-  app config while parsed workflows still receive preset-owned defaults.
-- `backtest-run` no longer assumes `vrp_harvesting` as the default strategy;
-  workflow configs must now provide `strategy.name` explicitly.
+
+### Breaking changes
+- `volatility_trading.backtesting.options_engine` no longer re-exports
+  runtime-internal lifecycle helpers; advanced users should import those names
+  from their concrete internal modules instead.
+- `backtest-run` requires `strategy.name` explicitly in workflow YAML; the CLI
+  does not assume `vrp_harvesting` as a default preset.
 
 ## [0.4.0] - 2026-03-09
 ### Added
