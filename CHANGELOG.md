@@ -46,6 +46,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Backtest runner strategy-preset defaults are now resolved in the runner layer
   instead of the CLI app, so `backtest-run --print-config` shows the raw merged
   app config while parsed workflows still receive preset-owned defaults.
+- `backtest-run` no longer assumes `vrp_harvesting` as the default strategy;
+  workflow configs must now provide `strategy.name` explicitly.
 
 ## [0.4.0] - 2026-03-09
 ### Added

@@ -172,6 +172,11 @@ Supported keys:
 - `params`
 - `signal`
 
+Notes:
+
+- `strategy.name` must be provided explicitly in YAML or via a merged config
+  layer. `backtest-run` does not assume a default strategy preset.
+
 Current preset names:
 
 - `vrp_harvesting`

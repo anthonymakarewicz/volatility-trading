@@ -76,6 +76,14 @@ def test_print_config_applies_ticker_override_without_runner_defaults(
     assert printed["reporting"]["run_id"] == "smoke-run"
 
 
+def test_build_config_does_not_assume_default_strategy() -> None:
+    mod = importlib.import_module("volatility_trading.apps.backtesting.run")
+
+    config = mod._build_config(mod._parse_args([]))
+
+    assert "strategy" not in config
+
+
 def test_dry_run_validates_without_executing(monkeypatch, caplog) -> None:
     mod = importlib.import_module("volatility_trading.apps.backtesting.run")
     workflow = BacktestWorkflowSpec(
@@ -117,6 +125,7 @@ def test_dry_run_validates_without_executing(monkeypatch, caplog) -> None:
 
     assert "dry_run" not in parse_calls["config"]
     assert "logging" not in parse_calls["config"]
+    assert "strategy" not in parse_calls["config"]
     assert assemble_calls["workflow"] is workflow
     assert "DRY RUN: no actions were executed." in caplog.text
     assert "backtest_run" in caplog.text
@@ -158,6 +167,7 @@ def test_main_runs_workflow_service_with_merged_config(monkeypatch, caplog) -> N
     config = captured["config"]
     assert "dry_run" not in config
     assert "logging" not in config
+    assert "strategy" not in config
     assert config["data"]["options"]["ticker"] == "IWM"
     assert config["run"]["start_date"] == "2024-01-01"
     assert config["run"]["end_date"] == "2024-12-31"
