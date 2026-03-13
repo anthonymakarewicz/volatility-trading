@@ -56,6 +56,12 @@ git push origin --delete feature/<topic>
 - If you need to switch context mid-work, either commit/push a small WIP commit on the branch or use `git stash` for temporary local changes.
 - If WIP commits are noisy, clean history before merge (`rebase`) or use `squash and merge`.
 
+## Templates and Security Reporting
+
+- Use the GitHub PR template as the default structure for PR summary, validation, and breaking-change notes.
+- Use the GitHub issue templates when opening bug reports or feature requests so reports include the minimum context needed for triage.
+- For suspected security issues, do not open a public issue. Follow [SECURITY.md](SECURITY.md).
+
 ## Changelog Policy
 
 - If a PR is user-visible (feature, behavior change, fix, public API or workflow impact), update `CHANGELOG.md` under `## [Unreleased]` in that same PR.
