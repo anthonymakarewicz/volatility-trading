@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible defect in code, CLI workflows, or docs.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is broken?
+      placeholder: Short description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Provide the smallest reproducible example, command, or config.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: What happened instead? Include full error text if available.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Python version, OS, command used, branch/version, and any relevant dataset/config context.
+      placeholder: |
+        - OS:
+        - Python:
+        - Package version / branch:
+        - Command:
+        - Config or dataset details:
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      placeholder: Logs, screenshots, or anything else that helps triage.
+    validations:
+      required: false
