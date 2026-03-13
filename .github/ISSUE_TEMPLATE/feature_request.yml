@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a new capability, workflow, or API improvement.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / use case
+      description: What workflow or limitation is driving this request?
+      placeholder: Describe the user or research problem first.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the feature or design you want.
+      placeholder: Concrete proposal, config shape, API shape, or workflow.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Existing workarounds or other designs you considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Expected impact
+      description: Why is this worth adding now?
+      placeholder: Research workflow, CLI ergonomics, API consistency, etc.
+    validations:
+      required: false

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security policy
+    url: https://github.com/anthonymakarewicz/volatility-trading/blob/main/SECURITY.md
+    about: Please read the security policy before reporting a vulnerability.
