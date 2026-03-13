@@ -18,11 +18,9 @@ from volatility_trading.apps._cli import (
     print_config,
 )
 from volatility_trading.backtesting.reporting.constants import DEFAULT_REPORT_ROOT
-from volatility_trading.backtesting.runner import (
-    assemble_workflow_inputs,
-    parse_workflow_config,
-    run_backtest_workflow_config,
-)
+from volatility_trading.backtesting.runner.assembly import assemble_workflow_inputs
+from volatility_trading.backtesting.runner.config_parser import parse_workflow_config
+from volatility_trading.backtesting.runner.service import run_backtest_workflow_config
 from volatility_trading.backtesting.runner.workflow_types import BacktestWorkflowSpec
 from volatility_trading.cli import (
     DEFAULT_LOGGING,

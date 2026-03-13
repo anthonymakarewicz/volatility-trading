@@ -8,7 +8,7 @@ from volatility_trading.backtesting.options_engine.lifecycle import (
     FixedBpsHedgeExecutionModel,
     MidNoCostOptionExecutionModel,
 )
-from volatility_trading.backtesting.runner import parse_workflow_config
+from volatility_trading.backtesting.runner.config_parser import parse_workflow_config
 from volatility_trading.options import RegTMarginModel
 
 

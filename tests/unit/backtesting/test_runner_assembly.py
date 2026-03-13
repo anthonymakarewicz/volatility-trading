@@ -5,18 +5,20 @@ import polars as pl
 import pytest
 
 from volatility_trading.backtesting.data_adapters import CanonicalOptionsChainAdapter
-from volatility_trading.backtesting.runner import (
+from volatility_trading.backtesting.runner.assembly import assemble_workflow_inputs
+from volatility_trading.backtesting.runner.types import (
+    NamedSignalSpec,
+    NamedStrategyPresetSpec,
+)
+from volatility_trading.backtesting.runner.workflow_types import (
     BacktestDataSourcesSpec,
     BacktestWorkflowSpec,
     FeaturesSourceSpec,
-    NamedSignalSpec,
-    NamedStrategyPresetSpec,
     OptionsSourceSpec,
     RatesSourceSpec,
     ReportingSpec,
     RunWindowSpec,
     SeriesSourceSpec,
-    assemble_workflow_inputs,
 )
 from volatility_trading.datasets.daily_features import daily_features_path
 from volatility_trading.datasets.fred import fred_rates_path

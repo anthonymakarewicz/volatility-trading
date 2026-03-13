@@ -1,12 +1,14 @@
 import pytest
 
-from volatility_trading.backtesting.runner import (
-    NamedSignalSpec,
-    NamedStrategyPresetSpec,
+from volatility_trading.backtesting.runner.registry import (
     available_signal_names,
     available_strategy_preset_names,
     build_signal,
     build_strategy_preset,
+)
+from volatility_trading.backtesting.runner.types import (
+    NamedSignalSpec,
+    NamedStrategyPresetSpec,
 )
 from volatility_trading.signals import LongOnlySignal, ShortOnlySignal, ZScoreSignal
 
