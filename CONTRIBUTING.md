@@ -60,6 +60,7 @@ git push origin --delete feature/<topic>
 
 - Use the GitHub PR template as the default structure for PR summary, validation, and breaking-change notes.
 - Use the GitHub issue templates when opening bug reports or feature requests so reports include the minimum context needed for triage.
+- Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community behavior expectations.
 - For suspected security issues, do not open a public issue. Follow [SECURITY.md](SECURITY.md).
 
 ## Changelog Policy
