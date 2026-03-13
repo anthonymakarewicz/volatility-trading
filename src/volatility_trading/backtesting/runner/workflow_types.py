@@ -20,7 +20,7 @@ from volatility_trading.backtesting.config import (
 )
 from volatility_trading.backtesting.reporting.constants import DEFAULT_REPORT_ROOT
 
-from .catalog import (
+from .source_loaders import (
     FEATURES_SOURCE_PROVIDERS,
     OPTIONS_SOURCE_PROVIDERS,
     RATES_SOURCE_PROVIDERS,

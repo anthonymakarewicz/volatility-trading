@@ -13,6 +13,29 @@ except ModuleNotFoundError:  # pragma: no cover - handled at runtime
     yaml = None
 
 
+def _repo_root() -> Path:
+    """Return the repository root for repo-shipped config fallback lookup."""
+    return Path(__file__).resolve().parents[3]
+
+
+def resolve_repo_relative_path(value: str | Path | None) -> Path | None:
+    """Resolve a path, with fallback to the repository root for relative paths.
+
+    This keeps normal cwd-relative behavior, but allows repo-shipped config and
+    data paths such as `config/...` and `data/...` to work from subdirectories.
+    """
+    p = resolve_path(value)
+    if p is None:
+        return None
+    if not p.is_absolute() and not p.exists():
+        repo_relative = _repo_root() / p
+        if repo_relative.exists():
+            return repo_relative
+        if p.parts and p.parts[0] in {"config", "data", "reports"}:
+            return repo_relative
+    return p
+
+
 def add_config_arg(parser, *, default: str | None = None) -> None:
     """Add a `--config` YAML-path argument to a parser."""
     parser.add_argument(
@@ -33,7 +56,10 @@ def load_yaml_config(path: str | Path | None) -> dict[str, Any]:
             "PyYAML is required for --config. Install with `pip install pyyaml`."
         )
 
-    p = Path(path)
+    p = resolve_repo_relative_path(path)
+    if p is None:
+        return {}
+
     if not p.exists():
         raise FileNotFoundError(f"Config file not found: {p}")
 

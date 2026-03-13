@@ -50,18 +50,11 @@ backtest-run --config config/backtesting/skew_mispricing.yml
 Notes:
 - Runs one config-driven backtest workflow per invocation.
 - Strategy selection is explicit; workflow YAML must provide `strategy.name`.
-- Supports top-level CLI overrides for:
-  - `--ticker`
-  - `--start`
-  - `--end`
-  - `--output-root`
-  - `--run-id`
-- `--dry-run` validates config parsing and local data assembly without
-  executing the backtest.
-- The provided workflow configs show:
-  - a minimal VRP harvesting run
-  - a richer skew-mispricing run with daily features, benchmark, and FRED rates
-- Full YAML schema and template guidance:
+- Use the shipped workflow YAMLs as starting templates for new runs.
+- Relative config paths are resolved from the current working directory first.
+  If the path does not exist and matches a repo-shipped config path, the CLI
+  also falls back to the repository root.
+- Full YAML schema, template guidance, and output-layout details live in:
   [`docs/reference/backtesting/workflows.md`](backtesting/workflows.md)
 
 ## OptionsDX
@@ -98,27 +91,5 @@ yfinance-sync --config config/yfinance/time_series_sync.yml
 - `--dry-run`: validate config/paths/creds and log the execution plan **without**
   making network calls or writing files.
 
-## Config Schema (Paths)
-
-All ORATS apps now use a **consistent** paths schema:
-
-- `paths.raw_root`
-- `paths.inter_root` (intermediate data)
-- `paths.proc_root` (processed data)
-- `paths.monies_implied_root` (options-chain build only)
-
-OptionsDX panel build app uses:
-
-- `paths.raw_root`
-- `paths.proc_root`
-
-Backtest workflow configs use top-level sections instead:
-
-- `data`
-- `strategy`
-- `account`
-- `execution`
-- `broker`
-- `modeling`
-- `run`
-- `reporting`
+Config-family layout and schema ownership are documented in
+[`configs.md`](configs.md).

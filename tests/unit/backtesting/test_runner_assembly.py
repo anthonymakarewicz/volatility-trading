@@ -85,7 +85,7 @@ def test_assemble_workflow_inputs_loads_sources_and_builds_runtime_context(
         pl.DataFrame(
             {
                 "date": [pd.Timestamp("2020-01-01")],
-                "dgs3mo": [0.015],
+                "dgs3mo": [1.5],
             }
         ),
     )

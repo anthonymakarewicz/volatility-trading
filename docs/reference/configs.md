@@ -121,18 +121,6 @@ These are consumed by:
 
 - `backtest-run`
 
-Workflow configs use a different top-level schema from ETL configs:
-
-- `logging`
-- `data`
-- `strategy`
-- `account`
-- `execution`
-- `broker`
-- `modeling`
-- `run`
-- `reporting`
-
 Use these for:
 
 - one complete config-driven backtest run
@@ -140,7 +128,7 @@ Use these for:
 - dataset source composition
 - execution, margin, and report settings
 
-Detailed schema and canonical templates live in:
+Detailed schema, canonical templates, and output-layout docs live in:
 
 - [Backtest Runner Workflows](backtesting/workflows.md)
 

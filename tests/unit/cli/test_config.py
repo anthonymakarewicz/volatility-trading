@@ -31,6 +31,28 @@ def test_load_yaml_config_reads_mapping(write_yaml) -> None:
     assert mod.load_yaml_config(path) == {"a": 1, "b": {"c": 2}}
 
 
+def test_load_yaml_config_falls_back_to_repo_root_for_relative_path(
+    monkeypatch,
+) -> None:
+    mod = importlib.import_module("volatility_trading.cli.config")
+    monkeypatch.chdir(Path(__file__).parent)
+    config = mod.load_yaml_config("config/backtesting/vrp_harvesting.yml")
+    assert config["strategy"]["name"] == "vrp_harvesting"
+
+
+def test_resolve_repo_relative_path_maps_repo_asset_roots_from_subdirectories(
+    monkeypatch,
+) -> None:
+    mod = importlib.import_module("volatility_trading.cli.config")
+    monkeypatch.chdir(Path(__file__).parent)
+
+    data_root = mod.resolve_repo_relative_path("data/processed/orats/options_chain")
+    reports_root = mod.resolve_repo_relative_path("reports/backtests")
+
+    assert data_root == Path.cwd().parents[2] / "data/processed/orats/options_chain"
+    assert reports_root == Path.cwd().parents[2] / "reports/backtests"
+
+
 def test_load_yaml_config_requires_pyyaml(
     monkeypatch,
     write_yaml,
