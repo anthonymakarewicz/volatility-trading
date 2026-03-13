@@ -14,8 +14,8 @@ Older pre-`1.0` versions may not receive security updates.
 Do not open a public issue for suspected security vulnerabilities.
 
 Use GitHub private vulnerability reporting for this repository if it is
-available. If private reporting is not available, contact the maintainer
-directly before making the issue public.
+available. If private reporting is not available, contact Anthony Makarewicz at
+anthonymakarewicz@gmail.com before making the issue public.
 
 When reporting, include:
 
