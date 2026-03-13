@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,9 +11,6 @@ from volatility_trading.backtesting.config import BacktestRunConfig
 from volatility_trading.backtesting.data_adapters import (
     CanonicalOptionsChainAdapter,
     OptionsChainAdapter,
-    OptionsDxOptionsChainAdapter,
-    OratsOptionsChainAdapter,
-    YfinanceOptionsChainAdapter,
 )
 from volatility_trading.backtesting.data_contracts import (
     HedgeMarketData,
@@ -32,6 +28,7 @@ from volatility_trading.datasets import (
     read_yfinance_time_series,
 )
 
+from .catalog import OPTIONS_ADAPTER_FACTORIES, available_names
 from .registry import build_strategy_preset
 from .workflow_types import (
     BacktestWorkflowSpec,
@@ -141,18 +138,11 @@ def _resolve_options_adapter(spec: OptionsSourceSpec) -> OptionsChainAdapter:
         return CanonicalOptionsChainAdapter()
 
     adapter_name = spec.adapter_name.lower()
-    factories: dict[str, Callable[[], OptionsChainAdapter]] = {
-        "canonical": CanonicalOptionsChainAdapter,
-        "orats": OratsOptionsChainAdapter,
-        "optionsdx": OptionsDxOptionsChainAdapter,
-        "yfinance": YfinanceOptionsChainAdapter,
-    }
-    factory = factories.get(adapter_name)
+    factory = OPTIONS_ADAPTER_FACTORIES.get(adapter_name)
     if factory is None:
-        available = ", ".join(sorted(factories))
         raise ValueError(
             f"Unknown options adapter_name '{spec.adapter_name}'. "
-            f"Available built-in adapters: {available}."
+            f"Available built-in adapters: {available_names(OPTIONS_ADAPTER_FACTORIES)}."
         )
     return factory()
 

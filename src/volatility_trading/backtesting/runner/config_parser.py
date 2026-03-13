@@ -16,20 +16,13 @@ from volatility_trading.backtesting.config import (
     ModelingConfig,
 )
 from volatility_trading.backtesting.margin import MarginPolicy
-from volatility_trading.backtesting.options_engine.lifecycle import (
-    BidAskFeeOptionExecutionModel,
-    FixedBpsHedgeExecutionModel,
-    HedgeExecutionModel,
-    MidNoCostHedgeExecutionModel,
-    MidNoCostOptionExecutionModel,
-    OptionExecutionModel,
-)
-from volatility_trading.options import (
-    MarginModel,
-    PortfolioMarginProxyModel,
-    RegTMarginModel,
-)
+from volatility_trading.options import MarginModel
 
+from .catalog import (
+    HEDGE_EXECUTION_MODEL_FACTORIES,
+    MARGIN_MODEL_FACTORIES,
+    OPTION_EXECUTION_MODEL_FACTORIES,
+)
 from .registry import apply_strategy_preset_defaults
 from .types import NamedSignalSpec, NamedStrategyPresetSpec
 from .workflow_types import (
@@ -43,22 +36,7 @@ from .workflow_types import (
     SeriesSourceSpec,
 )
 
-OptionExecutionFactory: TypeAlias = Callable[..., OptionExecutionModel]
-HedgeExecutionFactory: TypeAlias = Callable[..., HedgeExecutionModel]
-MarginModelFactory: TypeAlias = Callable[..., MarginModel]
-
-_OPTION_EXECUTION_FACTORIES: dict[str, OptionExecutionFactory] = {
-    "bid_ask_fee": BidAskFeeOptionExecutionModel,
-    "mid_no_cost": MidNoCostOptionExecutionModel,
-}
-_HEDGE_EXECUTION_FACTORIES: dict[str, HedgeExecutionFactory] = {
-    "fixed_bps": FixedBpsHedgeExecutionModel,
-    "mid_no_cost": MidNoCostHedgeExecutionModel,
-}
-_MARGIN_MODEL_FACTORIES: dict[str, MarginModelFactory] = {
-    "portfolio_margin_proxy": PortfolioMarginProxyModel,
-    "regt": RegTMarginModel,
-}
+FactoryRegistry: TypeAlias = Mapping[str, Callable[..., Any]]
 
 
 def _expect_mapping(value: Any, *, field_name: str) -> Mapping[str, Any]:
@@ -112,7 +90,7 @@ def _build_model_instance(
     section_name: str,
     model_name: str,
     params: Mapping[str, Any],
-    factories: Mapping[str, Callable[..., Any]],
+    factories: FactoryRegistry,
 ) -> Any:
     """Instantiate one named model from a registry and kwargs mapping."""
     factory = factories.get(model_name)
@@ -421,13 +399,13 @@ def _parse_execution_config(payload: Any) -> ExecutionConfig:
         mapping.get("option"),
         field_name="execution.option",
         default_name="bid_ask_fee",
-        factories=_OPTION_EXECUTION_FACTORIES,
+        factories=OPTION_EXECUTION_MODEL_FACTORIES,
     )
     hedge_model = _parse_execution_model_section(
         mapping.get("hedge"),
         field_name="execution.hedge",
         default_name="fixed_bps",
-        factories=_HEDGE_EXECUTION_FACTORIES,
+        factories=HEDGE_EXECUTION_MODEL_FACTORIES,
     )
     return ExecutionConfig(
         option_execution_model=option_model,
@@ -440,7 +418,7 @@ def _parse_execution_model_section(
     *,
     field_name: str,
     default_name: str,
-    factories: Mapping[str, Callable[..., Any]],
+    factories: FactoryRegistry,
 ) -> Any:
     """Parse one execution-model subsection into a concrete model instance."""
     if payload is None:
@@ -509,7 +487,7 @@ def _parse_margin_model(payload: Any) -> MarginModel | None:
         section_name="broker.margin.model",
         model_name=str(mapping["name"]),
         params=params,
-        factories=_MARGIN_MODEL_FACTORIES,
+        factories=MARGIN_MODEL_FACTORIES,
     )
 
 

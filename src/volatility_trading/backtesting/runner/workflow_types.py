@@ -17,6 +17,12 @@ from volatility_trading.backtesting.config import (
 )
 from volatility_trading.backtesting.reporting.constants import DEFAULT_REPORT_ROOT
 
+from .catalog import (
+    FEATURES_SOURCE_PROVIDERS,
+    OPTIONS_SOURCE_PROVIDERS,
+    RATES_SOURCE_PROVIDERS,
+    SERIES_SOURCE_PROVIDERS,
+)
 from .types import NamedStrategyPresetSpec
 
 
@@ -92,7 +98,7 @@ class OptionsSourceSpec:
             _validate_provider(
                 self.provider,
                 field_name="options provider",
-                allowed=("orats",),
+                allowed=OPTIONS_SOURCE_PROVIDERS,
             ),
         )
         object.__setattr__(
@@ -138,7 +144,7 @@ class FeaturesSourceSpec:
             _validate_provider(
                 self.provider,
                 field_name="features provider",
-                allowed=("orats",),
+                allowed=FEATURES_SOURCE_PROVIDERS,
             ),
         )
 
@@ -166,7 +172,7 @@ class SeriesSourceSpec:
             _validate_provider(
                 self.provider,
                 field_name="series provider",
-                allowed=("yfinance",),
+                allowed=SERIES_SOURCE_PROVIDERS,
             ),
         )
         object.__setattr__(
@@ -206,7 +212,7 @@ class RatesSourceSpec:
         provider = _validate_provider(
             self.provider,
             field_name="rates provider",
-            allowed=("constant", "fred"),
+            allowed=RATES_SOURCE_PROVIDERS,
         )
         object.__setattr__(self, "provider", provider)
         object.__setattr__(

@@ -82,8 +82,11 @@ src/volatility_trading
 │   ├── runner
 │   │   ├── __init__.py
 │   │   ├── assembly.py
+│   │   ├── catalog.py
 │   │   ├── config_parser.py
+│   │   ├── defaults.py
 │   │   ├── registry.py
+│   │   ├── serialization.py
 │   │   ├── service.py
 │   │   ├── types.py
 │   │   └── workflow_types.py
