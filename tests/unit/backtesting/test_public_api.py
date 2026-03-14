@@ -8,6 +8,7 @@ from volatility_trading.backtesting import (
     FixedDeltaBandModel,
     StrategySpec,
     canonicalize_options_chain_for_backtest,
+    filter_options_chain_for_backtest,
     load_fred_rate_series,
     load_orats_options_chain_for_backtest,
     load_yfinance_close_series,
@@ -43,6 +44,7 @@ def test_backtesting_reexports_common_user_types() -> None:
     assert FixedBpsHedgeExecutionModel is EngineFixedBpsHedgeExecutionModel
     assert ColumnMapOptionsChainAdapter is EngineColumnMapOptionsChainAdapter
     assert callable(canonicalize_options_chain_for_backtest)
+    assert callable(filter_options_chain_for_backtest)
     assert callable(load_orats_options_chain_for_backtest)
     assert callable(load_fred_rate_series)
     assert callable(load_yfinance_close_series)

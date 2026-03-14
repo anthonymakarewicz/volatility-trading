@@ -4,10 +4,12 @@ from pathlib import Path
 
 import pandas as pd
 import polars as pl
+import pytest
 
 from volatility_trading.backtesting import (
     canonicalize_options_chain_for_backtest,
     data_loading,
+    filter_options_chain_for_backtest,
     load_fred_rate_series,
     load_orats_options_chain_for_backtest,
     load_yfinance_close_series,
@@ -88,6 +90,56 @@ def test_load_orats_options_chain_for_backtest_returns_canonical_long_panel(
     assert {"expiry_date", "dte", "strike", "delta", "bid_price", "ask_price"} <= set(
         options.columns
     )
+
+
+def test_load_orats_options_chain_for_backtest_applies_date_and_dte_filters(
+    monkeypatch,
+) -> None:
+    wide = pl.DataFrame(
+        {
+            "trade_date": ["2024-01-02", "2024-01-03", "2024-01-04"],
+            "expiry_date": ["2024-02-16", "2024-02-16", "2024-02-16"],
+            "dte": [45.0, 44.0, 30.0],
+            "strike": [100.0, 100.0, 100.0],
+            "spot_price": [100.0, 101.0, 102.0],
+            "call_bid_price": [2.0, 2.1, 2.2],
+            "call_ask_price": [2.2, 2.3, 2.4],
+            "call_delta": [0.5, 0.5, 0.5],
+            "put_bid_price": [1.8, 1.9, 2.0],
+            "put_ask_price": [2.0, 2.1, 2.2],
+            "put_delta": [-0.5, -0.5, -0.5],
+        }
+    )
+
+    monkeypatch.setattr(
+        data_loading,
+        "read_options_chain",
+        lambda ticker, *, proc_root=None, columns=None: wide,
+    )
+
+    options = load_orats_options_chain_for_backtest(
+        "SPY",
+        start="2024-01-03",
+        end="2024-01-04",
+        dte_min=35.0,
+        dte_max=44.0,
+    )
+
+    assert list(options.index.unique()) == list(pd.to_datetime(["2024-01-03"]))
+    assert set(options["dte"]) == {44.0}
+
+
+def test_filter_options_chain_for_backtest_rejects_dte_filter_without_dte_column() -> (
+    None
+):
+    options = pd.DataFrame(
+        {"strike": [100.0]},
+        index=pd.to_datetime(["2024-01-02"]),
+    )
+    options.index.name = "trade_date"
+
+    with pytest.raises(ValueError, match="must contain 'dte'"):
+        filter_options_chain_for_backtest(options, dte_min=10.0)
 
 
 def test_load_fred_rate_series_accepts_source_root_and_scales_to_decimal(

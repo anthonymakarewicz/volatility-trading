@@ -32,6 +32,7 @@ from .data_contracts import (
 )
 from .data_loading import (
     canonicalize_options_chain_for_backtest,
+    filter_options_chain_for_backtest,
     load_fred_rate_series,
     load_orats_options_chain_for_backtest,
     load_yfinance_close_series,
@@ -96,6 +97,7 @@ __all__ = [
     "OptionsMarketData",
     "HedgeMarketData",
     "canonicalize_options_chain_for_backtest",
+    "filter_options_chain_for_backtest",
     "load_orats_options_chain_for_backtest",
     "load_fred_rate_series",
     "load_yfinance_close_series",

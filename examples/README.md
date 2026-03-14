@@ -20,6 +20,28 @@ python -m examples.backtesting.hedging.ww_band
 python -m examples.backtesting.hedging.cost_baselines
 ```
 
+## Shared Data Prep Helpers
+
+The examples use the public backtesting helper layer for common market-data
+prep tasks:
+
+- `load_orats_options_chain_for_backtest(...)`
+- `load_fred_rate_series(...)`
+- `load_yfinance_close_series(...)`
+- `spot_series_from_options_chain(...)`
+
+`load_orats_options_chain_for_backtest(...)` also supports common notebook
+filters:
+
+- `start`
+- `end`
+- `dte_min`
+- `dte_max`
+
+Example-level wrappers in `examples/core/backtesting_helpers.py` are kept only
+when they add composition behavior such as window slicing, rate alignment, or
+full backtester construction.
+
 ## Minimal / Strategy End-to-End
 
 - `examples/backtesting/minimal_vrp_backtest.py`

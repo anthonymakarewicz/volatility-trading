@@ -13,6 +13,7 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Added backtesting data-loading helpers for canonical options-chain
   normalization, ORATS chain loading, FRED rate series loading, yfinance close
   series loading, and spot-series derivation from canonical options data.
+- Added common date-window and DTE filters to the ORATS backtest loader helper.
 
 ## [0.5.0] - 2026-03-13
 ### Added

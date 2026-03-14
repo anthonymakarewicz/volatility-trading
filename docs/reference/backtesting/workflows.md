@@ -31,9 +31,9 @@ Common top-level CLI overrides:
 Use these files as the starting point for new runner configs:
 
 - [`config/backtesting/vrp_harvesting.yml`](../../../config/backtesting/vrp_harvesting.yml)
-  - notebook-aligned VRP harvesting workflow
-  - FRED rates source plus scalar financing approximation
-  - benchmark input for reporting
+  - generic baseline VRP harvesting workflow
+  - explicit strategy, execution, and margin-model configuration
+  - minimal single-run template for `backtest-run`
 - [`config/backtesting/skew_mispricing.yml`](../../../config/backtesting/skew_mispricing.yml)
   - richer skew workflow
   - ORATS daily features
