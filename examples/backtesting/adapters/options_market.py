@@ -24,6 +24,7 @@ from volatility_trading.backtesting import (
     OptionsMarketData,
     canonicalize_options_chain_for_backtest,
     compute_performance_metrics,
+    spot_series_from_options_chain,
     to_daily_mtm,
 )
 
@@ -41,7 +42,7 @@ def main() -> None:
     options = load_options_window(ticker=args.ticker, start=args.start, end=args.end)
     rf_series = load_rf_series(options.index.unique())
     hedge_market = HedgeMarketData(
-        mid=options.groupby(level=0)["spot_price"].first().astype(float),
+        mid=spot_series_from_options_chain(options),
         symbol=args.ticker,
     )
     aliased_options = options.reset_index().rename(

@@ -6,11 +6,10 @@ Exploratory ideas stay in `notes/` until promoted here.
 ## Now (next 1-2 milestones)
 
 ### Richer exits (requested priority)
-- Add stop-loss / take-profit exits at structure level.
-- Add optional leg-level stop/target exits.
-- Add time-stop + volatility mean-reversion exits.
-- Add half-life exits.
-- Add event exits (earnings and macro/event calendars).
+- Extend the shipped structure-level `pnl_per_contract` stop-loss /
+  take-profit exits with more advanced calibration bases such as
+  `entry_risk_multiple`.
+- Add half-life / signal-decay exits.
 
 ### Backtest run workflows
 - Build on the current single-run workflow runner with a multi-run experiment
@@ -18,6 +17,10 @@ Exploratory ideas stay in `notes/` until promoted here.
   notebooks/examples.
 - Persist experiment-level manifests and aggregate comparison tables alongside
   single-run report bundles.
+- Expose a stable subset of preset-owned richer exit knobs in workflow YAML,
+  starting with `stop_loss_pnl_per_contract` and
+  `take_profit_pnl_per_contract`, while keeping advanced/custom exit-rule
+  composition in Python.
 - Add richer modeling support to workflow YAML only when a concrete pricing/risk
   workflow requires it; keep the current runner slice intentionally narrow until
   then.

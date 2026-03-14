@@ -129,7 +129,13 @@ stateDiagram-v2
 - `mark_position`: daily MTM, Greeks refresh, financing/margin updates.
 - Option leg fills/costs are delegated to `OptionExecutionModel`.
 - Option market PnL and option trade costs are attributed separately.
-- Applies signal exits and periodic exit rules, then emits trade rows on close.
+- Applies signal exits and exit rules, then emits trade rows on close.
+- Structure-level stop-loss / take-profit exits are available through
+  `StopLossExitRule` and `TakeProfitExitRule`, using
+  `pnl_per_contract = (valuation.pnl_mtm - entry_option_trade_cost + hedge.pnl)
+  / contracts_open`.
+- The current exit-rule basis excludes hypothetical exit costs; future advanced
+  calibration may add risk-based bases such as `entry_risk_multiple`.
 - Supports forced partial/full liquidation from margin lifecycle.
 
 ### 4) Runtime Loop (`engine.py`)
@@ -165,8 +171,8 @@ stateDiagram-v2
 - `BacktestRunConfig` carries run-time environment assumptions:
   account, execution, broker margin rules, pricing/risk engines, optional date window.
 - `OptionsBacktestDataBundle` carries market inputs:
-  `options_market` (chain + optional metadata, including optional scoped
-  adapter), optional features panel, and optional `hedge_market`.
+  `options_market` (canonical long chain plus chain-level metadata), optional
+  features panel, and optional `hedge_market`.
 - Options data is normalized/validated by adapter boundary before strategy plan
   compilation.
 - Margin model/policy and pricing/risk engines are configured at run level, not preset level.
@@ -211,6 +217,9 @@ Add new strategy behavior by configuration first:
 
 - New structure: add `LegSpec` legs in `StructureSpec`
 - New exit logic: implement `ExitRule` and attach to `ExitRuleSet`
+- Built-in presets (`VRPHarvestingSpec`, `SkewMispricingSpec`) also expose
+  `stop_loss_pnl_per_contract` / `take_profit_pnl_per_contract` convenience
+  fields for structure-level richer exits.
 - New sizing logic: adjust `StrategySpec.sizing` and/or provide another `RiskBudgetSizer`
 - New pricing/risk model: set `BacktestRunConfig.modeling` engines
 - New margin model/policy: set `BacktestRunConfig.broker.margin`

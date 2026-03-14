@@ -21,6 +21,8 @@ from volatility_trading.backtesting.options_engine import (
     MidNoCostHedgeExecutionModel,
     OptionExecutionModel,
     OptionExecutionResult,
+    StopLossExitRule,
+    TakeProfitExitRule,
     WWDeltaBandModel,
 )
 from volatility_trading.backtesting.options_engine.contracts.market import QuoteSnapshot
@@ -208,6 +210,7 @@ def _make_engine(
     *,
     rebalance_period: int | None = 5,
     option_contract_multiplier: float = 1.0,
+    exit_rule_set: ExitRuleSet | None = None,
     margin_policy: MarginPolicy | None = None,
     margin_model=None,
     delta_hedge_policy: DeltaHedgePolicy | None = None,
@@ -223,7 +226,7 @@ def _make_engine(
     return PositionLifecycleEngine(
         rebalance_period=rebalance_period,
         max_holding_period=None,
-        exit_rule_set=ExitRuleSet.period_rules(),
+        exit_rule_set=exit_rule_set or ExitRuleSet.period_rules(),
         margin_policy=margin_policy,
         margin_model=margin_model,
         pricer=_NullPricer(),
@@ -425,6 +428,70 @@ def test_mark_position_signal_exit_override_takes_precedence_over_periodic_exit(
     assert step_result.position is None
     assert len(step_result.trade_rows) == 1
     assert step_result.trade_rows[0].exit_type == "Signal Exit"
+
+
+def test_mark_position_stop_loss_exit_uses_pnl_per_contract():
+    setup = _make_setup(contracts=2)
+    cfg = _make_cfg()
+    engine = _make_engine(
+        rebalance_period=10,
+        exit_rule_set=ExitRuleSet(
+            rules=(StopLossExitRule(threshold_per_contract=0.5),)
+        ),
+    )
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    step_result = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            bid_price=6.0,
+            ask_price=6.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    assert step_result.position is None
+    assert len(step_result.trade_rows) == 1
+    assert step_result.trade_rows[0].exit_type == "Stop Loss"
+    assert step_result.trade_rows[0].pnl == pytest.approx(-2.0)
+
+
+def test_mark_position_take_profit_exit_uses_pnl_per_contract():
+    setup = _make_setup(contracts=2)
+    cfg = _make_cfg()
+    engine = _make_engine(
+        rebalance_period=10,
+        exit_rule_set=ExitRuleSet(
+            rules=(TakeProfitExitRule(threshold_per_contract=0.5),)
+        ),
+    )
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    step_result = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            bid_price=4.0,
+            ask_price=4.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    assert step_result.position is None
+    assert len(step_result.trade_rows) == 1
+    assert step_result.trade_rows[0].exit_type == "Take Profit"
+    assert step_result.trade_rows[0].pnl == pytest.approx(2.0)
 
 
 def test_mark_position_forced_liquidation_full_mode_closes_all_contracts():

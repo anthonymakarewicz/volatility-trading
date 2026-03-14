@@ -38,6 +38,24 @@ from .valuation import (
 logger = logging.getLogger(__name__)
 
 
+def _net_pnl_per_contract(
+    *,
+    position: OpenPosition,
+    valuation_pnl_mtm: float,
+    hedge_pnl: float,
+) -> float | None:
+    """Return unrealized net P&L per open contract for exit-rule evaluation."""
+    contracts_open = int(position.contracts_open)
+    if contracts_open <= 0:
+        return None
+    total_pnl = (
+        float(valuation_pnl_mtm)
+        - float(position.entry_option_trade_cost)
+        + float(hedge_pnl)
+    )
+    return total_pnl / float(contracts_open)
+
+
 @dataclass(frozen=True)
 class PositionLifecycleEngine:
     """Shared position lifecycle logic: open, mark, margin-manage, and close."""
@@ -182,9 +200,15 @@ class PositionLifecycleEngine:
                 mtm_record=mtm_record,
             )
 
+        pnl_per_contract = _net_pnl_per_contract(
+            position=position,
+            valuation_pnl_mtm=valuation.pnl_mtm,
+            hedge_pnl=valuation.hedge.pnl,
+        )
         exit_type = exit_type_override or self.exit_rule_set.evaluate(
             curr_date=step.curr_date,
             position=position,
+            pnl_per_contract=pnl_per_contract,
         )
         if exit_type is None:
             return transition_continue_open(

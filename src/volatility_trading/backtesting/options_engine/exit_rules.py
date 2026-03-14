@@ -6,14 +6,13 @@ strategies can compose exit behavior without rewriting lifecycle code.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 import pandas as pd
 
 from .contracts.records import TradeRecord
-
-# TODO: Add Stop Loss and TP Exit (maybe for liquidated positon because of unsufficient margin balance ? )
 
 
 @runtime_checkable
@@ -28,7 +27,10 @@ class HasPeriodicExitDates(Protocol):
 class ExitRule(Protocol):
     """Contract for one exit rule evaluated against an open position."""
 
-    exit_type: str
+    @property
+    def exit_type(self) -> str:
+        """Human-readable label emitted on trade close rows."""
+        ...
 
     def is_triggered(
         self,
@@ -38,6 +40,38 @@ class ExitRule(Protocol):
     ) -> bool:
         """Return True when the rule requires position close on `curr_date`."""
         ...
+
+
+@dataclass(frozen=True)
+class ExitRuleState:
+    """Minimal evaluation snapshot shared across exit rules.
+
+    The richer-exit v1 surface exposes only structure-level
+    ``pnl_per_contract`` so stop-loss / take-profit rules stay independent of
+    account equity, total contracts, and optional risk-sizer plumbing.
+    """
+
+    rebalance_date: pd.Timestamp | None
+    max_hold_date: pd.Timestamp | None
+    pnl_per_contract: float | None = None
+
+    @classmethod
+    def from_position(
+        cls,
+        *,
+        position: HasPeriodicExitDates,
+        pnl_per_contract: float | None = None,
+    ) -> ExitRuleState:
+        """Clone the minimal rule inputs from one open-position object."""
+        return cls(
+            rebalance_date=position.rebalance_date,
+            max_hold_date=position.max_hold_date,
+            pnl_per_contract=(
+                pnl_per_contract
+                if pnl_per_contract is not None
+                else getattr(position, "pnl_per_contract", None)
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -75,6 +109,76 @@ class MaxHoldingExitRule:
 
 
 @dataclass(frozen=True)
+class StopLossExitRule:
+    """Exit when unrealized net P&L per contract breaches a loss threshold.
+
+    The trigger uses lifecycle mark-step ``pnl_per_contract`` semantics:
+
+    ``(valuation.pnl_mtm - entry_option_trade_cost + hedge.pnl) / contracts_open``
+
+    This excludes hypothetical exit transaction costs because the rule is
+    evaluated before an exit is executed.
+    """
+
+    threshold_per_contract: float
+    exit_type: str = "Stop Loss"
+
+    def __post_init__(self) -> None:
+        if (
+            not math.isfinite(self.threshold_per_contract)
+            or self.threshold_per_contract <= 0
+        ):
+            raise ValueError("threshold_per_contract must be > 0")
+
+    def is_triggered(
+        self,
+        *,
+        curr_date: pd.Timestamp,
+        position: HasPeriodicExitDates,
+    ) -> bool:
+        _ = curr_date
+        pnl_per_contract = getattr(position, "pnl_per_contract", None)
+        return pnl_per_contract is not None and pnl_per_contract <= -float(
+            self.threshold_per_contract
+        )
+
+
+@dataclass(frozen=True)
+class TakeProfitExitRule:
+    """Exit when unrealized net P&L per contract reaches a profit target.
+
+    The trigger uses lifecycle mark-step ``pnl_per_contract`` semantics:
+
+    ``(valuation.pnl_mtm - entry_option_trade_cost + hedge.pnl) / contracts_open``
+
+    This excludes hypothetical exit transaction costs because the rule is
+    evaluated before an exit is executed.
+    """
+
+    threshold_per_contract: float
+    exit_type: str = "Take Profit"
+
+    def __post_init__(self) -> None:
+        if (
+            not math.isfinite(self.threshold_per_contract)
+            or self.threshold_per_contract <= 0
+        ):
+            raise ValueError("threshold_per_contract must be > 0")
+
+    def is_triggered(
+        self,
+        *,
+        curr_date: pd.Timestamp,
+        position: HasPeriodicExitDates,
+    ) -> bool:
+        _ = curr_date
+        pnl_per_contract = getattr(position, "pnl_per_contract", None)
+        return pnl_per_contract is not None and pnl_per_contract >= float(
+            self.threshold_per_contract
+        )
+
+
+@dataclass(frozen=True)
 class ExitRuleSet:
     """Set of exit rules evaluated together for one position/date."""
 
@@ -96,12 +200,17 @@ class ExitRuleSet:
         *,
         curr_date: pd.Timestamp,
         position: HasPeriodicExitDates,
+        pnl_per_contract: float | None = None,
     ) -> str | None:
         """Return exit-type label when one or more rules are triggered."""
+        state = ExitRuleState.from_position(
+            position=position,
+            pnl_per_contract=pnl_per_contract,
+        )
         triggered = tuple(
             rule.exit_type
             for rule in self.rules
-            if rule.is_triggered(curr_date=curr_date, position=position)
+            if rule.is_triggered(curr_date=curr_date, position=state)
         )
         if not triggered:
             return None
@@ -112,12 +221,16 @@ class ExitRuleSet:
         return "/".join(triggered)
 
 
+# TODO: Consider removing it adds nosie and will almsot never be tuned, mayeb add a reentry_after_n_days
+# Maybe add a cooldown perido for reentries
 @dataclass(frozen=True)
 class SameDayReentryPolicy:
     """Policy controlling same-day reentry by exit type."""
 
     allow_on_rebalance: bool = True
     allow_on_max_holding: bool = False
+    allow_on_stop_loss: bool = False
+    allow_on_take_profit: bool = False
     allow_on_margin_liquidation: bool = False
     allow_on_partial_margin_liquidation: bool = False
 
@@ -131,10 +244,16 @@ class SameDayReentryPolicy:
             return self.allow_on_max_holding
         if exit_type == "Rebalance/Max Holding Period":
             return self.allow_on_rebalance or self.allow_on_max_holding
+        if exit_type == "Stop Loss":
+            return self.allow_on_stop_loss
+        if exit_type == "Take Profit":
+            return self.allow_on_take_profit
         if exit_type == "Margin Call Liquidation":
             return self.allow_on_margin_liquidation
         if exit_type == "Margin Call Partial Liquidation":
             return self.allow_on_partial_margin_liquidation
+        if "/" in exit_type:
+            return any(self.allows(part.strip()) for part in exit_type.split("/"))
         return False
 
     def allow_from_trade_rows(self, trade_rows: list[dict]) -> bool:

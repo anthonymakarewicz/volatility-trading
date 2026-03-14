@@ -30,6 +30,8 @@ from .exit_rules import (
     MaxHoldingExitRule,
     RebalanceExitRule,
     SameDayReentryPolicy,
+    StopLossExitRule,
+    TakeProfitExitRule,
 )
 from .lifecycle.hedge_execution import (
     FixedBpsHedgeExecutionModel,
@@ -86,6 +88,8 @@ __all__ = [
     "ExitRule",
     "RebalanceExitRule",
     "MaxHoldingExitRule",
+    "StopLossExitRule",
+    "TakeProfitExitRule",
     "ExitRuleSet",
     "SameDayReentryPolicy",
     "build_options_execution_plan",

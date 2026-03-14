@@ -6,7 +6,9 @@ from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     FixedBpsHedgeExecutionModel,
     FixedDeltaBandModel,
+    StopLossExitRule,
     StrategySpec,
+    TakeProfitExitRule,
     canonicalize_options_chain_for_backtest,
     filter_options_chain_for_backtest,
     load_fred_rate_series,
@@ -31,7 +33,13 @@ from volatility_trading.backtesting.options_engine import (
     FixedDeltaBandModel as EngineFixedDeltaBandModel,
 )
 from volatility_trading.backtesting.options_engine import (
+    StopLossExitRule as EngineStopLossExitRule,
+)
+from volatility_trading.backtesting.options_engine import (
     StrategySpec as EngineStrategySpec,
+)
+from volatility_trading.backtesting.options_engine import (
+    TakeProfitExitRule as EngineTakeProfitExitRule,
 )
 
 
@@ -40,6 +48,8 @@ def test_backtesting_reexports_common_user_types() -> None:
     assert StrategySpec is EngineStrategySpec
     assert DeltaHedgePolicy is EngineDeltaHedgePolicy
     assert FixedDeltaBandModel is EngineFixedDeltaBandModel
+    assert StopLossExitRule is EngineStopLossExitRule
+    assert TakeProfitExitRule is EngineTakeProfitExitRule
     assert BidAskFeeOptionExecutionModel is EngineBidAskFeeOptionExecutionModel
     assert FixedBpsHedgeExecutionModel is EngineFixedBpsHedgeExecutionModel
     assert ColumnMapOptionsChainAdapter is EngineColumnMapOptionsChainAdapter
