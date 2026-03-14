@@ -24,6 +24,7 @@ from volatility_trading.backtesting import (
     OptionsBacktestDataBundle,
     OptionsMarketData,
     print_performance_report,
+    spot_series_from_options_chain,
     to_daily_mtm,
 )
 from volatility_trading.options import RegTMarginModel
@@ -39,7 +40,7 @@ INITIAL_CAPITAL = 50_000.0
 def main() -> None:
     options = load_options_window(ticker=TICKER, start=START, end=END)
     rf_series = load_rf_series(pd.DatetimeIndex(options.index.unique()).sort_values())
-    hedge_mid = options.groupby(level=0)["spot_price"].first().astype(float)
+    hedge_mid = spot_series_from_options_chain(options)
 
     data = OptionsBacktestDataBundle(
         options_market=OptionsMarketData(

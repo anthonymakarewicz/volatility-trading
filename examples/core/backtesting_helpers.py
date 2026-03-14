@@ -32,7 +32,11 @@ from volatility_trading.options import MarginModel, RegTMarginModel
 
 def load_options_window(*, ticker: str, start: str, end: str) -> pd.DataFrame:
     """Load one ticker and return the requested trade-date window."""
-    options = load_orats_options_chain_for_backtest(ticker).loc[start:end]
+    options = load_orats_options_chain_for_backtest(
+        ticker,
+        start=start,
+        end=end,
+    )
     if options.empty:
         raise ValueError(f"No options rows for {ticker} in range {start}:{end}")
     return options

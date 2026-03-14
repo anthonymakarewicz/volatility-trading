@@ -9,6 +9,7 @@ From repository root, run examples with `python -m ...`:
 ```bash
 python -m examples.backtesting.minimal_vrp_backtest
 python -m examples.backtesting.strategies.vrp_end_to_end
+python -m examples.backtesting.exits.pnl_per_contract
 python -m examples.backtesting.strategies.skew_mispricing_end_to_end
 python -m examples.backtesting.execution.models_and_costs
 python -m examples.backtesting.margin.model_and_financing
@@ -50,6 +51,11 @@ full backtester construction.
   - full VRP workflow (load data, build strategy/config, run, report)
 - `examples/backtesting/strategies/skew_mispricing_end_to_end.py`
   - full skew workflow (load options + daily features, build strategy, run, report)
+
+## Focused Exit Example
+
+- `examples/backtesting/exits/pnl_per_contract.py`
+  - VRP workflow using preset-level `pnl_per_contract` stop-loss / take-profit exits
 
 ## Focused Execution Example
 

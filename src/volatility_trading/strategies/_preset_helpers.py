@@ -50,7 +50,7 @@ def build_preset_exit_rule_set(
         isinstance(rule, TakeProfitExitRule) for rule in rules
     ):
         raise ValueError(
-            "take_profit_pnl_per_contract duplicates an explicit " "TakeProfitExitRule"
+            "take_profit_pnl_per_contract duplicates an explicit TakeProfitExitRule"
         )
     if stop_loss_pnl_per_contract is not None:
         rules.append(StopLossExitRule(stop_loss_pnl_per_contract))
