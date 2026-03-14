@@ -23,13 +23,6 @@ DEFAULT_RUNNER_APP_CONFIG: dict[str, Any] = {
             "dte_min": None,
             "dte_max": None,
         },
-        "rates": {
-            "provider": "constant",
-            "constant_rate": 0.0,
-            "series_id": None,
-            "column": None,
-            "proc_root": None,
-        },
     },
     "account": {
         "initial_capital": 100_000.0,

@@ -82,6 +82,39 @@ def test_build_config_does_not_assume_default_strategy() -> None:
     config = mod._build_config(mod._parse_args([]))
 
     assert "strategy" not in config
+    assert "rates" not in config["data"]
+
+
+def test_workflow_payload_requires_explicit_data_rates_for_sourced_financing(
+    tmp_path: Path,
+) -> None:
+    mod = importlib.import_module("volatility_trading.apps.backtesting.run")
+    config_path = tmp_path / "workflow.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "data:",
+                "  options:",
+                "    ticker: SPY",
+                "strategy:",
+                "  name: vrp_harvesting",
+                "broker:",
+                "  margin:",
+                "    policy:",
+                "      cash_rate_source: data_rates",
+                "      borrow_rate_spread: 0.02",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = mod._build_config(mod._parse_args(["--config", str(config_path)]))
+
+    with pytest.raises(
+        ValueError,
+        match="cash_rate_source='data_rates' requires data.rates in the workflow",
+    ):
+        mod.parse_workflow_config(mod._workflow_config_payload(config))
 
 
 def test_dry_run_validates_without_executing(monkeypatch, caplog) -> None:
