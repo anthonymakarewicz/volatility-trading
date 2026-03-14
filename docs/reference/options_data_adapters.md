@@ -31,6 +31,8 @@ Public helpers:
 - `validate_options_chain(..., validation_mode="coerce" | "strict")`
 - `normalize_and_validate_options_chain(...)` (coerce wrapper)
 - `validate_options_chain_contract(...)` (strict wrapper)
+- `canonicalize_options_chain_for_backtest(...)` (normalize to canonical long pandas)
+- `load_orats_options_chain_for_backtest(...)` (ORATS convenience loader)
 
 ## Canonical Options-Chain Contract
 
@@ -88,7 +90,60 @@ Optional columns:
 Polars input is converted once at adapter boundary via
 `coerce_options_frame_to_pandas(...)`. Core backtesting runtime remains pandas.
 
-## Usage
+## Preferred Usage
+
+For common notebook/backtest workflows, normalize raw source data before
+constructing `OptionsMarketData`:
+
+```python
+from volatility_trading.backtesting import (
+    ColumnMapOptionsChainAdapter,
+    OptionsBacktestDataBundle,
+    OptionsMarketData,
+    canonicalize_options_chain_for_backtest,
+)
+
+adapter = ColumnMapOptionsChainAdapter(
+    source_to_canonical={
+        "qdt": "trade_date",
+        "exp": "expiry_date",
+        "days": "dte",
+        "cp": "option_type",
+        "k": "strike",
+        "d": "delta",
+        "b": "bid_price",
+        "a": "ask_price",
+    }
+)
+
+options = canonicalize_options_chain_for_backtest(
+    raw_options_df,
+    adapter=adapter,
+)
+
+data = OptionsBacktestDataBundle(
+    options_market=OptionsMarketData(chain=options),
+)
+```
+
+For processed ORATS data, prefer the higher-level convenience loader:
+
+```python
+from volatility_trading.backtesting import load_orats_options_chain_for_backtest
+
+options = load_orats_options_chain_for_backtest(
+    "SPY",
+    start="2011-01-01",
+    end="2017-12-31",
+    dte_min=5,
+    dte_max=60,
+)
+```
+
+## Advanced Usage
+
+The runtime still supports scoping an adapter directly on `OptionsMarketData`
+when you intentionally want normalization to happen at the backtester boundary:
 
 ```python
 from volatility_trading.backtesting import (
