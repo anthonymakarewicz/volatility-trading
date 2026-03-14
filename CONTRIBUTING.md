@@ -93,6 +93,47 @@ Examples:
 - `docs/release-workflow`
 - `release/v0.1.0`
 
+## Commit Messages
+
+Use Conventional Commits:
+
+`<type>(scope): <summary>`
+
+Types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`.
+
+Use the narrowest stable domain scope that describes the changed surface.
+
+Common scopes in this repo:
+
+- `backtesting`
+- `examples`
+- `release`
+- `orats`
+- `etl`
+- `qc`
+- `cli`
+- `notebooks`
+- `docs`
+- `ci`
+
+Examples:
+
+- `feat(backtesting): add pnl-per-contract stop-loss exits`
+- `refactor(examples): align helpers with backtesting loaders`
+- `docs(release): clarify pre-1.0 release timing`
+- `feat(orats): add qc summary report generation`
+- `fix(qc): handle empty bucket without crash`
+- `docs(notebooks): clarify jupytext sync workflow`
+
+Notes:
+
+- Use imperative mood (`add`, `fix`, `remove`).
+- Keep the summary <= 72 characters.
+- If pre-commit modifies files during `git commit`, run `git add -A` and commit again.
+
+For extended commit guidance and local quality gates, see
+[Development Guide](docs/contributing/development.md).
+
 ## Required Checks Before Merge
 
 Before merging a PR, CI runs automatically on the PR branch and must pass:
@@ -112,31 +153,6 @@ For notebook edits, follow:
 - [Notebook Authoring Guide](docs/contributing/notebook_authoring.md)
 - [Jupytext Workflow](docs/contributing/jupytext.md)
 
-## Commit Messages
-
-Use Conventional Commits:
-
-`<type>(scope): <summary>`
-
-Types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`.
-
-Preferred scopes: `orats`, `etl`, `qc`, `cli`, `notebooks`, `docs`, `ci`.
-
-Examples:
-
-- `feat(orats): add qc summary report generation`
-- `fix(qc): handle empty bucket without crash`
-- `docs(notebooks): clarify jupytext sync workflow`
-
-Notes:
-
-- Use imperative mood (`add`, `fix`, `remove`).
-- Keep the summary <= 72 characters.
-- If pre-commit modifies files during `git commit`, run `git add -A` and commit again.
-
-For extended commit guidance and local quality gates, see
-[Development Guide](docs/contributing/development.md).
-
 ## Merge Strategy Policy
 
 - Use `squash and merge` for feature/refactor PRs where one clean commit is preferred.
@@ -152,19 +168,19 @@ For extended commit guidance and local quality gates, see
 ## Release Checklist
 
 For releases, follow [Release Process](docs/contributing/release_process.md).
-Minimum checklist:
 
-- Ensure working tree is clean and CI is green
-- Update version (`0.x.y` while pre-1.0)
-- Update `CHANGELOG.md`
-- Create an annotated git tag (`v0.x.y`)
-- Push the release tag (`git push origin v0.x.y`) to trigger [.github/workflows/publish-testpypi.yml](.github/workflows/publish-testpypi.yml)
-- Validate TestPyPI publish and smoke-install workflow run
-- Create/publish GitHub Release to trigger [.github/workflows/publish-pypi.yml](.github/workflows/publish-pypi.yml)
-- Validate PyPI publish workflow run
+That page is the canonical maintainer workflow for:
+
+- deciding when to cut `0.x.0` vs `0.x.y`
+- preparing the release branch
+- tagging and publish order
+- TestPyPI/PyPI validation and recovery guidance
 
 ## Release Gate Policy
 
+Release gating and publish-order rules are defined in
+[Release Process](docs/contributing/release_process.md).
+
+The key rule is:
+
 - TestPyPI publish + smoke install must pass before GitHub Release/PyPI publish.
-- Release tag version must match [pyproject.toml](pyproject.toml) (`[project].version`).
-- Package publishing is automated by GitHub Actions workflows, not manual `twine upload`.
