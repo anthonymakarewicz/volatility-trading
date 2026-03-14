@@ -33,6 +33,11 @@ flowchart LR
         U4[BacktestRunConfig\nbacktesting/config.py]
     end
 
+    subgraph DataBoundary[Canonical Data Boundary]
+        D1[data_loading.py + data_adapters/*\nnormalize -> validate]
+        D2[data_contracts.py\nOptionsMarketData / OptionsBacktestDataBundle]
+    end
+
     subgraph Orchestrator[Backtesting Orchestrator]
         O1[Backtester\nbacktesting/engine.py]
         O2[run_backtest_execution_plan\nbacktesting/engine.py]
@@ -76,7 +81,9 @@ flowchart LR
 
     U1 --> U2 --> U3
     U1 --> U4
+    U1 --> D1 --> D2
     U1 --> O1
+    D2 --> O1
     O1 --> P1
     O1 --> O2
     U3 --> P1
@@ -111,10 +118,16 @@ flowchart LR
 The engine loop does not call entry/sizing/lifecycle directly. It runs a typed
 plan with typed hooks.
 
-Before hooks are compiled, options data passes through a dedicated adapter
-boundary (`backtesting/data_adapters/options_chain_adapters.py` +
+Before the runtime bundle is constructed, options data passes through a
+dedicated adapter boundary
+(`backtesting/data_adapters/options_chain_adapters.py` +
 `backtesting/data_adapters/options_chain_pipeline.py`) that normalizes source
 columns to canonical names and validates required schema constraints.
+
+`OptionsMarketData` is canonical-only and validates that canonical long input at
+construction time. `build_options_execution_plan(...)` then consumes canonical
+runtime input only; it does not resolve source adapters or normalize
+source-specific options schemas.
 
 ```mermaid
 flowchart TD

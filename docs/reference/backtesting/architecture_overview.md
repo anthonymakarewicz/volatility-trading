@@ -30,7 +30,9 @@ accounting logic across structures (single-leg or multi-leg).
 
 ```mermaid
 flowchart TD
-    A[User Entrypoint] --> B[Backtester<br/>backtesting/engine.py]
+    A[User Entrypoint] --> A0[data_loading.py + data_adapters/*<br/>normalize -> validate]
+    A0 --> A1[OptionsMarketData + OptionsBacktestDataBundle<br/>canonical runtime input]
+    A1 --> B[Backtester<br/>backtesting/engine.py]
     A --> C[VRPHarvestingSpec + make_vrp_strategy<br/>strategies/vrp_harvesting/specs.py]
     A --> C2[SkewMispricingSpec + make_skew_mispricing_strategy<br/>strategies/skew_mispricing/specs.py]
     C --> D[StrategySpec<br/>backtesting/options_engine/specs.py]
@@ -38,7 +40,6 @@ flowchart TD
     B --> D
     B --> E[build_options_execution_plan<br/>backtesting/options_engine/plan_builder.py]
     B --> O[build_options_backtest_outputs<br/>backtesting/options_engine/outputs.py]
-    E --> A1[backtesting/data_adapters/options_chain_adapters.py + options_chain_pipeline.py<br/>normalize -> validate]
     E --> F[entry.py<br/>build EntryIntent]
     E --> G[sizing.py<br/>risk + margin sizing]
     E --> H[lifecycle/engine.py<br/>open/mark/close]
@@ -59,12 +60,15 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant U as User Entrypoint
+    participant D0 as Data Prep
     participant B as Backtester
     participant P as Plan Builder
     participant E as Entry Builder
     participant Z as Sizing
     participant L as Lifecycle
 
+    U->>D0: load/canonicalize options chain
+    D0-->>U: canonical long options data
     U->>B: run(data, strategy, config)
     B->>P: build_options_execution_plan(...)
     P->>P: generate signals + apply filters + compile signal exits
@@ -173,8 +177,12 @@ stateDiagram-v2
 - `OptionsBacktestDataBundle` carries market inputs:
   `options_market` (canonical long chain plus chain-level metadata), optional
   features panel, and optional `hedge_market`.
-- Options data is normalized/validated by adapter boundary before strategy plan
-  compilation.
+- Source-specific options data should be normalized/validated before
+  constructing `OptionsMarketData(...)`.
+- `OptionsMarketData` is the runtime data boundary and validates canonical long
+  options input at construction time.
+- `build_options_execution_plan(...)` consumes canonical runtime input only; it
+  does not own source-specific options-chain normalization.
 - Margin model/policy and pricing/risk engines are configured at run level, not preset level.
 - Dynamic delta hedging is strategy policy (`StrategySpec.lifecycle.delta_hedge`),
   while hedge execution behavior is run-level via
