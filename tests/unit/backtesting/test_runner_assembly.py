@@ -317,9 +317,9 @@ def test_assemble_workflow_inputs_resolves_data_sourced_margin_policy(
     assert policy.borrow_rate_annual.iloc[1] == pytest.approx(0.037)
 
 
-def test_assemble_workflow_inputs_requires_margin_model_for_margin_budgeted_strategy() -> (
-    None
-):
+def test_assemble_workflow_inputs_requires_margin_model_for_margin_budgeted_strategy(
+    monkeypatch,
+) -> None:
     workflow = BacktestWorkflowSpec(
         data=BacktestDataSourcesSpec(
             options=OptionsSourceSpec(ticker="SPX"),
@@ -329,6 +329,14 @@ def test_assemble_workflow_inputs_requires_margin_model_for_margin_budgeted_stra
             signal=NamedSignalSpec(name="short_only"),
             params={"margin_budget_pct": 0.4},
         ),
+    )
+
+    def _should_not_load_options(*_args, **_kwargs):
+        raise AssertionError("load_options_market should not be called")
+
+    monkeypatch.setattr(
+        "volatility_trading.backtesting.runner.assembly.load_options_market",
+        _should_not_load_options,
     )
 
     with pytest.raises(

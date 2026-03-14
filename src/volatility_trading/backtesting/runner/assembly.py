@@ -46,6 +46,10 @@ def assemble_workflow_inputs(
 ) -> ResolvedWorkflowInputs:
     """Resolve sources and configs into concrete runtime inputs."""
     strategy = build_strategy_preset(workflow.strategy)
+    _validate_workflow_compatibility(
+        workflow=workflow,
+        strategy=strategy,
+    )
     options_market = load_options_market(workflow.data.options)
     features = load_features_frame(workflow.data.features)
     hedge_market = _load_hedge_market(workflow.data.hedge)
@@ -59,11 +63,6 @@ def assemble_workflow_inputs(
     )
     run_config = workflow.to_backtest_run_config(
         data_rates=None if workflow.data.rates is None else risk_free_rate
-    )
-    _validate_workflow_compatibility(
-        workflow=workflow,
-        strategy=strategy,
-        run_config=run_config,
     )
     data_bundle = OptionsBacktestDataBundle(
         options_market=options_market,
@@ -85,12 +84,11 @@ def _validate_workflow_compatibility(
     *,
     workflow: BacktestWorkflowSpec,
     strategy: StrategySpec,
-    run_config: BacktestRunConfig,
 ) -> None:
     """Reject workflow combinations that the engine requires upfront."""
     if (
         strategy.sizing.margin_budget_pct is not None
-        and run_config.broker.margin.model is None
+        and workflow.broker.margin.model is None
     ):
         raise ValueError(
             "strategy margin_budget_pct requires broker.margin.model in the workflow config"
