@@ -105,7 +105,6 @@ Supported keys:
 - `ticker`
 - `provider`
 - `proc_root`
-- `adapter_name`
 - `symbol`
 - `default_contract_multiplier`
 - `dte_min`

@@ -8,10 +8,7 @@ from typing import TYPE_CHECKING, Any, TypeAlias
 
 import pandas as pd
 
-from volatility_trading.backtesting.data_adapters import (
-    CanonicalOptionsChainAdapter,
-    OptionsChainAdapter,
-)
+from volatility_trading.backtesting.data_adapters import CanonicalOptionsChainAdapter
 from volatility_trading.backtesting.data_contracts import OptionsMarketData
 from volatility_trading.backtesting.data_loading import (
     canonicalize_options_chain_for_backtest,
@@ -26,8 +23,6 @@ from volatility_trading.datasets import (
     read_options_chain,
     read_yfinance_time_series,
 )
-
-from .catalog import OPTIONS_ADAPTER_FACTORIES, available_names
 
 if TYPE_CHECKING:
     from .workflow_types import (
@@ -46,8 +41,6 @@ RatesSourceLoader: TypeAlias = Callable[[Any, Any], RateInput]
 
 def _load_orats_options_market(spec: OptionsSourceSpec) -> OptionsMarketData:
     """Load one ORATS options chain into canonical long pandas market data."""
-    adapter = _resolve_options_adapter(spec)
-
     if spec.proc_root is None:
         wide = read_options_chain(spec.ticker)
     else:
@@ -55,7 +48,7 @@ def _load_orats_options_market(spec: OptionsSourceSpec) -> OptionsMarketData:
     long = options_chain_wide_to_long(wide).collect().to_pandas()
     options = canonicalize_options_chain_for_backtest(
         long,
-        adapter=adapter,
+        adapter=CanonicalOptionsChainAdapter(),
     )
     options = filter_options_chain_for_backtest(
         options,
@@ -68,21 +61,6 @@ def _load_orats_options_market(spec: OptionsSourceSpec) -> OptionsMarketData:
         symbol=spec.symbol or spec.ticker,
         default_contract_multiplier=spec.default_contract_multiplier,
     )
-
-
-def _resolve_options_adapter(spec: OptionsSourceSpec) -> OptionsChainAdapter:
-    """Resolve one built-in adapter name for canonicalized options data."""
-    if spec.adapter_name is None:
-        return CanonicalOptionsChainAdapter()
-
-    adapter_name = spec.adapter_name.lower()
-    factory = OPTIONS_ADAPTER_FACTORIES.get(adapter_name)
-    if factory is None:
-        raise ValueError(
-            f"Unknown options adapter_name '{spec.adapter_name}'. "
-            f"Available built-in adapters: {available_names(OPTIONS_ADAPTER_FACTORIES)}."
-        )
-    return factory()
 
 
 def _load_orats_features_frame(spec: FeaturesSourceSpec) -> pd.DataFrame:

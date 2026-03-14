@@ -16,7 +16,6 @@ DEFAULT_RUNNER_APP_CONFIG: dict[str, Any] = {
         "options": {
             "provider": "orats",
             "proc_root": None,
-            "adapter_name": None,
             "symbol": None,
             "default_contract_multiplier": 100.0,
             "dte_min": None,

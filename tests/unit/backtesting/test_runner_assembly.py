@@ -144,27 +144,6 @@ def test_assemble_workflow_inputs_loads_sources_and_builds_runtime_context(
     assert resolved.run_config.end_date == pd.Timestamp("2020-01-31")
 
 
-def test_assemble_workflow_inputs_rejects_unknown_options_adapter_name() -> None:
-    workflow = BacktestWorkflowSpec(
-        data=BacktestDataSourcesSpec(
-            options=OptionsSourceSpec(
-                ticker="SPX",
-                adapter_name="unknown",
-            ),
-        ),
-        strategy=NamedStrategyPresetSpec(
-            name="vrp_harvesting",
-            signal=NamedSignalSpec(name="short_only"),
-        ),
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="Unknown options adapter_name 'unknown'",
-    ):
-        assemble_workflow_inputs(workflow)
-
-
 def test_assemble_workflow_inputs_resolves_constant_rate_input() -> None:
     options_root = Path("/tmp/runner_assembly_constant_rate_options")
     _write_parquet(

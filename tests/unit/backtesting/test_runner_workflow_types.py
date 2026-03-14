@@ -34,7 +34,6 @@ def test_run_window_spec_rejects_invalid_order() -> None:
 def test_options_source_spec_normalizes_and_validates() -> None:
     spec = OptionsSourceSpec(
         ticker=" spy ",
-        adapter_name=" canonical ",
         symbol=" spx ",
         default_contract_multiplier=50.0,
         dte_min=5.0,
@@ -43,7 +42,6 @@ def test_options_source_spec_normalizes_and_validates() -> None:
 
     assert spec.ticker == "SPY"
     assert spec.provider == "orats"
-    assert spec.adapter_name == "canonical"
     assert spec.symbol == "spx"
     assert spec.default_contract_multiplier == pytest.approx(50.0)
     assert spec.dte_min == pytest.approx(5.0)
