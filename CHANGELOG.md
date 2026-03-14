@@ -14,6 +14,10 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   normalization, ORATS chain loading, FRED rate series loading, yfinance close
   series loading, and spot-series derivation from canonical options data.
 - Added common date-window and DTE filters to the ORATS backtest loader helper.
+- Added runner support for ORATS source-level `dte_min` / `dte_max` filters in
+  workflow YAML.
+- Added runner support for rate-sourced financing via
+  `cash_rate_source: data_rates` and `borrow_rate_spread`.
 
 ### Changed
 - `OptionsMarketData` now validates canonical long options input at

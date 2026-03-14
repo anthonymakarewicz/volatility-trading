@@ -20,6 +20,8 @@ DEFAULT_RUNNER_APP_CONFIG: dict[str, Any] = {
             "adapter_name": None,
             "symbol": None,
             "default_contract_multiplier": 100.0,
+            "dte_min": None,
+            "dte_max": None,
         },
         "rates": {
             "provider": "constant",

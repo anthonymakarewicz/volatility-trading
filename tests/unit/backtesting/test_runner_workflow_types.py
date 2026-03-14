@@ -8,6 +8,7 @@ from volatility_trading.backtesting.runner.workflow_types import (
     BacktestDataSourcesSpec,
     BacktestWorkflowSpec,
     FeaturesSourceSpec,
+    MarginPolicySpec,
     NamedSignalSpec,
     NamedStrategyPresetSpec,
     OptionsSourceSpec,
@@ -36,6 +37,8 @@ def test_options_source_spec_normalizes_and_validates() -> None:
         adapter_name=" canonical ",
         symbol=" spx ",
         default_contract_multiplier=50.0,
+        dte_min=5.0,
+        dte_max=60.0,
     )
 
     assert spec.ticker == "SPY"
@@ -43,6 +46,13 @@ def test_options_source_spec_normalizes_and_validates() -> None:
     assert spec.adapter_name == "canonical"
     assert spec.symbol == "spx"
     assert spec.default_contract_multiplier == pytest.approx(50.0)
+    assert spec.dte_min == pytest.approx(5.0)
+    assert spec.dte_max == pytest.approx(60.0)
+
+
+def test_options_source_spec_rejects_invalid_dte_order() -> None:
+    with pytest.raises(ValueError, match="options dte_min must be <= dte_max"):
+        OptionsSourceSpec(ticker="SPY", dte_min=60.0, dte_max=5.0)
 
 
 def test_options_source_spec_rejects_unknown_provider() -> None:
@@ -84,6 +94,47 @@ def test_reporting_spec_rejects_blank_optional_labels() -> None:
         ReportingSpec(benchmark_name=" ")
 
 
+def test_margin_policy_spec_resolves_series_financing_from_data_rates() -> None:
+    series = pd.Series(
+        [0.01, 0.015],
+        index=pd.to_datetime(["2020-01-01", "2020-01-02"]),
+        name="dgs3mo",
+    )
+    spec = MarginPolicySpec(
+        apply_financing=True,
+        cash_rate_source="data_rates",
+        borrow_rate_spread=0.02,
+    )
+
+    policy = spec.resolve(data_rates=series)
+
+    assert isinstance(policy.cash_rate_annual, pd.Series)
+    assert isinstance(policy.borrow_rate_annual, pd.Series)
+    assert policy.cash_rate_annual.iloc[0] == pytest.approx(0.01)
+    assert policy.borrow_rate_annual.iloc[1] == pytest.approx(0.035)
+
+
+def test_backtest_workflow_spec_requires_data_rates_for_sourced_financing() -> None:
+    with pytest.raises(
+        ValueError,
+        match="cash_rate_source='data_rates' requires data.rates in the workflow",
+    ):
+        BacktestWorkflowSpec(
+            data=BacktestDataSourcesSpec(
+                options=OptionsSourceSpec(ticker="SPY"),
+            ),
+            strategy=NamedStrategyPresetSpec(
+                name="vrp_harvesting",
+                signal=NamedSignalSpec(name="short_only"),
+            ),
+            margin_policy_spec=MarginPolicySpec(
+                apply_financing=True,
+                cash_rate_source="data_rates",
+                borrow_rate_spread=0.02,
+            ),
+        )
+
+
 def test_backtest_workflow_spec_maps_to_backtest_run_config() -> None:
     workflow = BacktestWorkflowSpec(
         data=BacktestDataSourcesSpec(
@@ -108,9 +159,18 @@ def test_backtest_workflow_spec_maps_to_backtest_run_config() -> None:
             include_component_plots=True,
         ),
         account=AccountConfig(initial_capital=250_000.0),
+        margin_policy_spec=MarginPolicySpec(
+            apply_financing=True,
+            cash_rate_source="data_rates",
+            borrow_rate_spread=0.02,
+        ),
     )
 
-    run_config = workflow.to_backtest_run_config()
+    rates = pd.Series(
+        [0.01, 0.015],
+        index=pd.to_datetime(["2020-01-01", "2020-01-02"]),
+    )
+    run_config = workflow.to_backtest_run_config(data_rates=rates)
 
     assert workflow.data.options.proc_root == Path("/tmp/options")
     assert workflow.data.features is not None
@@ -121,6 +181,9 @@ def test_backtest_workflow_spec_maps_to_backtest_run_config() -> None:
     assert workflow.data.rates is not None
     assert workflow.reporting.output_root == Path("/tmp/reports")
     assert workflow.reporting.benchmark_name == "SPY TR"
+    assert workflow.margin_policy_spec is not None
     assert run_config.account.initial_capital == pytest.approx(250_000.0)
     assert run_config.start_date == pd.Timestamp("2020-01-01")
     assert run_config.end_date == pd.Timestamp("2020-12-31")
+    assert run_config.broker.margin.policy is not None
+    assert isinstance(run_config.broker.margin.policy.cash_rate_annual, pd.Series)

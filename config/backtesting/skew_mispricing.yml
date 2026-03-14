@@ -8,6 +8,8 @@ data:
     ticker: SPY
     provider: orats
     proc_root: data/processed/orats/options_chain
+    dte_min: 5
+    dte_max: 60
   features:
     ticker: SPY
     provider: orats
@@ -63,6 +65,9 @@ broker:
       margin_call_grace_days: 2
       liquidation_mode: target
       liquidation_buffer_ratio: 0.10
+      apply_financing: true
+      cash_rate_source: data_rates
+      borrow_rate_spread: 0.02
 
 modeling: {}
 

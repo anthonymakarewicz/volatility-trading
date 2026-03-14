@@ -9,6 +9,7 @@ from volatility_trading.backtesting.runner.workflow_types import (
     BacktestDataSourcesSpec,
     BacktestWorkflowSpec,
     FeaturesSourceSpec,
+    MarginPolicySpec,
     NamedSignalSpec,
     NamedStrategyPresetSpec,
     OptionsSourceSpec,
@@ -199,6 +200,121 @@ def test_assemble_workflow_inputs_resolves_constant_rate_input() -> None:
 
     assert isinstance(resolved.risk_free_rate, float)
     assert resolved.risk_free_rate == pytest.approx(0.02)
+
+
+def test_assemble_workflow_inputs_applies_options_dte_filters(
+    tmp_path: Path,
+) -> None:
+    options_root = tmp_path / "options"
+    _write_parquet(
+        options_chain_path(options_root, "SPX"),
+        pl.DataFrame(
+            {
+                "trade_date": [
+                    pd.Timestamp("2020-01-01"),
+                    pd.Timestamp("2020-01-01"),
+                ],
+                "expiry_date": [
+                    pd.Timestamp("2020-01-11"),
+                    pd.Timestamp("2020-01-31"),
+                ],
+                "strike": [100.0, 100.0],
+                "dte": [10, 30],
+                "spot_price": [100.0, 100.0],
+                "call_bid_price": [1.0, 5.0],
+                "call_ask_price": [1.1, 5.2],
+                "call_delta": [0.25, 0.50],
+                "put_bid_price": [1.0, 5.0],
+                "put_ask_price": [1.1, 5.2],
+                "put_delta": [-0.25, -0.50],
+            }
+        ),
+    )
+    workflow = BacktestWorkflowSpec(
+        data=BacktestDataSourcesSpec(
+            options=OptionsSourceSpec(
+                ticker="SPX",
+                proc_root=options_root,
+                dte_min=20,
+                dte_max=40,
+            ),
+        ),
+        strategy=NamedStrategyPresetSpec(
+            name="vrp_harvesting",
+            signal=NamedSignalSpec(name="short_only"),
+        ),
+    )
+
+    resolved = assemble_workflow_inputs(workflow)
+
+    assert set(resolved.data.options_frame["dte"]) == {30.0}
+    assert set(resolved.data.options_frame["option_type"]) == {"C", "P"}
+
+
+def test_assemble_workflow_inputs_resolves_data_sourced_margin_policy(
+    tmp_path: Path,
+) -> None:
+    options_root = tmp_path / "options"
+    fred_root = tmp_path / "fred"
+    _write_parquet(
+        options_chain_path(options_root, "SPX"),
+        pl.DataFrame(
+            {
+                "trade_date": [pd.Timestamp("2020-01-01")],
+                "expiry_date": [pd.Timestamp("2020-02-01")],
+                "strike": [100.0],
+                "dte": [31],
+                "spot_price": [100.0],
+                "call_bid_price": [4.8],
+                "call_ask_price": [5.0],
+                "call_delta": [0.25],
+                "put_bid_price": [4.5],
+                "put_ask_price": [4.7],
+                "put_delta": [-0.25],
+            }
+        ),
+    )
+    _write_parquet(
+        fred_rates_path(fred_root / "rates"),
+        pl.DataFrame(
+            {
+                "date": [
+                    pd.Timestamp("2020-01-01"),
+                    pd.Timestamp("2020-01-02"),
+                ],
+                "dgs3mo": [1.5, 1.7],
+            }
+        ),
+    )
+    workflow = BacktestWorkflowSpec(
+        data=BacktestDataSourcesSpec(
+            options=OptionsSourceSpec(ticker="SPX", proc_root=options_root),
+            rates=RatesSourceSpec(
+                provider="fred",
+                series_id="DGS3MO",
+                proc_root=fred_root,
+            ),
+        ),
+        strategy=NamedStrategyPresetSpec(
+            name="vrp_harvesting",
+            signal=NamedSignalSpec(name="short_only"),
+        ),
+        margin_policy_spec=MarginPolicySpec(
+            apply_financing=True,
+            cash_rate_source="data_rates",
+            borrow_rate_spread=0.02,
+        ),
+    )
+
+    resolved = assemble_workflow_inputs(workflow)
+
+    policy = resolved.run_config.broker.margin.policy
+
+    assert policy is not None
+    assert isinstance(policy.cash_rate_annual, pd.Series)
+    assert isinstance(policy.borrow_rate_annual, pd.Series)
+    assert policy.cash_rate_annual.iloc[0] == pytest.approx(0.015)
+    assert policy.borrow_rate_annual.iloc[1] == pytest.approx(0.037)
 
 
 def test_assemble_workflow_inputs_requires_margin_model_for_margin_budgeted_strategy() -> (

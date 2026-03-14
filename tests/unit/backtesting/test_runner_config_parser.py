@@ -43,6 +43,8 @@ def test_parse_workflow_config_builds_skew_workflow_with_defaults_and_execution(
                     "ticker": "spx",
                     "adapter_name": "canonical",
                     "default_contract_multiplier": 100,
+                    "dte_min": 5,
+                    "dte_max": 60,
                 },
                 "features": {
                     "ticker": "spx",
@@ -101,6 +103,8 @@ def test_parse_workflow_config_builds_skew_workflow_with_defaults_and_execution(
     )
 
     assert workflow.data.options.ticker == "SPX"
+    assert workflow.data.options.dte_min == pytest.approx(5.0)
+    assert workflow.data.options.dte_max == pytest.approx(60.0)
     assert workflow.data.features is not None
     assert workflow.data.features.ticker == "SPX"
     assert workflow.data.hedge is not None
@@ -242,3 +246,62 @@ def test_parse_workflow_config_parses_margin_policy() -> None:
     assert policy.cash_rate_annual == pytest.approx(0.01)
     assert policy.borrow_rate_annual == pytest.approx(0.03)
     assert policy.maintenance_margin_ratio == pytest.approx(0.8)
+
+
+def test_parse_workflow_config_parses_deferred_margin_policy_spec() -> None:
+    workflow = parse_workflow_config(
+        {
+            "data": {
+                "options": {"ticker": "SPX"},
+                "rates": {
+                    "provider": "fred",
+                    "series_id": "DGS3MO",
+                },
+            },
+            "strategy": {
+                "name": "vrp_harvesting",
+                "signal": {"name": "short_only"},
+            },
+            "broker": {
+                "margin": {
+                    "policy": {
+                        "apply_financing": True,
+                        "cash_rate_source": "data_rates",
+                        "borrow_rate_spread": 0.02,
+                    }
+                }
+            },
+        }
+    )
+
+    assert workflow.margin_policy_spec is not None
+    assert workflow.broker.margin.policy is None
+    assert workflow.margin_policy_spec.cash_rate_source == "data_rates"
+    assert workflow.margin_policy_spec.borrow_rate_spread == pytest.approx(0.02)
+
+
+def test_parse_workflow_config_rejects_sourced_financing_without_data_rates() -> None:
+    with pytest.raises(
+        ValueError,
+        match="cash_rate_source='data_rates' requires data.rates in the workflow",
+    ):
+        parse_workflow_config(
+            {
+                "data": {
+                    "options": {"ticker": "SPX"},
+                },
+                "strategy": {
+                    "name": "vrp_harvesting",
+                    "signal": {"name": "short_only"},
+                },
+                "broker": {
+                    "margin": {
+                        "policy": {
+                            "apply_financing": True,
+                            "cash_rate_source": "data_rates",
+                            "borrow_rate_spread": 0.02,
+                        }
+                    }
+                },
+            }
+        )
