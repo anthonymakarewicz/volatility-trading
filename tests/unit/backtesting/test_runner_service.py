@@ -41,9 +41,22 @@ def _sample_workflow(*, save_report_bundle: bool = True) -> BacktestWorkflowSpec
 
 def _sample_resolved(workflow: BacktestWorkflowSpec) -> ResolvedWorkflowInputs:
     strategy = build_strategy_preset(workflow.strategy)
+    options = pd.DataFrame(
+        {
+            "expiry_date": pd.to_datetime(["2020-02-21"]),
+            "dte": [31.0],
+            "option_type": ["C"],
+            "strike": [100.0],
+            "delta": [0.50],
+            "bid_price": [4.9],
+            "ask_price": [5.1],
+        },
+        index=pd.to_datetime(["2020-01-01"]),
+    )
+    options.index.name = "trade_date"
     data = OptionsBacktestDataBundle(
         options_market=OptionsMarketData(
-            chain=pd.DataFrame(index=pd.to_datetime(["2020-01-01"])),
+            chain=options,
             symbol="SPX",
         )
     )

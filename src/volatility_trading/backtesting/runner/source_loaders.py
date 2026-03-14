@@ -13,6 +13,9 @@ from volatility_trading.backtesting.data_adapters import (
     OptionsChainAdapter,
 )
 from volatility_trading.backtesting.data_contracts import OptionsMarketData
+from volatility_trading.backtesting.data_loading import (
+    canonicalize_options_chain_for_backtest,
+)
 from volatility_trading.backtesting.rates import RateInput
 from volatility_trading.datasets import (
     fred_rates_path,
@@ -49,14 +52,15 @@ def _load_orats_options_market(spec: OptionsSourceSpec) -> OptionsMarketData:
     else:
         wide = read_options_chain(spec.ticker, proc_root=spec.proc_root)
     long = options_chain_wide_to_long(wide).collect().to_pandas()
-    long["trade_date"] = pd.to_datetime(long["trade_date"])
-    long = long.set_index("trade_date").sort_index()
+    options = canonicalize_options_chain_for_backtest(
+        long,
+        adapter=adapter,
+    )
 
     return OptionsMarketData(
-        chain=long,
+        chain=options,
         symbol=spec.symbol or spec.ticker,
         default_contract_multiplier=spec.default_contract_multiplier,
-        options_adapter=adapter,
     )
 
 

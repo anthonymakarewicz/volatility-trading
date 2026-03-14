@@ -11,6 +11,7 @@ from volatility_trading.backtesting import (
     MarginConfig,
     OptionsBacktestDataBundle,
     OptionsMarketData,
+    canonicalize_options_chain_for_backtest,
 )
 from volatility_trading.backtesting.engine import (
     Backtester,
@@ -513,46 +514,15 @@ def test_enabled_delta_hedging_accepts_complete_hedge_market_data():
     assert len(mtm) == 2
 
 
-def test_default_orats_adapter_raises_on_non_orats_alias_dataset():
-    structure = StructureSpec(
-        name="single_call",
-        dte_target=30,
-        dte_tolerance=3,
-        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
-    )
-    spec = StrategySpec(
-        name="default_orats_non_orats_alias",
-        signal=DirectionSignal(direction=1),
-        structure_spec=structure,
-        lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
-    )
-    cfg = BacktestRunConfig(
-        account=AccountConfig(initial_capital=10_000.0),
-        execution=ExecutionConfig(
-            option_execution_model=BidAskFeeOptionExecutionModel(
-                slip_ask=0.0,
-                slip_bid=0.0,
-                commission_per_leg=0.0,
-            ),
-        ),
-    )
-    bt = Backtester(
-        data=OptionsBacktestDataBundle(
-            options_market=OptionsMarketData(
-                chain=_make_options_column_map_only_columns()
-            )
-        ),
-        strategy=spec,
-        config=cfg,
-    )
+def test_options_market_data_rejects_non_canonical_dataset():
     with pytest.raises(
         OptionsChainAdapterError,
-        match="missing required canonical columns",
+        match="trade_date must be provided as a datetime-like column",
     ):
-        bt.run()
+        OptionsMarketData(chain=_make_options_column_map_only_columns())
 
 
-def test_runtime_data_options_adapter_is_used_when_provided():
+def test_explicit_canonicalization_supports_column_map_dataset():
     structure = StructureSpec(
         name="single_call",
         dte_target=30,
@@ -560,7 +530,7 @@ def test_runtime_data_options_adapter_is_used_when_provided():
         legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
     )
     spec = StrategySpec(
-        name="runtime_adapter_from_options_market_data",
+        name="explicit_canonicalization_column_map",
         signal=DirectionSignal(direction=1),
         structure_spec=structure,
         lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
@@ -578,18 +548,20 @@ def test_runtime_data_options_adapter_is_used_when_provided():
     bt = Backtester(
         data=OptionsBacktestDataBundle(
             options_market=OptionsMarketData(
-                chain=_make_options_column_map_only_columns(),
-                options_adapter=ColumnMapOptionsChainAdapter(
-                    source_to_canonical={
-                        "qdt": "trade_date",
-                        "exp": "expiry_date",
-                        "days": "dte",
-                        "cp": "option_type",
-                        "k": "strike",
-                        "d": "delta",
-                        "b": "bid_price",
-                        "a": "ask_price",
-                    }
+                chain=canonicalize_options_chain_for_backtest(
+                    _make_options_column_map_only_columns(),
+                    adapter=ColumnMapOptionsChainAdapter(
+                        source_to_canonical={
+                            "qdt": "trade_date",
+                            "exp": "expiry_date",
+                            "days": "dte",
+                            "cp": "option_type",
+                            "k": "strike",
+                            "d": "delta",
+                            "b": "bid_price",
+                            "a": "ask_price",
+                        }
+                    ),
                 ),
             )
         ),
@@ -602,7 +574,7 @@ def test_runtime_data_options_adapter_is_used_when_provided():
     assert len(mtm) == 2
 
 
-def test_runtime_adapter_from_options_market_data_is_used_when_provided():
+def test_explicit_canonicalization_supports_alias_dataset():
     structure = StructureSpec(
         name="single_call",
         dte_target=30,
@@ -610,22 +582,10 @@ def test_runtime_adapter_from_options_market_data_is_used_when_provided():
         legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
     )
     spec = StrategySpec(
-        name="runtime_adapter_from_options_market_data",
+        name="explicit_canonicalization_alias_dataset",
         signal=DirectionSignal(direction=1),
         structure_spec=structure,
         lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
-    )
-    adapter = ColumnMapOptionsChainAdapter(
-        source_to_canonical={
-            "date": "trade_date",
-            "expiry": "expiry_date",
-            "dte": "dte",
-            "option_type": "option_type",
-            "strike": "strike",
-            "delta": "delta",
-            "bid": "bid_price",
-            "ask": "ask_price",
-        }
     )
     cfg = BacktestRunConfig(
         account=AccountConfig(initial_capital=10_000.0),
@@ -640,10 +600,23 @@ def test_runtime_adapter_from_options_market_data_is_used_when_provided():
     bt = Backtester(
         data=OptionsBacktestDataBundle(
             options_market=OptionsMarketData(
-                chain=_make_options_alias_columns(),
+                chain=canonicalize_options_chain_for_backtest(
+                    _make_options_alias_columns(),
+                    adapter=ColumnMapOptionsChainAdapter(
+                        source_to_canonical={
+                            "date": "trade_date",
+                            "expiry": "expiry_date",
+                            "dte": "dte",
+                            "option_type": "option_type",
+                            "strike": "strike",
+                            "delta": "delta",
+                            "bid": "bid_price",
+                            "ask": "ask_price",
+                        }
+                    ),
+                ),
                 symbol="SPY",
                 default_contract_multiplier=100.0,
-                options_adapter=adapter,
             ),
         ),
         strategy=spec,

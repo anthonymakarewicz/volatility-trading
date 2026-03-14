@@ -18,7 +18,6 @@ from volatility_trading.backtesting import (
     MarginPolicy,
     OptionExecutionModel,
     OptionsBacktestDataBundle,
-    OptionsChainAdapter,
     OptionsMarketData,
     StrategySpec,
     load_fred_rate_series,
@@ -63,7 +62,6 @@ def build_data_bundle(
     options: pd.DataFrame,
     ticker: str,
     features: pd.DataFrame | None = None,
-    options_adapter: OptionsChainAdapter | None = None,
 ) -> OptionsBacktestDataBundle:
     """Build one options backtest bundle with spot-based hedge market data."""
     hedge_mid = spot_series_from_options_chain(options)
@@ -71,7 +69,6 @@ def build_data_bundle(
         options_market=OptionsMarketData(
             chain=options,
             symbol=ticker,
-            options_adapter=options_adapter,
         ),
         features=features,
         hedge_market=HedgeMarketData(
@@ -137,7 +134,6 @@ def build_backtester(
     hedge_fee_bps: float,
     hedge_slip_ask: float = 0.0,
     hedge_slip_bid: float = 0.0,
-    options_adapter: OptionsChainAdapter | None = None,
     option_execution_model: OptionExecutionModel | None = None,
     hedge_execution_model: HedgeExecutionModel | None = None,
     margin_model: MarginModel | None = None,
@@ -164,7 +160,6 @@ def build_backtester(
             options=options,
             ticker=ticker,
             features=features,
-            options_adapter=options_adapter,
         ),
         strategy=strategy,
         config=cfg,

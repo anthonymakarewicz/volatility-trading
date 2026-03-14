@@ -7,11 +7,6 @@ import logging
 import pandas as pd
 
 from ..config import BacktestRunConfig
-from ..data_adapters import (
-    OptionsChainAdapter,
-    OratsOptionsChainAdapter,
-    normalize_options_chain,
-)
 from ..data_contracts import HedgeMarketData, OptionsBacktestDataBundle
 from .contracts import SinglePositionExecutionPlan, SinglePositionHooks
 from .contracts.runtime import PositionEntrySetup
@@ -42,15 +37,9 @@ def build_options_execution_plan(
             "strategy margin_budget_pct requires config.broker.margin.model"
         )
 
-    adapter = _resolve_options_adapter(data=data)
-    options = normalize_options_chain(
-        data.options_frame,
-        adapter=adapter,
-    )
-    adapter_name = getattr(adapter, "name", type(adapter).__name__)
+    options = data.options_frame
     logger.info(
-        "Options chain normalized adapter=%s rows=%d",
-        adapter_name,
+        "Options chain received canonical rows=%d",
         len(options),
     )
     features = data.features
@@ -238,23 +227,6 @@ def _prepare_entry_setup(
         risk_worst_scenario=sizing.risk_scenario,
         margin_per_contract=sizing.margin_per_contract,
     )
-
-
-def _resolve_options_adapter(
-    *,
-    data: OptionsBacktestDataBundle,
-) -> OptionsChainAdapter:
-    """Resolve one options adapter from options-market data contracts."""
-    data_adapter = data.options_market.options_adapter
-    if data_adapter is not None:
-        logger.debug(
-            "Using options adapter from data.options_market: %s",
-            type(data_adapter).__name__,
-        )
-        return data_adapter
-
-    logger.debug("Using built-in options adapter default=orats")
-    return OratsOptionsChainAdapter()
 
 
 def _build_lifecycle_engine(

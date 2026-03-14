@@ -12,6 +12,7 @@ from volatility_trading.backtesting import (
     ExecutionConfig,
     OptionsBacktestDataBundle,
     OptionsMarketData,
+    canonicalize_options_chain_for_backtest,
 )
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
@@ -286,7 +287,7 @@ def test_polars_dataframe_supported_at_adapter_boundary():
     assert normalized.index.name == "trade_date"
 
 
-def test_backtester_uses_data_bundle_options_adapter_boundary():
+def test_backtester_uses_explicit_canonicalization_boundary():
     options_raw = pd.DataFrame(
         [
             {
@@ -351,11 +352,11 @@ def test_backtester_uses_data_bundle_options_adapter_boundary():
             ),
         ),
     )
+    options = canonicalize_options_chain_for_backtest(options_raw, adapter=adapter)
     data = OptionsBacktestDataBundle(
         options_market=OptionsMarketData(
-            chain=options_raw,
+            chain=options,
             default_contract_multiplier=1.0,
-            options_adapter=adapter,
         )
     )
     bt = Backtester(data=data, strategy=spec, config=cfg)

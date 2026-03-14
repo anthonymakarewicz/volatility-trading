@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
-if TYPE_CHECKING:
-    from volatility_trading.backtesting.data_adapters import OptionsChainAdapter
+from volatility_trading.backtesting.data_adapters import validate_options_chain_contract
 
 
 @dataclass(frozen=True)
@@ -32,17 +30,15 @@ class OptionsMarketData:
     """Options-chain market dataset plus chain-level metadata.
 
     Attributes:
-        chain: Option chain panel for one backtest run.
+        chain: Canonical long options panel for one backtest run.
         symbol: Optional underlying ticker label for reporting/validation hooks.
         default_contract_multiplier: Fallback option contract multiplier when
             quote-level multipliers are not modeled in the chain schema.
-        options_adapter: Optional adapter scoped specifically to this chain.
     """
 
     chain: pd.DataFrame
     symbol: str | None = None
     default_contract_multiplier: float = 100.0
-    options_adapter: OptionsChainAdapter | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -50,14 +46,22 @@ class OptionsMarketData:
             or self.default_contract_multiplier <= 0
         ):
             raise ValueError("default_contract_multiplier must be finite and > 0")
+        object.__setattr__(
+            self,
+            "chain",
+            validate_options_chain_contract(
+                self.chain,
+                adapter_name="options_market",
+            ),
+        )
 
 
 @dataclass(frozen=True)
 class OptionsBacktestDataBundle:
     """Typed input datasets consumed by options backtesting runtime.
 
-    ``options_market`` carries the options chain plus optional chain-level
-    metadata (symbol, default multiplier, scoped adapter).
+    ``options_market`` carries one canonical long options chain plus optional
+    chain-level metadata (symbol, default multiplier).
     """
 
     options_market: OptionsMarketData
@@ -66,7 +70,7 @@ class OptionsBacktestDataBundle:
 
     @property
     def options_frame(self) -> pd.DataFrame:
-        """Return options panel normalized from the configured bundle source."""
+        """Return the canonical long options panel for the bundle."""
         return self.options_market.chain
 
     @property

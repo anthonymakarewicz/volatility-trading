@@ -1,4 +1,4 @@
-"""Show how `OptionsMarketData` scopes adapter configuration per dataset.
+"""Show explicit options-chain canonicalization before `OptionsMarketData`.
 
 Run from repository root with:
 `python -m examples.backtesting.adapters.options_market`
@@ -22,6 +22,7 @@ from volatility_trading.backtesting import (
     HedgeMarketData,
     OptionsBacktestDataBundle,
     OptionsMarketData,
+    canonicalize_options_chain_for_backtest,
     compute_performance_metrics,
     to_daily_mtm,
 )
@@ -36,7 +37,7 @@ class Scenario:
 
 
 def main() -> None:
-    args = parse_common_args("Compare canonical and mapped options-chain adapters.")
+    args = parse_common_args("Compare explicit canonicalization paths for options data.")
     options = load_options_window(ticker=args.ticker, start=args.start, end=args.end)
     rf_series = load_rf_series(options.index.unique())
     hedge_market = HedgeMarketData(
@@ -59,28 +60,32 @@ def main() -> None:
         Scenario(
             name="canonical_adapter",
             options_market=OptionsMarketData(
-                chain=options,
+                chain=canonicalize_options_chain_for_backtest(
+                    options,
+                    adapter=CanonicalOptionsChainAdapter(),
+                ),
                 symbol=args.ticker,
-                options_adapter=CanonicalOptionsChainAdapter(),
             ),
         ),
         Scenario(
             name="column_map_adapter",
             options_market=OptionsMarketData(
-                chain=aliased_options,
-                symbol=args.ticker,
-                options_adapter=ColumnMapOptionsChainAdapter(
-                    source_to_canonical={
-                        "qdt": "trade_date",
-                        "exp": "expiry_date",
-                        "days": "dte",
-                        "cp": "option_type",
-                        "k": "strike",
-                        "d": "delta",
-                        "b": "bid_price",
-                        "a": "ask_price",
-                    }
+                chain=canonicalize_options_chain_for_backtest(
+                    aliased_options,
+                    adapter=ColumnMapOptionsChainAdapter(
+                        source_to_canonical={
+                            "qdt": "trade_date",
+                            "exp": "expiry_date",
+                            "days": "dte",
+                            "cp": "option_type",
+                            "k": "strike",
+                            "d": "delta",
+                            "b": "bid_price",
+                            "a": "ask_price",
+                        }
+                    ),
                 ),
+                symbol=args.ticker,
             ),
         ),
     )
@@ -119,7 +124,7 @@ def main() -> None:
             }
         )
 
-    print("OptionsMarketData adapter comparison:")
+    print("Explicit canonicalization comparison:")
     for row in rows:
         print(
             f"- {row['scenario']}: "

@@ -7,7 +7,7 @@ plan compilation:
 2. `validate` required schema/dtypes
 3. `run` strategy plan compilation and lifecycle
 
-This boundary is applied in `build_options_execution_plan(...)`.
+This boundary should be applied before constructing `OptionsMarketData(...)`.
 
 Canonical field names are centralized in
 `volatility_trading.contracts.options_chain` and reused by ETL and
@@ -15,13 +15,10 @@ backtesting adapters.
 Provider-specific alias/rename mappings live in
 `volatility_trading.config.options_chain_sources`.
 
-Runtime adapter resolution is configured via:
-- `data.options_market.options_adapter`: optional adapter scoped to one
-  options market dataset
-
-Resolution order:
-1. `data.options_market.options_adapter` (if set)
-2. built-in `OratsOptionsChainAdapter` default
+`OptionsMarketData` is canonical-only:
+- pass a canonical long options panel into `OptionsMarketData(chain=...)`
+- use adapters through explicit canonicalization helpers before runtime
+- runner workflows may still resolve adapter names during source loading
 
 Validation levels:
 - `coerce`: parse/coerce datetime/numeric fields before validation
@@ -60,7 +57,6 @@ Optional columns:
 ## Built-in Adapters
 
 - `OratsOptionsChainAdapter`
-  - Default adapter when no scoped adapter is supplied.
   - Handles common ORATS-style aliases (for example `date`, `expiry`, `bid`, `ask`).
 
 - `YfinanceOptionsChainAdapter`
@@ -142,14 +138,16 @@ options = load_orats_options_chain_for_backtest(
 
 ## Advanced Usage
 
-The runtime still supports scoping an adapter directly on `OptionsMarketData`
-when you intentionally want normalization to happen at the backtester boundary:
+If you want to normalize one raw vendor frame manually without the convenience
+loader, canonicalize it explicitly and then pass the canonical output into
+`OptionsMarketData`:
 
 ```python
 from volatility_trading.backtesting import (
     ColumnMapOptionsChainAdapter,
     OptionsBacktestDataBundle,
     OptionsMarketData,
+    canonicalize_options_chain_for_backtest,
 )
 
 adapter = ColumnMapOptionsChainAdapter(
@@ -165,11 +163,13 @@ adapter = ColumnMapOptionsChainAdapter(
     }
 )
 
+options = canonicalize_options_chain_for_backtest(
+    raw_options_df,
+    adapter=adapter,
+)
+
 data = OptionsBacktestDataBundle(
-    options_market=OptionsMarketData(
-        chain=raw_options_df,
-        options_adapter=adapter,
-    ),
+    options_market=OptionsMarketData(chain=options),
 )
 ```
 
