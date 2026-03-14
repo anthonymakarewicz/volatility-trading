@@ -21,29 +21,19 @@ from volatility_trading.backtesting import (
     OptionsChainAdapter,
     OptionsMarketData,
     StrategySpec,
+    load_fred_rate_series,
+    load_orats_options_chain_for_backtest,
     print_performance_report,
+    spot_series_from_options_chain,
     to_daily_mtm,
 )
-from volatility_trading.datasets import (
-    options_chain_wide_to_long,
-    read_daily_features,
-    read_fred_rates,
-    read_options_chain,
-)
+from volatility_trading.datasets import read_daily_features
 from volatility_trading.options import MarginModel, RegTMarginModel
-
-
-def load_options_long(ticker: str) -> pd.DataFrame:
-    """Load processed options chain and return a long pandas panel."""
-    options_wide = read_options_chain(ticker)
-    options_long = options_chain_wide_to_long(options_wide).collect().to_pandas()
-    options_long["trade_date"] = pd.to_datetime(options_long["trade_date"])
-    return options_long.set_index("trade_date").sort_index()
 
 
 def load_options_window(*, ticker: str, start: str, end: str) -> pd.DataFrame:
     """Load one ticker and return the requested trade-date window."""
-    options = load_options_long(ticker).loc[start:end]
+    options = load_orats_options_chain_for_backtest(ticker).loc[start:end]
     if options.empty:
         raise ValueError(f"No options rows for {ticker} in range {start}:{end}")
     return options
@@ -63,9 +53,7 @@ def load_daily_features_window(*, ticker: str, start: str, end: str) -> pd.DataF
 
 def load_rf_series(index: pd.Index) -> pd.Series:
     """Load 3M T-bill rate series aligned to one backtest date index."""
-    rf_df = read_fred_rates(columns=["date", "dgs3mo"]).to_pandas()
-    rf_df["date"] = pd.to_datetime(rf_df["date"])
-    rf = rf_df.set_index("date")["dgs3mo"].astype(float).div(100.0)
+    rf = load_fred_rate_series("dgs3mo")
     aligned_index = pd.DatetimeIndex(index)
     return rf.reindex(aligned_index).ffill().fillna(0.0)
 
@@ -78,7 +66,7 @@ def build_data_bundle(
     options_adapter: OptionsChainAdapter | None = None,
 ) -> OptionsBacktestDataBundle:
     """Build one options backtest bundle with spot-based hedge market data."""
-    hedge_mid = options.groupby(level=0)["spot_price"].first().astype(float)
+    hedge_mid = spot_series_from_options_chain(options)
     return OptionsBacktestDataBundle(
         options_market=OptionsMarketData(
             chain=options,

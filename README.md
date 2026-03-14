@@ -109,11 +109,12 @@ For the full command sequence, see [Data pipeline](https://github.com/anthonymak
 
 | Source | Input expected by backtester | Support status | Adapter path |
 |:--|:--|:--|:--|
-| ORATS ETL output | Canonical long-format options chain | First-class | `CanonicalOptionsChainAdapter` (or mode `canonical`) |
+| ORATS ETL output | Processed ORATS panel normalized to canonical long format | First-class | `load_orats_options_chain_for_backtest(...)` or `OratsOptionsChainAdapter` |
 | OptionsDX ETL output | Cleaned long-format panel (`reshape='long'`) | Supported | `OptionsDxOptionsChainAdapter` |
 | Custom/vendor dataset | Long-format panel mapped to canonical fields | Supported with mapping | `ColumnMapOptionsChainAdapter` |
 
 Notes:
+- `load_orats_options_chain_for_backtest(...)` is the preferred notebook/helper path for ORATS backtests.
 - Raw wide OptionsDX vendor format (`c_*` / `p_*`) is not accepted directly by the backtester.
 - Contract details and adapter behavior: [Options Data Adapters](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/options_data_adapters.md)
 - ORATS pipeline reference: [Data Pipeline](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/data_pipeline.md)
@@ -124,6 +125,34 @@ Notes:
 Assume you already prepared:
 
 - `options`: long-format `pandas` options panel indexed by `trade_date`
+
+For notebook-style data preparation, prefer the backtesting helpers:
+
+```python
+from volatility_trading.backtesting import (
+    load_fred_rate_series,
+    load_orats_options_chain_for_backtest,
+    load_yfinance_close_series,
+    spot_series_from_options_chain,
+)
+
+options = load_orats_options_chain_for_backtest("SPY")
+rf = load_fred_rate_series("dgs3mo")
+benchmark = load_yfinance_close_series("SP500TR")
+hedge_mid = spot_series_from_options_chain(options)
+```
+
+Common backtest-window filters can be applied directly in the ORATS loader:
+
+```python
+options = load_orats_options_chain_for_backtest(
+    "SPY",
+    start="2011-01-01",
+    end="2017-12-31",
+    dte_min=5,
+    dte_max=60,
+)
+```
 
 ```python
 from volatility_trading.backtesting import (

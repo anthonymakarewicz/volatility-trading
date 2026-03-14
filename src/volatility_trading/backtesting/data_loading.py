@@ -33,6 +33,10 @@ def load_orats_options_chain_for_backtest(
     ticker: str,
     *,
     proc_root: Path | str | None = None,
+    start: str | pd.Timestamp | None = None,
+    end: str | pd.Timestamp | None = None,
+    dte_min: float | None = None,
+    dte_max: float | None = None,
 ) -> pd.DataFrame:
     """Load one processed ORATS options chain as canonical long pandas data."""
     if proc_root is None:
@@ -40,10 +44,49 @@ def load_orats_options_chain_for_backtest(
     else:
         wide = read_options_chain(ticker, proc_root=proc_root)
     long = options_chain_wide_to_long(wide).collect()
-    return canonicalize_options_chain_for_backtest(
+    options = canonicalize_options_chain_for_backtest(
         long,
         adapter=OratsOptionsChainAdapter(),
     )
+    return filter_options_chain_for_backtest(
+        options,
+        start=start,
+        end=end,
+        dte_min=dte_min,
+        dte_max=dte_max,
+    )
+
+
+def filter_options_chain_for_backtest(
+    options_chain: pd.DataFrame,
+    *,
+    start: str | pd.Timestamp | None = None,
+    end: str | pd.Timestamp | None = None,
+    dte_min: float | None = None,
+    dte_max: float | None = None,
+    dte_col: str = "dte",
+) -> pd.DataFrame:
+    """Apply common date-window and DTE filters to a canonical options chain."""
+    options = options_chain
+
+    if start is not None:
+        options = options.loc[options.index >= pd.Timestamp(start)]
+    if end is not None:
+        options = options.loc[options.index <= pd.Timestamp(end)]
+
+    if dte_min is not None or dte_max is not None:
+        if dte_col not in options.columns:
+            raise ValueError(
+                f"options_chain must contain '{dte_col}' for DTE filtering"
+            )
+        dte = options[dte_col]
+        if dte_min is not None:
+            options = options.loc[dte >= float(dte_min)]
+            dte = options[dte_col]
+        if dte_max is not None:
+            options = options.loc[dte <= float(dte_max)]
+
+    return options.sort_index()
 
 
 def load_fred_rate_series(
