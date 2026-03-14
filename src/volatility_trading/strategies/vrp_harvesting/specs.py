@@ -47,10 +47,14 @@ class VRPHarvestingSpec:
     max_holding_period: int | None = None
     allow_same_day_reentry_on_rebalance: bool = True
     allow_same_day_reentry_on_max_holding: bool = False
+    allow_same_day_reentry_on_stop_loss: bool = False
+    allow_same_day_reentry_on_take_profit: bool = False
     target_dte: int = 30
     max_dte_diff: int = 7
     risk_budget_pct: float | None = None
     margin_budget_pct: float | None = None
+    stop_loss_pnl_per_contract: float | None = None
+    take_profit_pnl_per_contract: float | None = None
     exit_rule_set: ExitRuleSet = field(default_factory=ExitRuleSet.period_rules)
     reentry_policy: SameDayReentryPolicy | None = None
     delta_hedge: DeltaHedgePolicy = field(default_factory=DeltaHedgePolicy)
@@ -81,6 +85,10 @@ class VRPHarvestingSpec:
                 reentry_policy=self.reentry_policy,
                 allow_on_rebalance=self.allow_same_day_reentry_on_rebalance,
                 allow_on_max_holding=self.allow_same_day_reentry_on_max_holding,
+                allow_on_stop_loss=self.allow_same_day_reentry_on_stop_loss,
+                allow_on_take_profit=self.allow_same_day_reentry_on_take_profit,
+                stop_loss_pnl_per_contract=self.stop_loss_pnl_per_contract,
+                take_profit_pnl_per_contract=self.take_profit_pnl_per_contract,
                 delta_hedge=self.delta_hedge,
             ),
             sizing=build_preset_sizing_config(

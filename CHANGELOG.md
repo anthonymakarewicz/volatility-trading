@@ -18,6 +18,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   workflow YAML.
 - Added runner support for rate-sourced financing via
   `cash_rate_source: data_rates` and `borrow_rate_spread`.
+- Added structure-level `StopLossExitRule` and `TakeProfitExitRule` based on
+  unrealized net `pnl_per_contract`, plus preset-level convenience fields on
+  `VRPHarvestingSpec` and `SkewMispricingSpec`.
 
 ### Changed
 - `OptionsMarketData` now validates canonical long options input at
@@ -28,6 +31,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Runner `data.rates` sections now require explicit provider-owned fields when
   present instead of treating an empty mapping as an implicit constant `0.0`
   rate source.
+- `SameDayReentryPolicy` now supports explicit stop-loss and take-profit
+  reentry controls alongside the existing periodic and margin-liquidation
+  policies.
 
 ### Breaking changes
 - Removed `OptionsMarketData.options_adapter`. Normalize raw source data

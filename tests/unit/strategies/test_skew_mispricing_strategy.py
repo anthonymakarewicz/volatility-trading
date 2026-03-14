@@ -9,6 +9,8 @@ from volatility_trading.backtesting import (
     MaxHoldingExitRule,
     OptionsBacktestDataBundle,
     OptionsMarketData,
+    StopLossExitRule,
+    TakeProfitExitRule,
 )
 from volatility_trading.backtesting.options_engine import (
     BidAskFeeOptionExecutionModel,
@@ -268,6 +270,29 @@ def test_skew_default_lifecycle_is_signal_driven_with_max_holding_safety_cap():
     assert tuple(type(rule) for rule in lifecycle.exit_rule_set.rules) == (
         MaxHoldingExitRule,
     )
+
+
+def test_skew_signal_driven_lifecycle_keeps_max_holding_and_appends_pnl_exits():
+    lifecycle = (
+        SkewMispricingSpec(
+            stop_loss_pnl_per_contract=1.0,
+            take_profit_pnl_per_contract=2.0,
+            allow_same_day_reentry_on_stop_loss=False,
+            allow_same_day_reentry_on_take_profit=True,
+        )
+        .to_strategy_spec()
+        .lifecycle
+    )
+
+    assert lifecycle.rebalance_period is None
+    assert lifecycle.max_holding_period == 30
+    assert tuple(type(rule) for rule in lifecycle.exit_rule_set.rules) == (
+        MaxHoldingExitRule,
+        StopLossExitRule,
+        TakeProfitExitRule,
+    )
+    assert lifecycle.reentry_policy.allow_on_stop_loss is False
+    assert lifecycle.reentry_policy.allow_on_take_profit is True
 
 
 @pytest.mark.parametrize(

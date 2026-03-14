@@ -6,11 +6,10 @@ Exploratory ideas stay in `notes/` until promoted here.
 ## Now (next 1-2 milestones)
 
 ### Richer exits (requested priority)
-- Add stop-loss / take-profit exits at structure level.
-- Add optional leg-level stop/target exits.
-- Add time-stop + volatility mean-reversion exits.
-- Add half-life exits.
-- Add event exits (earnings and macro/event calendars).
+- Extend the shipped structure-level `pnl_per_contract` stop-loss /
+  take-profit exits with more advanced calibration bases such as
+  `entry_risk_multiple`.
+- Add half-life / signal-decay exits.
 
 ### Backtest run workflows
 - Build on the current single-run workflow runner with a multi-run experiment

@@ -822,3 +822,104 @@ def test_rebalance_period_and_max_holding_period_can_be_set_separately():
 
     assert len(trades) == 1
     assert trades.iloc[0]["exit_type"] == "Rebalance Period"
+
+
+def test_vrp_preset_appends_pnl_per_contract_exit_rules():
+    lifecycle = (
+        VRPHarvestingSpec(
+            signal=ShortOnlySignal(),
+            stop_loss_pnl_per_contract=1.0,
+            take_profit_pnl_per_contract=2.0,
+            allow_same_day_reentry_on_stop_loss=True,
+            allow_same_day_reentry_on_take_profit=False,
+        )
+        .to_strategy_spec()
+        .lifecycle
+    )
+
+    assert [rule.exit_type for rule in lifecycle.exit_rule_set.rules][-2:] == [
+        "Stop Loss",
+        "Take Profit",
+    ]
+    assert lifecycle.reentry_policy.allow_on_stop_loss is True
+    assert lifecycle.reentry_policy.allow_on_take_profit is False
+
+
+def test_vrp_stop_loss_pnl_per_contract_exits_live_backtest():
+    options = _make_options(
+        [
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "market_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-01",
+                "expiry_date": "2020-01-31",
+                "dte": 30,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 5.0,
+                "ask_price": 5.2,
+                "spot_price": 100.0,
+                "market_iv": 0.20,
+            },
+            {
+                "trade_date": "2020-01-02",
+                "expiry_date": "2020-01-31",
+                "dte": 29,
+                "strike": 100.0,
+                "option_type": "P",
+                "delta": -0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 6.0,
+                "ask_price": 6.0,
+                "spot_price": 101.0,
+                "market_iv": 0.21,
+            },
+            {
+                "trade_date": "2020-01-02",
+                "expiry_date": "2020-01-31",
+                "dte": 29,
+                "strike": 100.0,
+                "option_type": "C",
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.10,
+                "theta": -0.02,
+                "bid_price": 6.0,
+                "ask_price": 6.0,
+                "spot_price": 101.0,
+                "market_iv": 0.21,
+            },
+        ]
+    )
+
+    trades, _ = _run_backtest(
+        options,
+        rebalance_period=10,
+        strategy_kwargs={
+            "stop_loss_pnl_per_contract": 0.5,
+            "allow_same_day_reentry_on_rebalance": False,
+            "allow_same_day_reentry_on_max_holding": False,
+        },
+    )
+
+    assert len(trades) == 1
+    assert trades.iloc[0]["exit_type"] == "Stop Loss"

@@ -58,8 +58,10 @@ from .options_engine import (
     RebalanceExitRule,
     SameDayReentryPolicy,
     SizingPolicyConfig,
+    StopLossExitRule,
     StrategySpec,
     StructureSpec,
+    TakeProfitExitRule,
     WWDeltaBandModel,
 )
 from .performance import (
@@ -119,6 +121,8 @@ __all__ = [
     "ExitRuleSet",
     "RebalanceExitRule",
     "MaxHoldingExitRule",
+    "StopLossExitRule",
+    "TakeProfitExitRule",
     "SameDayReentryPolicy",
     "DeltaHedgePolicy",
     "HedgeTriggerPolicy",
