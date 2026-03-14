@@ -267,13 +267,29 @@ def _parse_rates_source_spec(payload: Any) -> RatesSourceSpec | None:
     if payload is None:
         return None
     mapping = _expect_mapping(payload, field_name="data.rates")
+    provider_value = mapping.get("provider")
+    if provider_value is None:
+        _ensure_keys(
+            mapping,
+            field_name="data.rates",
+            allowed=("column", "constant_rate", "proc_root", "provider", "series_id"),
+            required=("provider",),
+        )
+
+    provider = str(provider_value)
+    required = ("provider",)
+    if provider.strip().lower() == "constant":
+        required = ("provider", "constant_rate")
+    elif provider.strip().lower() == "fred":
+        required = ("provider", "series_id")
     _ensure_keys(
         mapping,
         field_name="data.rates",
         allowed=("column", "constant_rate", "proc_root", "provider", "series_id"),
+        required=required,
     )
     return RatesSourceSpec(
-        provider=str(mapping.get("provider", "constant")),
+        provider=provider,
         constant_rate=(
             None
             if mapping.get("constant_rate") is None

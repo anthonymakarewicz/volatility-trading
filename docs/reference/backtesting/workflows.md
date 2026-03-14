@@ -165,6 +165,12 @@ Current support:
 - `provider: constant`
 - `provider: fred`
 
+Required when `data.rates` is present:
+
+- `provider`
+- `constant_rate` for `provider: constant`
+- `series_id` for `provider: fred`
+
 `proc_root` note for `provider: fred`:
 
 - the runner accepts either the FRED source root (`data/processed/fred`) or the

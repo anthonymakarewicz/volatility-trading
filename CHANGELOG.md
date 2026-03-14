@@ -23,6 +23,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - `OptionsMarketData` now validates canonical long options input at
   construction time instead of deferring normalization to the runtime plan
   builder.
+- Runner `data.rates` sections now require explicit provider-owned fields when
+  present instead of treating an empty mapping as an implicit constant `0.0`
+  rate source.
 
 ### Breaking changes
 - Removed `OptionsMarketData.options_adapter`. Normalize raw source data

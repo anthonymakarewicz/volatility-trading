@@ -127,7 +127,10 @@ def _load_constant_rate_input(
     _workflow: BacktestWorkflowSpec,
 ) -> RateInput:
     """Resolve one constant-rate input."""
-    return float(spec.constant_rate or 0.0)
+    rate = spec.constant_rate
+    if rate is None:
+        raise ValueError("constant-rate source requires constant_rate to be finite")
+    return float(rate)
 
 
 def _load_fred_rate_input(

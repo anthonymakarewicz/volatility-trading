@@ -81,6 +81,14 @@ def test_rates_source_spec_supports_constant_rates() -> None:
     assert spec.series_id is None
 
 
+def test_rates_source_spec_requires_constant_rate() -> None:
+    with pytest.raises(
+        ValueError,
+        match="constant-rate source requires constant_rate to be finite",
+    ):
+        RatesSourceSpec(provider="constant")
+
+
 def test_rates_source_spec_requires_fred_series_id() -> None:
     with pytest.raises(ValueError, match="fred rates source requires a non-empty"):
         RatesSourceSpec(provider="fred")

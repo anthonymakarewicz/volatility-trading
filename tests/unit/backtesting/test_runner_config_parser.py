@@ -305,3 +305,41 @@ def test_parse_workflow_config_rejects_sourced_financing_without_data_rates() ->
                 },
             }
         )
+
+
+def test_parse_workflow_config_rejects_empty_data_rates_section() -> None:
+    with pytest.raises(
+        ValueError,
+        match="data.rates is missing required keys: provider",
+    ):
+        parse_workflow_config(
+            {
+                "data": {
+                    "options": {"ticker": "SPX"},
+                    "rates": {},
+                },
+                "strategy": {
+                    "name": "vrp_harvesting",
+                    "signal": {"name": "short_only"},
+                },
+            }
+        )
+
+
+def test_parse_workflow_config_rejects_constant_rates_without_constant_rate() -> None:
+    with pytest.raises(
+        ValueError,
+        match="data.rates is missing required keys: constant_rate",
+    ):
+        parse_workflow_config(
+            {
+                "data": {
+                    "options": {"ticker": "SPX"},
+                    "rates": {"provider": "constant"},
+                },
+                "strategy": {
+                    "name": "vrp_harvesting",
+                    "signal": {"name": "short_only"},
+                },
+            }
+        )

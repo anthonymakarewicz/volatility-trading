@@ -434,8 +434,8 @@ class SeriesSourceSpec:
 class RatesSourceSpec:
     """Typed rates source spec for financing and report inputs."""
 
-    provider: str = "constant"
-    constant_rate: float | None = 0.0
+    provider: str
+    constant_rate: float | None = None
     series_id: str | None = None
     column: str | None = None
     proc_root: Path | None = None

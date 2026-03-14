@@ -126,6 +126,32 @@ def test_workflow_payload_requires_explicit_data_rates_for_sourced_financing(
         mod.parse_workflow_config(mod._workflow_config_payload(config))
 
 
+def test_workflow_payload_rejects_empty_data_rates_section(tmp_path: Path) -> None:
+    mod = importlib.import_module("volatility_trading.apps.backtesting.run")
+    config_path = tmp_path / "workflow.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "data:",
+                "  options:",
+                "    ticker: SPY",
+                "  rates: {}",
+                "strategy:",
+                "  name: vrp_harvesting",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = mod._build_config(mod._parse_args(["--config", str(config_path)]))
+
+    with pytest.raises(
+        ValueError,
+        match="data.rates is missing required keys: provider",
+    ):
+        mod.parse_workflow_config(mod._workflow_config_payload(config))
+
+
 def test_dry_run_validates_without_executing(monkeypatch, caplog) -> None:
     mod = importlib.import_module("volatility_trading.apps.backtesting.run")
     workflow = BacktestWorkflowSpec(
