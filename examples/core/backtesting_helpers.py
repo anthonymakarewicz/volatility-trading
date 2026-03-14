@@ -26,7 +26,6 @@ from volatility_trading.backtesting import (
     spot_series_from_options_chain,
     to_daily_mtm,
 )
-from volatility_trading.datasets import read_daily_features
 from volatility_trading.options import MarginModel, RegTMarginModel
 
 
@@ -40,19 +39,6 @@ def load_options_window(*, ticker: str, start: str, end: str) -> pd.DataFrame:
     if options.empty:
         raise ValueError(f"No options rows for {ticker} in range {start}:{end}")
     return options
-
-
-def load_daily_features_window(*, ticker: str, start: str, end: str) -> pd.DataFrame:
-    """Load one ticker daily-features panel and return the requested window."""
-    features = read_daily_features(ticker).to_pandas()
-    features["trade_date"] = pd.to_datetime(features["trade_date"])
-    features = features.set_index("trade_date").sort_index().loc[start:end]
-    if features.empty:
-        raise ValueError(
-            f"No daily-features rows for {ticker} in range {start}:{end}"
-        )
-    return features
-
 
 def load_rf_series(index: pd.Index) -> pd.Series:
     """Load 3M T-bill rate series aligned to one backtest date index."""

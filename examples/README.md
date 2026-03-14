@@ -27,6 +27,7 @@ The examples use the public backtesting helper layer for common market-data
 prep tasks:
 
 - `load_orats_options_chain_for_backtest(...)`
+- `load_daily_features_frame(...)`
 - `load_fred_rate_series(...)`
 - `load_yfinance_close_series(...)`
 - `spot_series_from_options_chain(...)`

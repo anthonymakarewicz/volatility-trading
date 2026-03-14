@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import pandas as pd
@@ -11,9 +12,14 @@ from volatility_trading.backtesting.data_adapters import (
     OratsOptionsChainAdapter,
     normalize_options_chain,
 )
-from volatility_trading.config.paths import PROC_FRED_RATES, PROC_YFINANCE_TIME_SERIES
+from volatility_trading.config.paths import (
+    PROC_FRED_RATES,
+    PROC_ORATS_DAILY_FEATURES,
+    PROC_YFINANCE_TIME_SERIES,
+)
 from volatility_trading.datasets import (
     options_chain_wide_to_long,
+    read_daily_features,
     read_fred_rates,
     read_options_chain,
     read_yfinance_time_series,
@@ -108,6 +114,40 @@ def load_fred_rate_series(
         series = series.div(100.0)
     series.name = column
     return series
+
+
+def load_daily_features_frame(
+    ticker: str,
+    *,
+    proc_root: Path | str = PROC_ORATS_DAILY_FEATURES,
+    columns: Sequence[str] | None = None,
+    date_col: str = "trade_date",
+    start: str | pd.Timestamp | None = None,
+    end: str | pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    """Load one processed daily-features panel as an indexed pandas frame."""
+    requested_columns = None
+    if columns is not None:
+        requested_columns = [date_col, *columns]
+        requested_columns = list(dict.fromkeys(requested_columns))
+
+    frame = read_daily_features(
+        ticker,
+        proc_root=proc_root,
+        columns=requested_columns,
+    ).to_pandas()
+    frame[date_col] = pd.to_datetime(frame[date_col])
+    frame = frame.set_index(date_col).sort_index()
+    if start is not None:
+        frame = frame.loc[frame.index >= pd.Timestamp(start)]
+    if end is not None:
+        frame = frame.loc[frame.index <= pd.Timestamp(end)]
+    if frame.empty:
+        range_text = (
+            f" in range {start}:{end}" if start is not None or end is not None else ""
+        )
+        raise ValueError(f"No daily-features rows for {ticker}{range_text}")
+    return frame
 
 
 def load_yfinance_close_series(

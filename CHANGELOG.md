@@ -13,6 +13,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Added backtesting data-loading helpers for canonical options-chain
   normalization, ORATS chain loading, FRED rate series loading, yfinance close
   series loading, and spot-series derivation from canonical options data.
+- Added `load_daily_features_frame(...)` as a backtesting-oriented helper for
+  processed daily-features panels.
 - Added common date-window and DTE filters to the ORATS backtest loader helper.
 - Added runner support for ORATS source-level `dte_min` / `dte_max` filters in
   workflow YAML.
