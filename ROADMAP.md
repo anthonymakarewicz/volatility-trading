@@ -5,15 +5,22 @@ Exploratory ideas stay in `notes/` until promoted here.
 
 ## Now (next 1-2 milestones)
 
-### Strategy diversification
-- Complete `skew_mispricing` as a second fully backtestable strategy family (spec, signals, examples, tests).
-- Use a second real strategy path to validate that `StrategySpec` and options-engine lifecycle abstractions are truly generic, not just VRP-shaped.
+### Richer exits (requested priority)
+- Add stop-loss / take-profit exits at structure level.
+- Add optional leg-level stop/target exits.
+- Add time-stop + volatility mean-reversion exits.
+- Add half-life exits.
+- Add event exits (earnings and macro/event calendars).
 
 ### Backtest run workflows
-- Add a declarative backtest runner CLI driven by YAML config (datasets, adapter, strategy preset, execution, broker/modeling, reporting).
-- Emit run manifests/report bundles automatically so scripted runs and CI smoke runs share the same execution path.
-- Add one stable config schema for reproducible batch runs outside notebooks/examples.
-- Add a strategy preset registry/factory so config-driven runs can instantiate strategies by stable name plus validated params.
+- Build on the current single-run workflow runner with a multi-run experiment
+  layer for parameter grids, strategy comparisons, and scenario sweeps outside
+  notebooks/examples.
+- Persist experiment-level manifests and aggregate comparison tables alongside
+  single-run report bundles.
+- Add richer modeling support to workflow YAML only when a concrete pricing/risk
+  workflow requires it; keep the current runner slice intentionally narrow until
+  then.
 
 ### Diagnostics and reporting baseline
 - Add core risk dashboards: margin usage timeline, call events timeline, and rolling risk-adjusted metrics.
@@ -23,13 +30,6 @@ Exploratory ideas stay in `notes/` until promoted here.
 - Add P&L decomposition usign transaction costs form option and hedging instrument.
 
 ## Mid-term (priority)
-
-### Richer exits (requested priority)
-- Add stop-loss / take-profit exits at structure level.
-- Add optional leg-level stop/target exits.
-- Add time-stop + volatility mean-reversion exits.
-- Add half-life exits.
-- Add event exits (earnings and macro/event calendars).
 
 ### Margin domain cleanup
 - Unify position-level initial margin models (`options/risk/margin.py`) with account-level maintenance/liquidation logic (`backtesting/margin.py`) under clearer shared contracts.
@@ -42,6 +42,13 @@ Exploratory ideas stay in `notes/` until promoted here.
 ### Experiment infrastructure
 - Add a multi-run experiment layer for parameter grids, strategy comparisons, and execution/margin scenario sweeps.
 - Persist experiment-level manifests and aggregate comparison tables alongside single-run report bundles.
+
+### Strategy diversification
+- Add a third distinct strategy family beyond `vrp_harvesting` and
+  `skew_mispricing` so the current engine abstractions are pressure-tested
+  outside the first two short-vol / skew-oriented paths.
+- Use the next strategy path to validate that sizing, margin, and lifecycle
+  contracts remain generic as strategy structure requirements diversify.
 
 ### Decision trace / explainability
 - Add optional structured debug outputs for entry, sizing, hedging, and exit decisions.
