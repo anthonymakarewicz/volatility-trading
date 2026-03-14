@@ -8,6 +8,14 @@ This document defines the release and versioning workflow for this project.
 - Current phase: pre-`1.0.0` (`0.x.y`)
 - Source of package version: `pyproject.toml` (`[project].version`)
 
+## Audience
+
+This workflow is intended for repository maintainers / release managers with
+release permissions.
+
+Other contributors may read it for context, but should not cut releases unless
+explicitly delegated to do so.
+
 ## Versioning Policy (Pre-1.0)
 
 Use `0.x.y` with these rules:
