@@ -18,7 +18,6 @@ Provider-specific alias/rename mappings live in
 `OptionsMarketData` is canonical-only:
 - pass a canonical long options panel into `OptionsMarketData(chain=...)`
 - use adapters through explicit canonicalization helpers before runtime
-- runner workflows may still resolve adapter names during source loading
 
 Validation levels:
 - `coerce`: parse/coerce datetime/numeric fields before validation
@@ -88,40 +87,6 @@ Polars input is converted once at adapter boundary via
 
 ## Preferred Usage
 
-For common notebook/backtest workflows, normalize raw source data before
-constructing `OptionsMarketData`:
-
-```python
-from volatility_trading.backtesting import (
-    ColumnMapOptionsChainAdapter,
-    OptionsBacktestDataBundle,
-    OptionsMarketData,
-    canonicalize_options_chain_for_backtest,
-)
-
-adapter = ColumnMapOptionsChainAdapter(
-    source_to_canonical={
-        "qdt": "trade_date",
-        "exp": "expiry_date",
-        "days": "dte",
-        "cp": "option_type",
-        "k": "strike",
-        "d": "delta",
-        "b": "bid_price",
-        "a": "ask_price",
-    }
-)
-
-options = canonicalize_options_chain_for_backtest(
-    raw_options_df,
-    adapter=adapter,
-)
-
-data = OptionsBacktestDataBundle(
-    options_market=OptionsMarketData(chain=options),
-)
-```
-
 For processed ORATS data, prefer the higher-level convenience loader:
 
 ```python
@@ -136,11 +101,8 @@ options = load_orats_options_chain_for_backtest(
 )
 ```
 
-## Advanced Usage
-
-If you want to normalize one raw vendor frame manually without the convenience
-loader, canonicalize it explicitly and then pass the canonical output into
-`OptionsMarketData`:
+For custom datasets, map your source columns to the canonical contract before
+constructing `OptionsMarketData`:
 
 ```python
 from volatility_trading.backtesting import (
@@ -152,20 +114,66 @@ from volatility_trading.backtesting import (
 
 adapter = ColumnMapOptionsChainAdapter(
     source_to_canonical={
-        "qdt": "trade_date",
-        "exp": "expiry_date",
-        "days": "dte",
-        "cp": "option_type",
-        "k": "strike",
-        "d": "delta",
-        "b": "bid_price",
-        "a": "ask_price",
+        "your_trade_date_col": "trade_date",
+        "your_expiry_col": "expiry_date",
+        "your_dte_col": "dte",
+        "your_type_col": "option_type",
+        "your_strike_col": "strike",
+        "your_delta_col": "delta",
+        "your_bid_col": "bid_price",
+        "your_ask_col": "ask_price",
     }
 )
 
 options = canonicalize_options_chain_for_backtest(
     raw_options_df,
     adapter=adapter,
+)
+
+data = OptionsBacktestDataBundle(
+    options_market=OptionsMarketData(chain=options),
+)
+```
+
+## Advanced Usage
+
+If you want to normalize one raw ORATS-style frame explicitly in Python without
+the convenience loader, use the built-in ORATS adapter:
+
+```python
+from volatility_trading.backtesting import (
+    OratsOptionsChainAdapter,
+    OptionsBacktestDataBundle,
+    OptionsMarketData,
+    canonicalize_options_chain_for_backtest,
+)
+
+adapter = OratsOptionsChainAdapter()
+
+options = canonicalize_options_chain_for_backtest(
+    raw_orats_df,
+    adapter=adapter,
+)
+
+data = OptionsBacktestDataBundle(
+    options_market=OptionsMarketData(chain=options),
+)
+```
+
+If your data is already canonical long data, use the canonical adapter as a
+strict validation boundary:
+
+```python
+from volatility_trading.backtesting import (
+    CanonicalOptionsChainAdapter,
+    OptionsBacktestDataBundle,
+    OptionsMarketData,
+    canonicalize_options_chain_for_backtest,
+)
+
+options = canonicalize_options_chain_for_backtest(
+    canonical_options_df,
+    adapter=CanonicalOptionsChainAdapter(),
 )
 
 data = OptionsBacktestDataBundle(

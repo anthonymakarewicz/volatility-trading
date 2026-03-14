@@ -144,7 +144,6 @@ class OptionsSourceSpec:
     ticker: str
     provider: str = "orats"
     proc_root: Path | None = None
-    adapter_name: str | None = None
     symbol: str | None = None
     default_contract_multiplier: float = 100.0
     dte_min: float | None = None
@@ -163,14 +162,6 @@ class OptionsSourceSpec:
                 self.provider,
                 field_name="options provider",
                 allowed=OPTIONS_SOURCE_PROVIDERS,
-            ),
-        )
-        object.__setattr__(
-            self,
-            "adapter_name",
-            _normalize_optional_name(
-                self.adapter_name,
-                field_name="options adapter_name",
             ),
         )
         object.__setattr__(

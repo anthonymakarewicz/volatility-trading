@@ -179,7 +179,6 @@ def _parse_options_source_spec(payload: Any) -> OptionsSourceSpec:
         mapping,
         field_name="data.options",
         allowed=(
-            "adapter_name",
             "default_contract_multiplier",
             "dte_max",
             "dte_min",
@@ -194,11 +193,6 @@ def _parse_options_source_spec(payload: Any) -> OptionsSourceSpec:
         ticker=str(mapping["ticker"]),
         provider=str(mapping.get("provider", "orats")),
         proc_root=resolve_repo_relative_path(mapping.get("proc_root")),
-        adapter_name=(
-            None
-            if mapping.get("adapter_name") is None
-            else str(mapping["adapter_name"])
-        ),
         symbol=None if mapping.get("symbol") is None else str(mapping["symbol"]),
         default_contract_multiplier=float(
             mapping.get("default_contract_multiplier", 100.0)

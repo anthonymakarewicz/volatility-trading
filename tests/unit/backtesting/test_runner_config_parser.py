@@ -41,7 +41,6 @@ def test_parse_workflow_config_builds_skew_workflow_with_defaults_and_execution(
             "data": {
                 "options": {
                     "ticker": "spx",
-                    "adapter_name": "canonical",
                     "default_contract_multiplier": 100,
                     "dte_min": 5,
                     "dte_max": 60,
@@ -130,6 +129,27 @@ def test_parse_workflow_config_builds_skew_workflow_with_defaults_and_execution(
     assert workflow.reporting.benchmark_name == "IWM TR"
     assert workflow.run.start_date == pd.Timestamp("2020-01-01")
     assert workflow.run.end_date == pd.Timestamp("2020-12-31")
+
+
+def test_parse_workflow_config_rejects_runner_options_adapter_name() -> None:
+    with pytest.raises(
+        ValueError,
+        match="data.options contains unsupported keys: adapter_name",
+    ):
+        parse_workflow_config(
+            {
+                "data": {
+                    "options": {
+                        "ticker": "SPX",
+                        "adapter_name": "canonical",
+                    }
+                },
+                "strategy": {
+                    "name": "vrp_harvesting",
+                    "signal": {"name": "short_only"},
+                },
+            }
+        )
 
 
 def test_parse_workflow_config_rejects_missing_required_sections() -> None:
