@@ -30,6 +30,13 @@ from .data_contracts import (
     OptionsBacktestDataBundle,
     OptionsMarketData,
 )
+from .data_loading import (
+    canonicalize_options_chain_for_backtest,
+    load_fred_rate_series,
+    load_orats_options_chain_for_backtest,
+    load_yfinance_close_series,
+    spot_series_from_options_chain,
+)
 from .engine import Backtester
 from .margin import MarginAccount, MarginPolicy, MarginStatus
 from .margin_types import MarginCore
@@ -88,6 +95,11 @@ __all__ = [
     "OptionsBacktestDataBundle",
     "OptionsMarketData",
     "HedgeMarketData",
+    "canonicalize_options_chain_for_backtest",
+    "load_orats_options_chain_for_backtest",
+    "load_fred_rate_series",
+    "load_yfinance_close_series",
+    "spot_series_from_options_chain",
     "OptionsChainAdapter",
     "OptionsChainAdapterError",
     "AliasOptionsChainAdapter",

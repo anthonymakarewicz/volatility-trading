@@ -9,6 +9,11 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+### Added
+- Added backtesting data-loading helpers for canonical options-chain
+  normalization, ORATS chain loading, FRED rate series loading, yfinance close
+  series loading, and spot-series derivation from canonical options data.
+
 ## [0.5.0] - 2026-03-13
 ### Added
 - Added `SkewMispricingSpec` and `make_skew_mispricing_strategy` as a second
