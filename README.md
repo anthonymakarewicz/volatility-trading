@@ -200,15 +200,22 @@ print_performance_report(
 
 ## **Quick Skew Backtest Example**
 
-Assume you also prepared:
+If you are using ORATS daily features, load them with the public helper:
 
 - `features`: daily ORATS features indexed by `trade_date`, including
   `iv_dlt25_30d` and `iv_dlt75_30d`
 
 ```python
+from volatility_trading.backtesting import load_daily_features_frame
 from volatility_trading.strategies import (
     SkewMispricingSpec,
     make_skew_mispricing_strategy,
+)
+
+features = load_daily_features_frame(
+    "SPY",
+    start="2011-01-01",
+    end="2017-12-31",
 )
 
 data = OptionsBacktestDataBundle(

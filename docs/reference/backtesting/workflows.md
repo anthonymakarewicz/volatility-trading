@@ -206,6 +206,58 @@ Current signal names:
 - `long_only`
 - `zscore`
 
+#### `strategy.params`
+
+`strategy.params` is preset-specific. Unknown keys are rejected by the runner.
+
+The current stable runner YAML surface covers the scalar / date-window /
+boolean-style preset knobs below.
+
+`vrp_harvesting`:
+
+- `rebalance_period`
+- `max_holding_period`
+- `allow_same_day_reentry_on_rebalance`
+- `allow_same_day_reentry_on_max_holding`
+- `allow_same_day_reentry_on_stop_loss`
+- `allow_same_day_reentry_on_take_profit`
+- `target_dte`
+- `max_dte_diff`
+- `risk_budget_pct`
+- `margin_budget_pct`
+- `stop_loss_pnl_per_contract`
+- `take_profit_pnl_per_contract`
+- `min_contracts`
+- `max_contracts`
+
+`skew_mispricing`:
+
+- `rebalance_period`
+- `max_holding_period`
+- `allow_same_day_reentry_on_rebalance`
+- `allow_same_day_reentry_on_max_holding`
+- `allow_same_day_reentry_on_stop_loss`
+- `allow_same_day_reentry_on_take_profit`
+- `target_dte`
+- `max_dte_diff`
+- `delta_target_abs`
+- `delta_tolerance`
+- `risk_budget_pct`
+- `margin_budget_pct`
+- `stop_loss_pnl_per_contract`
+- `take_profit_pnl_per_contract`
+- `min_contracts`
+- `max_contracts`
+
+Current YAML boundary notes:
+
+- `stop_loss_pnl_per_contract` and `take_profit_pnl_per_contract` are the
+  current runner-owned richer-exit knobs for built-in presets.
+- More advanced preset fields such as `filters`, `exit_rule_set`,
+  `reentry_policy`, and `delta_hedge` remain part of the Python library path,
+  not the documented runner YAML surface.
+- When a param is omitted, the preset's Python default still applies.
+
 ### `account`
 
 Run-level capital configuration.
