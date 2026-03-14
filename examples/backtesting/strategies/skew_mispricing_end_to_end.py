@@ -15,17 +15,17 @@ from __future__ import annotations
 from examples.backtesting.strategies import build_skew_strategy
 from examples.core.backtesting_helpers import (
     build_backtester,
-    load_daily_features_window,
     load_options_window,
     run_and_report,
 )
 from examples.core.cli import parse_common_args
+from volatility_trading.backtesting import load_daily_features_frame
 
 
 def main() -> None:
     cfg = parse_common_args("Run a minimal skew-mispricing E2E backtest.")
     options = load_options_window(ticker=cfg.ticker, start=cfg.start, end=cfg.end)
-    features = load_daily_features_window(
+    features = load_daily_features_frame(
         ticker=cfg.ticker,
         start=cfg.start,
         end=cfg.end,

@@ -10,6 +10,7 @@ from volatility_trading.backtesting import (
     canonicalize_options_chain_for_backtest,
     data_loading,
     filter_options_chain_for_backtest,
+    load_daily_features_frame,
     load_fred_rate_series,
     load_orats_options_chain_for_backtest,
     load_yfinance_close_series,
@@ -168,6 +169,61 @@ def test_load_fred_rate_series_accepts_source_root_and_scales_to_decimal(
     assert list(rf.index) == list(pd.to_datetime(["2024-01-02", "2024-01-03"]))
     assert rf.iloc[0] == 0.02
     assert rf.iloc[1] == 0.015
+
+
+def test_load_daily_features_frame_accepts_optional_columns_and_window(
+    monkeypatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_read_daily_features(ticker: str, *, proc_root, columns=None):
+        seen["ticker"] = ticker
+        seen["proc_root"] = Path(proc_root)
+        seen["columns"] = tuple(columns) if columns is not None else None
+        return pl.DataFrame(
+            {
+                "trade_date": ["2024-01-03", "2024-01-02"],
+                "iv_dlt25_30d": [0.31, 0.30],
+                "iv_dlt75_30d": [0.20, 0.19],
+            }
+        )
+
+    monkeypatch.setattr(data_loading, "read_daily_features", fake_read_daily_features)
+
+    features = load_daily_features_frame(
+        "SPY",
+        proc_root=Path("/tmp/daily_features"),
+        columns=["iv_dlt25_30d", "iv_dlt75_30d"],
+        start="2024-01-03",
+        end="2024-01-03",
+    )
+
+    assert seen["ticker"] == "SPY"
+    assert seen["proc_root"] == Path("/tmp/daily_features")
+    assert seen["columns"] == ("trade_date", "iv_dlt25_30d", "iv_dlt75_30d")
+    assert list(features.index) == list(pd.to_datetime(["2024-01-03"]))
+    assert list(features.columns) == ["iv_dlt25_30d", "iv_dlt75_30d"]
+    assert features.iloc[0]["iv_dlt25_30d"] == pytest.approx(0.31)
+
+
+def test_load_daily_features_frame_raises_on_empty_window(monkeypatch) -> None:
+    monkeypatch.setattr(
+        data_loading,
+        "read_daily_features",
+        lambda ticker, *, proc_root, columns=None: pl.DataFrame(
+            {
+                "trade_date": ["2024-01-02"],
+                "iv_dlt25_30d": [0.30],
+            }
+        ),
+    )
+
+    with pytest.raises(ValueError, match="No daily-features rows for SPY"):
+        load_daily_features_frame(
+            "SPY",
+            start="2024-01-03",
+            end="2024-01-03",
+        )
 
 
 def test_load_yfinance_close_series_accepts_source_root(
