@@ -25,6 +25,47 @@ Guideline:
 - During normal PRs, user-visible changes should be added to `## [Unreleased]` in `CHANGELOG.md`.
 - During release prep, move/copy relevant `Unreleased` bullets into `[0.x.y]`, set the release date, then reset `Unreleased`.
 
+## When to Cut a Release
+
+Use `CHANGELOG.md` `## [Unreleased]` as the main release-sizing signal.
+
+### Cut a minor release (`0.x.0` / bump `x`) when:
+
+- `Unreleased` contains a meaningful new feature
+- `Unreleased` contains a significant refactor with user-facing impact
+- `Unreleased` contains a pre-`1.0` breaking change
+- several user-visible improvements have accumulated into one coherent milestone
+
+Typical examples:
+
+- new backtesting/runtime capability
+- new strategy preset
+- new workflow-runner capability
+- new public helper layer
+- a runtime-boundary refactor that changes how users assemble data/config
+
+### Cut a patch release (`0.x.y` / bump `y`) when:
+
+- `Unreleased` is mostly bug fixes
+- changes are behavior-compatible and corrective
+- docs/tests/examples are being updated to fix or clarify already-released behavior
+- cleanup is small and non-breaking but worth shipping promptly
+
+Typical examples:
+
+- loader validation fix
+- CI/runtime bug fix
+- doc correction for current public behavior
+- small example regression fix
+
+### Additional guidance
+
+- If `Unreleased` contains any documented breaking change, prefer bumping `x`.
+- If `Unreleased` already tells a coherent release story, do not keep adding
+  unrelated features just to make the release feel larger.
+- Prefer smaller coherent releases over letting `Unreleased` accumulate across
+  too many unrelated themes.
+
 ## GitHub Release Notes Template
 
 Use this as the default release description skeleton when publishing a GitHub
