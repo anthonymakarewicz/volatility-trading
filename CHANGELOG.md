@@ -15,6 +15,17 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   series loading, and spot-series derivation from canonical options data.
 - Added common date-window and DTE filters to the ORATS backtest loader helper.
 
+### Changed
+- `OptionsMarketData` now validates canonical long options input at
+  construction time instead of deferring normalization to the runtime plan
+  builder.
+
+### Breaking changes
+- Removed `OptionsMarketData.options_adapter`. Normalize raw source data
+  explicitly with backtesting helpers such as
+  `canonicalize_options_chain_for_backtest(...)` before constructing the
+  runtime data bundle.
+
 ## [0.5.0] - 2026-03-13
 ### Added
 - Added `SkewMispricingSpec` and `make_skew_mispricing_strategy` as a second

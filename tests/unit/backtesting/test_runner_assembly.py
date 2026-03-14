@@ -4,7 +4,6 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from volatility_trading.backtesting.data_adapters import CanonicalOptionsChainAdapter
 from volatility_trading.backtesting.runner.assembly import assemble_workflow_inputs
 from volatility_trading.backtesting.runner.workflow_types import (
     BacktestDataSourcesSpec,
@@ -127,12 +126,10 @@ def test_assemble_workflow_inputs_loads_sources_and_builds_runtime_context(
     resolved = assemble_workflow_inputs(workflow)
 
     assert resolved.strategy.name == "skew_mispricing"
-    assert isinstance(
-        resolved.data.options_market.options_adapter,
-        CanonicalOptionsChainAdapter,
-    )
     assert resolved.data.option_symbol == "SPX"
     assert resolved.data.option_contract_multiplier == pytest.approx(100.0)
+    assert resolved.data.options_frame.index.name == "trade_date"
+    assert set(resolved.data.options_frame["option_type"]) == {"C", "P"}
     assert resolved.data.features is not None
     assert "iv_dlt25_30d" in resolved.data.features.columns
     assert resolved.data.hedge_market is not None

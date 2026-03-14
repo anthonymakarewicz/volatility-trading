@@ -77,7 +77,7 @@ full backtester construction.
 ## Focused Adapter Example
 
 - `examples/backtesting/adapters/options_market.py`
-  - show how `OptionsMarketData` scopes per-dataset adapter configuration
+  - show explicit options-chain canonicalization before `OptionsMarketData`
 
 ## Common CLI Args
 
