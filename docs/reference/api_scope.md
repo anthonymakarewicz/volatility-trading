@@ -55,8 +55,8 @@ These are not stable API contracts unless explicitly promoted:
 ## Import Guidance
 
 - Prefer `volatility_trading.backtesting` for common runtime configuration,
-  data-bundle setup, hedging policy objects, execution models, and adapter
-  classes.
+  data-bundle setup, data-loading helpers, hedging policy objects, execution
+  models, and adapter classes.
 - Use `volatility_trading.backtesting.options_engine` when you intentionally
   want the narrower, engine-specific advanced namespace. That namespace is
   curated around specs, exit rules, execution models, adapter contracts, and

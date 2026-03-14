@@ -7,6 +7,11 @@ from volatility_trading.backtesting import (
     FixedBpsHedgeExecutionModel,
     FixedDeltaBandModel,
     StrategySpec,
+    canonicalize_options_chain_for_backtest,
+    load_fred_rate_series,
+    load_orats_options_chain_for_backtest,
+    load_yfinance_close_series,
+    spot_series_from_options_chain,
 )
 from volatility_trading.backtesting.engine import Backtester as EngineBacktester
 from volatility_trading.backtesting.options_engine import (
@@ -37,6 +42,11 @@ def test_backtesting_reexports_common_user_types() -> None:
     assert BidAskFeeOptionExecutionModel is EngineBidAskFeeOptionExecutionModel
     assert FixedBpsHedgeExecutionModel is EngineFixedBpsHedgeExecutionModel
     assert ColumnMapOptionsChainAdapter is EngineColumnMapOptionsChainAdapter
+    assert callable(canonicalize_options_chain_for_backtest)
+    assert callable(load_orats_options_chain_for_backtest)
+    assert callable(load_fred_rate_series)
+    assert callable(load_yfinance_close_series)
+    assert callable(spot_series_from_options_chain)
 
 
 def test_options_engine_namespace_hides_runtime_internal_helpers() -> None:
