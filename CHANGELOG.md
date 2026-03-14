@@ -9,6 +9,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-14
+
 ### Added
 - Added backtesting data-loading helpers for canonical options-chain
   normalization, ORATS chain loading, FRED rate series loading, yfinance close
@@ -36,6 +38,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - `SameDayReentryPolicy` now supports explicit stop-loss and take-profit
   reentry controls alongside the existing periodic and margin-liquidation
   policies.
+- Clarified backtesting architecture, runner workflow docs, and release
+  guidance to match the current canonical runtime boundary and pre-`1.0`
+  release process.
 
 ### Breaking changes
 - Removed `OptionsMarketData.options_adapter`. Normalize raw source data
