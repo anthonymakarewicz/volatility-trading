@@ -28,6 +28,7 @@ from .workflow_types import (
     BacktestDataSourcesSpec,
     BacktestWorkflowSpec,
     FeaturesSourceSpec,
+    MarginPolicySpec,
     NamedSignalSpec,
     NamedStrategyPresetSpec,
     OptionsSourceSpec,
@@ -135,6 +136,8 @@ def parse_workflow_config(config: Mapping[str, Any]) -> BacktestWorkflowSpec:
         required=("data", "strategy"),
     )
 
+    broker, margin_policy_spec = _parse_broker_config(payload.get("broker"))
+
     return BacktestWorkflowSpec(
         data=_parse_data_sources_spec(payload["data"]),
         strategy=_parse_named_strategy_preset_spec(payload["strategy"]),
@@ -142,7 +145,8 @@ def parse_workflow_config(config: Mapping[str, Any]) -> BacktestWorkflowSpec:
         reporting=_parse_reporting_spec(payload.get("reporting")),
         account=_parse_account_config(payload.get("account")),
         execution=_parse_execution_config(payload.get("execution")),
-        broker=_parse_broker_config(payload.get("broker")),
+        broker=broker,
+        margin_policy_spec=margin_policy_spec,
         modeling=_parse_modeling_config(payload.get("modeling")),
     )
 
@@ -177,6 +181,8 @@ def _parse_options_source_spec(payload: Any) -> OptionsSourceSpec:
         allowed=(
             "adapter_name",
             "default_contract_multiplier",
+            "dte_max",
+            "dte_min",
             "proc_root",
             "provider",
             "symbol",
@@ -196,6 +202,12 @@ def _parse_options_source_spec(payload: Any) -> OptionsSourceSpec:
         symbol=None if mapping.get("symbol") is None else str(mapping["symbol"]),
         default_contract_multiplier=float(
             mapping.get("default_contract_multiplier", 100.0)
+        ),
+        dte_min=(
+            None if mapping.get("dte_min") is None else float(mapping.get("dte_min"))
+        ),
+        dte_max=(
+            None if mapping.get("dte_max") is None else float(mapping.get("dte_max"))
         ),
     )
 
@@ -255,13 +267,29 @@ def _parse_rates_source_spec(payload: Any) -> RatesSourceSpec | None:
     if payload is None:
         return None
     mapping = _expect_mapping(payload, field_name="data.rates")
+    provider_value = mapping.get("provider")
+    if provider_value is None:
+        _ensure_keys(
+            mapping,
+            field_name="data.rates",
+            allowed=("column", "constant_rate", "proc_root", "provider", "series_id"),
+            required=("provider",),
+        )
+
+    provider = str(provider_value)
+    required = ("provider",)
+    if provider.strip().lower() == "constant":
+        required = ("provider", "constant_rate")
+    elif provider.strip().lower() == "fred":
+        required = ("provider", "series_id")
     _ensure_keys(
         mapping,
         field_name="data.rates",
         allowed=("column", "constant_rate", "proc_root", "provider", "series_id"),
+        required=required,
     )
     return RatesSourceSpec(
-        provider=str(mapping.get("provider", "constant")),
+        provider=provider,
         constant_rate=(
             None
             if mapping.get("constant_rate") is None
@@ -434,28 +462,33 @@ def _parse_execution_model_section(
     )
 
 
-def _parse_broker_config(payload: Any) -> BrokerConfig:
+def _parse_broker_config(payload: Any) -> tuple[BrokerConfig, MarginPolicySpec | None]:
     """Parse one optional broker config mapping."""
     if payload is None:
-        return BrokerConfig()
+        return BrokerConfig(), None
     mapping = _expect_mapping(payload, field_name="broker")
     _ensure_keys(mapping, field_name="broker", allowed=("margin",))
-    return BrokerConfig(margin=_parse_margin_config(mapping.get("margin")))
+    margin_config, margin_policy_spec = _parse_margin_config(mapping.get("margin"))
+    return BrokerConfig(margin=margin_config), margin_policy_spec
 
 
-def _parse_margin_config(payload: Any) -> MarginConfig:
+def _parse_margin_config(payload: Any) -> tuple[MarginConfig, MarginPolicySpec | None]:
     """Parse one optional broker.margin config mapping."""
     if payload is None:
-        return MarginConfig()
+        return MarginConfig(), None
     mapping = _expect_mapping(payload, field_name="broker.margin")
     _ensure_keys(
         mapping,
         field_name="broker.margin",
         allowed=("model", "policy"),
     )
-    return MarginConfig(
-        model=_parse_margin_model(mapping.get("model")),
-        policy=_parse_margin_policy(mapping.get("policy")),
+    policy, policy_spec = _parse_margin_policy(mapping.get("policy"))
+    return (
+        MarginConfig(
+            model=_parse_margin_model(mapping.get("model")),
+            policy=policy,
+        ),
+        policy_spec,
     )
 
 
@@ -482,10 +515,12 @@ def _parse_margin_model(payload: Any) -> MarginModel | None:
     )
 
 
-def _parse_margin_policy(payload: Any) -> MarginPolicy | None:
+def _parse_margin_policy(
+    payload: Any,
+) -> tuple[MarginPolicy | None, MarginPolicySpec | None]:
     """Parse one optional margin-policy mapping."""
     if payload is None:
-        return None
+        return None, None
     mapping = _expect_mapping(payload, field_name="broker.margin.policy")
     _ensure_keys(
         mapping,
@@ -493,7 +528,9 @@ def _parse_margin_policy(payload: Any) -> MarginPolicy | None:
         allowed=(
             "apply_financing",
             "borrow_rate_annual",
+            "borrow_rate_spread",
             "cash_rate_annual",
+            "cash_rate_source",
             "liquidation_buffer_ratio",
             "liquidation_mode",
             "maintenance_margin_ratio",
@@ -501,15 +538,62 @@ def _parse_margin_policy(payload: Any) -> MarginPolicy | None:
             "trading_days_per_year",
         ),
     )
-    return MarginPolicy(
-        maintenance_margin_ratio=float(mapping.get("maintenance_margin_ratio", 0.75)),
-        margin_call_grace_days=int(mapping.get("margin_call_grace_days", 1)),
-        liquidation_mode=str(mapping.get("liquidation_mode", "full")),
-        liquidation_buffer_ratio=float(mapping.get("liquidation_buffer_ratio", 0.0)),
-        apply_financing=bool(mapping.get("apply_financing", False)),
-        cash_rate_annual=float(mapping.get("cash_rate_annual", 0.0)),
-        borrow_rate_annual=float(mapping.get("borrow_rate_annual", 0.0)),
-        trading_days_per_year=int(mapping.get("trading_days_per_year", 252)),
+    has_deferred_financing = (
+        mapping.get("cash_rate_source") is not None
+        or mapping.get("borrow_rate_spread") is not None
+    )
+    if has_deferred_financing:
+        return (
+            None,
+            MarginPolicySpec(
+                maintenance_margin_ratio=float(
+                    mapping.get("maintenance_margin_ratio", 0.75)
+                ),
+                margin_call_grace_days=int(mapping.get("margin_call_grace_days", 1)),
+                liquidation_mode=str(mapping.get("liquidation_mode", "full")),
+                liquidation_buffer_ratio=float(
+                    mapping.get("liquidation_buffer_ratio", 0.0)
+                ),
+                apply_financing=bool(mapping.get("apply_financing", False)),
+                cash_rate_annual=(
+                    None
+                    if mapping.get("cash_rate_annual") is None
+                    else float(mapping["cash_rate_annual"])
+                ),
+                cash_rate_source=(
+                    None
+                    if mapping.get("cash_rate_source") is None
+                    else str(mapping["cash_rate_source"])
+                ),
+                borrow_rate_annual=(
+                    None
+                    if mapping.get("borrow_rate_annual") is None
+                    else float(mapping["borrow_rate_annual"])
+                ),
+                borrow_rate_spread=(
+                    None
+                    if mapping.get("borrow_rate_spread") is None
+                    else float(mapping["borrow_rate_spread"])
+                ),
+                trading_days_per_year=int(mapping.get("trading_days_per_year", 252)),
+            ),
+        )
+    return (
+        MarginPolicy(
+            maintenance_margin_ratio=float(
+                mapping.get("maintenance_margin_ratio", 0.75)
+            ),
+            margin_call_grace_days=int(mapping.get("margin_call_grace_days", 1)),
+            liquidation_mode=str(mapping.get("liquidation_mode", "full")),
+            liquidation_buffer_ratio=float(
+                mapping.get("liquidation_buffer_ratio", 0.0)
+            ),
+            apply_financing=bool(mapping.get("apply_financing", False)),
+            cash_rate_annual=float(mapping.get("cash_rate_annual", 0.0)),
+            borrow_rate_annual=float(mapping.get("borrow_rate_annual", 0.0)),
+            trading_days_per_year=int(mapping.get("trading_days_per_year", 252)),
+        ),
+        None,
     )
 
 

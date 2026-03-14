@@ -16,8 +16,11 @@ from volatility_trading.backtesting.config import (
     BacktestRunConfig,
     BrokerConfig,
     ExecutionConfig,
+    MarginConfig,
     ModelingConfig,
 )
+from volatility_trading.backtesting.margin import MarginPolicy
+from volatility_trading.backtesting.rates import RateInput
 from volatility_trading.backtesting.reporting.constants import DEFAULT_REPORT_ROOT
 
 from .source_loaders import (
@@ -90,6 +93,17 @@ def _validate_positive_finite(
     return float(value)
 
 
+def _validate_non_negative_finite(
+    value: float,
+    *,
+    field_name: str,
+) -> float:
+    """Validate a non-negative finite scalar."""
+    if not math.isfinite(value) or value < 0:
+        raise ValueError(f"{field_name} must be finite and >= 0")
+    return float(value)
+
+
 @dataclass(frozen=True)
 class NamedSignalSpec:
     """Named signal config used by the future backtest runner."""
@@ -133,6 +147,8 @@ class OptionsSourceSpec:
     adapter_name: str | None = None
     symbol: str | None = None
     default_contract_multiplier: float = 100.0
+    dte_min: float | None = None
+    dte_max: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -169,6 +185,174 @@ class OptionsSourceSpec:
                 self.default_contract_multiplier,
                 field_name="default_contract_multiplier",
             ),
+        )
+        if self.dte_min is not None:
+            object.__setattr__(
+                self,
+                "dte_min",
+                _validate_non_negative_finite(
+                    self.dte_min,
+                    field_name="options dte_min",
+                ),
+            )
+        if self.dte_max is not None:
+            object.__setattr__(
+                self,
+                "dte_max",
+                _validate_non_negative_finite(
+                    self.dte_max,
+                    field_name="options dte_max",
+                ),
+            )
+        if (
+            self.dte_min is not None
+            and self.dte_max is not None
+            and self.dte_min > self.dte_max
+        ):
+            raise ValueError("options dte_min must be <= dte_max")
+
+
+def _add_rate_spread(
+    rate_input: RateInput,
+    *,
+    spread: float,
+) -> RateInput:
+    """Apply one additive annualized spread to a runner rate input."""
+    spread_value = _validate_non_negative_finite(
+        spread,
+        field_name="borrow_rate_spread",
+    )
+    if isinstance(rate_input, pd.Series):
+        return pd.Series(
+            pd.to_numeric(rate_input, errors="coerce").astype(float).values
+            + spread_value,
+            index=pd.DatetimeIndex(rate_input.index),
+            name=rate_input.name,
+        )
+    return float(rate_input) + spread_value
+
+
+@dataclass(frozen=True)
+class MarginPolicySpec:
+    """Runner-only margin-policy spec that can resolve data-sourced financing."""
+
+    maintenance_margin_ratio: float = 0.75
+    margin_call_grace_days: int = 1
+    liquidation_mode: str = "full"
+    liquidation_buffer_ratio: float = 0.0
+    apply_financing: bool = False
+    cash_rate_annual: float | None = None
+    cash_rate_source: str | None = None
+    borrow_rate_annual: float | None = None
+    borrow_rate_spread: float | None = None
+    trading_days_per_year: int = 252
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "cash_rate_source",
+            _normalize_optional_name(
+                self.cash_rate_source,
+                field_name="margin policy cash_rate_source",
+            ),
+        )
+        if not 0 <= self.maintenance_margin_ratio <= 1:
+            raise ValueError("maintenance_margin_ratio must be in [0, 1]")
+        if self.margin_call_grace_days < 0:
+            raise ValueError("margin_call_grace_days must be >= 0")
+        if self.liquidation_mode not in {"full", "target"}:
+            raise ValueError("liquidation_mode must be 'full' or 'target'")
+        object.__setattr__(
+            self,
+            "liquidation_buffer_ratio",
+            _validate_non_negative_finite(
+                self.liquidation_buffer_ratio,
+                field_name="liquidation_buffer_ratio",
+            ),
+        )
+        if self.trading_days_per_year <= 0:
+            raise ValueError("trading_days_per_year must be > 0")
+        if self.cash_rate_source is not None and self.cash_rate_source != "data_rates":
+            raise ValueError("cash_rate_source must be 'data_rates' when provided")
+        if self.cash_rate_source is not None and self.cash_rate_annual is not None:
+            raise ValueError(
+                "cash_rate_annual and cash_rate_source are mutually exclusive"
+            )
+        if self.borrow_rate_annual is not None and self.borrow_rate_spread is not None:
+            raise ValueError(
+                "borrow_rate_annual and borrow_rate_spread are mutually exclusive"
+            )
+        if (
+            self.borrow_rate_spread is not None
+            and self.cash_rate_source != "data_rates"
+        ):
+            raise ValueError(
+                "borrow_rate_spread requires cash_rate_source='data_rates'"
+            )
+        if self.cash_rate_annual is not None:
+            object.__setattr__(
+                self,
+                "cash_rate_annual",
+                _validate_non_negative_finite(
+                    self.cash_rate_annual,
+                    field_name="cash_rate_annual",
+                ),
+            )
+        if self.borrow_rate_annual is not None:
+            object.__setattr__(
+                self,
+                "borrow_rate_annual",
+                _validate_non_negative_finite(
+                    self.borrow_rate_annual,
+                    field_name="borrow_rate_annual",
+                ),
+            )
+        if self.borrow_rate_spread is not None:
+            object.__setattr__(
+                self,
+                "borrow_rate_spread",
+                _validate_non_negative_finite(
+                    self.borrow_rate_spread,
+                    field_name="borrow_rate_spread",
+                ),
+            )
+
+    def resolve(
+        self,
+        *,
+        data_rates: RateInput | None,
+    ) -> MarginPolicy:
+        """Resolve one runner policy spec into the runtime MarginPolicy."""
+        if self.cash_rate_source == "data_rates":
+            if data_rates is None:
+                raise ValueError(
+                    "cash_rate_source='data_rates' requires data.rates in the workflow"
+                )
+            cash_rate: RateInput = data_rates
+        else:
+            cash_rate = (
+                0.0 if self.cash_rate_annual is None else float(self.cash_rate_annual)
+            )
+
+        if self.borrow_rate_annual is not None:
+            borrow_rate: RateInput = float(self.borrow_rate_annual)
+        elif self.borrow_rate_spread is not None:
+            borrow_rate = _add_rate_spread(
+                cash_rate,
+                spread=self.borrow_rate_spread,
+            )
+        else:
+            borrow_rate = 0.0
+
+        return MarginPolicy(
+            maintenance_margin_ratio=self.maintenance_margin_ratio,
+            margin_call_grace_days=self.margin_call_grace_days,
+            liquidation_mode=self.liquidation_mode,  # type: ignore[arg-type]
+            liquidation_buffer_ratio=self.liquidation_buffer_ratio,
+            apply_financing=self.apply_financing,
+            cash_rate_annual=cash_rate,
+            borrow_rate_annual=borrow_rate,
+            trading_days_per_year=self.trading_days_per_year,
         )
 
 
@@ -250,8 +434,8 @@ class SeriesSourceSpec:
 class RatesSourceSpec:
     """Typed rates source spec for financing and report inputs."""
 
-    provider: str = "constant"
-    constant_rate: float | None = 0.0
+    provider: str
+    constant_rate: float | None = None
     series_id: str | None = None
     column: str | None = None
     proc_root: Path | None = None
@@ -349,14 +533,44 @@ class BacktestWorkflowSpec:
     account: AccountConfig = field(default_factory=AccountConfig)
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
     broker: BrokerConfig = field(default_factory=BrokerConfig)
+    margin_policy_spec: MarginPolicySpec | None = None
     modeling: ModelingConfig = field(default_factory=ModelingConfig)
 
-    def to_backtest_run_config(self) -> BacktestRunConfig:
+    def __post_init__(self) -> None:
+        if (
+            self.margin_policy_spec is not None
+            and self.broker.margin.policy is not None
+        ):
+            raise ValueError(
+                "broker.margin.policy and margin_policy_spec are mutually exclusive"
+            )
+        if (
+            self.margin_policy_spec is not None
+            and self.margin_policy_spec.cash_rate_source == "data_rates"
+            and self.data.rates is None
+        ):
+            raise ValueError(
+                "cash_rate_source='data_rates' requires data.rates in the workflow"
+            )
+
+    def to_backtest_run_config(
+        self,
+        *,
+        data_rates: RateInput | None = None,
+    ) -> BacktestRunConfig:
         """Project this workflow spec onto the existing engine run config."""
+        broker = self.broker
+        if self.margin_policy_spec is not None:
+            broker = BrokerConfig(
+                margin=MarginConfig(
+                    model=self.broker.margin.model,
+                    policy=self.margin_policy_spec.resolve(data_rates=data_rates),
+                )
+            )
         return BacktestRunConfig(
             account=self.account,
             execution=self.execution,
-            broker=self.broker,
+            broker=broker,
             modeling=self.modeling,
             start_date=self.run.start_date,
             end_date=self.run.end_date,

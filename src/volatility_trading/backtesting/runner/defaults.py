@@ -14,19 +14,13 @@ DEFAULT_RUNNER_APP_CONFIG: dict[str, Any] = {
     "dry_run": False,
     "data": {
         "options": {
-            "ticker": "SPY",
             "provider": "orats",
             "proc_root": None,
             "adapter_name": None,
             "symbol": None,
             "default_contract_multiplier": 100.0,
-        },
-        "rates": {
-            "provider": "constant",
-            "constant_rate": 0.0,
-            "series_id": None,
-            "column": None,
-            "proc_root": None,
+            "dte_min": None,
+            "dte_max": None,
         },
     },
     "account": {

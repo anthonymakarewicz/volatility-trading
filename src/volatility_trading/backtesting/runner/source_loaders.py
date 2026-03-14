@@ -15,6 +15,7 @@ from volatility_trading.backtesting.data_adapters import (
 from volatility_trading.backtesting.data_contracts import OptionsMarketData
 from volatility_trading.backtesting.data_loading import (
     canonicalize_options_chain_for_backtest,
+    filter_options_chain_for_backtest,
 )
 from volatility_trading.backtesting.rates import RateInput
 from volatility_trading.datasets import (
@@ -55,6 +56,11 @@ def _load_orats_options_market(spec: OptionsSourceSpec) -> OptionsMarketData:
     options = canonicalize_options_chain_for_backtest(
         long,
         adapter=adapter,
+    )
+    options = filter_options_chain_for_backtest(
+        options,
+        dte_min=spec.dte_min,
+        dte_max=spec.dte_max,
     )
 
     return OptionsMarketData(
@@ -121,7 +127,10 @@ def _load_constant_rate_input(
     _workflow: BacktestWorkflowSpec,
 ) -> RateInput:
     """Resolve one constant-rate input."""
-    return float(spec.constant_rate or 0.0)
+    rate = spec.constant_rate
+    if rate is None:
+        raise ValueError("constant-rate source requires constant_rate to be finite")
+    return float(rate)
 
 
 def _load_fred_rate_input(

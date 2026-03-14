@@ -39,7 +39,7 @@ Use these files as the starting point for new runner configs:
   - ORATS daily features
   - yfinance hedge and benchmark series
   - FRED risk-free-rate series
-  - explicit `broker.margin.policy` example
+  - explicit `broker.margin.policy` example using rate-sourced financing
 
 Repo-style relative paths inside workflow configs, such as `data/...` and
 `reports/...`, are resolved from the current working directory first and then
@@ -108,6 +108,8 @@ Supported keys:
 - `adapter_name`
 - `symbol`
 - `default_contract_multiplier`
+- `dte_min`
+- `dte_max`
 
 Current support:
 
@@ -162,6 +164,12 @@ Current support:
 
 - `provider: constant`
 - `provider: fred`
+
+Required when `data.rates` is present:
+
+- `provider`
+- `constant_rate` for `provider: constant`
+- `series_id` for `provider: fred`
 
 `proc_root` note for `provider: fred`:
 
@@ -277,13 +285,25 @@ Supported keys:
 - `liquidation_buffer_ratio`
 - `apply_financing`
 - `cash_rate_annual`
+- `cash_rate_source`
 - `borrow_rate_annual`
+- `borrow_rate_spread`
 - `trading_days_per_year`
 
 Template note:
 
 - `config/backtesting/skew_mispricing.yml` is the canonical example showing an
-  explicit `broker.margin.policy` block.
+  explicit `broker.margin.policy` block with `cash_rate_source: data_rates`
+  and `borrow_rate_spread`.
+
+Financing note:
+
+- scalar financing still works through `cash_rate_annual` and
+  `borrow_rate_annual`
+- rate-sourced financing uses:
+  - `cash_rate_source: data_rates`
+  - optional `borrow_rate_spread`
+- `cash_rate_source: data_rates` requires `data.rates`
 
 ### `modeling`
 
