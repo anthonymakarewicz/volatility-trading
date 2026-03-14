@@ -17,6 +17,10 @@ Exploratory ideas stay in `notes/` until promoted here.
   notebooks/examples.
 - Persist experiment-level manifests and aggregate comparison tables alongside
   single-run report bundles.
+- Expose a stable subset of preset-owned richer exit knobs in workflow YAML,
+  starting with `stop_loss_pnl_per_contract` and
+  `take_profit_pnl_per_contract`, while keeping advanced/custom exit-rule
+  composition in Python.
 - Add richer modeling support to workflow YAML only when a concrete pricing/risk
   workflow requires it; keep the current runner slice intentionally narrow until
   then.
