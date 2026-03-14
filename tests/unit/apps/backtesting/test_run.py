@@ -82,7 +82,16 @@ def test_build_config_does_not_assume_default_strategy() -> None:
     config = mod._build_config(mod._parse_args([]))
 
     assert "strategy" not in config
+    assert "ticker" not in config["data"]["options"]
     assert "rates" not in config["data"]
+
+
+def test_build_config_uses_cli_ticker_without_default_options_ticker() -> None:
+    mod = importlib.import_module("volatility_trading.apps.backtesting.run")
+
+    config = mod._build_config(mod._parse_args(["--ticker", "IWM"]))
+
+    assert config["data"]["options"]["ticker"] == "IWM"
 
 
 def test_workflow_payload_requires_explicit_data_rates_for_sourced_financing(

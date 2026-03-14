@@ -14,7 +14,6 @@ DEFAULT_RUNNER_APP_CONFIG: dict[str, Any] = {
     "dry_run": False,
     "data": {
         "options": {
-            "ticker": "SPY",
             "provider": "orats",
             "proc_root": None,
             "adapter_name": None,
