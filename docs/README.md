@@ -19,6 +19,8 @@ Use this page as the canonical entrypoint for repository documentation.
 ## Data and Pipeline
 
 - [Data Pipeline](reference/data_pipeline.md): end-to-end ORATS runbook and data flow.
+- [Backtesting Architecture Overview](reference/backtesting/architecture_overview.md): high-level runtime architecture, typed boundaries, and extension points.
+- [Backtesting Architecture Internals](reference/backtesting/architecture_internals.md): deeper developer-facing module and contract map for the options runtime.
 - [Backtest Runner Workflows](reference/backtesting/workflows.md): YAML workflow schema for `backtest-run` and the shipped config templates.
 - [Options Engine Hedging](reference/backtesting/hedging.md): fixed-band and WW-style delta hedging configuration and runtime semantics.
 - [Options Engine Option Execution](reference/backtesting/option_execution.md): option fill models, transaction-cost attribution, and model injection boundary.
