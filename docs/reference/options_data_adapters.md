@@ -9,7 +9,9 @@ runtime input construction:
 
 Canonical field names are centralized in
 `volatility_trading.contracts.options_chain` and reused by ETL and
-backtesting adapters.
+backtesting adapters. The convenience `volatility_trading.contracts`
+namespace re-exports the same canonical field constants for programmatic
+inspection.
 Provider-specific alias/rename mappings live in
 `volatility_trading.config.options_chain_sources`.
 
@@ -44,6 +46,9 @@ much normalization work is still needed.
   - use `ColumnMapOptionsChainAdapter`
   - this is for custom dataframes whose column names do not match one of the
     built-in vendor adapters
+  - if you need the authoritative canonical target names programmatically when
+    building the mapping, inspect `volatility_trading.contracts.options_chain`
+    (or the convenience `volatility_trading.contracts` re-exports)
 
 - canonical strict adapter
   - use `CanonicalOptionsChainAdapter`
@@ -134,6 +139,11 @@ options = load_orats_options_chain_for_backtest(
 ```
 
 Custom dataset via `ColumnMapOptionsChainAdapter`:
+
+If you want to inspect the canonical target names programmatically before
+writing the mapping, import the field constants from
+`volatility_trading.contracts.options_chain` or
+`volatility_trading.contracts`.
 
 ```python
 from volatility_trading.backtesting import (

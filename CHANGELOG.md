@@ -30,6 +30,11 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - `volatility_trading.backtesting.options_engine` no longer re-exports the
   low-level `coerce_options_frame_to_pandas(...)` and
   `normalize_options_chain(...)` ingestion helpers.
+- `volatility_trading.backtesting.options_engine` no longer re-exports
+  adapter classes, adapter base types, adapter errors, or canonical
+  options-chain contract constants. Adapter imports live at the root
+  `volatility_trading.backtesting` facade, while lower-level ingestion work
+  should import concrete adapter modules directly.
 - Removed low-level options validation helpers and `ValidationMode` from the
   `volatility_trading.backtesting` and
   `volatility_trading.backtesting.options_engine` re-export surfaces. The

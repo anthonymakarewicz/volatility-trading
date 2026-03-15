@@ -11,6 +11,7 @@ If something is not listed here as public, treat it as internal and subject to c
 Public import surfaces are the package entrypoints intended for users:
 
 - Preferred: `volatility_trading.backtesting`
+- Public contract namespace: `volatility_trading.contracts`
 - Advanced/domain-specific: `volatility_trading.backtesting.options_engine`
 - Advanced/domain-specific: `volatility_trading.backtesting.performance`
 - Advanced/domain-specific: `volatility_trading.backtesting.reporting`
@@ -34,6 +35,7 @@ The canonical options-chain contract used by backtesting is public:
 
 - documented in [Options Data Adapters](options_data_adapters.md)
 - canonical fields centralized in `volatility_trading.contracts.options_chain`
+- convenience re-exports available from `volatility_trading.contracts`
 
 ## Non-Public / Internal by Default
 
@@ -64,9 +66,9 @@ These are not stable API contracts unless explicitly promoted:
   of the root facade.
 - Use `volatility_trading.backtesting.options_engine` when you intentionally
   want the narrower, engine-specific advanced namespace. That namespace is
-  curated around strategy/spec contracts, advanced adapter/base types,
-  execution models, and plan-building helpers rather than runtime-internal
-  lifecycle state objects.
+  curated around strategy/spec contracts, hedging and exit configuration,
+  execution models, and plan-building helpers rather than data-ingestion
+  adapters or runtime-internal lifecycle state objects.
 - Use `volatility_trading.backtesting.performance` when you intentionally need
   the narrower performance-metrics schemas, tables, or console-formatting
   helpers beyond the standard root-level report path.
