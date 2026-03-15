@@ -109,12 +109,13 @@ For the full command sequence, see [Data pipeline](https://github.com/anthonymak
 
 | Source | Input expected by backtester | Support status | Adapter path |
 |:--|:--|:--|:--|
-| ORATS ETL output | Processed ORATS panel normalized to canonical long format | First-class | `load_orats_options_chain_for_backtest(...)` or `OratsOptionsChainAdapter` |
+| ORATS ETL output | Processed ORATS panel normalized to canonical long format | First-class | `load_orats_options_chain_for_backtest(...)` |
 | OptionsDX ETL output | Cleaned long-format panel (`reshape='long'`) | Supported | `OptionsDxOptionsChainAdapter` |
 | Custom/vendor dataset | Long-format panel mapped to canonical fields | Supported with mapping | `ColumnMapOptionsChainAdapter` |
 
 Notes:
 - `load_orats_options_chain_for_backtest(...)` is the preferred notebook/helper path for ORATS backtests.
+- `OratsOptionsChainAdapter` is for raw ORATS-style dataframes already loaded in memory, not the repo's processed ORATS parquet outputs.
 - Raw wide OptionsDX vendor format (`c_*` / `p_*`) is not accepted directly by the backtester.
 - Contract details and adapter behavior: [Options Data Adapters](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/options_data_adapters.md)
 - ORATS pipeline reference: [Data Pipeline](https://github.com/anthonymakarewicz/volatility-trading/blob/main/docs/reference/data_pipeline.md)

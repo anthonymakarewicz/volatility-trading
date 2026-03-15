@@ -21,7 +21,9 @@ Preferred user-facing entrypoints:
 - `canonicalize_options_chain_for_backtest(...)`
 - `load_orats_options_chain_for_backtest(...)`
 
-## When To Use Which Path
+Both return canonical long `pandas.DataFrame` data indexed by `trade_date`.
+
+## Choose An Ingestion Path
 
 Use these ingestion paths based on where the options data comes from and how
 much normalization work is still needed.
@@ -54,11 +56,14 @@ contract validation.
 
 ## Canonical Options-Chain Contract
 
+Canonical loaders and adapters return a long `pandas.DataFrame` whose index is
+`trade_date`.
+
 Required columns:
-- `trade_date` (or DatetimeIndex)
+- `trade_date` (or DatetimeIndex during input validation)
 - `expiry_date`
 - `dte`
-- `option_type` (`C`/`P`, case-insensitive `call`/`put` accepted)
+- `option_type` (`C`/`P` in the canonical contract)
 - `strike`
 - `delta`
 - `bid_price`
@@ -74,6 +79,11 @@ Optional columns:
 - `yte`
 - `open_interest`
 - `volume`
+
+Notes:
+- strict canonical inputs should already use `option_type` values `C` / `P`
+- coercive vendor-adapter paths may accept common labels such as `call` / `put`
+  and normalize them into the canonical contract
 
 ## Built-in Adapters
 
@@ -100,16 +110,16 @@ Optional columns:
 
 ## Polars Boundary
 
-`normalize_options_chain(...)` accepts either:
+Adapter-based ingestion accepts either:
 - `pandas.DataFrame`
 - `polars.DataFrame`
 
-Polars input is converted once at adapter boundary via
-`coerce_options_frame_to_pandas(...)`. Core backtesting runtime remains pandas.
+Polars input is converted once at the adapter boundary. Canonical returned
+chains and core backtesting runtime inputs remain pandas-based.
 
-## Preferred Usage
+## Examples
 
-For processed ORATS data, prefer the higher-level convenience loader:
+Processed ORATS convenience loader:
 
 ```python
 from volatility_trading.backtesting import load_orats_options_chain_for_backtest
@@ -123,12 +133,7 @@ options = load_orats_options_chain_for_backtest(
 )
 ```
 
-This helper is for the repo's processed ORATS parquet outputs. It applies
-source-level date/DTE filters before reshaping and then validates the result
-through the canonical strict contract.
-
-For custom datasets, map your source columns to the canonical contract before
-constructing `OptionsMarketData`:
+Custom dataset via `ColumnMapOptionsChainAdapter`:
 
 ```python
 from volatility_trading.backtesting import (
@@ -161,10 +166,7 @@ data = OptionsBacktestDataBundle(
 )
 ```
 
-## Advanced Usage
-
-If you want to normalize one raw ORATS-style frame explicitly in Python without
-the convenience loader, use the built-in ORATS adapter:
+Raw ORATS-style dataframe via `OratsOptionsChainAdapter`:
 
 ```python
 from volatility_trading.backtesting import (
@@ -186,8 +188,7 @@ data = OptionsBacktestDataBundle(
 )
 ```
 
-If your data is already canonical long data, use the canonical adapter as a
-strict validation boundary:
+Already-canonical long dataframe via `CanonicalOptionsChainAdapter`:
 
 ```python
 from volatility_trading.backtesting import (
