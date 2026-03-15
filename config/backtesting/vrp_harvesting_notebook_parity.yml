@@ -68,5 +68,5 @@ reporting:
   run_id: spy_2011_2017
   benchmark_name: SP500TR
   save_report_bundle: true
-  include_dashboard_plot: false
-  include_component_plots: false
+  include_dashboard_plot: true
+  include_component_plots: true

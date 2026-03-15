@@ -11,8 +11,12 @@ import pandas as pd
 from volatility_trading.backtesting.rates import RateInput
 
 from .builders import (
+    build_benchmark_comparison_payload,
     build_equity_and_drawdown_table,
     build_exposures_daily_table,
+    build_margin_diagnostics_table,
+    build_pnl_attribution_daily_table,
+    build_rolling_metrics_table,
     build_summary_metrics,
     build_trades_table,
 )
@@ -22,12 +26,18 @@ from .constants import (
     DRAWDOWN_FILENAME,
     EQUITY_FILENAME,
     GREEKS_FILENAME,
+    MARGIN_ACCOUNT_FILENAME,
+    PNL_ATTRIBUTION_PLOT_FILENAME,
+    ROLLING_METRICS_PLOT_FILENAME,
 )
 from .plots import (
     plot_drawdown,
     plot_equity_vs_benchmark,
     plot_greeks_exposure,
+    plot_margin_account,
     plot_performance_dashboard,
+    plot_pnl_attribution,
+    plot_rolling_metrics,
 )
 from .schemas import BacktestReportBundle, ReportMetadata
 from .writers import write_report_bundle
@@ -74,9 +84,22 @@ def build_backtest_report_bundle(
         risk_free_rate=risk_free_rate,
     )
     equity_and_drawdown = build_equity_and_drawdown_table(
-        mtm_daily=mtm_daily, benchmark=benchmark
+        mtm_daily=mtm_daily,
+        benchmark=benchmark,
     )
     exposures = build_exposures_daily_table(mtm_daily=mtm_daily)
+    margin_diagnostics = build_margin_diagnostics_table(mtm_daily=mtm_daily)
+    rolling_metrics = build_rolling_metrics_table(
+        mtm_daily=mtm_daily,
+        benchmark=benchmark,
+        risk_free_rate=risk_free_rate,
+    )
+    pnl_attribution_daily = build_pnl_attribution_daily_table(mtm_daily=mtm_daily)
+    benchmark_comparison = build_benchmark_comparison_payload(
+        mtm_daily=mtm_daily,
+        benchmark=benchmark,
+        risk_free_rate=risk_free_rate,
+    )
 
     figures = {}
     if include_dashboard_plot:
@@ -99,6 +122,16 @@ def build_backtest_report_bundle(
             benchmark_name=benchmark_name or "Benchmark",
         )
         figures[GREEKS_FILENAME] = plot_greeks_exposure(mtm_daily=mtm_daily)
+        figures[MARGIN_ACCOUNT_FILENAME] = plot_margin_account(
+            margin_diagnostics=margin_diagnostics,
+        )
+        figures[ROLLING_METRICS_PLOT_FILENAME] = plot_rolling_metrics(
+            rolling_metrics=rolling_metrics,
+            benchmark_name=benchmark_name or "Benchmark",
+        )
+        figures[PNL_ATTRIBUTION_PLOT_FILENAME] = plot_pnl_attribution(
+            daily_mtm=pnl_attribution_daily,
+        )
 
     return BacktestReportBundle(
         metadata=metadata,
@@ -107,6 +140,10 @@ def build_backtest_report_bundle(
         equity_and_drawdown=equity_and_drawdown,
         trades=build_trades_table(trades),
         exposures_daily=exposures,
+        margin_diagnostics_daily=margin_diagnostics,
+        rolling_metrics=rolling_metrics,
+        pnl_attribution_daily=pnl_attribution_daily,
+        benchmark_comparison=benchmark_comparison,
         figures=figures,
     )
 

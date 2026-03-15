@@ -28,6 +28,7 @@ from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.runner.service import run_backtest_workflow_config
 from volatility_trading.datasets.fred import fred_rates_path
 from volatility_trading.datasets.options_chain import options_chain_path
+from volatility_trading.datasets.yfinance import yfinance_time_series_path
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
@@ -134,6 +135,23 @@ def _write_minimal_fred_rates(proc_root: Path) -> None:
     )
 
 
+def _write_minimal_yfinance_series(proc_root: Path, *, ticker: str) -> None:
+    _write_parquet(
+        yfinance_time_series_path(proc_root),
+        pl.DataFrame(
+            {
+                "ticker": [ticker, ticker, ticker],
+                "date": [
+                    pd.Timestamp("2020-01-01"),
+                    pd.Timestamp("2020-01-02"),
+                    pd.Timestamp("2020-01-03"),
+                ],
+                "close": [300.0, 301.0, 302.0],
+            }
+        ),
+    )
+
+
 def test_backtest_run_executes_full_workflow_and_writes_report_bundle(
     tmp_path: Path,
 ) -> None:
@@ -202,6 +220,10 @@ def test_backtest_run_executes_full_workflow_and_writes_report_bundle(
     assert (report_dir / "summary_metrics.json").exists()
     assert (report_dir / "trades.csv").exists()
     assert (report_dir / "exposures_daily.csv").exists()
+    assert (report_dir / "margin_diagnostics_daily.csv").exists()
+    assert (report_dir / "rolling_metrics.csv").exists()
+    assert (report_dir / "pnl_attribution_daily.csv").exists()
+    assert not (report_dir / "benchmark_comparison.json").exists()
 
     manifest = json.loads((report_dir / "manifest.json").read_text(encoding="utf-8"))
     run_config = json.loads(
@@ -211,6 +233,90 @@ def test_backtest_run_executes_full_workflow_and_writes_report_bundle(
     assert manifest["metadata"]["strategy_name"] == "vrp_harvesting"
     assert manifest["metadata"]["run_id"] == "spy_smoke"
     assert run_config["config"]["workflow"]["strategy"]["name"] == "vrp_harvesting"
+    assert "margin_diagnostics_daily.csv" in manifest["artifacts"]
+    assert "rolling_metrics.csv" in manifest["artifacts"]
+    assert "pnl_attribution_daily.csv" in manifest["artifacts"]
+
+
+def test_backtest_run_writes_benchmark_comparison_when_benchmark_is_configured(
+    tmp_path: Path,
+) -> None:
+    mod = importlib.import_module("volatility_trading.apps.backtesting.run")
+
+    options_root = tmp_path / "options"
+    benchmark_root = tmp_path / "benchmark"
+    reports_root = tmp_path / "reports"
+    config_path = tmp_path / "workflow_with_benchmark.yml"
+    report_dir = reports_root / "vrp_harvesting" / "spy_benchmark_smoke"
+
+    _write_minimal_vrp_options(options_root)
+    _write_minimal_yfinance_series(benchmark_root, ticker="SPY")
+    config_path.write_text(
+        "\n".join(
+            [
+                "data:",
+                "  options:",
+                "    ticker: SPY",
+                "    provider: orats",
+                f"    proc_root: {options_root}",
+                "  benchmark:",
+                "    ticker: SPY",
+                "    provider: yfinance",
+                f"    proc_root: {benchmark_root}",
+                "  rates:",
+                "    provider: constant",
+                "    constant_rate: 0.0",
+                "strategy:",
+                "  name: vrp_harvesting",
+                "  signal:",
+                "    name: short_only",
+                "    params: {}",
+                "  params:",
+                "    target_dte: 30",
+                "    max_dte_diff: 7",
+                "    rebalance_period: 2",
+                "    allow_same_day_reentry_on_rebalance: false",
+                "    allow_same_day_reentry_on_max_holding: false",
+                "account:",
+                "  initial_capital: 100000.0",
+                "execution:",
+                "  option:",
+                "    model: bid_ask_fee",
+                "    params:",
+                "      commission_per_leg: 0.0",
+                "  hedge:",
+                "    model: fixed_bps",
+                "    params:",
+                "      fee_bps: 0.0",
+                "broker: {}",
+                "modeling: {}",
+                "run:",
+                "  start_date: '2020-01-01'",
+                "  end_date: '2020-01-03'",
+                "reporting:",
+                f"  output_root: {reports_root}",
+                "  run_id: spy_benchmark_smoke",
+                "  benchmark_name: SPYBENCH",
+                "  save_report_bundle: true",
+                "  include_dashboard_plot: false",
+                "  include_component_plots: false",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    mod.main(["--config", str(config_path)])
+
+    assert (report_dir / "benchmark_comparison.json").exists()
+    manifest = json.loads((report_dir / "manifest.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (report_dir / "benchmark_comparison.json").read_text(encoding="utf-8")
+    )
+
+    assert "benchmark_comparison.json" in manifest["artifacts"]
+    assert payload["strategy"]["total_return"] is not None
+    assert payload["benchmark"]["total_return"] is not None
+    assert "total_return_diff" in payload["relative"]
 
 
 def test_runner_matches_direct_object_vrp_run_with_rate_sourced_financing(

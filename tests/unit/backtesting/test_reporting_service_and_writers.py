@@ -1,6 +1,7 @@
 import json
 import re
 
+import numpy as np
 import pandas as pd
 
 from volatility_trading.backtesting.reporting import (
@@ -11,7 +12,7 @@ from volatility_trading.backtesting.reporting import (
 
 
 def _sample_inputs():
-    index = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03"])
+    index = pd.date_range("2020-01-01", periods=70, freq="D")
     trades = pd.DataFrame(
         {
             "entry_date": [index[0]],
@@ -20,19 +21,41 @@ def _sample_inputs():
             "pnl": [12.5],
         }
     )
+    equity = 100_000.0 + np.linspace(0.0, 3_000.0, len(index))
+    delta_pnl = pd.Series(equity, index=index).diff().fillna(0.0)
     mtm_daily = pd.DataFrame(
         {
-            "equity": [100_000.0, 100_200.0, 100_150.0],
-            "delta": [0.0, 1.0, -1.0],
-            "net_delta": [0.0, 1.0, -1.0],
-            "gamma": [0.1, 0.2, 0.1],
-            "vega": [5.0, 5.5, 4.8],
-            "theta": [-2.0, -2.1, -2.2],
-            "hedge_pnl": [0.0, 0.0, 0.0],
+            "equity": equity,
+            "delta": np.linspace(0.0, 1.0, len(index)),
+            "net_delta": np.linspace(0.0, 1.0, len(index)),
+            "gamma": np.linspace(0.1, 0.2, len(index)),
+            "vega": np.linspace(5.0, 6.0, len(index)),
+            "theta": np.linspace(-2.0, -2.3, len(index)),
+            "hedge_pnl": np.zeros(len(index)),
+            "delta_pnl": delta_pnl,
+            "Delta_PnL": delta_pnl * 0.4,
+            "Unhedged_Delta_PnL": delta_pnl * 0.5,
+            "Gamma_PnL": delta_pnl * 0.1,
+            "Vega_PnL": delta_pnl * 0.2,
+            "Theta_PnL": delta_pnl * 0.05,
+            "Other_PnL": delta_pnl * 0.25,
+            "open_contracts": np.full(len(index), 2),
+            "margin_per_contract": np.full(len(index), 500.0),
+            "initial_margin_requirement": np.full(len(index), 1_000.0),
+            "maintenance_margin_requirement": np.full(len(index), 800.0),
+            "margin_excess": equity - 800.0,
+            "margin_deficit": np.zeros(len(index)),
+            "in_margin_call": np.zeros(len(index), dtype=bool),
+            "margin_call_days": np.zeros(len(index)),
+            "forced_liquidation": np.zeros(len(index), dtype=bool),
+            "contracts_liquidated": np.zeros(len(index)),
+            "financing_pnl": np.zeros(len(index)),
+            "hedge_turnover": np.zeros(len(index)),
+            "hedge_trade_count": np.zeros(len(index)),
         },
         index=index,
     )
-    benchmark = pd.Series([3000.0, 3010.0, 3020.0], index=index)
+    benchmark = pd.Series(np.linspace(3000.0, 3200.0, len(index)), index=index)
     return trades, mtm_daily, benchmark
 
 
@@ -61,11 +84,44 @@ def test_build_and_save_report_bundle_writes_core_files(tmp_path):
     assert (run_dir / "equity_and_drawdown.csv").exists()
     assert (run_dir / "trades.csv").exists()
     assert (run_dir / "exposures_daily.csv").exists()
+    assert (run_dir / "margin_diagnostics_daily.csv").exists()
+    assert (run_dir / "rolling_metrics.csv").exists()
+    assert (run_dir / "pnl_attribution_daily.csv").exists()
+    assert (run_dir / "benchmark_comparison.json").exists()
     assert (run_dir / "manifest.json").exists()
 
     payload = json.loads((run_dir / "run_config.json").read_text(encoding="utf-8"))
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    benchmark_payload = json.loads(
+        (run_dir / "benchmark_comparison.json").read_text(encoding="utf-8")
+    )
     assert payload["metadata"]["run_id"] == "unit_test_run"
     assert payload["config"]["target_dte"] == 30
+    assert "margin_diagnostics_daily.csv" in manifest["artifacts"]
+    assert "rolling_metrics.csv" in manifest["artifacts"]
+    assert "pnl_attribution_daily.csv" in manifest["artifacts"]
+    assert benchmark_payload["strategy"]["total_return"] is not None
+
+
+def test_save_report_bundle_omits_benchmark_comparison_without_benchmark(tmp_path):
+    trades, mtm_daily, _benchmark = _sample_inputs()
+    bundle = build_backtest_report_bundle(
+        trades=trades,
+        mtm_daily=mtm_daily,
+        benchmark=None,
+        strategy_name="vrp_harvesting",
+        benchmark_name=None,
+        run_config={"holding_period": 10},
+        run_id="unit_test_no_benchmark",
+        include_dashboard_plot=False,
+    )
+
+    run_dir = save_backtest_report_bundle(bundle, output_root=tmp_path)
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+
+    assert bundle.benchmark_comparison is None
+    assert not (run_dir / "benchmark_comparison.json").exists()
+    assert "benchmark_comparison.json" not in manifest["artifacts"]
 
 
 def test_save_report_bundle_writes_dashboard_plot_when_enabled(tmp_path):
@@ -104,12 +160,17 @@ def test_save_report_bundle_writes_component_plots_when_enabled(tmp_path):
     run_dir = save_backtest_report_bundle(bundle, output_root=tmp_path)
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
 
-    assert "equity_vs_benchmark.png" in manifest["artifacts"]["plots"]
-    assert "drawdown.png" in manifest["artifacts"]["plots"]
-    assert "greeks_exposure.png" in manifest["artifacts"]["plots"]
-    assert (run_dir / "plots" / "equity_vs_benchmark.png").exists()
-    assert (run_dir / "plots" / "drawdown.png").exists()
-    assert (run_dir / "plots" / "greeks_exposure.png").exists()
+    expected_plots = {
+        "equity_vs_benchmark.png",
+        "drawdown.png",
+        "greeks_exposure.png",
+        "margin_account.png",
+        "rolling_metrics.png",
+        "pnl_attribution.png",
+    }
+    assert expected_plots.issubset(set(manifest["artifacts"]["plots"]))
+    for plot_name in expected_plots:
+        assert (run_dir / "plots" / plot_name).exists()
 
 
 def test_save_report_bundle_serializes_trade_legs_as_json_for_csv(tmp_path):
@@ -135,7 +196,10 @@ def test_save_report_bundle_serializes_trade_legs_as_json_for_csv(tmp_path):
         }
     )
     mtm_daily = pd.DataFrame(
-        {"equity": [100_000.0, 100_100.0, 100_120.0]},
+        {
+            "equity": [100_000.0, 100_100.0, 100_120.0],
+            "delta_pnl": [0.0, 100.0, 20.0],
+        },
         index=index,
     )
 
@@ -150,7 +214,6 @@ def test_save_report_bundle_serializes_trade_legs_as_json_for_csv(tmp_path):
         include_dashboard_plot=False,
     )
 
-    # In-memory bundle keeps native list payload for non-CSV consumers.
     assert isinstance(bundle.trades.loc[0, "trade_legs"], list)
 
     run_dir = save_backtest_report_bundle(bundle, output_root=tmp_path)

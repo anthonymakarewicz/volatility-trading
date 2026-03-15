@@ -392,6 +392,17 @@ Supported keys:
 - Report bundles already save under `reports/backtests/<strategy>/<run_id>`.
 - Prefer values such as `spy_2018_2020` over `vrp_harvesting_spy`.
 
+Example:
+
+```yaml
+reporting:
+  include_dashboard_plot: false
+  include_component_plots: true
+```
+
+This keeps the main dashboard off while persisting the component plots under
+`plots/`.
+
 ## Output Layout
 
 When `reporting.save_report_bundle: true`, the runner writes one report bundle
@@ -424,6 +435,22 @@ Stable artifacts written by the current reporting writer:
   - realized trade-level output for the run
 - `exposures_daily.csv`
   - daily exposure and risk snapshot table
+- `margin_diagnostics_daily.csv`
+  - daily margin-account state and financing/hedging diagnostics
+  - includes margin requirements, utilization, margin-call state, and
+    forced-liquidation event columns
+- `rolling_metrics.csv`
+  - rolling 63-day strategy diagnostics
+  - includes rolling return, annualized volatility, Sharpe, and drawdown
+  - includes benchmark rolling columns and relative equity spread when a
+    benchmark is configured
+- `pnl_attribution_daily.csv`
+  - daily Greek-attribution P&L table
+  - includes `delta_pnl`, `Delta_PnL`, `Unhedged_Delta_PnL`, `Gamma_PnL`,
+    `Vega_PnL`, `Theta_PnL`, and `Other_PnL`
+- `benchmark_comparison.json`
+  - written only when a benchmark is configured
+  - records nested strategy, benchmark, and relative summary metrics
 
 Plot outputs are written only when figures are enabled:
 
@@ -432,6 +459,9 @@ Plot outputs are written only when figures are enabled:
 - `plots/equity_vs_benchmark.png`
 - `plots/drawdown.png`
 - `plots/greeks_exposure.png`
+- `plots/margin_account.png`
+- `plots/rolling_metrics.png`
+- `plots/pnl_attribution.png`
   - written when `include_component_plots: true`
 
 Notes:

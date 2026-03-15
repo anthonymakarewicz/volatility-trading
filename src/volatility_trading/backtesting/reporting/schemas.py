@@ -47,4 +47,8 @@ class BacktestReportBundle:
     equity_and_drawdown: pd.DataFrame
     trades: pd.DataFrame
     exposures_daily: pd.DataFrame
+    margin_diagnostics_daily: pd.DataFrame
+    rolling_metrics: pd.DataFrame
+    pnl_attribution_daily: pd.DataFrame
+    benchmark_comparison: dict[str, dict[str, float | None]] | None = None
     figures: dict[str, Figure] = field(default_factory=dict)
