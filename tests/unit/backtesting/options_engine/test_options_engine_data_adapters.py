@@ -14,6 +14,7 @@ from volatility_trading.backtesting import (
     OptionsMarketData,
     canonicalize_options_chain_for_backtest,
 )
+from volatility_trading.backtesting.data_adapters import validate_options_chain
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.options_engine import (
     BidAskFeeOptionExecutionModel,
@@ -28,7 +29,6 @@ from volatility_trading.backtesting.options_engine import (
     StructureSpec,
     YfinanceOptionsChainAdapter,
     normalize_options_chain,
-    validate_options_chain,
 )
 from volatility_trading.options import OptionType
 from volatility_trading.signals.base_signal import Signal
