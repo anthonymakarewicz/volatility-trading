@@ -2,8 +2,10 @@
 
 Most users should start from this package root for runtime setup, canonical
 data loading, common hedging/exit configuration, and standard performance
-reporting. More specialized helpers remain in narrower subpackages such as
-``volatility_trading.backtesting.options_engine``.
+reporting. More specialized helpers remain in narrower advanced subpackages
+such as ``volatility_trading.backtesting.options_engine``,
+``volatility_trading.backtesting.performance``, and
+``volatility_trading.backtesting.reporting``.
 """
 
 from .attribution import to_daily_mtm
@@ -15,14 +17,14 @@ from .config import (
     MarginConfig,
     ModelingConfig,
 )
-from .data_adapters import (
+from .data_adapters.options_chain_adapters import (
     CanonicalOptionsChainAdapter,
     ColumnMapOptionsChainAdapter,
-    OptionsChainAdapterError,
     OptionsDxOptionsChainAdapter,
     OratsOptionsChainAdapter,
     YfinanceOptionsChainAdapter,
 )
+from .data_adapters.options_chain_pipeline import OptionsChainAdapterError
 from .data_contracts import (
     HedgeMarketData,
     OptionsBacktestDataBundle,

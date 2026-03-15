@@ -7,6 +7,7 @@ import polars as pl
 import pytest
 
 from volatility_trading.backtesting import (
+    ColumnMapOptionsChainAdapter,
     canonicalize_options_chain_for_backtest,
     data_loading,
     filter_options_chain_for_backtest,
@@ -16,7 +17,6 @@ from volatility_trading.backtesting import (
     load_yfinance_close_series,
     spot_series_from_options_chain,
 )
-from volatility_trading.backtesting.data_adapters import ColumnMapOptionsChainAdapter
 
 
 def test_canonicalize_options_chain_for_backtest_normalizes_with_adapter() -> None:

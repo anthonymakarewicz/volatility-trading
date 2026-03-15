@@ -1,5 +1,9 @@
 import volatility_trading.backtesting as backtesting
+import volatility_trading.backtesting.data_adapters as data_adapters
 import volatility_trading.backtesting.options_engine as options_engine
+import volatility_trading.backtesting.performance as performance
+import volatility_trading.backtesting.reporting as reporting
+import volatility_trading.contracts as contracts
 from volatility_trading.backtesting import (
     Backtester,
     BidAskFeeOptionExecutionModel,
@@ -17,15 +21,12 @@ from volatility_trading.backtesting import (
     load_yfinance_close_series,
     spot_series_from_options_chain,
 )
+from volatility_trading.backtesting.data_adapters.options_chain_adapters import (
+    ColumnMapOptionsChainAdapter as AdapterColumnMapOptionsChainAdapter,
+)
 from volatility_trading.backtesting.engine import Backtester as EngineBacktester
 from volatility_trading.backtesting.options_engine import (
-    AliasOptionsChainAdapter as EngineAliasOptionsChainAdapter,
-)
-from volatility_trading.backtesting.options_engine import (
     BidAskFeeOptionExecutionModel as EngineBidAskFeeOptionExecutionModel,
-)
-from volatility_trading.backtesting.options_engine import (
-    ColumnMapOptionsChainAdapter as EngineColumnMapOptionsChainAdapter,
 )
 from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy as EngineDeltaHedgePolicy,
@@ -45,6 +46,21 @@ from volatility_trading.backtesting.options_engine import (
 from volatility_trading.backtesting.options_engine import (
     TakeProfitExitRule as EngineTakeProfitExitRule,
 )
+from volatility_trading.backtesting.performance import (
+    PerformanceMetricsBundle as PerformanceBundle,
+)
+from volatility_trading.backtesting.reporting import (
+    BacktestReportBundle as ReportBundle,
+)
+from volatility_trading.contracts.options_chain import (
+    CANONICAL_COLUMN_SET as OptionsChainCanonicalColumnSet,
+)
+from volatility_trading.contracts.options_chain import (
+    CANONICAL_REQUIRED_COLUMNS as OptionsChainRequiredColumns,
+)
+from volatility_trading.contracts.options_chain import (
+    TRADE_DATE as OptionsChainTradeDate,
+)
 
 
 def test_backtesting_reexports_common_user_types() -> None:
@@ -55,7 +71,7 @@ def test_backtesting_reexports_common_user_types() -> None:
     assert TakeProfitExitRule is EngineTakeProfitExitRule
     assert BidAskFeeOptionExecutionModel is EngineBidAskFeeOptionExecutionModel
     assert FixedBpsHedgeExecutionModel is EngineFixedBpsHedgeExecutionModel
-    assert ColumnMapOptionsChainAdapter is EngineColumnMapOptionsChainAdapter
+    assert ColumnMapOptionsChainAdapter is AdapterColumnMapOptionsChainAdapter
     assert callable(canonicalize_options_chain_for_backtest)
     assert callable(filter_options_chain_for_backtest)
     assert callable(load_daily_features_frame)
@@ -76,6 +92,18 @@ def test_options_engine_namespace_hides_runtime_internal_helpers() -> None:
     assert not hasattr(options_engine, "normalize_and_validate_options_chain")
     assert not hasattr(options_engine, "validate_options_chain_contract")
     assert not hasattr(options_engine, "ValidationMode")
+    assert not hasattr(options_engine, "coerce_options_frame_to_pandas")
+    assert not hasattr(options_engine, "normalize_options_chain")
+    assert not hasattr(options_engine, "OptionsChainAdapter")
+    assert not hasattr(options_engine, "AliasOptionsChainAdapter")
+    assert not hasattr(options_engine, "OptionsChainAdapterError")
+    assert not hasattr(options_engine, "CanonicalOptionsChainAdapter")
+    assert not hasattr(options_engine, "ColumnMapOptionsChainAdapter")
+    assert not hasattr(options_engine, "OratsOptionsChainAdapter")
+    assert not hasattr(options_engine, "YfinanceOptionsChainAdapter")
+    assert not hasattr(options_engine, "OptionsDxOptionsChainAdapter")
+    assert not hasattr(options_engine, "CANONICAL_REQUIRED_COLUMNS")
+    assert not hasattr(options_engine, "CANONICAL_OPTIONAL_COLUMNS")
 
 
 def test_root_backtesting_namespace_hides_validation_mode() -> None:
@@ -101,6 +129,30 @@ def test_root_backtesting_namespace_hides_advanced_spec_and_plumbing_types() -> 
     assert not hasattr(backtesting, "print_stressed_risk_metrics")
 
 
-def test_options_engine_namespace_retains_advanced_spec_and_adapter_types() -> None:
+def test_options_engine_namespace_retains_advanced_spec_types() -> None:
     assert EngineStrategySpec is options_engine.StrategySpec
-    assert EngineAliasOptionsChainAdapter is options_engine.AliasOptionsChainAdapter
+
+
+def test_performance_namespace_retains_advanced_public_bundle_types() -> None:
+    assert performance.PerformanceMetricsBundle is PerformanceBundle
+    assert callable(performance.compute_performance_metrics)
+    assert callable(performance.summarize_by_contracts)
+
+
+def test_reporting_namespace_retains_advanced_public_bundle_types() -> None:
+    assert reporting.BacktestReportBundle is ReportBundle
+    assert callable(reporting.build_backtest_report_bundle)
+    assert callable(reporting.save_backtest_report_bundle)
+    assert callable(reporting.plot_performance_dashboard)
+
+
+def test_data_adapters_namespace_is_not_curated_public_facade() -> None:
+    assert data_adapters.__all__ == []
+    assert not hasattr(data_adapters, "ColumnMapOptionsChainAdapter")
+    assert not hasattr(data_adapters, "validate_options_chain")
+
+
+def test_contracts_namespace_reexports_public_options_chain_contract() -> None:
+    assert contracts.TRADE_DATE == OptionsChainTradeDate
+    assert contracts.CANONICAL_REQUIRED_COLUMNS == OptionsChainRequiredColumns
+    assert contracts.CANONICAL_COLUMN_SET == OptionsChainCanonicalColumnSet

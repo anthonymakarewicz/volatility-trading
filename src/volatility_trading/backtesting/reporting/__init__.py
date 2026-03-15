@@ -1,4 +1,4 @@
-"""Public API for high-level backtest reporting services."""
+"""Advanced public namespace for backtest reporting bundles and plot helpers."""
 
 from .constants import (
     DEFAULT_REPORT_ROOT,

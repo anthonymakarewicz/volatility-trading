@@ -7,7 +7,9 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from volatility_trading.backtesting.data_adapters import validate_options_chain_contract
+from volatility_trading.backtesting.data_adapters.options_chain_pipeline import (
+    validate_options_chain_contract,
+)
 
 
 @dataclass(frozen=True)

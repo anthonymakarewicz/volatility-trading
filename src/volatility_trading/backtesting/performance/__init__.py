@@ -1,4 +1,4 @@
-"""Performance metric calculators, tables, and console formatters."""
+"""Advanced public namespace for performance metrics and console helpers."""
 
 from .calculators import compute_performance_metrics
 from .console import (

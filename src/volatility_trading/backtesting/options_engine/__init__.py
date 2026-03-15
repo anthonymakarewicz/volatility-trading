@@ -1,24 +1,10 @@
 """Advanced public namespace for options-engine-specific backtesting helpers.
 
 Most users should prefer imports from ``volatility_trading.backtesting``.
-This namespace remains available for advanced options-engine configuration and
-extension points.
+This namespace remains available for advanced options-engine configuration,
+strategy specs, exit policies, execution models, and plan-building helpers.
 """
 
-from ..data_adapters import (
-    CANONICAL_OPTIONAL_COLUMNS,
-    CANONICAL_REQUIRED_COLUMNS,
-    AliasOptionsChainAdapter,
-    CanonicalOptionsChainAdapter,
-    ColumnMapOptionsChainAdapter,
-    OptionsChainAdapter,
-    OptionsChainAdapterError,
-    OptionsDxOptionsChainAdapter,
-    OratsOptionsChainAdapter,
-    YfinanceOptionsChainAdapter,
-    coerce_options_frame_to_pandas,
-    normalize_options_chain,
-)
 from .contracts.structures import LegSpec, StructureSpec
 from .exit_rules import (
     ExitRule,
@@ -55,18 +41,6 @@ from .specs import (
 )
 
 __all__ = [
-    "OptionsChainAdapter",
-    "OptionsChainAdapterError",
-    "AliasOptionsChainAdapter",
-    "CanonicalOptionsChainAdapter",
-    "OratsOptionsChainAdapter",
-    "YfinanceOptionsChainAdapter",
-    "ColumnMapOptionsChainAdapter",
-    "OptionsDxOptionsChainAdapter",
-    "coerce_options_frame_to_pandas",
-    "normalize_options_chain",
-    "CANONICAL_REQUIRED_COLUMNS",
-    "CANONICAL_OPTIONAL_COLUMNS",
     "LegSpec",
     "StructureSpec",
     "StrategySpec",
