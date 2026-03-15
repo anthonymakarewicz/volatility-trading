@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from volatility_trading.backtesting import DeltaHedgePolicy, StrategySpec
+from volatility_trading.backtesting import DeltaHedgePolicy
+from volatility_trading.backtesting.options_engine import StrategySpec
 from volatility_trading.signals import ShortOnlySignal
 from volatility_trading.strategies import VRPHarvestingSpec, make_vrp_strategy
 

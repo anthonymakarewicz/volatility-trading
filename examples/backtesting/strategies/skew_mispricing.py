@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from volatility_trading.backtesting import DeltaHedgePolicy, StrategySpec
+from volatility_trading.backtesting import DeltaHedgePolicy
+from volatility_trading.backtesting.options_engine import StrategySpec
 from volatility_trading.strategies import (
     SkewMispricingSpec,
     make_skew_mispricing_strategy,
