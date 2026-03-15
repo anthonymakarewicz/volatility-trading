@@ -30,6 +30,15 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   intended user-facing entrypoints are loader/adaptor paths such as
   `load_orats_options_chain_for_backtest(...)`,
   `canonicalize_options_chain_for_backtest(...)`, and the adapter classes.
+- Reduced the `volatility_trading.backtesting` root facade to common user
+  entrypoints. Advanced strategy/spec contracts, base adapter types, and margin
+  internals are no longer hoisted at the package root. Base execution-model
+  protocols, rate-model types, and niche performance helpers are also no longer
+  exposed there; import those from
+  `volatility_trading.backtesting.options_engine`,
+  `volatility_trading.backtesting.performance`,
+  `volatility_trading.backtesting.rates`, or concrete internal modules when you
+  intentionally need the advanced surface.
 
 ## [0.6.0] - 2026-03-14
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from volatility_trading.backtesting import (
+from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
     ExitRuleSet,
     LegSpec,

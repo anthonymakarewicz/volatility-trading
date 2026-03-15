@@ -16,13 +16,15 @@ from volatility_trading.backtesting import (
     DeltaHedgePolicy,
     FixedBpsHedgeExecutionModel,
     FixedDeltaBandModel,
-    HedgeExecutionModel,
     HedgeTriggerPolicy,
     MidNoCostHedgeExecutionModel,
     MidNoCostOptionExecutionModel,
-    OptionExecutionModel,
     compute_performance_metrics,
     to_daily_mtm,
+)
+from volatility_trading.backtesting.options_engine import (
+    HedgeExecutionModel,
+    OptionExecutionModel,
 )
 
 
