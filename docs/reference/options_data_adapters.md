@@ -1,13 +1,14 @@
 # Options Data Adapters
 
 The options backtesting runtime now supports a typed adapter boundary before
-plan compilation:
+runtime input construction:
 
 1. `normalize` source columns to canonical engine names
-2. `validate` required schema/dtypes
-3. `run` strategy plan compilation and lifecycle
+2. `validate` the canonical options-chain contract
+3. `construct` canonical runtime inputs such as `OptionsMarketData(...)`
 
-This boundary should be applied before constructing `OptionsMarketData(...)`.
+Strategy plan compilation and lifecycle execution only happen after this
+boundary has been crossed.
 
 Canonical field names are centralized in
 `volatility_trading.contracts.options_chain` and reused by ETL and
