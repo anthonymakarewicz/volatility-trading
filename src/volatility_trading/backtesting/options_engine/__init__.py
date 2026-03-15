@@ -5,19 +5,22 @@ This namespace remains available for advanced options-engine configuration and
 extension points.
 """
 
-from ..data_adapters import (
+from volatility_trading.contracts.options_chain import (
     CANONICAL_OPTIONAL_COLUMNS,
     CANONICAL_REQUIRED_COLUMNS,
+)
+
+from ..data_adapters.options_chain_adapters import (
     AliasOptionsChainAdapter,
     CanonicalOptionsChainAdapter,
     ColumnMapOptionsChainAdapter,
     OptionsChainAdapter,
-    OptionsChainAdapterError,
     OptionsDxOptionsChainAdapter,
     OratsOptionsChainAdapter,
     YfinanceOptionsChainAdapter,
-    coerce_options_frame_to_pandas,
-    normalize_options_chain,
+)
+from ..data_adapters.options_chain_pipeline import (
+    OptionsChainAdapterError,
 )
 from .contracts.structures import LegSpec, StructureSpec
 from .exit_rules import (
@@ -63,8 +66,6 @@ __all__ = [
     "YfinanceOptionsChainAdapter",
     "ColumnMapOptionsChainAdapter",
     "OptionsDxOptionsChainAdapter",
-    "coerce_options_frame_to_pandas",
-    "normalize_options_chain",
     "CANONICAL_REQUIRED_COLUMNS",
     "CANONICAL_OPTIONAL_COLUMNS",
     "LegSpec",

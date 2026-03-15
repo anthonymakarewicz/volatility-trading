@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 import polars as pl
 
-from volatility_trading.backtesting.data_adapters import (
+from volatility_trading.backtesting.data_adapters.options_chain_adapters import (
     CanonicalOptionsChainAdapter,
     OptionsChainAdapter,
     normalize_options_chain,

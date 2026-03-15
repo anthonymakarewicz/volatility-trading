@@ -24,6 +24,12 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   validating processed parquet output through the canonical strict contract.
 
 ### Breaking changes
+- `volatility_trading.backtesting.data_adapters` no longer acts as a curated
+  package facade; common adapter imports stay at the root facade, while
+  repo-internal callers should import concrete adapter modules directly.
+- `volatility_trading.backtesting.options_engine` no longer re-exports the
+  low-level `coerce_options_frame_to_pandas(...)` and
+  `normalize_options_chain(...)` ingestion helpers.
 - Removed low-level options validation helpers and `ValidationMode` from the
   `volatility_trading.backtesting` and
   `volatility_trading.backtesting.options_engine` re-export surfaces. The
@@ -39,6 +45,14 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   `volatility_trading.backtesting.performance`,
   `volatility_trading.backtesting.rates`, or concrete internal modules when you
   intentionally need the advanced surface.
+
+### Docs
+- `docs/reference/api_scope.md` now explicitly treats
+  `volatility_trading.backtesting.options_engine`,
+  `volatility_trading.backtesting.performance`, and
+  `volatility_trading.backtesting.reporting` as the advanced backtesting public
+  import surfaces, while leaving
+  `volatility_trading.backtesting.data_adapters` internal-by-default.
 
 ## [0.6.0] - 2026-03-14
 

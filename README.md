@@ -259,9 +259,10 @@ For the research-style workflow and reporting exploration, see
 Preferred imports for common backtesting usage come from
 `volatility_trading.backtesting`. The narrower
 `volatility_trading.backtesting.options_engine` namespace remains available for
-advanced engine-specific helpers. Lower-level subpackages such as
+advanced engine-specific helpers. Narrower advanced subpackages such as
 `volatility_trading.backtesting.performance` and
-`volatility_trading.backtesting.rates` are only needed when you intentionally
+`volatility_trading.backtesting.reporting`, plus lower-level modules such as
+`volatility_trading.backtesting.rates`, are only needed when you intentionally
 want the narrower advanced surface.
 
 ## **Advanced Execution And Hedging Setup**

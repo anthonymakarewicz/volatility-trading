@@ -1,5 +1,8 @@
 import volatility_trading.backtesting as backtesting
+import volatility_trading.backtesting.data_adapters as data_adapters
 import volatility_trading.backtesting.options_engine as options_engine
+import volatility_trading.backtesting.performance as performance
+import volatility_trading.backtesting.reporting as reporting
 from volatility_trading.backtesting import (
     Backtester,
     BidAskFeeOptionExecutionModel,
@@ -45,6 +48,12 @@ from volatility_trading.backtesting.options_engine import (
 from volatility_trading.backtesting.options_engine import (
     TakeProfitExitRule as EngineTakeProfitExitRule,
 )
+from volatility_trading.backtesting.performance import (
+    PerformanceMetricsBundle as PerformanceBundle,
+)
+from volatility_trading.backtesting.reporting import (
+    BacktestReportBundle as ReportBundle,
+)
 
 
 def test_backtesting_reexports_common_user_types() -> None:
@@ -76,6 +85,8 @@ def test_options_engine_namespace_hides_runtime_internal_helpers() -> None:
     assert not hasattr(options_engine, "normalize_and_validate_options_chain")
     assert not hasattr(options_engine, "validate_options_chain_contract")
     assert not hasattr(options_engine, "ValidationMode")
+    assert not hasattr(options_engine, "coerce_options_frame_to_pandas")
+    assert not hasattr(options_engine, "normalize_options_chain")
 
 
 def test_root_backtesting_namespace_hides_validation_mode() -> None:
@@ -104,3 +115,22 @@ def test_root_backtesting_namespace_hides_advanced_spec_and_plumbing_types() -> 
 def test_options_engine_namespace_retains_advanced_spec_and_adapter_types() -> None:
     assert EngineStrategySpec is options_engine.StrategySpec
     assert EngineAliasOptionsChainAdapter is options_engine.AliasOptionsChainAdapter
+
+
+def test_performance_namespace_retains_advanced_public_bundle_types() -> None:
+    assert performance.PerformanceMetricsBundle is PerformanceBundle
+    assert callable(performance.compute_performance_metrics)
+    assert callable(performance.summarize_by_contracts)
+
+
+def test_reporting_namespace_retains_advanced_public_bundle_types() -> None:
+    assert reporting.BacktestReportBundle is ReportBundle
+    assert callable(reporting.build_backtest_report_bundle)
+    assert callable(reporting.save_backtest_report_bundle)
+    assert callable(reporting.plot_performance_dashboard)
+
+
+def test_data_adapters_namespace_is_not_curated_public_facade() -> None:
+    assert data_adapters.__all__ == []
+    assert not hasattr(data_adapters, "ColumnMapOptionsChainAdapter")
+    assert not hasattr(data_adapters, "validate_options_chain")
