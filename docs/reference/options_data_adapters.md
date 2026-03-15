@@ -28,7 +28,7 @@ Public helpers:
 - `normalize_and_validate_options_chain(...)` (coerce wrapper)
 - `validate_options_chain_contract(...)` (strict wrapper)
 - `canonicalize_options_chain_for_backtest(...)` (normalize to canonical long pandas)
-- `load_orats_options_chain_for_backtest(...)` (ORATS convenience loader)
+- `load_orats_options_chain_for_backtest(...)` (processed ORATS convenience loader)
 
 ## Canonical Options-Chain Contract
 
@@ -100,6 +100,10 @@ options = load_orats_options_chain_for_backtest(
     dte_max=60,
 )
 ```
+
+This helper is for the repo's processed ORATS parquet outputs. It applies
+source-level date/DTE filters before reshaping and then validates the result
+through the canonical strict contract.
 
 For custom datasets, map your source columns to the canonical contract before
 constructing `OptionsMarketData`:

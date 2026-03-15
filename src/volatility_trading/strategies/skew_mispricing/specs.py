@@ -50,7 +50,7 @@ def _risk_reversal_side(leg_spec: LegSpec, entry_direction: int) -> int:
 
 def _default_signal() -> Signal:
     """Return the default contrarian z-score signal for raw skew."""
-    return InvertedSignal(ZScoreSignal(window=30, entry=1.5, exit=0.5))
+    return InvertedSignal(ZScoreSignal(window=60, entry=1.5, exit=0.5))
 
 
 def _build_skew_signal_input_builder(*, target_dte: int):

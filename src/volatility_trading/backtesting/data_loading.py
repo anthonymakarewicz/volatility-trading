@@ -6,10 +6,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pandas as pd
+import polars as pl
 
 from volatility_trading.backtesting.data_adapters import (
+    CanonicalOptionsChainAdapter,
     OptionsChainAdapter,
-    OratsOptionsChainAdapter,
     normalize_options_chain,
 )
 from volatility_trading.config.paths import (
@@ -21,8 +22,8 @@ from volatility_trading.datasets import (
     options_chain_wide_to_long,
     read_daily_features,
     read_fred_rates,
-    read_options_chain,
     read_yfinance_time_series,
+    scan_options_chain,
 )
 
 
@@ -45,21 +46,17 @@ def load_orats_options_chain_for_backtest(
     dte_max: float | None = None,
 ) -> pd.DataFrame:
     """Load one processed ORATS options chain as canonical long pandas data."""
-    if proc_root is None:
-        wide = read_options_chain(ticker)
-    else:
-        wide = read_options_chain(ticker, proc_root=proc_root)
-    long = options_chain_wide_to_long(wide).collect()
-    options = canonicalize_options_chain_for_backtest(
-        long,
-        adapter=OratsOptionsChainAdapter(),
-    )
-    return filter_options_chain_for_backtest(
-        options,
+    long = _load_processed_orats_options_long_frame(
+        ticker,
+        proc_root=proc_root,
         start=start,
         end=end,
         dte_min=dte_min,
         dte_max=dte_max,
+    )
+    return canonicalize_options_chain_for_backtest(
+        long,
+        adapter=CanonicalOptionsChainAdapter(),
     )
 
 
@@ -93,6 +90,54 @@ def filter_options_chain_for_backtest(
             options = options.loc[dte <= float(dte_max)]
 
     return options.sort_index()
+
+
+def _load_processed_orats_options_long_frame(
+    ticker: str,
+    *,
+    proc_root: Path | str | None = None,
+    start: str | pd.Timestamp | None = None,
+    end: str | pd.Timestamp | None = None,
+    dte_min: float | None = None,
+    dte_max: float | None = None,
+) -> pd.DataFrame:
+    """Load one processed ORATS chain into long pandas format with pushdown filters."""
+    wide = _scan_processed_orats_options_chain(
+        ticker,
+        proc_root=proc_root,
+        start=start,
+        end=end,
+        dte_min=dte_min,
+        dte_max=dte_max,
+    )
+    return options_chain_wide_to_long(wide).collect().to_pandas()
+
+
+def _scan_processed_orats_options_chain(
+    ticker: str,
+    *,
+    proc_root: Path | str | None = None,
+    start: str | pd.Timestamp | None = None,
+    end: str | pd.Timestamp | None = None,
+    dte_min: float | None = None,
+    dte_max: float | None = None,
+) -> pl.LazyFrame:
+    """Scan one processed ORATS chain and push supported source filters early."""
+    if proc_root is None:
+        wide = scan_options_chain(ticker)
+    else:
+        wide = scan_options_chain(ticker, proc_root=proc_root)
+
+    if start is not None:
+        wide = wide.filter(pl.col("trade_date") >= pl.lit(pd.Timestamp(start)))
+    if end is not None:
+        wide = wide.filter(pl.col("trade_date") <= pl.lit(pd.Timestamp(end)))
+    if dte_min is not None:
+        wide = wide.filter(pl.col("dte") >= float(dte_min))
+    if dte_max is not None:
+        wide = wide.filter(pl.col("dte") <= float(dte_max))
+
+    return wide
 
 
 def load_fred_rate_series(

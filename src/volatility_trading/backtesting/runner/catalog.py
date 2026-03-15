@@ -3,15 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
-from volatility_trading.backtesting.data_adapters import (
-    CanonicalOptionsChainAdapter,
-    OptionsChainAdapter,
-    OptionsDxOptionsChainAdapter,
-    OratsOptionsChainAdapter,
-    YfinanceOptionsChainAdapter,
-)
 from volatility_trading.backtesting.options_engine.lifecycle import (
     BidAskFeeOptionExecutionModel,
     FixedBpsHedgeExecutionModel,
@@ -29,7 +22,6 @@ from volatility_trading.options import (
 OptionExecutionFactory: TypeAlias = Callable[..., OptionExecutionModel]
 HedgeExecutionFactory: TypeAlias = Callable[..., HedgeExecutionModel]
 MarginModelFactory: TypeAlias = Callable[..., MarginModel]
-OptionsAdapterFactory: TypeAlias = Callable[[], OptionsChainAdapter]
 
 OPTION_EXECUTION_MODEL_FACTORIES: dict[str, OptionExecutionFactory] = {
     "bid_ask_fee": BidAskFeeOptionExecutionModel,
@@ -43,14 +35,3 @@ MARGIN_MODEL_FACTORIES: dict[str, MarginModelFactory] = {
     "portfolio_margin_proxy": PortfolioMarginProxyModel,
     "regt": RegTMarginModel,
 }
-OPTIONS_ADAPTER_FACTORIES: dict[str, OptionsAdapterFactory] = {
-    "canonical": CanonicalOptionsChainAdapter,
-    "orats": OratsOptionsChainAdapter,
-    "optionsdx": OptionsDxOptionsChainAdapter,
-    "yfinance": YfinanceOptionsChainAdapter,
-}
-
-
-def available_names(registry: dict[str, Callable[..., Any]]) -> str:
-    """Return a deterministic comma-joined list of supported registry names."""
-    return ", ".join(sorted(registry))

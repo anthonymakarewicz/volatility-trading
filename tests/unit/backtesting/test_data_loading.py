@@ -63,8 +63,8 @@ def test_load_orats_options_chain_for_backtest_returns_canonical_long_panel(
 ) -> None:
     wide = pl.DataFrame(
         {
-            "trade_date": ["2024-01-03"],
-            "expiry_date": ["2024-02-16"],
+            "trade_date": [pd.Timestamp("2024-01-03")],
+            "expiry_date": [pd.Timestamp("2024-02-16")],
             "dte": [44.0],
             "strike": [100.0],
             "spot_price": [101.0],
@@ -77,11 +77,11 @@ def test_load_orats_options_chain_for_backtest_returns_canonical_long_panel(
         }
     )
 
-    def fake_read_options_chain(ticker: str, *, proc_root=None, columns=None):
+    def fake_scan_options_chain(ticker: str, *, proc_root=None, columns=None):
         assert ticker == "SPY"
-        return wide
+        return wide.lazy()
 
-    monkeypatch.setattr(data_loading, "read_options_chain", fake_read_options_chain)
+    monkeypatch.setattr(data_loading, "scan_options_chain", fake_scan_options_chain)
 
     options = load_orats_options_chain_for_backtest("SPY")
 
@@ -98,8 +98,16 @@ def test_load_orats_options_chain_for_backtest_applies_date_and_dte_filters(
 ) -> None:
     wide = pl.DataFrame(
         {
-            "trade_date": ["2024-01-02", "2024-01-03", "2024-01-04"],
-            "expiry_date": ["2024-02-16", "2024-02-16", "2024-02-16"],
+            "trade_date": [
+                pd.Timestamp("2024-01-02"),
+                pd.Timestamp("2024-01-03"),
+                pd.Timestamp("2024-01-04"),
+            ],
+            "expiry_date": [
+                pd.Timestamp("2024-02-16"),
+                pd.Timestamp("2024-02-16"),
+                pd.Timestamp("2024-02-16"),
+            ],
             "dte": [45.0, 44.0, 30.0],
             "strike": [100.0, 100.0, 100.0],
             "spot_price": [100.0, 101.0, 102.0],
@@ -114,8 +122,8 @@ def test_load_orats_options_chain_for_backtest_applies_date_and_dte_filters(
 
     monkeypatch.setattr(
         data_loading,
-        "read_options_chain",
-        lambda ticker, *, proc_root=None, columns=None: wide,
+        "scan_options_chain",
+        lambda ticker, *, proc_root=None, columns=None: wide.lazy(),
     )
 
     options = load_orats_options_chain_for_backtest(
