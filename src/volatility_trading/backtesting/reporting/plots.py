@@ -10,15 +10,6 @@ import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
 
-# TODO: Add plot for margin account, plot for the broker/margin account
-# add also plot for rollign sharpe, historgram of P&L returns
-
-#
-# brekaodwn performance by month and year (1 row for 1 year 1 col for 1 month)
-#
-# Add regime dependent plots like rollign sharpe, vol, returns, hit ratio
-# Add performance plots by vix buckets
-
 
 def _require_equity(mtm_daily: pd.DataFrame) -> pd.Series:
     if mtm_daily.empty or "equity" not in mtm_daily.columns:
@@ -31,7 +22,9 @@ def _rebased_benchmark(
 ) -> pd.Series | None:
     if benchmark is None:
         return None
-    bm = benchmark.reindex(equity.index).ffill()
+    bm = pd.Series(benchmark).copy()
+    bm.index = pd.to_datetime(bm.index)
+    bm = bm.sort_index().reindex(equity.index).ffill()
     if bm.isna().all() or float(bm.iloc[0]) == 0.0:
         return None
     return (bm / bm.iloc[0]) * equity.iloc[0]
@@ -178,6 +171,127 @@ def plot_greeks_exposure(mtm_daily: pd.DataFrame) -> Figure:
     return fig
 
 
+def plot_margin_account(margin_diagnostics: pd.DataFrame) -> Figure:
+    """Return a two-panel figure for margin account state and call events."""
+    if margin_diagnostics.empty or "equity" not in margin_diagnostics.columns:
+        raise ValueError(
+            "margin_diagnostics must be non-empty and contain an 'equity' column"
+        )
+
+    frame = margin_diagnostics.copy()
+    frame.index = pd.to_datetime(frame.index)
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+    ax_top, ax_bottom = axes
+
+    ax_top.plot(frame.index, frame["equity"].astype(float), label="Equity")
+    ax_top.plot(
+        frame.index,
+        frame["initial_margin_requirement"].astype(float),
+        label="Initial Margin",
+    )
+    ax_top.plot(
+        frame.index,
+        frame["maintenance_margin_requirement"].astype(float),
+        label="Maintenance Margin",
+    )
+    ax_top.set_title("Margin Account")
+    ax_top.set_ylabel("USD")
+    ax_top.legend(loc="upper left")
+    ax_top.grid(True)
+
+    margin_excess = frame["margin_excess"].astype(float)
+    margin_deficit = frame["margin_deficit"].astype(float)
+    ax_bottom.axhline(0.0, color="black", linewidth=1.0, alpha=0.6)
+    ax_bottom.plot(frame.index, margin_excess, label="Margin Excess", color="tab:green")
+    ax_bottom.plot(frame.index, margin_deficit, label="Margin Deficit", color="tab:red")
+
+    margin_call_mask = frame["in_margin_call"].astype(bool)
+    forced_liquidation_mask = frame["forced_liquidation"].astype(bool)
+    if margin_call_mask.any():
+        ax_bottom.scatter(
+            frame.index[margin_call_mask],
+            margin_excess[margin_call_mask],
+            label="Margin Call",
+            color="tab:orange",
+            marker="x",
+            zorder=3,
+        )
+    if forced_liquidation_mask.any():
+        ax_bottom.scatter(
+            frame.index[forced_liquidation_mask],
+            margin_excess[forced_liquidation_mask],
+            label="Forced Liquidation",
+            color="tab:red",
+            marker="o",
+            zorder=4,
+        )
+
+    ax_bottom.set_ylabel("USD")
+    ax_bottom.set_xlabel("Date")
+    ax_bottom.legend(loc="lower left")
+    ax_bottom.grid(True)
+    fig.tight_layout()
+    return fig
+
+
+def plot_rolling_metrics(
+    rolling_metrics: pd.DataFrame,
+    *,
+    benchmark_name: str = "Benchmark",
+) -> Figure:
+    """Return rolling Sharpe and annualized volatility panels."""
+    if rolling_metrics.empty:
+        raise ValueError("rolling_metrics must be non-empty")
+
+    frame = rolling_metrics.copy()
+    frame.index = pd.to_datetime(frame.index)
+    if "strategy_rolling_sharpe" not in frame.columns:
+        raise ValueError("rolling_metrics must contain strategy rolling metric columns")
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+    ax_top, ax_bottom = axes
+
+    ax_top.plot(
+        frame.index,
+        frame["strategy_rolling_sharpe"].astype(float),
+        label="Strategy Sharpe",
+        color="tab:blue",
+    )
+    if "benchmark_rolling_sharpe" in frame.columns:
+        ax_top.plot(
+            frame.index,
+            frame["benchmark_rolling_sharpe"].astype(float),
+            label=f"{benchmark_name} Sharpe",
+            color="tab:orange",
+        )
+    ax_top.set_title("Rolling Metrics")
+    ax_top.set_ylabel("Rolling Sharpe")
+    ax_top.legend(loc="upper left")
+    ax_top.grid(True)
+
+    ax_bottom.plot(
+        frame.index,
+        frame["strategy_rolling_annualized_volatility"].astype(float),
+        label="Strategy Volatility",
+        color="tab:blue",
+    )
+    if "benchmark_rolling_annualized_volatility" in frame.columns:
+        ax_bottom.plot(
+            frame.index,
+            frame["benchmark_rolling_annualized_volatility"].astype(float),
+            label=f"{benchmark_name} Volatility",
+            color="tab:orange",
+        )
+    ax_bottom.set_ylabel("Rolling Ann. Vol")
+    ax_bottom.set_xlabel("Date")
+    ax_bottom.legend(loc="upper left")
+    ax_bottom.grid(True)
+
+    fig.tight_layout()
+    return fig
+
+
 def plot_performance_dashboard(
     benchmark: pd.Series | None,
     mtm_daily: pd.DataFrame,
@@ -249,14 +363,24 @@ def plot_pnl_attribution(
     daily_mtm: pd.DataFrame, figsize: tuple | None = None
 ) -> Figure:
     """Return cumulative total and Greek-attribution PnL figure."""
-    equity = _require_equity(daily_mtm)
-    cumulative = pd.DataFrame(index=daily_mtm.index)
-    cumulative["Total P&L"] = equity - float(equity.iloc[0])
+    if daily_mtm.empty:
+        raise ValueError("daily_mtm must be non-empty")
+
+    frame = daily_mtm.copy()
+    frame.index = pd.to_datetime(frame.index)
+    cumulative = pd.DataFrame(index=frame.index)
+    if "equity" in frame.columns:
+        equity = _require_equity(frame)
+        cumulative["Total P&L"] = equity - float(equity.iloc[0])
+    elif "delta_pnl" in frame.columns:
+        cumulative["Total P&L"] = frame["delta_pnl"].astype(float).cumsum()
+    else:
+        raise ValueError("daily_mtm must contain either 'equity' or 'delta_pnl'")
 
     greek_columns = ["Delta_PnL", "Gamma_PnL", "Vega_PnL", "Theta_PnL", "Other_PnL"]
     for column in greek_columns:
-        if column in daily_mtm.columns:
-            cumulative[column] = daily_mtm[column].astype(float).cumsum()
+        if column in frame.columns:
+            cumulative[column] = frame[column].astype(float).cumsum()
         else:
             cumulative[column] = 0.0
 
@@ -328,7 +452,7 @@ def plot_stressed_pnl(
         raise ValueError("No matching stress scenario columns found in stressed_mtm")
 
     figsize = figsize if figsize is not None else (12, 5)
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=figsize)
     ax.plot(equity.index, equity, label="Actual Equity")
     for column in stress_columns:
         shocked = stressed_mtm[column].reindex(equity.index).fillna(0.0).cumsum()

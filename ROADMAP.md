@@ -26,11 +26,9 @@ Exploratory ideas stay in `notes/` until promoted here.
   then.
 
 ### Diagnostics and reporting baseline
-- Add core risk dashboards: margin usage timeline, call events timeline, and rolling risk-adjusted metrics.
-- Add benchmark comparison tables (strategy vs volatility benchmarks) in reporting outputs.
-- Add comparative performance tables for each configured benchmark, not only the strategy, with relative-performance metrics recorded alongside strategy results.
-- Extend reporting to plot equity curve, drawdown, rolling Sharpe, and rolling annualized volatility for the strategy and all configured benchmarks.
-- Add P&L decomposition usign transaction costs form option and hedging instrument.
+- Extend the current single-benchmark reporting baseline to multi-benchmark comparison tables and views once workflow inputs support more than one benchmark.
+- Add a richer call-events timeline and broker-state drilldowns beyond the baseline margin-account diagnostics panel.
+- Add P&L decomposition beyond Greek attribution, including option/hedge transaction costs and hedge-carry breakdown.
 
 ## Mid-term (priority)
 

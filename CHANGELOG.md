@@ -9,6 +9,17 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+### Added
+- Added a reporting-baseline expansion for saved backtest bundles with
+  `margin_diagnostics_daily.csv`, `rolling_metrics.csv`,
+  `pnl_attribution_daily.csv`, and optional `benchmark_comparison.json`
+  artifacts, plus persisted margin-account, rolling-metrics, and
+  P&L-attribution component plots.
+
+### Changed
+- Bumped the backtest report bundle schema version from `1.0.0` to `1.1.0`
+  for the richer reporting artifact set.
+
 ## [0.6.0] - 2026-03-14
 
 ### Added
