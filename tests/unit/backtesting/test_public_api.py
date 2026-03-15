@@ -3,6 +3,7 @@ import volatility_trading.backtesting.data_adapters as data_adapters
 import volatility_trading.backtesting.options_engine as options_engine
 import volatility_trading.backtesting.performance as performance
 import volatility_trading.backtesting.reporting as reporting
+import volatility_trading.contracts as contracts
 from volatility_trading.backtesting import (
     Backtester,
     BidAskFeeOptionExecutionModel,
@@ -50,6 +51,15 @@ from volatility_trading.backtesting.performance import (
 )
 from volatility_trading.backtesting.reporting import (
     BacktestReportBundle as ReportBundle,
+)
+from volatility_trading.contracts.options_chain import (
+    CANONICAL_COLUMN_SET as OptionsChainCanonicalColumnSet,
+)
+from volatility_trading.contracts.options_chain import (
+    CANONICAL_REQUIRED_COLUMNS as OptionsChainRequiredColumns,
+)
+from volatility_trading.contracts.options_chain import (
+    TRADE_DATE as OptionsChainTradeDate,
 )
 
 
@@ -140,3 +150,9 @@ def test_data_adapters_namespace_is_not_curated_public_facade() -> None:
     assert data_adapters.__all__ == []
     assert not hasattr(data_adapters, "ColumnMapOptionsChainAdapter")
     assert not hasattr(data_adapters, "validate_options_chain")
+
+
+def test_contracts_namespace_reexports_public_options_chain_contract() -> None:
+    assert contracts.TRADE_DATE == OptionsChainTradeDate
+    assert contracts.CANONICAL_REQUIRED_COLUMNS == OptionsChainRequiredColumns
+    assert contracts.CANONICAL_COLUMN_SET == OptionsChainCanonicalColumnSet
