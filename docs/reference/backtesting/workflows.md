@@ -392,6 +392,17 @@ Supported keys:
 - Report bundles already save under `reports/backtests/<strategy>/<run_id>`.
 - Prefer values such as `spy_2018_2020` over `vrp_harvesting_spy`.
 
+Example:
+
+```yaml
+reporting:
+  include_dashboard_plot: false
+  include_component_plots: true
+```
+
+This keeps the main dashboard off while persisting the component plots under
+`plots/`.
+
 ## Output Layout
 
 When `reporting.save_report_bundle: true`, the runner writes one report bundle
