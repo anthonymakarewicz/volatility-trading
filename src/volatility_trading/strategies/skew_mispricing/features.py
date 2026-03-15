@@ -47,6 +47,10 @@ def build_skew_signal_input(
 ) -> pd.Series:
     """Build raw 25-delta risk-reversal skew aligned to options trading dates.
 
+    ORATS summary delta slices use a call-delta convention, so:
+    - ``iv_dlt25_<tenor>`` corresponds to the 25-delta call wing, and
+    - ``iv_dlt75_<tenor>`` corresponds to the 25-delta put wing.
+
     Args:
         options: Normalized options panel indexed by trade date.
         features: Daily features panel containing ORATS summary IV columns.
@@ -56,7 +60,7 @@ def build_skew_signal_input(
 
     Returns:
         Series indexed by options trading dates containing raw skew
-        ``iv_dlt25_<tenor> - iv_dlt75_<tenor>``. Missing feature dates remain
+        ``iv_dlt75_<tenor> - iv_dlt25_<tenor>``. Missing feature dates remain
         null; values are never forward-filled.
 
     Raises:
@@ -69,9 +73,9 @@ def build_skew_signal_input(
             "skew_mispricing requires data.features with ORATS daily skew columns"
         )
 
-    put_col, call_col = required_skew_feature_columns(target_dte)
+    call_col, put_col = required_skew_feature_columns(target_dte)
     missing = [
-        column for column in (put_col, call_col) if column not in features.columns
+        column for column in (call_col, put_col) if column not in features.columns
     ]
     if missing:
         missing_list = ", ".join(missing)
