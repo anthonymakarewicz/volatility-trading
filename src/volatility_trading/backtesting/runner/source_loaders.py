@@ -8,19 +8,15 @@ from typing import TYPE_CHECKING, Any, TypeAlias
 
 import pandas as pd
 
-from volatility_trading.backtesting.data_adapters import CanonicalOptionsChainAdapter
 from volatility_trading.backtesting.data_contracts import OptionsMarketData
 from volatility_trading.backtesting.data_loading import (
-    canonicalize_options_chain_for_backtest,
-    filter_options_chain_for_backtest,
+    _load_processed_orats_options_long_frame,
+    load_daily_features_frame,
 )
 from volatility_trading.backtesting.rates import RateInput
 from volatility_trading.datasets import (
     fred_rates_path,
-    options_chain_wide_to_long,
-    read_daily_features,
     read_fred_rates,
-    read_options_chain,
     read_yfinance_time_series,
 )
 
@@ -41,21 +37,12 @@ RatesSourceLoader: TypeAlias = Callable[[Any, Any], RateInput]
 
 def _load_orats_options_market(spec: OptionsSourceSpec) -> OptionsMarketData:
     """Load one ORATS options chain into canonical long pandas market data."""
-    if spec.proc_root is None:
-        wide = read_options_chain(spec.ticker)
-    else:
-        wide = read_options_chain(spec.ticker, proc_root=spec.proc_root)
-    long = options_chain_wide_to_long(wide).collect().to_pandas()
-    options = canonicalize_options_chain_for_backtest(
-        long,
-        adapter=CanonicalOptionsChainAdapter(),
-    )
-    options = filter_options_chain_for_backtest(
-        options,
+    options = _load_processed_orats_options_long_frame(
+        spec.ticker,
+        proc_root=spec.proc_root,
         dte_min=spec.dte_min,
         dte_max=spec.dte_max,
     )
-
     return OptionsMarketData(
         chain=options,
         symbol=spec.symbol or spec.ticker,
@@ -66,11 +53,8 @@ def _load_orats_options_market(spec: OptionsSourceSpec) -> OptionsMarketData:
 def _load_orats_features_frame(spec: FeaturesSourceSpec) -> pd.DataFrame:
     """Load one ORATS daily-features source into pandas."""
     if spec.proc_root is None:
-        frame = read_daily_features(spec.ticker).to_pandas()
-    else:
-        frame = read_daily_features(spec.ticker, proc_root=spec.proc_root).to_pandas()
-    frame["trade_date"] = pd.to_datetime(frame["trade_date"])
-    return frame.set_index("trade_date").sort_index()
+        return load_daily_features_frame(spec.ticker)
+    return load_daily_features_frame(spec.ticker, proc_root=spec.proc_root)
 
 
 def _load_yfinance_series(spec: SeriesSourceSpec) -> pd.Series:

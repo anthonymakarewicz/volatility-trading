@@ -19,6 +19,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 ### Changed
 - Bumped the backtest report bundle schema version from `1.0.0` to `1.1.0`
   for the richer reporting artifact set.
+- Unified processed ORATS options loading across the public backtesting helper
+  and runner loader, pushing date/DTE filters before wide-to-long reshaping and
+  validating processed parquet output through the canonical strict contract.
 
 ## [0.6.0] - 2026-03-14
 

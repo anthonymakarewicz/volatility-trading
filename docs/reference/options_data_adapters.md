@@ -1,13 +1,14 @@
 # Options Data Adapters
 
 The options backtesting runtime now supports a typed adapter boundary before
-plan compilation:
+runtime input construction:
 
 1. `normalize` source columns to canonical engine names
-2. `validate` required schema/dtypes
-3. `run` strategy plan compilation and lifecycle
+2. `validate` the canonical options-chain contract
+3. `construct` canonical runtime inputs such as `OptionsMarketData(...)`
 
-This boundary should be applied before constructing `OptionsMarketData(...)`.
+Strategy plan compilation and lifecycle execution only happen after this
+boundary has been crossed.
 
 Canonical field names are centralized in
 `volatility_trading.contracts.options_chain` and reused by ETL and
@@ -28,7 +29,38 @@ Public helpers:
 - `normalize_and_validate_options_chain(...)` (coerce wrapper)
 - `validate_options_chain_contract(...)` (strict wrapper)
 - `canonicalize_options_chain_for_backtest(...)` (normalize to canonical long pandas)
-- `load_orats_options_chain_for_backtest(...)` (ORATS convenience loader)
+- `load_orats_options_chain_for_backtest(...)` (processed ORATS convenience loader)
+
+## When To Use Which Path
+
+Use these ingestion paths based on where the options data comes from and how
+much normalization work is still needed.
+
+- processed-source loader
+  - use `load_orats_options_chain_for_backtest(...)`
+  - this is for the repo's processed ORATS parquet outputs
+  - it applies supported source filters before reshaping and then validates the
+    result through the canonical strict contract
+
+- vendor adapter
+  - use `OratsOptionsChainAdapter`, `OptionsDxOptionsChainAdapter`, or
+    `YfinanceOptionsChainAdapter`
+  - this is for users who already have a raw vendor-style dataframe in memory
+    and want to normalize it into the canonical backtesting contract
+
+- generic custom-schema adapter
+  - use `ColumnMapOptionsChainAdapter`
+  - this is for custom dataframes whose column names do not match one of the
+    built-in vendor adapters
+
+- canonical strict adapter
+  - use `CanonicalOptionsChainAdapter`
+  - this is for already-canonical long options data where you want strict
+    contract validation without alias remapping or coercive normalization
+
+Processed loaders still validate the returned chain. They bypass coercive
+vendor normalization for trusted internal processed data; they do not bypass
+contract validation.
 
 ## Canonical Options-Chain Contract
 
@@ -100,6 +132,10 @@ options = load_orats_options_chain_for_backtest(
     dte_max=60,
 )
 ```
+
+This helper is for the repo's processed ORATS parquet outputs. It applies
+source-level date/DTE filters before reshaping and then validates the result
+through the canonical strict contract.
 
 For custom datasets, map your source columns to the canonical contract before
 constructing `OptionsMarketData`:

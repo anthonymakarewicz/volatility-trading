@@ -249,7 +249,8 @@ def test_skew_default_signal_trades_raw_skew_mean_reversion(
     expected_column: str,
 ) -> None:
     signal = SkewMispricingSpec().signal
-    history = [0.0, 1.0] * 15
+    window = int(signal.get_params()["strategy__window"])
+    history = ([0.0, 1.0] * ((window + 1) // 2))[:window]
     skew = pd.Series(
         history + [last_value],
         index=pd.date_range("2020-01-01", periods=len(history) + 1, freq="D"),
