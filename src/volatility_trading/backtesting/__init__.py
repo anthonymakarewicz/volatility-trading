@@ -1,8 +1,9 @@
-"""Preferred public import surface for common backtesting entrypoints.
+"""Preferred public import surface for common backtesting workflows.
 
-Most users should start from this package root for runtime setup, data loading,
-and common hedging/exit configuration. Advanced strategy/spec construction
-helpers remain available under ``volatility_trading.backtesting.options_engine``.
+Most users should start from this package root for runtime setup, canonical
+data loading, common hedging/exit configuration, and standard performance
+reporting. More specialized helpers remain in narrower subpackages such as
+``volatility_trading.backtesting.options_engine``.
 """
 
 from .attribution import to_daily_mtm
