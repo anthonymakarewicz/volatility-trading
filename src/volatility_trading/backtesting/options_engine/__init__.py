@@ -15,13 +15,9 @@ from ..data_adapters import (
     OptionsChainAdapterError,
     OptionsDxOptionsChainAdapter,
     OratsOptionsChainAdapter,
-    ValidationMode,
     YfinanceOptionsChainAdapter,
     coerce_options_frame_to_pandas,
-    normalize_and_validate_options_chain,
     normalize_options_chain,
-    validate_options_chain,
-    validate_options_chain_contract,
 )
 from .contracts.structures import LegSpec, StructureSpec
 from .exit_rules import (
@@ -68,11 +64,7 @@ __all__ = [
     "ColumnMapOptionsChainAdapter",
     "OptionsDxOptionsChainAdapter",
     "coerce_options_frame_to_pandas",
-    "normalize_and_validate_options_chain",
     "normalize_options_chain",
-    "validate_options_chain",
-    "validate_options_chain_contract",
-    "ValidationMode",
     "CANONICAL_REQUIRED_COLUMNS",
     "CANONICAL_OPTIONAL_COLUMNS",
     "LegSpec",

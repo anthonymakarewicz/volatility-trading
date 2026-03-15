@@ -1,3 +1,4 @@
+import volatility_trading.backtesting as backtesting
 import volatility_trading.backtesting.options_engine as options_engine
 from volatility_trading.backtesting import (
     Backtester,
@@ -67,3 +68,11 @@ def test_options_engine_namespace_hides_runtime_internal_helpers() -> None:
     assert not hasattr(options_engine, "EntryIntent")
     assert not hasattr(options_engine, "SinglePositionHooks")
     assert not hasattr(options_engine, "apply_leg_liquidity_filters")
+    assert not hasattr(options_engine, "validate_options_chain")
+    assert not hasattr(options_engine, "normalize_and_validate_options_chain")
+    assert not hasattr(options_engine, "validate_options_chain_contract")
+    assert not hasattr(options_engine, "ValidationMode")
+
+
+def test_root_backtesting_namespace_hides_validation_mode() -> None:
+    assert not hasattr(backtesting, "ValidationMode")

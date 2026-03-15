@@ -23,6 +23,14 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   and runner loader, pushing date/DTE filters before wide-to-long reshaping and
   validating processed parquet output through the canonical strict contract.
 
+### Breaking changes
+- Removed low-level options validation helpers and `ValidationMode` from the
+  `volatility_trading.backtesting` and
+  `volatility_trading.backtesting.options_engine` re-export surfaces. The
+  intended user-facing entrypoints are loader/adaptor paths such as
+  `load_orats_options_chain_for_backtest(...)`,
+  `canonicalize_options_chain_for_backtest(...)`, and the adapter classes.
+
 ## [0.6.0] - 2026-03-14
 
 ### Added

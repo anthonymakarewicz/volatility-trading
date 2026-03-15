@@ -7,9 +7,6 @@ runtime input construction:
 2. `validate` the canonical options-chain contract
 3. `construct` canonical runtime inputs such as `OptionsMarketData(...)`
 
-Strategy plan compilation and lifecycle execution only happen after this
-boundary has been crossed.
-
 Canonical field names are centralized in
 `volatility_trading.contracts.options_chain` and reused by ETL and
 backtesting adapters.
@@ -20,16 +17,9 @@ Provider-specific alias/rename mappings live in
 - pass a canonical long options panel into `OptionsMarketData(chain=...)`
 - use adapters through explicit canonicalization helpers before runtime
 
-Validation levels:
-- `coerce`: parse/coerce datetime/numeric fields before validation
-- `strict`: validate canonical typed fields without coercion
-
-Public helpers:
-- `validate_options_chain(..., validation_mode="coerce" | "strict")`
-- `normalize_and_validate_options_chain(...)` (coerce wrapper)
-- `validate_options_chain_contract(...)` (strict wrapper)
-- `canonicalize_options_chain_for_backtest(...)` (normalize to canonical long pandas)
-- `load_orats_options_chain_for_backtest(...)` (processed ORATS convenience loader)
+Preferred user-facing entrypoints:
+- `canonicalize_options_chain_for_backtest(...)`
+- `load_orats_options_chain_for_backtest(...)`
 
 ## When To Use Which Path
 
