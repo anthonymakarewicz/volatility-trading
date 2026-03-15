@@ -30,6 +30,37 @@ Public helpers:
 - `canonicalize_options_chain_for_backtest(...)` (normalize to canonical long pandas)
 - `load_orats_options_chain_for_backtest(...)` (processed ORATS convenience loader)
 
+## When To Use Which Path
+
+Use these ingestion paths based on where the options data comes from and how
+much normalization work is still needed.
+
+- processed-source loader
+  - use `load_orats_options_chain_for_backtest(...)`
+  - this is for the repo's processed ORATS parquet outputs
+  - it applies supported source filters before reshaping and then validates the
+    result through the canonical strict contract
+
+- vendor adapter
+  - use `OratsOptionsChainAdapter`, `OptionsDxOptionsChainAdapter`, or
+    `YfinanceOptionsChainAdapter`
+  - this is for users who already have a raw vendor-style dataframe in memory
+    and want to normalize it into the canonical backtesting contract
+
+- generic custom-schema adapter
+  - use `ColumnMapOptionsChainAdapter`
+  - this is for custom dataframes whose column names do not match one of the
+    built-in vendor adapters
+
+- canonical strict adapter
+  - use `CanonicalOptionsChainAdapter`
+  - this is for already-canonical long options data where you want strict
+    contract validation without alias remapping or coercive normalization
+
+Processed loaders still validate the returned chain. They bypass coercive
+vendor normalization for trusted internal processed data; they do not bypass
+contract validation.
+
 ## Canonical Options-Chain Contract
 
 Required columns:
