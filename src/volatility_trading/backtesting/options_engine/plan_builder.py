@@ -117,10 +117,7 @@ def build_options_execution_plan(
     )
 
     hooks = SinglePositionHooks(
-        mark_open_position=lambda position,
-        curr_date,
-        equity_running,
-        force_close_today: (
+        mark_open_position=lambda position, curr_date, equity_running, force_close_today: (
             lifecycle_engine.mark_position(
                 position=position,
                 curr_date=curr_date,
