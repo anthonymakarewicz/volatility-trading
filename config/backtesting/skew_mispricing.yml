@@ -8,8 +8,6 @@ data:
     ticker: SPY
     provider: orats
     proc_root: data/processed/orats/options_chain
-    dte_min: 5
-    dte_max: 60
   features:
     ticker: SPY
     provider: orats
@@ -77,7 +75,7 @@ run:
 
 reporting:
   output_root: reports/backtests
-  run_id: spy_2018_2020
+  run_id: spy_2018_2020_new
   benchmark_name: SP500TR
   save_report_bundle: true
   include_dashboard_plot: true
