@@ -27,6 +27,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Open positions now force-close on the final trading date when live closing
   quotes are available, emitting an ``End Of Run Liquidation`` exit instead of
   silently carrying inventory past the configured run window.
+- Workflow daily MTM and reporting now reindex to the run's trading-session
+  dates instead of inserting weekend carry-forward rows.
 
 ### Breaking changes
 - `volatility_trading.backtesting.data_adapters` no longer acts as a curated

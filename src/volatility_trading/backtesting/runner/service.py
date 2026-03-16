@@ -26,6 +26,31 @@ from .workflow_types import BacktestWorkflowSpec
 logger = logging.getLogger(__name__)
 
 
+def _resolve_workflow_trading_dates(
+    resolved: ResolvedWorkflowInputs,
+    *,
+    raw_mtm_index: pd.Index | None = None,
+) -> pd.DatetimeIndex:
+    """Return the run-filtered trading-session dates implied by resolved inputs."""
+    options = resolved.data.options_frame
+    if options.empty:
+        trading_dates = pd.DatetimeIndex([])
+    else:
+        trading_dates = pd.DatetimeIndex(options.index.unique())
+    if resolved.run_config.start_date is not None:
+        trading_dates = trading_dates[
+            trading_dates >= pd.Timestamp(resolved.run_config.start_date)
+        ]
+    if resolved.run_config.end_date is not None:
+        trading_dates = trading_dates[
+            trading_dates <= pd.Timestamp(resolved.run_config.end_date)
+        ]
+    if raw_mtm_index is not None:
+        raw_dates = pd.DatetimeIndex(pd.to_datetime(raw_mtm_index))
+        trading_dates = trading_dates.union(raw_dates)
+    return trading_dates.sort_values().drop_duplicates().astype("datetime64[ns]")
+
+
 @dataclass(frozen=True)
 class BacktestWorkflowRunResult:
     """Concrete outputs returned by one workflow-service execution."""
@@ -64,7 +89,14 @@ def run_backtest_workflow(
             report_dir=None,
         )
 
-    daily_mtm = to_daily_mtm(mtm, resolved.run_config.account.initial_capital)
+    daily_mtm = to_daily_mtm(
+        mtm,
+        resolved.run_config.account.initial_capital,
+        trading_dates=_resolve_workflow_trading_dates(
+            resolved,
+            raw_mtm_index=mtm.index,
+        ),
+    )
     report_bundle = build_backtest_report_bundle(
         trades=trades,
         mtm_daily=daily_mtm,
