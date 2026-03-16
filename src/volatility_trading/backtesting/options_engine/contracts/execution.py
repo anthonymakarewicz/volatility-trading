@@ -11,7 +11,7 @@ from .records import MtmRecord, TradeRecord
 from .runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
 
 SinglePositionMarkFn = Callable[
-    [OpenPosition, pd.Timestamp, float], LifecycleStepResult
+    [OpenPosition, pd.Timestamp, float, bool], LifecycleStepResult
 ]
 SinglePositionPrepareEntryFn = Callable[
     [pd.Timestamp, float], PositionEntrySetup | None

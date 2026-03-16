@@ -366,6 +366,41 @@ def test_mark_position_with_missing_quotes_keeps_position_open():
     assert updated_position.last_greeks.delta == pytest.approx(-0.5)
 
 
+def test_mark_position_missing_quotes_after_expiry_settles_position_intrinsically():
+    setup = _make_setup(contracts=1)
+    cfg = _make_cfg()
+    engine = _make_engine(rebalance_period=None)
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    options = _make_options_row_for_date(
+        trade_date="2020-02-03",
+        strike=105.0,
+        bid_price=4.0,
+        ask_price=4.2,
+        spot_price=101.0,
+    )
+    step_result = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-02-03"),
+        options=options,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    assert step_result.position is None
+    assert len(step_result.trade_rows) == 1
+    assert step_result.trade_rows[0].exit_type == "Expiry Settlement"
+    assert step_result.trade_rows[0].pnl == pytest.approx(4.0)
+    assert step_result.trade_rows[0].trade_legs[0].exit_price == pytest.approx(1.0)
+    assert step_result.mtm_record.open_contracts == 0
+    assert step_result.mtm_record.delta_pnl == pytest.approx(4.0)
+    assert step_result.mtm_record.net_delta == pytest.approx(0.0)
+
+
 def test_mark_position_rebalance_exit_closes_position_and_emits_trade():
     setup = _make_setup(contracts=2)
     cfg = _make_cfg()

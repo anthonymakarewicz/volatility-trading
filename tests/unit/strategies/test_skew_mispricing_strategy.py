@@ -124,8 +124,8 @@ def _make_skew_features() -> pd.DataFrame:
         [
             {
                 "trade_date": "2020-01-01",
-                "iv_dlt25_30d": 0.30,
-                "iv_dlt75_30d": 0.19,
+                "iv_dlt25_30d": 0.19,
+                "iv_dlt75_30d": 0.30,
             }
         ]
     )
@@ -185,13 +185,13 @@ def test_build_skew_signal_input_uses_raw_30d_risk_reversal_feature():
         [
             {
                 "trade_date": "2020-01-01",
-                "iv_dlt25_30d": 0.30,
-                "iv_dlt75_30d": 0.18,
+                "iv_dlt25_30d": 0.18,
+                "iv_dlt75_30d": 0.30,
             },
             {
                 "trade_date": "2020-01-02",
-                "iv_dlt25_30d": 0.31,
-                "iv_dlt75_30d": 0.20,
+                "iv_dlt25_30d": 0.20,
+                "iv_dlt75_30d": 0.31,
             },
         ]
     )

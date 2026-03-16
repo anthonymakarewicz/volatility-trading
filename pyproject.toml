@@ -53,7 +53,7 @@ dev = [
     "pre-commit",
     "pyright",
     "pytest",
-    "ruff",
+    "ruff==0.15.6",
 ]
 release = [
     "build",
