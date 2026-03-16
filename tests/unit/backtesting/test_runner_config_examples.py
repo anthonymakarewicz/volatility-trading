@@ -53,8 +53,8 @@ def test_skew_workflow_config_example_parses() -> None:
 
     assert workflow.strategy.name == "skew_mispricing"
     assert workflow.strategy.signal is None
-    assert workflow.data.options.dte_min == pytest.approx(5.0)
-    assert workflow.data.options.dte_max == pytest.approx(60.0)
+    assert workflow.data.options.dte_min is None
+    assert workflow.data.options.dte_max is None
     assert workflow.data.features is not None
     assert workflow.data.features.ticker == "SPY"
     assert workflow.broker.margin.model is not None
@@ -63,5 +63,7 @@ def test_skew_workflow_config_example_parses() -> None:
     assert workflow.margin_policy_spec.maintenance_margin_ratio == pytest.approx(0.80)
     assert workflow.margin_policy_spec.margin_call_grace_days == 2
     assert workflow.margin_policy_spec.liquidation_mode == "target"
+    assert workflow.margin_policy_spec.liquidation_buffer_ratio == pytest.approx(0.10)
+    assert workflow.margin_policy_spec.apply_financing is True
     assert workflow.margin_policy_spec.cash_rate_source == "data_rates"
     assert workflow.margin_policy_spec.borrow_rate_spread == pytest.approx(0.02)

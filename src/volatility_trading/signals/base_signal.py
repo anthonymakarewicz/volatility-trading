@@ -1,13 +1,13 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
 import pandas as pd
 
-# TODO: Fix the z-score attribute
-
 
 class Signal(ABC):
     def __init__(self):
-        self._z_score = None
+        self._z_score: pd.Series | None = None
 
     @abstractmethod
     def generate_signals(self, data: pd.Series | pd.DataFrame) -> pd.DataFrame:
@@ -24,7 +24,7 @@ class Signal(ABC):
         """Update internal hyper-parameters."""
         ...
 
-    def get_z_score(self):
+    def get_z_score(self) -> pd.Series | None:
         """Return the most recent zscore,
         or None if not a zscore strategy."""
         return self._z_score

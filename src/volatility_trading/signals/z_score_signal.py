@@ -84,7 +84,9 @@ class ZScoreSignal(Signal):
 
 
 def compute_zscore(series: pd.Series, window: int = 60) -> pd.Series:
-    history = series.shift(1)
-    rolling_mean = history.rolling(window).mean()
-    rolling_std = history.rolling(window).std()
-    return (series - rolling_mean) / rolling_std
+    valid = series.dropna()
+    history = valid.shift(1)
+    rolling_mean = history.rolling(window, min_periods=window).mean()
+    rolling_std = history.rolling(window, min_periods=window).std()
+    z_valid = (valid - rolling_mean) / rolling_std
+    return z_valid.reindex(series.index)
