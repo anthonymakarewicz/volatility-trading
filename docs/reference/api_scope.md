@@ -1,4 +1,4 @@
-# API Scope (0.6.x)
+# API Scope (0.7.x)
 
 This page defines what is considered **public API** for pre-1.0 releases.
 
@@ -19,7 +19,7 @@ Public import surfaces are the package entrypoints intended for users:
 - `volatility_trading.strategies`
 - `volatility_trading.signals`
 
-Compatibility expectation in `0.6.x`:
+Compatibility expectation in `0.7.x`:
 
 - APIs may still evolve between minor versions (`0.x` policy),
 - but breaking changes should be documented in `CHANGELOG.md`.
