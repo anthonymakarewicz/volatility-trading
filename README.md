@@ -165,7 +165,6 @@ from volatility_trading.backtesting import (
     OptionsBacktestDataBundle,
     OptionsMarketData,
     print_performance_report,
-    to_daily_mtm,
 )
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
@@ -191,13 +190,15 @@ cfg = BacktestRunConfig(
 
 bt = Backtester(data=data, strategy=strategy, config=cfg)
 trades, mtm = bt.run()
-daily_mtm = to_daily_mtm(mtm, cfg.account.initial_capital)
 print_performance_report(
     trades=trades,
-    mtm_daily=daily_mtm,
+    mtm_daily=mtm,
     risk_free_rate=0.02,
 )
 ```
+
+`Backtester.run()` returns the closed-trade table plus the dense
+trading-session MTM used by the standard reporting path.
 
 ## **Quick Skew Backtest Example**
 

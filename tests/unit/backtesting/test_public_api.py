@@ -108,6 +108,7 @@ def test_options_engine_namespace_hides_runtime_internal_helpers() -> None:
 
 def test_root_backtesting_namespace_hides_validation_mode() -> None:
     assert not hasattr(backtesting, "ValidationMode")
+    assert not hasattr(backtesting, "to_daily_mtm")
 
 
 def test_root_backtesting_namespace_hides_advanced_spec_and_plumbing_types() -> None:

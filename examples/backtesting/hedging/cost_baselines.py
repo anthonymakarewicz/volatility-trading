@@ -16,7 +16,6 @@ from volatility_trading.backtesting import (
     FixedDeltaBandModel,
     HedgeTriggerPolicy,
     compute_performance_metrics,
-    to_daily_mtm,
 )
 
 
@@ -76,10 +75,9 @@ def main() -> None:
             hedge_slip_bid=scenario.hedge_slip_bid,
         )
         trades, mtm = bt.run()
-        daily_mtm = to_daily_mtm(mtm, run_cfg.account.initial_capital)
         metrics = compute_performance_metrics(
             trades=trades,
-            mtm_daily=daily_mtm,
+            mtm_daily=mtm,
             risk_free_rate=rf_series,
         )
         rows.append(

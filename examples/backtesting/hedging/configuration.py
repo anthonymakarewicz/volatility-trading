@@ -17,7 +17,6 @@ from volatility_trading.backtesting import (
     HedgeTriggerPolicy,
     WWDeltaBandModel,
     compute_performance_metrics,
-    to_daily_mtm,
 )
 
 
@@ -80,10 +79,9 @@ def main() -> None:
             hedge_fee_bps=args.hedge_fee_bps,
         )
         trades, mtm = bt.run()
-        daily_mtm = to_daily_mtm(mtm, run_cfg.account.initial_capital)
         metrics = compute_performance_metrics(
             trades=trades,
-            mtm_daily=daily_mtm,
+            mtm_daily=mtm,
             risk_free_rate=rf_series,
         )
         rows.append(
@@ -91,7 +89,7 @@ def main() -> None:
                 "scenario": scenario.name,
                 "total_pnl": f"{metrics.trades.total_pnl:.2f}",
                 "hedge_trade_cost": f"{mtm['hedge_trade_cost'].sum():.2f}",
-                "hedge_trade_count": str(int(mtm['hedge_trade_count'].sum())),
+                "hedge_trade_count": str(int(mtm["hedge_trade_count"].sum())),
                 "sharpe": f"{metrics.returns.sharpe:.4f}",
             }
         )

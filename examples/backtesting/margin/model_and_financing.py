@@ -18,7 +18,6 @@ from examples.core.cli import parse_common_args
 from volatility_trading.backtesting import (
     MarginPolicy,
     compute_performance_metrics,
-    to_daily_mtm,
 )
 from volatility_trading.options import RegTMarginModel
 
@@ -71,10 +70,9 @@ def main() -> None:
             margin_policy=scenario.margin_policy,
         )
         trades, mtm = bt.run()
-        daily_mtm = to_daily_mtm(mtm, run_cfg.account.initial_capital)
         metrics = compute_performance_metrics(
             trades=trades,
-            mtm_daily=daily_mtm,
+            mtm_daily=mtm,
             risk_free_rate=rf_used,
         )
         rows.append(

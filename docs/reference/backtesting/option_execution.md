@@ -66,6 +66,9 @@ bt = Backtester(
 trades, mtm = bt.run()
 ```
 
+`mtm` is the dense trading-session MTM returned by the standard backtester
+surface.
+
 ## Notes
 
 - Entry and exit option costs are charged on their actual lifecycle dates (not

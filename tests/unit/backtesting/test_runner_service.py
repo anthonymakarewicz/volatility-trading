@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 
 from volatility_trading.backtesting import OptionsMarketData
+from volatility_trading.backtesting.attribution import to_daily_mtm
 from volatility_trading.backtesting.data_contracts import OptionsBacktestDataBundle
 from volatility_trading.backtesting.runner.assembly import ResolvedWorkflowInputs
 from volatility_trading.backtesting.runner.registry import build_strategy_preset
@@ -104,6 +105,12 @@ def _sample_raw_mtm() -> pd.DataFrame:
     )
 
 
+def _sample_daily_mtm() -> pd.DataFrame:
+    return to_daily_mtm(
+        _sample_raw_mtm(), 100_000.0, trading_dates=_sample_raw_mtm().index
+    )
+
+
 def test_run_backtest_workflow_executes_and_saves_report_bundle(
     monkeypatch,
     tmp_path: Path,
@@ -130,12 +137,12 @@ def test_run_backtest_workflow_executes_and_saves_report_bundle(
     )
     monkeypatch.setattr(
         "volatility_trading.backtesting.runner.service.Backtester.run",
-        lambda self: (_sample_trades(), _sample_raw_mtm()),
+        lambda self: (_sample_trades(), _sample_daily_mtm()),
     )
 
     result = run_backtest_workflow(workflow)
 
-    assert result.daily_mtm["equity"].iloc[-1] == 100_012.0
+    assert result.mtm["equity"].iloc[-1] == 100_012.0
     assert result.report_bundle is not None
     assert result.report_dir is not None
     assert (result.report_dir / "manifest.json").exists()
@@ -171,7 +178,7 @@ def test_run_backtest_workflow_builds_but_does_not_save_report_when_disabled(
     )
     monkeypatch.setattr(
         "volatility_trading.backtesting.runner.service.Backtester.run",
-        lambda self: (_sample_trades(), _sample_raw_mtm()),
+        lambda self: (_sample_trades(), _sample_daily_mtm()),
     )
 
     result = run_backtest_workflow(workflow)
@@ -194,7 +201,7 @@ def test_run_backtest_workflow_skips_reporting_when_mtm_is_empty(monkeypatch) ->
 
     result = run_backtest_workflow(workflow)
 
-    assert result.daily_mtm.empty
+    assert result.mtm.empty
     assert result.report_bundle is None
     assert result.report_dir is None
 

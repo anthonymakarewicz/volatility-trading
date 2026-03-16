@@ -29,6 +29,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   silently carrying inventory past the configured run window.
 - Workflow daily MTM and reporting now reindex to the run's trading-session
   dates instead of inserting weekend carry-forward rows.
+- `Backtester.run()` and workflow results now expose the dense trading-session
+  MTM as the standard `mtm` output instead of the sparse raw lifecycle MTM.
 
 ### Breaking changes
 - `volatility_trading.backtesting.data_adapters` no longer acts as a curated
@@ -57,6 +59,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   `volatility_trading.backtesting.performance`,
   `volatility_trading.backtesting.rates`, or concrete internal modules when you
   intentionally need the advanced surface.
+- `volatility_trading.backtesting` no longer re-exports `to_daily_mtm(...)`.
+  The standard backtester and workflow surfaces now return the dense
+  trading-session MTM directly as `mtm`.
 
 ### Docs
 - `docs/reference/api_scope.md` now explicitly treats

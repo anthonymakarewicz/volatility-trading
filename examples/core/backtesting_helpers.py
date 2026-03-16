@@ -21,7 +21,6 @@ from volatility_trading.backtesting import (
     load_orats_options_chain_for_backtest,
     print_performance_report,
     spot_series_from_options_chain,
-    to_daily_mtm,
 )
 from volatility_trading.backtesting.options_engine import (
     HedgeExecutionModel,
@@ -41,6 +40,7 @@ def load_options_window(*, ticker: str, start: str, end: str) -> pd.DataFrame:
     if options.empty:
         raise ValueError(f"No options rows for {ticker} in range {start}:{end}")
     return options
+
 
 def load_rf_series(index: pd.Index) -> pd.Series:
     """Load 3M T-bill rate series aligned to one backtest date index."""
@@ -90,13 +90,17 @@ def build_run_config(
         cash_rate_annual=rf_series,
         borrow_rate_annual=rf_series + 0.02,
     )
-    resolved_option_execution_model = option_execution_model or BidAskFeeOptionExecutionModel(
-        commission_per_leg=commission_per_leg
+    resolved_option_execution_model = (
+        option_execution_model
+        or BidAskFeeOptionExecutionModel(commission_per_leg=commission_per_leg)
     )
-    resolved_hedge_execution_model = hedge_execution_model or FixedBpsHedgeExecutionModel(
-        slip_ask=hedge_slip_ask,
-        slip_bid=hedge_slip_bid,
-        fee_bps=hedge_fee_bps,
+    resolved_hedge_execution_model = (
+        hedge_execution_model
+        or FixedBpsHedgeExecutionModel(
+            slip_ask=hedge_slip_ask,
+            slip_bid=hedge_slip_bid,
+            fee_bps=hedge_fee_bps,
+        )
     )
     resolved_margin_model = margin_model or RegTMarginModel(broad_index=broad_index)
 
@@ -167,16 +171,15 @@ def run_and_report(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Run one backtest and print standard performance output."""
     trades, mtm = backtester.run()
-    daily_mtm = to_daily_mtm(mtm, initial_capital)
     print(
         "Backtest completed: "
         f"{len(trades)} trades, "
-        f"{len(daily_mtm)} MTM rows, "
-        f"period={daily_mtm.index.min().date()} to {daily_mtm.index.max().date()}"
+        f"{len(mtm)} MTM rows, "
+        f"period={mtm.index.min().date()} to {mtm.index.max().date()}"
     )
     print_performance_report(
         trades=trades,
-        mtm_daily=daily_mtm,
+        mtm_daily=mtm,
         risk_free_rate=rf_series,
     )
-    return trades, daily_mtm
+    return trades, mtm

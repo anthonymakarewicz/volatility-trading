@@ -62,8 +62,9 @@ These are not stable API contracts unless explicitly promoted:
 - Prefer `volatility_trading.backtesting` for common runtime configuration,
   data-bundle setup, data-loading helpers, concrete adapter classes, common
   hedging policy objects, common exit rules, concrete execution models, and
-  the standard performance-report path. Advanced rate-model types are not part
-  of the root facade.
+  the standard performance-report path. `Backtester.run()` returns the dense
+  trading-session MTM used by the standard report path. Advanced rate-model
+  types and raw-to-daily MTM helpers are not part of the root facade.
 - Use `volatility_trading.backtesting.options_engine` when you intentionally
   want the narrower, engine-specific advanced namespace. That namespace is
   curated around strategy/spec contracts, hedging and exit configuration,

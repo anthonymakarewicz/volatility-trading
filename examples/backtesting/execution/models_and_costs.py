@@ -20,7 +20,6 @@ from volatility_trading.backtesting import (
     MidNoCostHedgeExecutionModel,
     MidNoCostOptionExecutionModel,
     compute_performance_metrics,
-    to_daily_mtm,
 )
 from volatility_trading.backtesting.options_engine import (
     HedgeExecutionModel,
@@ -38,7 +37,9 @@ class Scenario:
 
 
 def main() -> None:
-    args = parse_common_args("Compare realistic execution models with no-cost baselines.")
+    args = parse_common_args(
+        "Compare realistic execution models with no-cost baselines."
+    )
     options = load_options_window(ticker=args.ticker, start=args.start, end=args.end)
     strategy = build_vrp_strategy(
         delta_hedge=DeltaHedgePolicy(
@@ -82,10 +83,9 @@ def main() -> None:
             hedge_execution_model=scenario.hedge_execution_model,
         )
         trades, mtm = bt.run()
-        daily_mtm = to_daily_mtm(mtm, run_cfg.account.initial_capital)
         metrics = compute_performance_metrics(
             trades=trades,
-            mtm_daily=daily_mtm,
+            mtm_daily=mtm,
             risk_free_rate=rf_series,
         )
         rows.append(
