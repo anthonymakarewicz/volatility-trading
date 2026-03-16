@@ -9,6 +9,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-03-16
+
 ### Added
 - Added a reporting-baseline expansion for saved backtest bundles with
   `margin_diagnostics_daily.csv`, `rolling_metrics.csv`,
