@@ -152,6 +152,26 @@ class Backtester:
         self.config = config
 
     def run(self):
+        plan = self._build_plan()
+
+        try:
+            trades, mtm = run_backtest_execution_plan(plan)
+        except Exception:
+            logger.exception("Backtest execution failed")
+            raise
+
+        if trades.empty:
+            logger.warning("Backtest completed with empty trades output")
+        if mtm.empty:
+            logger.warning("Backtest completed with empty mtm output")
+        logger.info(
+            "Backtest completed: trades_rows=%d mtm_rows=%d",
+            len(trades),
+            len(mtm),
+        )
+        return trades, mtm
+
+    def _build_plan(self):
         logger.info(
             "Starting backtest run strategy=%s initial_capital=%.2f",
             self.strategy.name,
@@ -173,20 +193,4 @@ class Backtester:
             len(plan.trading_dates),
             len(plan.active_signal_dates),
         )
-
-        try:
-            trades, mtm = run_backtest_execution_plan(plan)
-        except Exception:
-            logger.exception("Backtest execution failed")
-            raise
-
-        if trades.empty:
-            logger.warning("Backtest completed with empty trades output")
-        if mtm.empty:
-            logger.warning("Backtest completed with empty mtm output")
-        logger.info(
-            "Backtest completed: trades_rows=%d mtm_rows=%d",
-            len(trades),
-            len(mtm),
-        )
-        return trades, mtm
+        return plan

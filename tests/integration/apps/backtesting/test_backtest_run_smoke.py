@@ -383,6 +383,7 @@ def test_runner_matches_direct_object_vrp_run_with_rate_sourced_financing(
     direct_daily_mtm = to_daily_mtm(
         direct_mtm,
         direct_config.account.initial_capital,
+        trading_dates=sorted(direct_options.index.unique()),
     )
 
     runner_result = run_backtest_workflow_config(
