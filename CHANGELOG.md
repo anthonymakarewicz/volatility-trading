@@ -24,6 +24,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   validating processed parquet output through the canonical strict contract.
 - Expired positions now settle and close when live contract quotes disappear,
   preventing stale open inventory from persisting past expiry in workflow runs.
+- Open positions now force-close on the final trading date when live closing
+  quotes are available, emitting an ``End Of Run Liquidation`` exit instead of
+  silently carrying inventory past the configured run window.
 
 ### Breaking changes
 - `volatility_trading.backtesting.data_adapters` no longer acts as a curated

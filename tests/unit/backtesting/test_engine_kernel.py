@@ -174,8 +174,9 @@ def test_kernel_blocks_same_day_reentry_when_policy_disallows():
         position: OpenPosition,
         curr_date: pd.Timestamp,
         equity: float,
+        force_close_today: bool,
     ) -> LifecycleStepResult:
-        _ = (position, equity)
+        _ = (position, equity, force_close_today)
         return LifecycleStepResult(
             position=None,
             mtm_record=_make_mtm_record(date=curr_date, delta_pnl=1.0),
@@ -224,8 +225,9 @@ def test_kernel_can_reenter_same_day_and_uses_updated_equity():
         position: OpenPosition,
         curr_date: pd.Timestamp,
         equity: float,
+        force_close_today: bool,
     ) -> LifecycleStepResult:
-        _ = (position, equity)
+        _ = (position, equity, force_close_today)
         return LifecycleStepResult(
             position=None,
             mtm_record=_make_mtm_record(date=curr_date, delta_pnl=5.0),
@@ -250,3 +252,57 @@ def test_kernel_can_reenter_same_day_and_uses_updated_equity():
     assert len(mtm) == 3
     assert entry_count == 2
     assert prepare_equities == [100.0, 103.0]
+
+
+def test_kernel_forces_terminal_liquidation_on_final_trading_date():
+    trading_dates = [pd.Timestamp("2020-01-01"), pd.Timestamp("2020-01-02")]
+    active_signal_dates = {pd.Timestamp("2020-01-01")}
+
+    def prepare_entry(curr_date: pd.Timestamp, equity: float):
+        _ = equity
+        if curr_date != pd.Timestamp("2020-01-01"):
+            return None
+        return _make_entry_setup(curr_date)
+
+    def open_position(setup: PositionEntrySetup, equity: float):
+        _ = equity
+        return _make_open_position(setup), _make_mtm_record(
+            date=setup.intent.entry_date,
+            delta_pnl=0.0,
+        )
+
+    def mark_open_position(
+        position: OpenPosition,
+        curr_date: pd.Timestamp,
+        equity: float,
+        force_close_today: bool,
+    ) -> LifecycleStepResult:
+        _ = (position, equity)
+        if force_close_today:
+            return LifecycleStepResult(
+                position=None,
+                mtm_record=_make_mtm_record(date=curr_date, delta_pnl=2.0),
+                trade_rows=[_make_trade_record(exit_type="End Of Run Liquidation")],
+            )
+        return LifecycleStepResult(
+            position=position,
+            mtm_record=_make_mtm_record(date=curr_date, delta_pnl=1.0),
+            trade_rows=[],
+        )
+
+    hooks = SinglePositionHooks(
+        mark_open_position=mark_open_position,
+        prepare_entry=prepare_entry,
+        open_position=open_position,
+        can_reenter_same_day=lambda rows: False,
+    )
+    trades, mtm = run_backtest_execution_plan(
+        _plan(
+            trading_dates=trading_dates,
+            active_signal_dates=active_signal_dates,
+            hooks=hooks,
+        )
+    )
+
+    assert trades["exit_type"].tolist() == ["End Of Run Liquidation"]
+    assert mtm["delta_pnl"].tolist() == [0.0, 2.0]

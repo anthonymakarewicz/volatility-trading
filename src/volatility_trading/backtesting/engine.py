@@ -34,6 +34,7 @@ def run_backtest_execution_plan(
     equity_running = float(plan.initial_equity)
     open_position: OpenPosition | None = None
     hooks: SinglePositionHooks = plan.hooks
+    final_trading_date = plan.trading_dates[-1] if plan.trading_dates else None
 
     for curr_date in plan.trading_dates:
         logger.debug(
@@ -48,6 +49,7 @@ def run_backtest_execution_plan(
                     open_position,
                     curr_date,
                     equity_running,
+                    curr_date == final_trading_date,
                 )
             except Exception:
                 logger.exception(
@@ -78,6 +80,11 @@ def run_backtest_execution_plan(
                 )
 
             if open_position is not None:
+                if curr_date == final_trading_date:
+                    logger.warning(
+                        "Position remained open through final trading date=%s; terminal liquidation was unavailable",
+                        curr_date,
+                    )
                 continue
             if not hooks.can_reenter_same_day(trade_rows):
                 logger.debug(

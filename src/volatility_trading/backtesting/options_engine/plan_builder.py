@@ -117,7 +117,10 @@ def build_options_execution_plan(
     )
 
     hooks = SinglePositionHooks(
-        mark_open_position=lambda position, curr_date, equity_running: (
+        mark_open_position=lambda position,
+        curr_date,
+        equity_running,
+        force_close_today: (
             lifecycle_engine.mark_position(
                 position=position,
                 curr_date=curr_date,
@@ -126,6 +129,9 @@ def build_options_execution_plan(
                 equity_running=equity_running,
                 exit_type_override=(
                     "Signal Exit" if bool(exit_by_date.get(curr_date, False)) else None
+                ),
+                terminal_exit_type=(
+                    "End Of Run Liquidation" if force_close_today else None
                 ),
             )
         ),

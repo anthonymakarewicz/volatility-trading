@@ -142,6 +142,7 @@ class PositionLifecycleEngine:
         cfg: BacktestRunConfig,
         equity_running: float,
         exit_type_override: str | None = None,
+        terminal_exit_type: str | None = None,
     ) -> LifecycleStepResult:
         """Revalue one open position for one date and apply exit/liquidation rules.
 
@@ -225,6 +226,8 @@ class PositionLifecycleEngine:
             position=position,
             pnl_per_contract=pnl_per_contract,
         )
+        if exit_type is None:
+            exit_type = terminal_exit_type
         if exit_type is None:
             return transition_continue_open(
                 position=position,
