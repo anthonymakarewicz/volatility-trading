@@ -22,7 +22,6 @@ from volatility_trading.backtesting import (
     OptionsMarketData,
     load_fred_rate_series,
     load_orats_options_chain_for_backtest,
-    to_daily_mtm,
 )
 from volatility_trading.backtesting.engine import Backtester
 from volatility_trading.backtesting.runner.service import run_backtest_workflow_config
@@ -380,11 +379,6 @@ def test_runner_matches_direct_object_vrp_run_with_rate_sourced_financing(
     )
 
     direct_trades, direct_mtm = direct_backtester.run()
-    direct_daily_mtm = to_daily_mtm(
-        direct_mtm,
-        direct_config.account.initial_capital,
-        trading_dates=sorted(direct_options.index.unique()),
-    )
 
     runner_result = run_backtest_workflow_config(
         {
@@ -461,10 +455,5 @@ def test_runner_matches_direct_object_vrp_run_with_rate_sourced_financing(
     assert_frame_equal(
         runner_result.mtm.reset_index(drop=False),
         direct_mtm.reset_index(drop=False),
-        check_dtype=False,
-    )
-    assert_frame_equal(
-        runner_result.daily_mtm,
-        direct_daily_mtm,
         check_dtype=False,
     )

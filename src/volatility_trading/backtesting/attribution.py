@@ -1,3 +1,5 @@
+"""Transform raw lifecycle MTM records into dense trading-session attribution tables."""
+
 import pandas as pd
 
 
@@ -8,7 +10,7 @@ def to_daily_mtm(
     trading_dates: pd.Index | list[pd.Timestamp] | None = None,
 ) -> pd.DataFrame:
     """
-    Take raw MTM and produce a dense daily P&L and Greek-based attribution table.
+    Transform raw engine MTM into one dense trading-session attribution table.
 
     Assumptions:
     - `df["iv"]` is implied vol in decimals (e.g. 0.16 for 16%).
@@ -18,8 +20,10 @@ def to_daily_mtm(
       index; the helper will reindex to those dates and exclude weekends/holidays
       not present in the run calendar.
     """
+    index_name = raw_mtm.index.name
     df = raw_mtm.copy()
     df.index = pd.DatetimeIndex(pd.to_datetime(df.index)).astype("datetime64[ns]")
+    df.index.name = index_name
     df = df.sort_index()
 
     if trading_dates is not None:
@@ -27,7 +31,9 @@ def to_daily_mtm(
             "datetime64[ns]"
         )
         full = full.sort_values().drop_duplicates()
+        full.name = index_name
         df = df.reindex(full)
+        df.index.name = index_name
 
     # 1) Fill P&L and carry-forward Greeks, spot & iv.
     df["delta_pnl"] = df["delta_pnl"].fillna(0.0)

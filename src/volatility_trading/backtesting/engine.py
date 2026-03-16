@@ -4,6 +4,7 @@ import logging
 
 import pandas as pd
 
+from .attribution import to_daily_mtm
 from .config import BacktestRunConfig
 from .data_contracts import OptionsBacktestDataBundle
 from .options_engine.contracts import SinglePositionExecutionPlan, SinglePositionHooks
@@ -151,19 +152,26 @@ class Backtester:
         self.strategy = strategy
         self.config = config
 
-    def run(self):
+    def run(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Run one backtest and return closed trades plus dense trading-session MTM."""
         plan = self._build_plan()
 
         try:
-            trades, mtm = run_backtest_execution_plan(plan)
+            trades, raw_mtm = run_backtest_execution_plan(plan)
         except Exception:
             logger.exception("Backtest execution failed")
             raise
 
         if trades.empty:
             logger.warning("Backtest completed with empty trades output")
-        if mtm.empty:
+        if raw_mtm.empty:
             logger.warning("Backtest completed with empty mtm output")
+            return trades, raw_mtm
+        mtm = to_daily_mtm(
+            raw_mtm,
+            self.config.account.initial_capital,
+            trading_dates=plan.trading_dates,
+        )
         logger.info(
             "Backtest completed: trades_rows=%d mtm_rows=%d",
             len(trades),
@@ -171,7 +179,7 @@ class Backtester:
         )
         return trades, mtm
 
-    def _build_plan(self):
+    def _build_plan(self) -> SinglePositionExecutionPlan:
         logger.info(
             "Starting backtest run strategy=%s initial_capital=%.2f",
             self.strategy.name,

@@ -25,7 +25,6 @@ from volatility_trading.backtesting import (
     canonicalize_options_chain_for_backtest,
     compute_performance_metrics,
     spot_series_from_options_chain,
-    to_daily_mtm,
 )
 
 
@@ -38,7 +37,9 @@ class Scenario:
 
 
 def main() -> None:
-    args = parse_common_args("Compare explicit canonicalization paths for options data.")
+    args = parse_common_args(
+        "Compare explicit canonicalization paths for options data."
+    )
     options = load_options_window(ticker=args.ticker, start=args.start, end=args.end)
     rf_series = load_rf_series(options.index.unique())
     hedge_market = HedgeMarketData(
@@ -110,10 +111,9 @@ def main() -> None:
             config=run_cfg,
         )
         trades, mtm = bt.run()
-        daily_mtm = to_daily_mtm(mtm, run_cfg.account.initial_capital)
         metrics = compute_performance_metrics(
             trades=trades,
-            mtm_daily=daily_mtm,
+            mtm_daily=mtm,
             risk_free_rate=rf_series,
         )
         rows.append(

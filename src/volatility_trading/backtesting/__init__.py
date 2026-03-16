@@ -2,13 +2,14 @@
 
 Most users should start from this package root for runtime setup, canonical
 data loading, common hedging/exit configuration, and standard performance
-reporting. More specialized helpers remain in narrower advanced subpackages
-such as ``volatility_trading.backtesting.options_engine``,
+reporting. ``Backtester.run()`` returns closed trades plus the dense
+trading-session MTM used by the standard reporting path. More specialized
+helpers remain in narrower advanced subpackages such as
+``volatility_trading.backtesting.options_engine``,
 ``volatility_trading.backtesting.performance``, and
 ``volatility_trading.backtesting.reporting``.
 """
 
-from .attribution import to_daily_mtm
 from .config import (
     AccountConfig,
     BacktestRunConfig,
@@ -101,7 +102,6 @@ __all__ = [
     "FixedBpsHedgeExecutionModel",
     "MidNoCostOptionExecutionModel",
     "BidAskFeeOptionExecutionModel",
-    "to_daily_mtm",
     "MarginPolicy",
     "MarginAccount",
     "compute_performance_metrics",

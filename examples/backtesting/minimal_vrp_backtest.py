@@ -25,7 +25,6 @@ from volatility_trading.backtesting import (
     OptionsMarketData,
     print_performance_report,
     spot_series_from_options_chain,
-    to_daily_mtm,
 )
 from volatility_trading.options import RegTMarginModel
 from volatility_trading.signals import ShortOnlySignal
@@ -66,7 +65,9 @@ def main() -> None:
     config = BacktestRunConfig(
         account=AccountConfig(initial_capital=INITIAL_CAPITAL),
         execution=ExecutionConfig(
-            option_execution_model=BidAskFeeOptionExecutionModel(commission_per_leg=0.0),
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                commission_per_leg=0.0
+            ),
             hedge_execution_model=FixedBpsHedgeExecutionModel(fee_bps=0.0),
         ),
         broker=BrokerConfig(
@@ -83,15 +84,13 @@ def main() -> None:
 
     backtester = Backtester(data=data, strategy=strategy, config=config)
     trades, mtm = backtester.run()
-    daily_mtm = to_daily_mtm(mtm, config.account.initial_capital)
 
     print(
-        "Minimal example completed: "
-        f"{len(trades)} trades across {len(daily_mtm)} daily MTM rows."
+        f"Minimal example completed: {len(trades)} trades across {len(mtm)} MTM rows."
     )
     print_performance_report(
         trades=trades,
-        mtm_daily=daily_mtm,
+        mtm_daily=mtm,
         risk_free_rate=rf_series,
     )
 

@@ -356,6 +356,7 @@ def test_directional_strategy_outputs_regression_snapshot(
             },
         ]
     ).set_index("date")
+    expected_mtm.index = pd.DatetimeIndex(expected_mtm.index).astype("datetime64[ns]")
 
     mtm_subset = mtm[
         [
