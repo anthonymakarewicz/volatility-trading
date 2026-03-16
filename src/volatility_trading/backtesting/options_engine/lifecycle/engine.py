@@ -188,6 +188,21 @@ class PositionLifecycleEngine:
         if forced_outcome is not None:
             return forced_outcome
 
+        if (
+            position.expiry_date is not None
+            and step.curr_date >= pd.Timestamp(position.expiry_date)
+            and valuation.complete_leg_quotes is not None
+        ):
+            return transition_standard_exit(
+                position=position,
+                step=step,
+                exit_type="Expiry Settlement",
+                valuation=valuation,
+                margin=margin,
+                mtm_record=mtm_record,
+                option_execution_model=option_execution_model,
+            )
+
         if valuation.has_missing_quote:
             logger.debug(
                 "Missing quote on %s for position entry=%s; keeping position open",

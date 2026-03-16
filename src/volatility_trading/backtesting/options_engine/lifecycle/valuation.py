@@ -9,7 +9,7 @@ import pandas as pd
 
 from volatility_trading.options.types import Greeks, MarketState
 
-from ..adapters import option_type_to_chain_label
+from ..adapters import normalize_chain_option_type, option_type_to_chain_label
 from ..contracts.market import QuoteSnapshot
 from ..contracts.records import TradeLegRecord
 from ..contracts.runtime import OpenPosition
@@ -79,6 +79,77 @@ def match_leg_quote(
     if candidates.empty:
         return None
     return QuoteSnapshot.from_series(candidates.iloc[0])
+
+
+def _resolve_mark_spot(
+    *,
+    chain_all: pd.DataFrame,
+    position: OpenPosition,
+) -> float:
+    """Resolve one-date underlying spot for mark or expiry settlement."""
+    spot_curr = position.last_market.spot
+    if "spot_price" in chain_all.columns and not chain_all.empty:
+        spot_curr = float(chain_all["spot_price"].iloc[0])
+    return float(spot_curr)
+
+
+def _expiry_settlement_quote(
+    *,
+    leg: LegSelection,
+    curr_date: pd.Timestamp,
+    expiry_date: pd.Timestamp,
+    spot_price: float,
+) -> QuoteSnapshot:
+    """Build one synthetic intrinsic-value quote for expiry settlement."""
+    option_type = normalize_chain_option_type(leg.quote.option_type_label)
+    strike = float(leg.quote.strike)
+    if option_type.name == "CALL":
+        intrinsic = max(float(spot_price) - strike, 0.0)
+    else:
+        intrinsic = max(strike - float(spot_price), 0.0)
+    return QuoteSnapshot(
+        option_type_label=leg.quote.option_type_label,
+        strike=strike,
+        bid_price=intrinsic,
+        ask_price=intrinsic,
+        delta=0.0,
+        gamma=0.0,
+        vega=0.0,
+        theta=0.0,
+        expiry_date=pd.Timestamp(expiry_date),
+        dte=max((pd.Timestamp(expiry_date) - pd.Timestamp(curr_date)).days, 0),
+        spot_price=float(spot_price),
+        market_iv=0.0,
+        yte=0.0,
+        open_interest=leg.quote.open_interest,
+        volume=leg.quote.volume,
+    )
+
+
+def expiry_settlement_leg_quotes(
+    *,
+    position: OpenPosition,
+    curr_date: pd.Timestamp,
+    chain_all: pd.DataFrame,
+) -> tuple[QuoteSnapshot, ...] | None:
+    """Return synthetic expiry-settlement quotes when a position is expired."""
+    expiry_date = position.expiry_date
+    if expiry_date is None or pd.Timestamp(curr_date) < pd.Timestamp(expiry_date):
+        return None
+
+    spot_price = _resolve_mark_spot(chain_all=chain_all, position=position)
+    if pd.isna(spot_price):
+        return None
+
+    return tuple(
+        _expiry_settlement_quote(
+            leg=leg,
+            curr_date=curr_date,
+            expiry_date=pd.Timestamp(expiry_date),
+            spot_price=float(spot_price),
+        )
+        for leg in position.intent.legs
+    )
 
 
 def greeks_per_contract(
@@ -321,9 +392,31 @@ def resolve_mark_valuation(
     prev_mtm_before = position.prev_mtm
     has_missing_quote = any(quote is None for quote in leg_quotes)
     if has_missing_quote:
-        pnl_mtm = prev_mtm_before
-        greeks = position.last_greeks
-        complete_leg_quotes: tuple[QuoteSnapshot, ...] | None = None
+        complete_leg_quotes = expiry_settlement_leg_quotes(
+            position=position,
+            curr_date=curr_date,
+            chain_all=chain_all,
+        )
+        if complete_leg_quotes is None:
+            pnl_mtm = prev_mtm_before
+            greeks = position.last_greeks
+        else:
+            option_contract_multiplier = float(position.option_contract_multiplier)
+            pnl_mtm = mark_to_mid(
+                legs=position.intent.legs,
+                leg_quotes=complete_leg_quotes,
+                option_contract_multiplier=option_contract_multiplier,
+                contracts_open=position.contracts_open,
+                net_entry=position.net_entry,
+            )
+            greeks_pc = greeks_per_contract(
+                leg_quotes=tuple(
+                    zip(position.intent.legs, complete_leg_quotes, strict=True)
+                ),
+                option_contract_multiplier=option_contract_multiplier,
+            )
+            greeks = greeks_pc.scaled(position.contracts_open)
+            has_missing_quote = False
     else:
         complete_leg_quotes = tuple(quote for quote in leg_quotes if quote is not None)
         option_contract_multiplier = float(position.option_contract_multiplier)
@@ -342,9 +435,7 @@ def resolve_mark_valuation(
         )
         greeks = greeks_pc.scaled(position.contracts_open)
 
-    spot_curr = position.last_market.spot
-    if "spot_price" in chain_all.columns and not chain_all.empty:
-        spot_curr = float(chain_all["spot_price"].iloc[0])
+    spot_curr = _resolve_mark_spot(chain_all=chain_all, position=position)
 
     iv_curr = position.last_market.volatility
     if (

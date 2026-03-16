@@ -22,6 +22,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Unified processed ORATS options loading across the public backtesting helper
   and runner loader, pushing date/DTE filters before wide-to-long reshaping and
   validating processed parquet output through the canonical strict contract.
+- Expired positions now settle and close when live contract quotes disappear,
+  preventing stale open inventory from persisting past expiry in workflow runs.
 
 ### Breaking changes
 - `volatility_trading.backtesting.data_adapters` no longer acts as a curated
