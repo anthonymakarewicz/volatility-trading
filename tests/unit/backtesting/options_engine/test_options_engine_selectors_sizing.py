@@ -160,6 +160,56 @@ def test_size_entry_intent_uses_risk_and_margin_caps():
     assert decision.risk_per_contract == pytest.approx(250.0)
     assert decision.risk_scenario == "base"
     assert decision.margin_per_contract == pytest.approx(500.0)
+    assert decision.risk_budget_contracts == 4
+    assert decision.margin_budget_contracts == 1
+    assert decision.sizing_binding_constraint == "margin_budget"
+    assert not decision.min_contracts_override_applied
+
+
+def test_size_entry_intent_reports_min_contracts_override():
+    class OneScenarioGenerator:
+        def generate(self, *, spec, state):
+            _ = (spec, state)
+            return (StressScenario(name="base", shock=MarketShock()),)
+
+    class ConstantRiskEstimator:
+        def estimate_risk_per_contract(self, *, legs, state, scenarios, pricer):
+            _ = (legs, state, scenarios, pricer)
+            base = StressScenario(name="base", shock=MarketShock())
+            return StressResult(
+                worst_loss=2_500.0,
+                worst_scenario=base,
+                points=(StressPoint(scenario=base, pnl=-2_500.0),),
+            )
+
+    class NullPricer:
+        def price(self, spec, state):
+            _ = (spec, state)
+            return 1.0
+
+    decision = size_entry_intent(
+        SizingRequest(
+            intent=_short_straddle_intent(),
+            option_contract_multiplier=1,
+            spot=100.0,
+            volatility=0.2,
+            equity=10_000.0,
+            pricer=NullPricer(),
+            scenario_generator=OneScenarioGenerator(),
+            risk_estimator=ConstantRiskEstimator(),
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=0.10, min_contracts=1),
+            margin_model=None,
+            margin_budget_pct=None,
+            min_contracts=1,
+            max_contracts=None,
+        )
+    )
+
+    assert decision.contracts == 1
+    assert decision.risk_budget_contracts == 0
+    assert decision.margin_budget_contracts is None
+    assert decision.sizing_binding_constraint == "min_contracts"
+    assert decision.min_contracts_override_applied
 
 
 def test_estimate_entry_intent_margin_per_contract():

@@ -12,6 +12,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 ### Changed
 - Strategy presets now default `min_contracts` to `0` instead of forcing a
   one-lot minimum when risk-based sizing would otherwise round down to zero.
+- Realized backtest trade rows now include sizing diagnostics for the raw
+  risk-budget and margin-budget contract counts, the binding sizing
+  constraint, and whether a minimum-contract floor overrode the raw risk size.
 
 ## [0.7.0] - 2026-03-16
 

@@ -64,4 +64,8 @@ def build_open_position_state(
         ),
         last_greeks=greeks,
         last_net_delta=net_delta,
+        risk_budget_contracts=setup.risk_budget_contracts,
+        margin_budget_contracts=setup.margin_budget_contracts,
+        sizing_binding_constraint=setup.sizing_binding_constraint,
+        min_contracts_override_applied=setup.min_contracts_override_applied,
     )

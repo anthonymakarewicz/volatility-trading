@@ -395,6 +395,10 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
     assert trades.iloc[0]["contracts"] == 4
     assert trades.iloc[0]["risk_per_contract"] == pytest.approx(250.0)
     assert trades.iloc[0]["risk_worst_scenario"] == "base"
+    assert trades.iloc[0]["risk_budget_contracts"] == 4
+    assert pd.isna(trades.iloc[0]["margin_budget_contracts"])
+    assert trades.iloc[0]["sizing_binding_constraint"] == "risk_budget"
+    assert not bool(trades.iloc[0]["min_contracts_override_applied"])
     assert mtm["delta_pnl"].sum() == pytest.approx(trades["pnl"].sum())
 
 
@@ -505,6 +509,10 @@ def test_margin_budget_caps_contracts_below_risk_budget():
     assert trades.iloc[0]["contracts"] == 1
     assert trades.iloc[0]["risk_per_contract"] == pytest.approx(250.0)
     assert trades.iloc[0]["margin_per_contract"] == pytest.approx(500.0)
+    assert trades.iloc[0]["risk_budget_contracts"] == 4
+    assert trades.iloc[0]["margin_budget_contracts"] == 1
+    assert trades.iloc[0]["sizing_binding_constraint"] == "margin_budget"
+    assert not bool(trades.iloc[0]["min_contracts_override_applied"])
     assert mtm["delta_pnl"].sum() == pytest.approx(trades["pnl"].sum())
 
 

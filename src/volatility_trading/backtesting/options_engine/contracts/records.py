@@ -131,6 +131,10 @@ class TradeRecord:
     trade_legs: tuple[TradeLegRecord, ...]
     option_entry_cost: float = 0.0
     option_exit_cost: float = 0.0
+    risk_budget_contracts: int | None = None
+    margin_budget_contracts: int | None = None
+    sizing_binding_constraint: str | None = None
+    min_contracts_override_applied: bool = False
 
     def to_dict(self) -> dict[str, object]:
         """Flatten trade record into the canonical trades table row."""
@@ -144,6 +148,10 @@ class TradeRecord:
             "risk_per_contract": self.risk_per_contract,
             "risk_worst_scenario": self.risk_worst_scenario,
             "margin_per_contract": self.margin_per_contract,
+            "risk_budget_contracts": self.risk_budget_contracts,
+            "margin_budget_contracts": self.margin_budget_contracts,
+            "sizing_binding_constraint": self.sizing_binding_constraint,
+            "min_contracts_override_applied": self.min_contracts_override_applied,
             "exit_type": self.exit_type,
             "option_entry_cost": self.option_entry_cost,
             "option_exit_cost": self.option_exit_cost,

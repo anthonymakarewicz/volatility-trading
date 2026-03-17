@@ -60,6 +60,10 @@ class SizingDecision:
     risk_per_contract: float | None
     risk_scenario: str | None
     margin_per_contract: float | None
+    risk_budget_contracts: int | None = None
+    margin_budget_contracts: int | None = None
+    sizing_binding_constraint: str | None = None
+    min_contracts_override_applied: bool = False
 
 
 def _build_option_legs(
@@ -152,6 +156,7 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
             risk_per_contract=None,
             risk_scenario=None,
             margin_per_contract=None,
+            sizing_binding_constraint="invalid_market",
         )
 
     option_legs = _build_option_legs(
@@ -165,6 +170,8 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
     risk_contracts: int | None = None
     risk_per_contract: float | None = None
     risk_scenario: str | None = None
+    risk_budget_contracts: int | None = None
+    min_contracts_override_applied = False
     if request.risk_sizer is not None:
         reference_spec = option_legs[0].spec
         scenarios = request.scenario_generator.generate(
@@ -179,15 +186,27 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
                 scenarios=scenarios,
                 pricer=request.pricer,
             )
+            risk_budget_contracts = contracts_for_risk_budget(
+                equity=request.equity,
+                risk_budget_pct=request.risk_sizer.risk_budget_pct,
+                risk_per_contract=risk_result.worst_loss,
+                min_contracts=0,
+                max_contracts=None,
+            )
             risk_contracts = request.risk_sizer.size(
                 equity=request.equity,
                 risk_per_contract=risk_result.worst_loss,
             )
             risk_per_contract = risk_result.worst_loss
             risk_scenario = risk_result.worst_scenario.name
+            min_contracts_override_applied = (
+                risk_budget_contracts is not None
+                and risk_contracts > risk_budget_contracts
+            )
 
     margin_contracts: int | None = None
     margin_per_contract: float | None = None
+    margin_budget_contracts: int | None = None
     if request.margin_model is not None:
         margin_per_contract = request.margin_model.initial_margin_requirement(
             legs=option_legs,
@@ -195,6 +214,13 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
             pricer=request.pricer,
         )
         margin_budget = request.margin_budget_pct or 1.0
+        margin_budget_contracts = contracts_for_risk_budget(
+            equity=request.equity,
+            risk_budget_pct=margin_budget,
+            risk_per_contract=margin_per_contract,
+            min_contracts=0,
+            max_contracts=None,
+        )
         margin_contracts = contracts_for_risk_budget(
             equity=request.equity,
             risk_budget_pct=margin_budget,
@@ -214,9 +240,63 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
         if request.max_contracts is not None:
             contracts = min(contracts, request.max_contracts)
 
+    sizing_binding_constraint = _resolve_sizing_binding_constraint(
+        contracts=contracts,
+        risk_contracts=risk_contracts,
+        margin_contracts=margin_contracts,
+        risk_budget_contracts=risk_budget_contracts,
+        margin_budget_contracts=margin_budget_contracts,
+        min_contracts_override_applied=min_contracts_override_applied,
+        max_contracts=request.max_contracts,
+    )
+
     return SizingDecision(
         contracts=contracts,
         risk_per_contract=risk_per_contract,
         risk_scenario=risk_scenario,
         margin_per_contract=margin_per_contract,
+        risk_budget_contracts=risk_budget_contracts,
+        margin_budget_contracts=margin_budget_contracts,
+        sizing_binding_constraint=sizing_binding_constraint,
+        min_contracts_override_applied=min_contracts_override_applied,
     )
+
+
+def _resolve_sizing_binding_constraint(
+    *,
+    contracts: int,
+    risk_contracts: int | None,
+    margin_contracts: int | None,
+    risk_budget_contracts: int | None,
+    margin_budget_contracts: int | None,
+    min_contracts_override_applied: bool,
+    max_contracts: int | None,
+) -> str:
+    """Return the dominant sizing constraint label for one sizing decision."""
+    if (
+        max_contracts is not None
+        and contracts == max_contracts
+        and any(
+            raw_contracts is not None and raw_contracts > max_contracts
+            for raw_contracts in (risk_budget_contracts, margin_budget_contracts)
+        )
+    ):
+        return "max_contracts"
+
+    if min_contracts_override_applied and (
+        margin_contracts is None or contracts <= margin_contracts
+    ):
+        return "min_contracts"
+
+    if risk_contracts is not None and margin_contracts is not None:
+        if risk_contracts < margin_contracts:
+            return "risk_budget"
+        if margin_contracts < risk_contracts:
+            return "margin_budget"
+        return "risk_and_margin_budget"
+
+    if risk_contracts is not None:
+        return "risk_budget"
+    if margin_contracts is not None:
+        return "margin_budget"
+    return "unconstrained"
