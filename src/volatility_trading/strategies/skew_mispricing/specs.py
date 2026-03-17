@@ -117,7 +117,7 @@ class SkewMispricingSpec:
     exit_rule_set: ExitRuleSet = field(default_factory=ExitRuleSet.period_rules)
     reentry_policy: SameDayReentryPolicy | None = None
     delta_hedge: DeltaHedgePolicy = field(default_factory=DeltaHedgePolicy)
-    min_contracts: int = 1
+    min_contracts: int = 0
     max_contracts: int | None = None
 
     def __post_init__(self) -> None:

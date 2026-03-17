@@ -181,6 +181,13 @@ def test_mtm_delta_pnl_matches_trade_pnl_on_holding_period_exit():
     assert mtm["delta_pnl"].sum() == pytest.approx(trades["pnl"].sum())
 
 
+def test_vrp_preset_defaults_min_contracts_to_zero() -> None:
+    strategy = make_vrp_strategy(VRPHarvestingSpec(signal=ShortOnlySignal()))
+
+    assert strategy.sizing.min_contracts == 0
+    assert strategy.sizing.risk_sizer is None
+
+
 def test_unresolved_trade_keeps_mtm_path_instead_of_being_dropped():
     options = _make_options(
         [
