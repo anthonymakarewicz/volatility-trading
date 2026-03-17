@@ -9,6 +9,10 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 
 ## [Unreleased]
 
+### Changed
+- Strategy presets now default `min_contracts` to `0` instead of forcing a
+  one-lot minimum when risk-based sizing would otherwise round down to zero.
+
 ## [0.7.0] - 2026-03-16
 
 ### Added

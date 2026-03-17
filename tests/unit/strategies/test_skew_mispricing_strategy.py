@@ -273,6 +273,13 @@ def test_skew_default_lifecycle_is_signal_driven_with_max_holding_safety_cap():
     )
 
 
+def test_skew_preset_defaults_min_contracts_to_zero() -> None:
+    strategy = make_skew_mispricing_strategy(SkewMispricingSpec())
+
+    assert strategy.sizing.min_contracts == 0
+    assert strategy.sizing.risk_sizer is None
+
+
 def test_skew_signal_driven_lifecycle_keeps_max_holding_and_appends_pnl_exits():
     lifecycle = (
         SkewMispricingSpec(
