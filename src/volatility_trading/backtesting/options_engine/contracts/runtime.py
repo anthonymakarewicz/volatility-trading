@@ -22,6 +22,10 @@ class PositionEntrySetup:
     risk_per_contract: float | None
     risk_worst_scenario: str | None
     margin_per_contract: float | None
+    risk_budget_contracts: int | None = None
+    margin_budget_contracts: int | None = None
+    sizing_binding_constraint: str | None = None
+    min_contracts_override_applied: bool = False
 
 
 @dataclass
@@ -56,6 +60,10 @@ class OpenPosition:
     last_market: MarketState
     last_greeks: Greeks
     last_net_delta: float
+    risk_budget_contracts: int | None = None
+    margin_budget_contracts: int | None = None
+    sizing_binding_constraint: str | None = None
+    min_contracts_override_applied: bool = False
 
 
 @dataclass(frozen=True, slots=True)

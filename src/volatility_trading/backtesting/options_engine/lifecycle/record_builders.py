@@ -134,6 +134,10 @@ def build_trade_record(
         ),
         option_entry_cost=option_entry_cost,
         option_exit_cost=option_exit_cost,
+        risk_budget_contracts=position.risk_budget_contracts,
+        margin_budget_contracts=position.margin_budget_contracts,
+        sizing_binding_constraint=position.sizing_binding_constraint,
+        min_contracts_override_applied=position.min_contracts_override_applied,
     )
 
 

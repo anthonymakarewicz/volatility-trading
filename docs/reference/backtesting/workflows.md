@@ -433,6 +433,8 @@ Stable artifacts written by the current reporting writer:
   - includes benchmark equity/drawdown columns when a benchmark is configured
 - `trades.csv`
   - realized trade-level output for the run
+  - includes sizing diagnostics such as raw risk-budget and margin-budget
+    contract counts plus the binding sizing constraint for each realized trade
 - `exposures_daily.csv`
   - daily exposure and risk snapshot table
 - `margin_diagnostics_daily.csv`
