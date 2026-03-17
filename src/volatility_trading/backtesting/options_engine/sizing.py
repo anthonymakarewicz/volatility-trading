@@ -54,7 +54,28 @@ class SizingRequest:
 
 @dataclass(frozen=True, slots=True)
 class SizingDecision:
-    """Resolved contract size and diagnostics for one entry intent."""
+    """Resolved contract size and diagnostics for one entry intent.
+
+    Attributes:
+        contracts: Final contract count after all sizing constraints and policy
+            overrides are applied.
+        risk_per_contract: Worst-loss estimate per one-lot option structure
+            from the configured risk estimator, if available.
+        risk_scenario: Name of the stress scenario producing
+            `risk_per_contract`, if available.
+        margin_per_contract: Initial margin estimate per one-lot option
+            structure, if available.
+        risk_budget_contracts: Raw contract count allowed by the risk budget
+            alone before any `min_contracts` floor is applied.
+        margin_budget_contracts: Raw contract count allowed by the margin
+            budget alone before the final risk-vs-margin minimum is taken.
+        sizing_binding_constraint: Label describing which constraint determined
+            the final `contracts` value (for example `risk_budget`,
+            `margin_budget`, or `min_contracts`).
+        min_contracts_override_applied: Whether a nonzero `min_contracts`
+            floor increased the risk-sized contract count above the raw
+            `risk_budget_contracts` result.
+    """
 
     contracts: int
     risk_per_contract: float | None
@@ -142,7 +163,16 @@ def estimate_entry_intent_margin_per_contract(
 
 
 def size_entry_intent(request: SizingRequest) -> SizingDecision:
-    """Size contracts from risk-budget and margin-budget constraints."""
+    """Size contracts from risk-budget and margin-budget constraints.
+
+    The returned `contracts` value is the final execution size after combining
+    risk and margin limits with any configured `min_contracts` / `max_contracts`
+    policy clamps. Use `risk_budget_contracts` and `margin_budget_contracts`
+    when you need the unclamped raw budget-limited sizes for diagnostics.
+
+    Invalid spot/volatility inputs skip stress and margin estimation entirely
+    and fall back to the configured minimum-lot policy.
+    """
     invalid_market = (
         not np.isfinite(request.spot)
         or request.spot <= 0
@@ -272,7 +302,12 @@ def _resolve_sizing_binding_constraint(
     min_contracts_override_applied: bool,
     max_contracts: int | None,
 ) -> str:
-    """Return the dominant sizing constraint label for one sizing decision."""
+    """Return the dominant sizing constraint label for one sizing decision.
+
+    Constraint precedence is resolved in this order:
+    `max_contracts`, then `min_contracts`, then the tighter of the risk and
+    margin budget constraints.
+    """
     if (
         max_contracts is not None
         and contracts == max_contracts
