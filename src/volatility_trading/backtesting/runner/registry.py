@@ -22,7 +22,13 @@ from volatility_trading.strategies.vrp_harvesting import (
     make_vrp_strategy,
 )
 
-from ..options_engine.specs import StrategySpec
+from ..options_engine.specs import (
+    DeltaHedgePolicy,
+    FixedDeltaBandModel,
+    HedgeTriggerPolicy,
+    StrategySpec,
+    WWDeltaBandModel,
+)
 from .workflow_types import NamedSignalSpec, NamedStrategyPresetSpec
 
 SignalFactory: TypeAlias = Callable[..., Signal]
@@ -85,6 +91,71 @@ def _unknown_name_error(
     )
 
 
+def _coerce_band_model(value: Any) -> FixedDeltaBandModel | WWDeltaBandModel | None:
+    """Coerce one config mapping into a concrete hedge band model."""
+    if value is None or isinstance(value, (FixedDeltaBandModel, WWDeltaBandModel)):
+        return value
+    if not isinstance(value, Mapping):
+        raise ValueError("delta_hedge.trigger.band_model must be a mapping")
+
+    model_name = value.get("model", value.get("name", value.get("type")))
+    if model_name is None:
+        raise ValueError(
+            "delta_hedge.trigger.band_model must define 'model', 'name', or 'type'"
+        )
+
+    params = dict(value.get("params", {}))
+    if not isinstance(params, Mapping):
+        raise ValueError("delta_hedge.trigger.band_model.params must be a mapping")
+    merged_params = dict(params)
+    for key, raw_value in value.items():
+        if key not in {"model", "name", "type", "params"}:
+            merged_params[key] = raw_value
+
+    normalized_name = str(model_name).strip().lower()
+    if normalized_name == "fixed":
+        return FixedDeltaBandModel(**merged_params)
+    if normalized_name in {"ww", "whalley_wilmott", "whalley-wilmott"}:
+        return WWDeltaBandModel(**merged_params)
+    raise ValueError(
+        "delta_hedge.trigger.band_model must use a supported model name "
+        "('fixed' or 'ww')"
+    )
+
+
+def _coerce_hedge_trigger_policy(value: Any) -> HedgeTriggerPolicy:
+    """Coerce one config mapping into a concrete hedge trigger policy."""
+    if isinstance(value, HedgeTriggerPolicy):
+        return value
+    if not isinstance(value, Mapping):
+        raise ValueError("delta_hedge.trigger must be a mapping")
+
+    params = dict(value)
+    params["band_model"] = _coerce_band_model(params.get("band_model"))
+    return HedgeTriggerPolicy(**params)
+
+
+def _coerce_delta_hedge_policy(value: Any) -> DeltaHedgePolicy:
+    """Coerce one config mapping into a concrete delta hedge policy."""
+    if isinstance(value, DeltaHedgePolicy):
+        return value
+    if not isinstance(value, Mapping):
+        raise ValueError("delta_hedge must be a mapping")
+
+    params = dict(value)
+    if "trigger" in params and params["trigger"] is not None:
+        params["trigger"] = _coerce_hedge_trigger_policy(params["trigger"])
+    return DeltaHedgePolicy(**params)
+
+
+def _coerce_strategy_params(params: Mapping[str, Any]) -> dict[str, Any]:
+    """Coerce nested preset params that need typed runtime policy objects."""
+    coerced = dict(params)
+    if "delta_hedge" in coerced and coerced["delta_hedge"] is not None:
+        coerced["delta_hedge"] = _coerce_delta_hedge_policy(coerced["delta_hedge"])
+    return coerced
+
+
 def _build_vrp_harvesting(spec: NamedStrategyPresetSpec) -> StrategySpec:
     """Build the current VRP harvesting preset from a named strategy spec."""
     return _build_dataclass_strategy_preset(
@@ -126,7 +197,7 @@ def _build_dataclass_strategy_preset(
             f"Accepted parameters: {accepted}."
         )
 
-    params = dict(spec.params)
+    params = _coerce_strategy_params(spec.params)
     if spec.signal is not None:
         params["signal"] = build_signal(spec.signal)
     elif not allow_default_signal:

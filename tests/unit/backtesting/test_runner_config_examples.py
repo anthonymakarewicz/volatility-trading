@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from volatility_trading.backtesting import DeltaHedgePolicy, FixedDeltaBandModel
 from volatility_trading.backtesting.runner.config_parser import parse_workflow_config
+from volatility_trading.backtesting.runner.registry import build_strategy_preset
 
 
 def test_vrp_workflow_config_example_parses() -> None:
@@ -67,3 +69,21 @@ def test_skew_workflow_config_example_parses() -> None:
     assert workflow.margin_policy_spec.apply_financing is True
     assert workflow.margin_policy_spec.cash_rate_source == "data_rates"
     assert workflow.margin_policy_spec.borrow_rate_spread == pytest.approx(0.02)
+
+
+def test_skew_delta_hedged_workflow_config_builds_strategy() -> None:
+    app = importlib.import_module("volatility_trading.apps.backtesting.run")
+    config_path = Path("config/backtesting/skew_mispricing_delta_hedged.yml")
+    config = app._build_config(app._parse_args(["--config", str(config_path)]))
+    workflow = parse_workflow_config(app._workflow_config_payload(config))
+
+    strategy = build_strategy_preset(workflow.strategy)
+
+    assert strategy.name == "skew_mispricing"
+    assert strategy.sizing.entry_risk_basis == "entry_hedged"
+    assert isinstance(strategy.lifecycle.delta_hedge, DeltaHedgePolicy)
+    assert strategy.lifecycle.delta_hedge.enabled is True
+    assert strategy.lifecycle.delta_hedge.trigger.rebalance_every_n_days == 5
+    assert isinstance(
+        strategy.lifecycle.delta_hedge.trigger.band_model, FixedDeltaBandModel
+    )

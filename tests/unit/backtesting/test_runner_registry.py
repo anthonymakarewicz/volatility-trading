@@ -1,5 +1,6 @@
 import pytest
 
+from volatility_trading.backtesting import DeltaHedgePolicy, FixedDeltaBandModel
 from volatility_trading.backtesting.runner.registry import (
     available_signal_names,
     available_strategy_preset_names,
@@ -126,6 +127,42 @@ def test_build_strategy_preset_allows_skew_signal_override() -> None:
     )
 
     assert isinstance(strategy.signal, LongOnlySignal)
+
+
+def test_build_strategy_preset_coerces_nested_delta_hedge_policy() -> None:
+    strategy = build_strategy_preset(
+        NamedStrategyPresetSpec(
+            name="skew_mispricing",
+            params={
+                "entry_risk_basis": "entry_hedged",
+                "delta_hedge": {
+                    "enabled": True,
+                    "target_net_delta": 0.0,
+                    "trigger": {
+                        "band_model": {"model": "fixed", "half_width_abs": 25.0},
+                        "rebalance_every_n_days": 5,
+                        "combine_mode": "or",
+                    },
+                    "rebalance_to": "center",
+                    "allow_missing_hedge_price": False,
+                    "min_rebalance_qty": 1.0,
+                },
+            },
+        )
+    )
+
+    assert strategy.sizing.entry_risk_basis == "entry_hedged"
+    assert isinstance(strategy.lifecycle.delta_hedge, DeltaHedgePolicy)
+    assert strategy.lifecycle.delta_hedge.enabled is True
+    assert strategy.lifecycle.delta_hedge.target_net_delta == pytest.approx(0.0)
+    assert strategy.lifecycle.delta_hedge.trigger.rebalance_every_n_days == 5
+    assert isinstance(
+        strategy.lifecycle.delta_hedge.trigger.band_model, FixedDeltaBandModel
+    )
+    assert (
+        strategy.lifecycle.delta_hedge.trigger.band_model.half_width_abs
+        == pytest.approx(25.0)
+    )
 
 
 def test_build_strategy_preset_rejects_unknown_name() -> None:
