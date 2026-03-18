@@ -18,6 +18,8 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Advanced sizing configs now support `entry_risk_basis="entry_hedged"` so
   risk-budget sizing can use the stressed option package plus the implied
   inception hedge instead of the unhedged option structure alone.
+- Runner strategy preset configs now coerce nested `delta_hedge` YAML mappings
+  into typed hedge-policy objects, including fixed and WW band-model configs.
 
 ## [0.7.0] - 2026-03-16
 

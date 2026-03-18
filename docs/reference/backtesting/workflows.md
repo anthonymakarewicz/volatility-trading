@@ -229,6 +229,8 @@ boolean-style preset knobs below.
 - `take_profit_pnl_per_contract`
 - `min_contracts`
 - `max_contracts`
+- `entry_risk_basis`
+- `delta_hedge`
 
 `skew_mispricing`:
 
@@ -248,14 +250,23 @@ boolean-style preset knobs below.
 - `take_profit_pnl_per_contract`
 - `min_contracts`
 - `max_contracts`
+- `entry_risk_basis`
+- `delta_hedge`
 
 Current YAML boundary notes:
 
 - `stop_loss_pnl_per_contract` and `take_profit_pnl_per_contract` are the
   current runner-owned richer-exit knobs for built-in presets.
-- More advanced preset fields such as `filters`, `exit_rule_set`,
-  `reentry_policy`, and `delta_hedge` remain part of the Python library path,
-  not the documented runner YAML surface.
+- `delta_hedge` is supported as a nested preset param for built-in strategies.
+  Use the same shape as the Python `DeltaHedgePolicy` contract:
+  `enabled`, `target_net_delta`, `trigger`, `rebalance_to`,
+  `allow_missing_hedge_price`, `min_rebalance_qty`, and `max_rebalance_qty`.
+- `delta_hedge.trigger.band_model` accepts:
+  - `model: fixed` with `half_width_abs`
+  - `model: ww` with `WWDeltaBandModel` params
+- More advanced preset fields such as `filters`, `exit_rule_set`, and
+  `reentry_policy` remain part of the Python library path, not the documented
+  runner YAML surface.
 - When a param is omitted, the preset's Python default still applies.
 
 ### `account`
