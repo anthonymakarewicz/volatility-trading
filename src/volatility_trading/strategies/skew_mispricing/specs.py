@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import partial
+from typing import Literal
 
 from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
@@ -119,6 +120,7 @@ class SkewMispricingSpec:
     delta_hedge: DeltaHedgePolicy = field(default_factory=DeltaHedgePolicy)
     min_contracts: int = 0
     max_contracts: int | None = None
+    entry_risk_basis: Literal["unhedged", "entry_hedged"] = "unhedged"
 
     def __post_init__(self) -> None:
         resolve_orats_summary_tenor_suffix(self.target_dte)
@@ -163,6 +165,7 @@ class SkewMispricingSpec:
                 margin_budget_pct=self.margin_budget_pct,
                 min_contracts=self.min_contracts,
                 max_contracts=self.max_contracts,
+                entry_risk_basis=self.entry_risk_basis,
             ),
         )
 

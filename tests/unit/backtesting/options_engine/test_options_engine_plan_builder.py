@@ -36,7 +36,7 @@ from volatility_trading.backtesting.options_engine import (
     StructureSpec,
     build_options_execution_plan,
 )
-from volatility_trading.options import OptionType
+from volatility_trading.options import OptionType, RiskBudgetSizer
 from volatility_trading.signals.base_signal import Signal
 
 # TODO: Consider create a separate unit and integration
@@ -467,6 +467,49 @@ def test_enabled_delta_hedging_requires_hedge_market_data():
     with pytest.raises(
         ValueError,
         match="enabled delta hedging requires data.hedge_market",
+    ):
+        bt.run()
+
+
+def test_entry_hedged_risk_basis_requires_enabled_delta_hedging():
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="entry_hedged_requires_delta_hedge",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(rebalance_period=1, max_holding_period=None),
+        sizing=SizingPolicyConfig(
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=0.10),
+            entry_risk_basis="entry_hedged",
+        ),
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
+        ),
+    )
+    bt = Backtester(
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(
+                chain=_make_options(), default_contract_multiplier=1.0
+            )
+        ),
+        strategy=spec,
+        config=cfg,
+    )
+    with pytest.raises(
+        ValueError,
+        match="strategy entry_risk_basis='entry_hedged' requires enabled delta hedging",
     ):
         bt.run()
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -15,6 +16,8 @@ from volatility_trading.options import (
     RiskBudgetSizer,
     RiskEstimator,
     ScenarioGenerator,
+    StressPoint,
+    StressResult,
     contracts_for_risk_budget,
 )
 
@@ -40,6 +43,9 @@ class SizingRequest:
     margin_budget_pct: float | None
     min_contracts: int
     max_contracts: int | None
+    entry_risk_basis: Literal["unhedged", "entry_hedged"] = "unhedged"
+    entry_hedge_target_net_delta: float = 0.0
+    hedge_contract_multiplier: float | None = None
 
     def __post_init__(self) -> None:
         if self.min_contracts < 0:
@@ -50,6 +56,20 @@ class SizingRequest:
             raise ValueError("max_contracts must be >= min_contracts")
         if self.margin_budget_pct is not None and not 0 <= self.margin_budget_pct <= 1:
             raise ValueError("margin_budget_pct must be in [0, 1]")
+        if self.entry_risk_basis not in {"unhedged", "entry_hedged"}:
+            raise ValueError("entry_risk_basis must be 'unhedged' or 'entry_hedged'")
+        if (
+            self.entry_risk_basis == "entry_hedged"
+            and self.risk_sizer is not None
+            and (
+                self.hedge_contract_multiplier is None
+                or not np.isfinite(self.hedge_contract_multiplier)
+                or self.hedge_contract_multiplier <= 0
+            )
+        ):
+            raise ValueError(
+                "entry_hedged sizing requires hedge_contract_multiplier > 0"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +150,56 @@ def _build_option_legs(
     return tuple(built_legs)
 
 
+def _entry_option_delta_per_contract(
+    *,
+    legs: Sequence[LegSelection],
+    option_contract_multiplier: float,
+) -> float:
+    """Return structure delta for one strategy contract at entry."""
+    return float(
+        sum(
+            effective_leg_side(leg)
+            * float(leg.quote.delta)
+            * leg_contract_multiplier(
+                leg,
+                option_contract_multiplier=option_contract_multiplier,
+            )
+            for leg in legs
+        )
+    )
+
+
+def _entry_hedged_stress_result(
+    *,
+    option_stress: StressResult,
+    option_delta_per_contract: float,
+    target_net_delta: float,
+    hedge_contract_multiplier: float,
+) -> StressResult:
+    """Return stressed risk after adding the inception hedge package PnL."""
+    hedge_qty = (float(target_net_delta) - float(option_delta_per_contract)) / float(
+        hedge_contract_multiplier
+    )
+    hedged_points = tuple(
+        StressPoint(
+            scenario=point.scenario,
+            pnl=(
+                float(point.pnl)
+                + hedge_qty
+                * float(hedge_contract_multiplier)
+                * float(point.scenario.shock.d_spot)
+            ),
+        )
+        for point in option_stress.points
+    )
+    worst_point = min(hedged_points, key=lambda point: point.pnl)
+    return StressResult(
+        worst_loss=max(-worst_point.pnl, 0.0),
+        worst_scenario=worst_point.scenario,
+        points=hedged_points,
+    )
+
+
 def estimate_entry_intent_margin_per_contract(
     *,
     intent: EntryIntent,
@@ -169,6 +239,10 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
     risk and margin limits with any configured `min_contracts` / `max_contracts`
     policy clamps. Use `risk_budget_contracts` and `margin_budget_contracts`
     when you need the unclamped raw budget-limited sizes for diagnostics.
+
+    When `entry_risk_basis="entry_hedged"`, `risk_per_contract` is computed on
+    the option package plus the implied inception hedge needed to reach
+    `entry_hedge_target_net_delta`.
 
     Invalid spot/volatility inputs skip stress and margin estimation entirely
     and fall back to the configured minimum-lot policy.
@@ -210,12 +284,23 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
         if not scenarios:
             risk_contracts = request.risk_sizer.min_contracts
         else:
-            risk_result = request.risk_estimator.estimate_risk_per_contract(
+            option_risk_result = request.risk_estimator.estimate_risk_per_contract(
                 legs=option_legs,
                 state=state,
                 scenarios=scenarios,
                 pricer=request.pricer,
             )
+            risk_result = option_risk_result
+            if request.entry_risk_basis == "entry_hedged":
+                risk_result = _entry_hedged_stress_result(
+                    option_stress=option_risk_result,
+                    option_delta_per_contract=_entry_option_delta_per_contract(
+                        legs=request.intent.legs,
+                        option_contract_multiplier=request.option_contract_multiplier,
+                    ),
+                    target_net_delta=request.entry_hedge_target_net_delta,
+                    hedge_contract_multiplier=float(request.hedge_contract_multiplier),
+                )
             risk_budget_contracts = contracts_for_risk_budget(
                 equity=request.equity,
                 risk_budget_pct=request.risk_sizer.risk_budget_pct,

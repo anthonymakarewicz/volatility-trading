@@ -7,6 +7,7 @@ This module maps a business-level VRP configuration into the generic
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
@@ -60,6 +61,7 @@ class VRPHarvestingSpec:
     delta_hedge: DeltaHedgePolicy = field(default_factory=DeltaHedgePolicy)
     min_contracts: int = 0
     max_contracts: int | None = None
+    entry_risk_basis: Literal["unhedged", "entry_hedged"] = "unhedged"
 
     def to_strategy_spec(self) -> StrategySpec:
         """Convert this VRP preset into the generic ``StrategySpec`` contract."""
@@ -96,6 +98,7 @@ class VRPHarvestingSpec:
                 margin_budget_pct=self.margin_budget_pct,
                 min_contracts=self.min_contracts,
                 max_contracts=self.max_contracts,
+                entry_risk_basis=self.entry_risk_basis,
             ),
         )
 

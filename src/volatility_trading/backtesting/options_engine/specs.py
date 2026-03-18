@@ -225,12 +225,17 @@ class LifecycleConfig:
 
 @dataclass(frozen=True)
 class SizingPolicyConfig:
-    """Contract sizing policy for one strategy."""
+    """Contract sizing policy for one strategy.
+
+    `entry_risk_basis` controls whether risk-budget sizing uses the unhedged
+    option package or the implied inception hedge package.
+    """
 
     risk_sizer: RiskBudgetSizer | None = None
     margin_budget_pct: float | None = None
     min_contracts: int = 1
     max_contracts: int | None = None
+    entry_risk_basis: Literal["unhedged", "entry_hedged"] = "unhedged"
 
     def __post_init__(self) -> None:
         if self.min_contracts < 0:
@@ -241,6 +246,8 @@ class SizingPolicyConfig:
             raise ValueError("max_contracts must be >= min_contracts")
         if self.margin_budget_pct is not None and not 0 <= self.margin_budget_pct <= 1:
             raise ValueError("margin_budget_pct must be in [0, 1]")
+        if self.entry_risk_basis not in {"unhedged", "entry_hedged"}:
+            raise ValueError("entry_risk_basis must be 'unhedged' or 'entry_hedged'")
 
 
 @dataclass

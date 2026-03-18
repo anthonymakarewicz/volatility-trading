@@ -278,6 +278,15 @@ def test_skew_preset_defaults_min_contracts_to_zero() -> None:
 
     assert strategy.sizing.min_contracts == 0
     assert strategy.sizing.risk_sizer is None
+    assert strategy.sizing.entry_risk_basis == "unhedged"
+
+
+def test_skew_preset_passes_through_entry_risk_basis() -> None:
+    strategy = make_skew_mispricing_strategy(
+        SkewMispricingSpec(entry_risk_basis="entry_hedged")
+    )
+
+    assert strategy.sizing.entry_risk_basis == "entry_hedged"
 
 
 def test_skew_signal_driven_lifecycle_keeps_max_holding_and_appends_pnl_exits():
