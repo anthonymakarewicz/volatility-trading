@@ -120,7 +120,7 @@ class SkewMispricingSpec:
     delta_hedge: DeltaHedgePolicy = field(default_factory=DeltaHedgePolicy)
     min_contracts: int = 0
     max_contracts: int | None = None
-    entry_risk_basis: Literal["unhedged", "entry_hedged"] = "entry_hedged"
+    entry_risk_basis: Literal["unhedged", "entry_hedged"] = "unhedged"
 
     def __post_init__(self) -> None:
         resolve_orats_summary_tenor_suffix(self.target_dte)
