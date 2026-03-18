@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from volatility_trading.backtesting.options_engine import (
     DeltaHedgePolicy,
     ExitRuleSet,
@@ -126,6 +128,7 @@ def build_preset_sizing_config(
     margin_budget_pct: float | None,
     min_contracts: int,
     max_contracts: int | None,
+    entry_risk_basis: Literal["unhedged", "entry_hedged"] = "unhedged",
 ) -> SizingPolicyConfig:
     """Build shared sizing config used by strategy presets."""
     risk_sizer = (
@@ -142,4 +145,5 @@ def build_preset_sizing_config(
         margin_budget_pct=margin_budget_pct,
         min_contracts=min_contracts,
         max_contracts=max_contracts,
+        entry_risk_basis=entry_risk_basis,
     )

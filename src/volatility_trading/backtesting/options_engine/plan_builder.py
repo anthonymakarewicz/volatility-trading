@@ -36,6 +36,14 @@ def build_options_execution_plan(
         raise ValueError(
             "strategy margin_budget_pct requires config.broker.margin.model"
         )
+    if (
+        spec.sizing.entry_risk_basis == "entry_hedged"
+        and spec.sizing.risk_sizer is not None
+        and not spec.lifecycle.delta_hedge.enabled
+    ):
+        raise ValueError(
+            "strategy entry_risk_basis='entry_hedged' requires enabled delta hedging"
+        )
 
     options = data.options_frame
     logger.info(
@@ -140,6 +148,11 @@ def build_options_execution_plan(
             equity_running=equity_running,
             cfg=config,
             option_contract_multiplier=option_contract_multiplier,
+            hedge_contract_multiplier=(
+                float(hedge_market.contract_multiplier)
+                if hedge_market is not None
+                else None
+            ),
         ),
         open_position=lambda setup, equity_running: lifecycle_engine.open_position(
             setup=setup,
@@ -168,6 +181,7 @@ def _prepare_entry_setup(
     equity_running: float,
     cfg: BacktestRunConfig,
     option_contract_multiplier: float,
+    hedge_contract_multiplier: float | None,
 ) -> PositionEntrySetup | None:
     """Build one structure entry setup for one date."""
     if entry_direction == 0:
@@ -213,6 +227,9 @@ def _prepare_entry_setup(
             margin_budget_pct=spec.sizing.margin_budget_pct,
             min_contracts=spec.sizing.min_contracts,
             max_contracts=spec.sizing.max_contracts,
+            entry_risk_basis=spec.sizing.entry_risk_basis,
+            entry_hedge_target_net_delta=spec.lifecycle.delta_hedge.target_net_delta,
+            hedge_contract_multiplier=hedge_contract_multiplier,
         )
     )
     if sizing.contracts <= 0:

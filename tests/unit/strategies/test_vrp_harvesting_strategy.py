@@ -186,6 +186,15 @@ def test_vrp_preset_defaults_min_contracts_to_zero() -> None:
 
     assert strategy.sizing.min_contracts == 0
     assert strategy.sizing.risk_sizer is None
+    assert strategy.sizing.entry_risk_basis == "unhedged"
+
+
+def test_vrp_preset_passes_through_entry_risk_basis() -> None:
+    strategy = make_vrp_strategy(
+        VRPHarvestingSpec(signal=ShortOnlySignal(), entry_risk_basis="entry_hedged")
+    )
+
+    assert strategy.sizing.entry_risk_basis == "entry_hedged"
 
 
 def test_unresolved_trade_keeps_mtm_path_instead_of_being_dropped():

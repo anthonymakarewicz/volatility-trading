@@ -15,6 +15,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Realized backtest trade rows now include sizing diagnostics for the raw
   risk-budget and margin-budget contract counts, the binding sizing
   constraint, and whether a minimum-contract floor overrode the raw risk size.
+- Advanced sizing configs now support `entry_risk_basis="entry_hedged"` so
+  risk-budget sizing can use the stressed option package plus the implied
+  inception hedge instead of the unhedged option structure alone.
 
 ## [0.7.0] - 2026-03-16
 

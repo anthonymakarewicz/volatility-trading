@@ -16,6 +16,14 @@ Execution cost assumptions are run-level settings:
 
 - `ExecutionConfig.hedge_execution_model`
 
+Sizing can optionally use the implied inception hedge rather than the
+unhedged option package:
+
+- `SizingPolicyConfig.entry_risk_basis = "unhedged" | "entry_hedged"`
+
+Use `entry_hedged` only when delta hedging is enabled and the strategy is
+intended to size off the entry package after applying the initial hedge target.
+
 ## Fixed Band (Static)
 
 Use a constant absolute no-trade half-width around `target_net_delta`.

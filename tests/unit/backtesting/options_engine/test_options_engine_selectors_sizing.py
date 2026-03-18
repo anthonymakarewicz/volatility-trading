@@ -71,6 +71,23 @@ def _short_straddle_intent() -> EntryIntent:
     )
 
 
+def _long_call_intent() -> EntryIntent:
+    call = _quote("C")
+    return EntryIntent(
+        entry_date=pd.Timestamp("2020-01-01"),
+        expiry_date=pd.Timestamp("2020-01-31"),
+        chosen_dte=30,
+        legs=(
+            LegSelection(
+                spec=LegSpec(option_type=OptionType.CALL, delta_target=0.5),
+                quote=call,
+                side=1,
+                entry_price=5.0,
+            ),
+        ),
+    )
+
+
 def test_select_best_expiry_for_leg_group_prefers_lower_combined_score():
     chain = pd.DataFrame(
         {
@@ -210,6 +227,82 @@ def test_size_entry_intent_reports_min_contracts_override():
     assert decision.margin_budget_contracts is None
     assert decision.sizing_binding_constraint == "min_contracts"
     assert decision.min_contracts_override_applied
+
+
+def test_size_entry_intent_can_use_entry_hedged_risk_basis():
+    class SpotShockScenarioGenerator:
+        def generate(self, *, spec, state):
+            _ = (spec, state)
+            return (
+                StressScenario(name="down", shock=MarketShock(d_spot=-20.0)),
+                StressScenario(name="up", shock=MarketShock(d_spot=20.0)),
+            )
+
+    class LinearDeltaRiskEstimator:
+        def estimate_risk_per_contract(self, *, legs, state, scenarios, pricer):
+            _ = (legs, state, pricer)
+            points = tuple(
+                StressPoint(
+                    scenario=scenario,
+                    pnl=50.0 * float(scenario.shock.d_spot),
+                )
+                for scenario in scenarios
+            )
+            worst_point = min(points, key=lambda point: point.pnl)
+            return StressResult(
+                worst_loss=max(-worst_point.pnl, 0.0),
+                worst_scenario=worst_point.scenario,
+                points=points,
+            )
+
+    class NullPricer:
+        def price(self, spec, state):
+            _ = (spec, state)
+            return 1.0
+
+    unhedged = size_entry_intent(
+        SizingRequest(
+            intent=_long_call_intent(),
+            option_contract_multiplier=100,
+            spot=100.0,
+            volatility=0.2,
+            equity=10_000.0,
+            pricer=NullPricer(),
+            scenario_generator=SpotShockScenarioGenerator(),
+            risk_estimator=LinearDeltaRiskEstimator(),
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=0.10, min_contracts=0),
+            margin_model=None,
+            margin_budget_pct=None,
+            min_contracts=0,
+            max_contracts=None,
+            entry_risk_basis="unhedged",
+        )
+    )
+    entry_hedged = size_entry_intent(
+        SizingRequest(
+            intent=_long_call_intent(),
+            option_contract_multiplier=100,
+            spot=100.0,
+            volatility=0.2,
+            equity=10_000.0,
+            pricer=NullPricer(),
+            scenario_generator=SpotShockScenarioGenerator(),
+            risk_estimator=LinearDeltaRiskEstimator(),
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=0.10, min_contracts=0),
+            margin_model=None,
+            margin_budget_pct=None,
+            min_contracts=0,
+            max_contracts=None,
+            entry_risk_basis="entry_hedged",
+            entry_hedge_target_net_delta=0.0,
+            hedge_contract_multiplier=1.0,
+        )
+    )
+
+    assert unhedged.risk_per_contract == pytest.approx(1_000.0)
+    assert entry_hedged.risk_per_contract == pytest.approx(0.0)
+    assert unhedged.contracts == 1
+    assert entry_hedged.contracts == 0
 
 
 def test_estimate_entry_intent_margin_per_contract():
