@@ -16,6 +16,7 @@ from volatility_trading.backtesting.margin_types import MarginCore
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..contracts.market import QuoteSnapshot
+from ..factor_models import FactorSnapshot
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class MarkValuationSnapshot:
     net_delta: float
     option_market_pnl: float
     delta_pnl_market: float
+    factor_snapshot: FactorSnapshot = field(default_factory=FactorSnapshot)
 
 
 @dataclass(frozen=True)

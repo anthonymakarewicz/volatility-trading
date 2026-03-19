@@ -7,6 +7,7 @@ import pandas as pd
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..contracts.runtime import HedgeState, OpenPosition, PositionEntrySetup
+from ..factor_models import FactorSnapshot
 from .runtime_state import EntryMarginSnapshot
 from .valuation import summary_expiry_and_dte_from_legs
 
@@ -20,6 +21,7 @@ def build_open_position_state(
     entry_option_trade_cost: float,
     greeks: Greeks,
     net_delta: float,
+    factor_snapshot: FactorSnapshot,
     margin: EntryMarginSnapshot,
     rebalance_period: int | None,
     max_holding_period: int | None,
@@ -64,6 +66,7 @@ def build_open_position_state(
         ),
         last_greeks=greeks,
         last_net_delta=net_delta,
+        last_factor_snapshot=factor_snapshot,
         risk_budget_contracts=setup.risk_budget_contracts,
         margin_budget_contracts=setup.margin_budget_contracts,
         sizing_binding_constraint=setup.sizing_binding_constraint,

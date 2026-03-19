@@ -20,6 +20,10 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   inception hedge instead of the unhedged option structure alone.
 - Runner strategy preset configs now coerce nested `delta_hedge` YAML mappings
   into typed hedge-policy objects, including fixed and WW band-model configs.
+- Options-engine strategies can now attach explicit factor decomposition models.
+  The skew mispricing preset now emits risk-reversal factor state/exposure
+  columns and factor-level daily P&L attribution (`IV_Level_PnL`,
+  `RR_Skew_PnL`) alongside the existing Greek outputs.
 
 ## [0.7.0] - 2026-03-16
 

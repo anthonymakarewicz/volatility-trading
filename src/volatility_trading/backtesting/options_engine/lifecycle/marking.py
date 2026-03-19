@@ -13,6 +13,7 @@ from ...data_contracts import HedgeMarketData
 from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.records import MtmRecord
 from ..contracts.runtime import OpenPosition
+from ..factor_models import FactorDecompositionModel
 from ..specs import DeltaHedgePolicy
 from .hedge_engine import (
     DeltaHedgeEngine,
@@ -53,6 +54,7 @@ def build_mark_step_snapshots(
     options: pd.DataFrame,
     margin_model: MarginModel | None,
     pricer: PriceModel,
+    factor_decomposition_model: FactorDecompositionModel | None,
     delta_hedge_policy: DeltaHedgePolicy,
     hedge_market: HedgeMarketData | None,
     hedge_execution_model: HedgeExecutionModel,
@@ -62,6 +64,7 @@ def build_mark_step_snapshots(
         position=position,
         curr_date=step.curr_date,
         options=options,
+        factor_decomposition_model=factor_decomposition_model,
     )
     hedger = DeltaHedgeEngine(
         delta_hedge_policy,

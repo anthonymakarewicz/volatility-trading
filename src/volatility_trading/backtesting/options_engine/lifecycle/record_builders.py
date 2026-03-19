@@ -16,6 +16,7 @@ from ..contracts.records import (
     TradeRecord,
 )
 from ..contracts.runtime import OpenPosition, PositionEntrySetup
+from ..factor_models import FactorSnapshot
 from .runtime_state import (
     EntryMarginSnapshot,
     MarkMarginSnapshot,
@@ -30,6 +31,7 @@ def build_entry_record(
     contracts_open: int,
     greeks: Greeks,
     net_delta: float,
+    factor_snapshot: FactorSnapshot,
     margin: EntryMarginSnapshot,
 ) -> MtmRecord:
     """Build entry-day MTM record from entry and margin snapshots."""
@@ -53,6 +55,7 @@ def build_entry_record(
         hedge_qty=0.0,
         hedge_price_prev=np.nan,
         hedge_pnl=0.0,
+        factor_snapshot=factor_snapshot,
         option_market_pnl=0.0,
         option_trade_cost=margin.option_trade_cost,
         open_contracts=contracts_open,
@@ -88,6 +91,7 @@ def build_mark_record(
         hedge_qty=position.hedge.qty,
         hedge_price_prev=valuation.hedge.price_prev,
         hedge_pnl=valuation.hedge.pnl,
+        factor_snapshot=valuation.factor_snapshot,
         option_market_pnl=valuation.option_market_pnl,
         option_trade_cost=0.0,
         open_contracts=position.contracts_open,
@@ -166,4 +170,5 @@ def apply_closed_position_fields(
                 in_margin_call=False,
             ),
         ),
+        factor_snapshot=mtm_record.factor_snapshot.zero_exposures(),
     )

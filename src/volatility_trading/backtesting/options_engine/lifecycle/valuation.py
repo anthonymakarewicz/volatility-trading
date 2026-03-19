@@ -16,6 +16,7 @@ from ..contracts.runtime import OpenPosition
 from ..contracts.structures import EntryIntent, LegSelection
 from ..economics import effective_leg_side, leg_units
 from ..entry import chain_for_date
+from ..factor_models import FactorDecompositionModel, FactorSnapshot
 from .option_execution import (
     OptionExecutionModel,
     OptionExecutionOrder,
@@ -382,6 +383,7 @@ def resolve_mark_valuation(
     position: OpenPosition,
     curr_date: pd.Timestamp,
     options: pd.DataFrame,
+    factor_decomposition_model: FactorDecompositionModel | None,
 ) -> MarkValuationSnapshot:
     """Resolve one-date MTM and Greeks snapshot before margin/exit handling."""
     chain_all = chain_for_date(options, curr_date)
@@ -400,6 +402,7 @@ def resolve_mark_valuation(
         if complete_leg_quotes is None:
             pnl_mtm = prev_mtm_before
             greeks = position.last_greeks
+            factor_snapshot = position.last_factor_snapshot
         else:
             option_contract_multiplier = float(position.option_contract_multiplier)
             pnl_mtm = mark_to_mid(
@@ -416,6 +419,16 @@ def resolve_mark_valuation(
                 option_contract_multiplier=option_contract_multiplier,
             )
             greeks = greeks_pc.scaled(position.contracts_open)
+            factor_snapshot = (
+                factor_decomposition_model.snapshot(
+                    legs=position.intent.legs,
+                    leg_quotes=complete_leg_quotes,
+                    option_contract_multiplier=option_contract_multiplier,
+                    contracts=position.contracts_open,
+                )
+                if factor_decomposition_model is not None
+                else FactorSnapshot()
+            )
             has_missing_quote = False
     else:
         complete_leg_quotes = tuple(quote for quote in leg_quotes if quote is not None)
@@ -434,6 +447,16 @@ def resolve_mark_valuation(
             option_contract_multiplier=option_contract_multiplier,
         )
         greeks = greeks_pc.scaled(position.contracts_open)
+        factor_snapshot = (
+            factor_decomposition_model.snapshot(
+                legs=position.intent.legs,
+                leg_quotes=complete_leg_quotes,
+                option_contract_multiplier=option_contract_multiplier,
+                contracts=position.contracts_open,
+            )
+            if factor_decomposition_model is not None
+            else FactorSnapshot()
+        )
 
     spot_curr = _resolve_mark_spot(chain_all=chain_all, position=position)
 
@@ -458,6 +481,7 @@ def resolve_mark_valuation(
         complete_leg_quotes=complete_leg_quotes,
         has_missing_quote=has_missing_quote,
         market=market,
+        factor_snapshot=factor_snapshot,
         hedge=HedgeValuation(
             price_prev=float(position.hedge.last_price),
             pnl=0.0,
@@ -476,12 +500,14 @@ def update_position_mark_state(
     market: MarketState,
     greeks: Greeks,
     net_delta: float,
+    factor_snapshot: FactorSnapshot,
 ) -> None:
     """Persist updated in-trade state after one mark step."""
     position.prev_mtm = pnl_mtm
     position.last_market = market
     position.last_greeks = greeks
     position.last_net_delta = net_delta
+    position.last_factor_snapshot = factor_snapshot
 
 
 def execute_exit_for_position(

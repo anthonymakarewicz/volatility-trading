@@ -11,6 +11,7 @@ from volatility_trading.backtesting.options_engine import (
     ExitRuleSet,
     LegSpec,
     LifecycleConfig,
+    RiskReversalFactorModel,
     SameDayReentryPolicy,
     StrategySpec,
     StructureSpec,
@@ -167,6 +168,7 @@ class SkewMispricingSpec:
                 max_contracts=self.max_contracts,
                 entry_risk_basis=self.entry_risk_basis,
             ),
+            factor_decomposition_model=RiskReversalFactorModel(),
         )
 
 

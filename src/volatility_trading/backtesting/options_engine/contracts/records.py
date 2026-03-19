@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
 from volatility_trading.backtesting.margin_types import MarginCore
 from volatility_trading.options.types import Greeks, MarketState
+
+from ..factor_models import FactorSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +35,7 @@ class MtmRecord:
     hedge_pnl: float
     open_contracts: int
     margin: MtmMargin
+    factor_snapshot: FactorSnapshot = field(default_factory=FactorSnapshot)
     option_market_pnl: float = 0.0
     option_trade_cost: float = 0.0
     hedge_carry_pnl: float = 0.0
@@ -42,7 +45,7 @@ class MtmRecord:
 
     def to_dict(self) -> dict[str, object]:
         """Flatten the MTM record into the canonical tabular row schema."""
-        return {
+        row = {
             "date": self.date,
             "S": self.market.spot,
             "iv": self.market.volatility,
@@ -73,6 +76,8 @@ class MtmRecord:
             "contracts_liquidated": self.margin.core.contracts_liquidated,
             "financing_pnl": self.margin.core.financing_pnl,
         }
+        row.update(self.factor_snapshot.to_flat_dict())
+        return row
 
 
 @dataclass(frozen=True, slots=True)
