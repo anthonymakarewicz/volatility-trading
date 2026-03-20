@@ -130,11 +130,13 @@ class MarketShock:
     Units:
     - `d_spot`: currency units
     - `d_volatility`: volatility in decimals (0.01 = 1 vol point)
+    - `d_risk_reversal`: call-minus-put wing shift in decimals
     - `d_rate`: rate shift in decimals
     - `dt_years`: forward elapsed time in years
     """
 
     d_spot: float = 0.0
     d_volatility: float = 0.0
+    d_risk_reversal: float = 0.0
     d_rate: float = 0.0
     dt_years: float = 0.0
