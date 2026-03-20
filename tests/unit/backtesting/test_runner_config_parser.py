@@ -9,7 +9,7 @@ from volatility_trading.backtesting.options_engine.lifecycle import (
     MidNoCostOptionExecutionModel,
 )
 from volatility_trading.backtesting.runner.config_parser import parse_workflow_config
-from volatility_trading.options import RegTMarginModel
+from volatility_trading.options import FixedGridScenarioGenerator, RegTMarginModel
 
 
 def test_parse_workflow_config_applies_vrp_default_signal() -> None:
@@ -266,6 +266,81 @@ def test_parse_workflow_config_parses_margin_policy() -> None:
     assert policy.cash_rate_annual == pytest.approx(0.01)
     assert policy.borrow_rate_annual == pytest.approx(0.03)
     assert policy.maintenance_margin_ratio == pytest.approx(0.8)
+
+
+def test_parse_workflow_config_parses_fixed_grid_scenario_generator() -> None:
+    workflow = parse_workflow_config(
+        {
+            "data": {"options": {"ticker": "SPX"}},
+            "strategy": {
+                "name": "vrp_harvesting",
+                "signal": {"name": "short_only"},
+            },
+            "modeling": {
+                "scenario_generator": {
+                    "name": "fixed_grid",
+                    "params": {
+                        "spot_shocks_pct": [-0.1, 0.0, 0.1],
+                        "vol_shocks": [-0.02, 0.0, 0.02],
+                        "risk_reversal_shocks": [-0.05, 0.0, 0.05],
+                        "rate_shocks": [0.0],
+                        "time_shocks_years": [0.0],
+                        "deduplicate": True,
+                    },
+                }
+            },
+        }
+    )
+
+    assert isinstance(workflow.modeling.scenario_generator, FixedGridScenarioGenerator)
+    assert workflow.modeling.scenario_generator.spot_shocks_pct == (-0.1, 0.0, 0.1)
+    assert workflow.modeling.scenario_generator.vol_shocks == (-0.02, 0.0, 0.02)
+    assert workflow.modeling.scenario_generator.risk_reversal_shocks == (
+        -0.05,
+        0.0,
+        0.05,
+    )
+
+
+def test_parse_workflow_config_rejects_unknown_scenario_generator_name() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Unknown modeling.scenario_generator model 'unknown'",
+    ):
+        parse_workflow_config(
+            {
+                "data": {"options": {"ticker": "SPX"}},
+                "strategy": {
+                    "name": "vrp_harvesting",
+                    "signal": {"name": "short_only"},
+                },
+                "modeling": {
+                    "scenario_generator": {"name": "unknown"},
+                },
+            }
+        )
+
+
+def test_parse_workflow_config_rejects_invalid_scenario_generator_param_shape() -> None:
+    with pytest.raises(
+        ValueError,
+        match="modeling.scenario_generator.params.risk_reversal_shocks must be a list",
+    ):
+        parse_workflow_config(
+            {
+                "data": {"options": {"ticker": "SPX"}},
+                "strategy": {
+                    "name": "vrp_harvesting",
+                    "signal": {"name": "short_only"},
+                },
+                "modeling": {
+                    "scenario_generator": {
+                        "name": "fixed_grid",
+                        "params": {"risk_reversal_shocks": "not-a-list"},
+                    }
+                },
+            }
+        )
 
 
 def test_parse_workflow_config_parses_deferred_margin_policy_spec() -> None:

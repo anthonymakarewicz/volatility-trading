@@ -32,6 +32,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   `FixedGridScenarioGenerator.risk_reversal_shocks`, allowing worst-loss sizing
   and PM-style margin to respond to skew steepening / flattening without
   changing the default grid behavior.
+- Runner workflow configs now support `modeling.scenario_generator` with the
+  `fixed_grid` model, including explicit `risk_reversal_shocks` for skew-aware
+  stress sizing in config-driven backtests.
 
 ## [0.7.0] - 2026-03-16
 

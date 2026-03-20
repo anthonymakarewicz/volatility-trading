@@ -8,6 +8,7 @@ import pytest
 from volatility_trading.backtesting import DeltaHedgePolicy, FixedDeltaBandModel
 from volatility_trading.backtesting.runner.config_parser import parse_workflow_config
 from volatility_trading.backtesting.runner.registry import build_strategy_preset
+from volatility_trading.options import FixedGridScenarioGenerator
 
 
 def test_vrp_workflow_config_example_parses() -> None:
@@ -86,4 +87,18 @@ def test_skew_delta_hedged_workflow_config_builds_strategy() -> None:
     assert strategy.lifecycle.delta_hedge.trigger.rebalance_every_n_days == 5
     assert isinstance(
         strategy.lifecycle.delta_hedge.trigger.band_model, FixedDeltaBandModel
+    )
+
+
+def test_skew_rr_stress_workflow_config_parses_rr_shock_grid() -> None:
+    app = importlib.import_module("volatility_trading.apps.backtesting.run")
+    config_path = Path("config/backtesting/skew_mispricing_rr_stress.yml")
+    config = app._build_config(app._parse_args(["--config", str(config_path)]))
+    workflow = parse_workflow_config(app._workflow_config_payload(config))
+
+    assert isinstance(workflow.modeling.scenario_generator, FixedGridScenarioGenerator)
+    assert workflow.modeling.scenario_generator.risk_reversal_shocks == (
+        -0.05,
+        0.0,
+        0.05,
     )

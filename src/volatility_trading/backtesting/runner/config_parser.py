@@ -17,11 +17,13 @@ from volatility_trading.backtesting.config import (
 from volatility_trading.backtesting.margin import MarginPolicy
 from volatility_trading.cli.config import resolve_repo_relative_path
 from volatility_trading.options import MarginModel
+from volatility_trading.options.risk import ScenarioGenerator
 
 from .catalog import (
     HEDGE_EXECUTION_MODEL_FACTORIES,
     MARGIN_MODEL_FACTORIES,
     OPTION_EXECUTION_MODEL_FACTORIES,
+    SCENARIO_GENERATOR_FACTORIES,
 )
 from .registry import apply_strategy_preset_defaults
 from .workflow_types import (
@@ -116,8 +118,9 @@ def parse_workflow_config(config: Mapping[str, Any]) -> BacktestWorkflowSpec:
     - run window
     - reporting config
 
-    Runtime pricing/risk model selection is still deferred; `modeling` therefore
-    accepts only an omitted or empty mapping for now.
+    Runtime pricing/risk model selection remains intentionally narrow in the
+    current parser slice; `modeling` currently supports scenario-generator
+    configuration only.
     """
     payload = _expect_mapping(config, field_name="workflow config")
     _ensure_keys(
@@ -592,13 +595,57 @@ def _parse_margin_policy(
 
 
 def _parse_modeling_config(payload: Any) -> ModelingConfig:
-    """Parse modeling config for the current workflow-parser slice.
-
-    Runtime pricing/risk model selection is deferred to a later commit. For
-    now, the section can be omitted or present as an empty mapping.
-    """
+    """Parse the currently supported workflow modeling config slice."""
     if payload is None:
         return ModelingConfig()
     mapping = _expect_mapping(payload, field_name="modeling")
-    _ensure_keys(mapping, field_name="modeling", allowed=())
-    return ModelingConfig()
+    _ensure_keys(mapping, field_name="modeling", allowed=("scenario_generator",))
+    return ModelingConfig(
+        scenario_generator=_parse_scenario_generator(mapping.get("scenario_generator"))
+    )
+
+
+def _parse_scenario_generator(payload: Any) -> ScenarioGenerator:
+    """Parse one optional named scenario-generator mapping."""
+    if payload is None:
+        return ModelingConfig().scenario_generator
+    mapping = _expect_mapping(payload, field_name="modeling.scenario_generator")
+    _ensure_keys(
+        mapping,
+        field_name="modeling.scenario_generator",
+        allowed=("name", "params"),
+        required=("name",),
+    )
+    params = _coerce_scenario_generator_params(
+        _expect_mapping(
+            mapping.get("params", {}),
+            field_name="modeling.scenario_generator.params",
+        )
+    )
+    return _build_model_instance(
+        section_name="modeling.scenario_generator",
+        model_name=str(mapping["name"]),
+        params=params,
+        factories=SCENARIO_GENERATOR_FACTORIES,
+    )
+
+
+def _coerce_scenario_generator_params(params: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize YAML-friendly scenario-generator params into runtime values."""
+    coerced = dict(params)
+    for key in (
+        "spot_shocks_pct",
+        "vol_shocks",
+        "risk_reversal_shocks",
+        "rate_shocks",
+        "time_shocks_years",
+    ):
+        value = coerced.get(key)
+        if value is None:
+            continue
+        if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple)):
+            raise ValueError(f"modeling.scenario_generator.params.{key} must be a list")
+        coerced[key] = tuple(float(item) for item in value)
+    if "deduplicate" in coerced:
+        coerced["deduplicate"] = bool(coerced["deduplicate"])
+    return coerced
