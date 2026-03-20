@@ -44,6 +44,10 @@ def build_options_execution_plan(
         raise ValueError(
             "strategy entry_risk_basis='entry_hedged' requires enabled delta hedging"
         )
+    if spec.factor_decomposition_model is not None:
+        spec.factor_decomposition_model.validate_structure(
+            structure_spec=spec.structure_spec
+        )
 
     options = data.options_frame
     logger.info(
@@ -279,6 +283,7 @@ def _build_lifecycle_engine(
         delta_hedge_policy=spec.lifecycle.delta_hedge,
         hedge_market=hedge_market,
         option_contract_multiplier=option_contract_multiplier,
+        factor_decomposition_model=spec.factor_decomposition_model,
     )
 
 

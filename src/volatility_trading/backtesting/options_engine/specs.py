@@ -19,6 +19,7 @@ from volatility_trading.signals import Signal
 from ..data_contracts import HedgeMarketData
 from .contracts.structures import LegSpec, StructureSpec
 from .exit_rules import ExitRuleSet, MaxHoldingExitRule, SameDayReentryPolicy
+from .factor_models import FactorDecompositionModel
 
 SignalInput: TypeAlias = pd.Series | pd.DataFrame
 SignalInputBuilder: TypeAlias = Callable[
@@ -269,3 +270,4 @@ class StrategySpec:
 
     lifecycle: LifecycleConfig = field(default_factory=LifecycleConfig)
     sizing: SizingPolicyConfig = field(default_factory=SizingPolicyConfig)
+    factor_decomposition_model: FactorDecompositionModel | None = None

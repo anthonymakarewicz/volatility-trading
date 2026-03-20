@@ -133,12 +133,16 @@ def transition_forced_liquidation(
     forced_delta_pnl = mtm_record.delta_pnl - exit_trade_cost
     greeks_remaining = valuation.greeks.scaled(ratio_remaining)
     net_delta_remaining = float(greeks_remaining.delta + position.hedge.qty)
+    factor_snapshot_remaining = valuation.factor_snapshot.scaled_exposures(
+        ratio_remaining
+    )
     mtm_record = replace(
         mtm_record,
         delta_pnl=forced_delta_pnl,
         option_trade_cost=exit_trade_cost,
         greeks=greeks_remaining,
         net_delta=net_delta_remaining,
+        factor_snapshot=factor_snapshot_remaining,
         open_contracts=contracts_after,
         margin=replace(
             mtm_record.margin,
@@ -168,6 +172,7 @@ def transition_forced_liquidation(
         market=valuation.market,
         greeks=greeks_remaining,
         net_delta=net_delta_remaining,
+        factor_snapshot=factor_snapshot_remaining,
     )
     return LifecycleStepResult(
         position=position,
@@ -256,6 +261,7 @@ def transition_continue_open(
         market=valuation.market,
         greeks=mtm_record.greeks,
         net_delta=float(mtm_record.net_delta),
+        factor_snapshot=mtm_record.factor_snapshot,
     )
     return LifecycleStepResult(
         position=position,

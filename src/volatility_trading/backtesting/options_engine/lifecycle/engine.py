@@ -15,6 +15,7 @@ from ...margin import MarginPolicy
 from ..contracts.records import MtmRecord
 from ..contracts.runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
 from ..exit_rules import ExitRuleSet
+from ..factor_models import FactorDecompositionModel, FactorSnapshot
 from ..specs import DeltaHedgePolicy
 from .hedge_engine import HedgeExecutionModel
 from .margining import evaluate_entry_margin
@@ -68,6 +69,7 @@ class PositionLifecycleEngine:
     pricer: PriceModel
     delta_hedge_policy: DeltaHedgePolicy
     option_contract_multiplier: float
+    factor_decomposition_model: FactorDecompositionModel | None = None
     hedge_market: HedgeMarketData | None = None
     hedge_execution_model: HedgeExecutionModel | None = None
     option_execution_model: OptionExecutionModel | None = None
@@ -104,6 +106,16 @@ class PositionLifecycleEngine:
         )
         greeks = greeks_pc.scaled(contracts_open)
         net_delta = greeks.delta
+        factor_snapshot = (
+            self.factor_decomposition_model.snapshot(
+                legs=setup.intent.legs,
+                leg_quotes=tuple(leg.quote for leg in setup.intent.legs),
+                option_contract_multiplier=option_contract_multiplier,
+                contracts=contracts_open,
+            )
+            if self.factor_decomposition_model is not None
+            else FactorSnapshot()
+        )
 
         margin = evaluate_entry_margin(
             setup=setup,
@@ -117,6 +129,7 @@ class PositionLifecycleEngine:
             contracts_open=contracts_open,
             greeks=greeks,
             net_delta=net_delta,
+            factor_snapshot=factor_snapshot,
             margin=margin,
         )
         position = build_open_position_state(
@@ -127,6 +140,7 @@ class PositionLifecycleEngine:
             entry_option_trade_cost=entry_trade_cost,
             greeks=greeks,
             net_delta=net_delta,
+            factor_snapshot=factor_snapshot,
             margin=margin,
             rebalance_period=self.rebalance_period,
             max_holding_period=self.max_holding_period,
@@ -172,6 +186,7 @@ class PositionLifecycleEngine:
             options=options,
             margin_model=self.margin_model,
             pricer=self.pricer,
+            factor_decomposition_model=self.factor_decomposition_model,
             delta_hedge_policy=self.delta_hedge_policy,
             hedge_market=self.hedge_market,
             hedge_execution_model=hedge_execution_model,

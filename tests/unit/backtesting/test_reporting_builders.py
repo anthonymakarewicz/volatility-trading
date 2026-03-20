@@ -29,6 +29,10 @@ def _sample_mtm_daily() -> pd.DataFrame:
             "vega": [10.0, 11.0, 12.0],
             "theta": [-1.0, -1.2, -1.1],
             "hedge_pnl": [0.0, 0.5, -0.2],
+            "factor_iv_level": [24.0, 24.5, 23.5],
+            "factor_exposure_iv_level": [10.0, 11.0, 12.0],
+            "factor_rr_skew": [-11.0, -10.0, -9.0],
+            "factor_exposure_rr_skew": [4.0, 4.5, 5.0],
             "delta_pnl": [0.0, 10.0, -11.0],
             "Delta_PnL": [0.0, 3.0, -4.0],
             "Unhedged_Delta_PnL": [0.0, 4.0, -5.0],
@@ -36,6 +40,8 @@ def _sample_mtm_daily() -> pd.DataFrame:
             "Vega_PnL": [0.0, 2.0, -1.0],
             "Theta_PnL": [0.0, -0.5, -0.5],
             "Other_PnL": [0.0, 4.5, -6.0],
+            "IV_Level_PnL": [0.0, 1.5, -2.0],
+            "RR_Skew_PnL": [0.0, 0.5, 1.0],
         },
         index=index,
     )
@@ -144,6 +150,10 @@ def test_build_exposures_daily_table_selects_expected_columns():
         "vega",
         "theta",
         "hedge_pnl",
+        "factor_iv_level",
+        "factor_exposure_iv_level",
+        "factor_rr_skew",
+        "factor_exposure_rr_skew",
     ]
     assert len(out) == len(mtm_daily)
 
@@ -267,6 +277,8 @@ def test_build_pnl_attribution_daily_table_selects_expected_columns():
         "Vega_PnL",
         "Theta_PnL",
         "Other_PnL",
+        "IV_Level_PnL",
+        "RR_Skew_PnL",
     ]
     assert out.loc[pd.Timestamp("2020-01-02"), "Delta_PnL"] == pytest.approx(3.0)
 

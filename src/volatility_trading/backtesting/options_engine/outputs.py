@@ -58,6 +58,12 @@ def build_options_backtest_outputs(
     for col in optional_max_cols:
         if col in mtm_agg.columns:
             agg_map[col] = "max"
+    for col in mtm_agg.columns:
+        if col.startswith("factor_exposure_"):
+            agg_map[col] = "sum"
+            continue
+        if col.startswith("factor_"):
+            agg_map[col] = "last"
 
     mtm_df = mtm_agg.groupby("date").agg(agg_map)
     mtm_df["equity"] = float(initial_capital) + mtm_df["delta_pnl"].cumsum()

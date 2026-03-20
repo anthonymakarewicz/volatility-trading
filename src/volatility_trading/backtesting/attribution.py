@@ -2,6 +2,13 @@
 
 import pandas as pd
 
+from .options_engine.factor_models import (
+    factor_exposure_column,
+    factor_names_from_columns,
+    factor_pnl_column,
+    factor_value_column,
+)
+
 
 def to_daily_mtm(
     raw_mtm: pd.DataFrame,
@@ -39,6 +46,16 @@ def to_daily_mtm(
     df["delta_pnl"] = df["delta_pnl"].fillna(0.0)
     for g in ["net_delta", "delta", "gamma", "vega", "theta", "S", "iv"]:
         df[g] = df[g].ffill().fillna(0.0)
+    factor_names = factor_names_from_columns(list(df.columns))
+    for factor_name in factor_names:
+        value_col = factor_value_column(factor_name)
+        exposure_col = factor_exposure_column(factor_name)
+        df[value_col] = (
+            pd.to_numeric(df[value_col], errors="coerce").ffill().fillna(0.0)
+        )
+        df[exposure_col] = (
+            pd.to_numeric(df[exposure_col], errors="coerce").ffill().fillna(0.0)
+        )
 
     # 2) Compute daily moves.
     df["dS"] = df["S"].diff().fillna(0.0)
@@ -64,6 +81,20 @@ def to_daily_mtm(
 
     # Vega: vega_prev is $ / vol point, d_iv_pts is change in vol points
     df["Vega_PnL"] = df["vega_prev"] * df["d_iv_pts"]
+
+    factor_pnl_cols: list[str] = []
+    for factor_name in factor_names:
+        value_col = factor_value_column(factor_name)
+        exposure_col = factor_exposure_column(factor_name)
+        diff_col = f"d_{value_col}"
+        prev_exposure_col = f"{exposure_col}_prev"
+        pnl_col = factor_pnl_column(factor_name)
+        df[diff_col] = df[value_col].diff().fillna(0.0)
+        df[prev_exposure_col] = df[exposure_col].shift(1).fillna(0.0)
+        df[pnl_col] = df[prev_exposure_col] * df[diff_col]
+        factor_pnl_cols.append(pnl_col)
+    if factor_pnl_cols:
+        df["Vega_PnL"] = df[factor_pnl_cols].sum(axis=1)
 
     # Theta: theta_prev is $ / day, dt is number of days passed
     df["Theta_PnL"] = df["theta_prev"] * df["dt"]

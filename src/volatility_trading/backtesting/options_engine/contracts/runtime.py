@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
 from volatility_trading.backtesting.margin import MarginAccount
 from volatility_trading.options.types import Greeks, MarketState
 
+from ..factor_models import FactorSnapshot
 from .records import MtmRecord, TradeRecord
 from .structures import EntryIntent
 
@@ -60,6 +61,7 @@ class OpenPosition:
     last_market: MarketState
     last_greeks: Greeks
     last_net_delta: float
+    last_factor_snapshot: FactorSnapshot = field(default_factory=FactorSnapshot)
     risk_budget_contracts: int | None = None
     margin_budget_contracts: int | None = None
     sizing_binding_constraint: str | None = None

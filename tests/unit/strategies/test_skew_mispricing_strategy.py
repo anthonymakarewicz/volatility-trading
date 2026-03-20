@@ -14,6 +14,7 @@ from volatility_trading.backtesting import (
 )
 from volatility_trading.backtesting.options_engine import (
     BidAskFeeOptionExecutionModel,
+    RiskReversalFactorModel,
     build_options_execution_plan,
 )
 from volatility_trading.signals import LongOnlySignal, ShortOnlySignal
@@ -279,6 +280,7 @@ def test_skew_preset_defaults_min_contracts_to_zero() -> None:
     assert strategy.sizing.min_contracts == 0
     assert strategy.sizing.risk_sizer is None
     assert strategy.sizing.entry_risk_basis == "unhedged"
+    assert isinstance(strategy.factor_decomposition_model, RiskReversalFactorModel)
 
 
 def test_skew_preset_passes_through_entry_risk_basis() -> None:

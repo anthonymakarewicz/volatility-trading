@@ -24,6 +24,7 @@ Use this page as the canonical entrypoint for repository documentation.
 - [Backtest Runner Workflows](reference/backtesting/workflows.md): YAML workflow schema for `backtest-run` and the shipped config templates.
 - [Options Engine Hedging](reference/backtesting/hedging.md): fixed-band and WW-style delta hedging configuration and runtime semantics.
 - [Options Engine Option Execution](reference/backtesting/option_execution.md): option fill models, transaction-cost attribution, and model injection boundary.
+- [Options Engine Factor Decomposition](reference/backtesting/factor_decomposition.md): explicit RR factor definitions, business interpretation, and attribution formulas.
 - [Options Data Adapters](reference/options_data_adapters.md): canonical
   options-chain contract and source adapter usage.
 - [ORATS Troubleshooting](reference/orats_troubleshooting.md): ORATS pipeline/app-specific failures and fixes.

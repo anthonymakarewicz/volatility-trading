@@ -15,6 +15,11 @@ from .exit_rules import (
     StopLossExitRule,
     TakeProfitExitRule,
 )
+from .factor_models import (
+    FactorDecompositionModel,
+    FactorSnapshot,
+    RiskReversalFactorModel,
+)
 from .lifecycle.hedge_execution import (
     FixedBpsHedgeExecutionModel,
     HedgeExecutionModel,
@@ -58,6 +63,9 @@ __all__ = [
     "TakeProfitExitRule",
     "ExitRuleSet",
     "SameDayReentryPolicy",
+    "FactorDecompositionModel",
+    "FactorSnapshot",
+    "RiskReversalFactorModel",
     "build_options_execution_plan",
     "HedgeExecutionResult",
     "HedgeExecutionModel",

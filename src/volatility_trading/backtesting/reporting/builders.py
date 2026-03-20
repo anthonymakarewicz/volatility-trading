@@ -8,6 +8,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from volatility_trading.backtesting.options_engine.factor_models import (
+    factor_names_from_columns,
+    factor_pnl_column,
+)
 from volatility_trading.backtesting.performance import compute_performance_metrics
 from volatility_trading.backtesting.rates import RateInput, coerce_rate_model
 
@@ -215,6 +219,10 @@ def build_exposures_daily_table(mtm_daily: pd.DataFrame) -> pd.DataFrame:
         "theta",
         "hedge_pnl",
     ]
+    factor_names = factor_names_from_columns(list(mtm_daily.columns))
+    for factor_name in factor_names:
+        exposure_cols.append(f"factor_{factor_name}")
+        exposure_cols.append(f"factor_exposure_{factor_name}")
     present = [col for col in exposure_cols if col in mtm_daily.columns]
     out = mtm_daily[present].copy()
     out.index = pd.to_datetime(out.index)
@@ -387,7 +395,13 @@ def build_pnl_attribution_daily_table(mtm_daily: pd.DataFrame) -> pd.DataFrame:
     """Build the persisted Greek-attribution daily PnL table."""
     mtm_daily = _require_equity_frame(mtm_daily)
     out = pd.DataFrame(index=mtm_daily.index.copy())
-    for column in _PNL_ATTRIBUTION_COLUMNS:
+    columns = list(_PNL_ATTRIBUTION_COLUMNS)
+    factor_pnl_cols = [
+        factor_pnl_column(name)
+        for name in factor_names_from_columns(list(mtm_daily.columns))
+    ]
+    columns.extend(column for column in factor_pnl_cols if column not in columns)
+    for column in columns:
         if column in mtm_daily.columns:
             out[column] = pd.to_numeric(mtm_daily[column], errors="coerce").fillna(0.0)
         else:
