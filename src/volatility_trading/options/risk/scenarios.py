@@ -32,11 +32,12 @@ class FixedGridScenarioGenerator:
         - `spot_shocks_pct` values are converted to absolute spot shocks via
           `state.spot * spot_shock_pct`.
         - scenario count is the Cartesian product size:
-          `len(spot) * len(vol) * len(rate) * len(time)`.
+          `len(spot) * len(vol) * len(rr) * len(rate) * len(time)`.
     """
 
     spot_shocks_pct: tuple[float, ...] = (-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15)
     vol_shocks: tuple[float, ...] = (-0.05, 0.0, 0.05)
+    risk_reversal_shocks: tuple[float, ...] = (0.0,)
     rate_shocks: tuple[float, ...] = (0.0,)
     time_shocks_years: tuple[float, ...] = (0.0,)
     deduplicate: bool = True
@@ -46,6 +47,8 @@ class FixedGridScenarioGenerator:
             raise ValueError("spot_shocks_pct must not be empty")
         if not self.vol_shocks:
             raise ValueError("vol_shocks must not be empty")
+        if not self.risk_reversal_shocks:
+            raise ValueError("risk_reversal_shocks must not be empty")
         if not self.rate_shocks:
             raise ValueError("rate_shocks must not be empty")
         if not self.time_shocks_years:
@@ -59,16 +62,17 @@ class FixedGridScenarioGenerator:
         # depend on moneyness or time-to-expiry; fixed-grid does not need it.
         _ = spec
         scenarios = []
-        for d_spot_pct, d_vol, d_rate, dt_years in product(
+        for d_spot_pct, d_vol, d_risk_reversal, d_rate, dt_years in product(
             self.spot_shocks_pct,
             self.vol_shocks,
+            self.risk_reversal_shocks,
             self.rate_shocks,
             self.time_shocks_years,
         ):
             d_spot = state.spot * d_spot_pct
             name = (
                 f"ds={d_spot_pct:+.1%}|dv={d_vol:+.4f}|dr={d_rate:+.4f}"
-                f"|dt={dt_years:.6f}"
+                f"|drr={d_risk_reversal:+.4f}|dt={dt_years:.6f}"
             )
             scenarios.append(
                 StressScenario(
@@ -76,6 +80,7 @@ class FixedGridScenarioGenerator:
                     shock=MarketShock(
                         d_spot=d_spot,
                         d_volatility=d_vol,
+                        d_risk_reversal=d_risk_reversal,
                         d_rate=d_rate,
                         dt_years=dt_years,
                     ),
@@ -85,11 +90,12 @@ class FixedGridScenarioGenerator:
         if not self.deduplicate:
             return tuple(scenarios)
 
-        unique: dict[tuple[float, float, float, float], StressScenario] = {}
+        unique: dict[tuple[float, float, float, float, float], StressScenario] = {}
         for scenario in scenarios:
             key = (
                 scenario.shock.d_spot,
                 scenario.shock.d_volatility,
+                scenario.shock.d_risk_reversal,
                 scenario.shock.d_rate,
                 scenario.shock.dt_years,
             )

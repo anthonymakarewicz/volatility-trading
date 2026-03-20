@@ -10,12 +10,19 @@ from dataclasses import dataclass
 from typing import Protocol, Sequence, runtime_checkable
 
 from volatility_trading.options.engines import PriceModel
+from volatility_trading.options.models import normalize_option_type
 from volatility_trading.options.risk.types import (
     StressPoint,
     StressResult,
     StressScenario,
 )
-from volatility_trading.options.types import MarketState, OptionLeg, OptionSpec
+from volatility_trading.options.types import (
+    MarketState,
+    OptionLeg,
+    OptionSpec,
+    OptionType,
+    OptionTypeInput,
+)
 
 
 def _apply_state_shock(
@@ -48,6 +55,32 @@ def _apply_time_shock(
     )
 
 
+def _leg_shocked_state(
+    state: MarketState,
+    scenario: StressScenario,
+    *,
+    option_type: OptionTypeInput,
+    min_spot: float,
+    min_volatility: float,
+) -> MarketState:
+    """Apply common shocks plus RR wing shock for one option type."""
+    shocked_state = _apply_state_shock(
+        state,
+        scenario,
+        min_spot=min_spot,
+        min_volatility=min_volatility,
+    )
+    rr_shift = 0.5 * scenario.shock.d_risk_reversal
+    if normalize_option_type(option_type) == OptionType.PUT:
+        rr_shift = -rr_shift
+    return MarketState(
+        spot=shocked_state.spot,
+        volatility=max(shocked_state.volatility + rr_shift, min_volatility),
+        rate=shocked_state.rate,
+        dividend_yield=shocked_state.dividend_yield,
+    )
+
+
 @runtime_checkable
 class RiskEstimator(Protocol):
     """Contract for stress-based risk estimators used in position sizing."""
@@ -70,6 +103,9 @@ class StressLossRiskEstimator:
 
     For each scenario, legs are repriced on shocked state/spec and aggregated as:
     `pnl = sum(side * (shocked_price - entry_price) * contract_multiplier)`.
+    Parallel vol shocks apply to all legs through `d_volatility`, while
+    `d_risk_reversal` applies an additional call-minus-put wing shift at the
+    leg level.
     Final risk metric is `worst_loss = max(-min(pnl), 0)`.
     """
 
@@ -94,13 +130,6 @@ class StressLossRiskEstimator:
         points: list[StressPoint] = []
 
         for scenario in scenarios:
-            shocked_state = _apply_state_shock(
-                state,
-                scenario,
-                min_spot=self.min_spot,
-                min_volatility=self.min_volatility,
-            )
-
             pnl = 0.0
             for leg in legs:
                 shocked_spec = _apply_time_shock(
@@ -108,7 +137,16 @@ class StressLossRiskEstimator:
                     scenario,
                     min_time_to_expiry=self.min_time_to_expiry,
                 )
-                shocked_price = pricer.price(shocked_spec, shocked_state)
+                shocked_price = pricer.price(
+                    shocked_spec,
+                    _leg_shocked_state(
+                        state,
+                        scenario,
+                        option_type=leg.spec.option_type,
+                        min_spot=self.min_spot,
+                        min_volatility=self.min_volatility,
+                    ),
+                )
                 pnl += (
                     leg.side
                     * (shocked_price - leg.entry_price)

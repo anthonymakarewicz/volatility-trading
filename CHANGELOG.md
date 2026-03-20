@@ -27,6 +27,11 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - The P&L attribution plot now renders factor-level vol lines such as
   `IV_Level_PnL` and `RR_Skew_PnL` when those columns are present, instead of
   showing only the aggregate `Vega_PnL` line.
+- The stress-risk engine now supports opt-in risk-reversal shock grids through
+  `MarketShock.d_risk_reversal` and
+  `FixedGridScenarioGenerator.risk_reversal_shocks`, allowing worst-loss sizing
+  and PM-style margin to respond to skew steepening / flattening without
+  changing the default grid behavior.
 
 ## [0.7.0] - 2026-03-16
 

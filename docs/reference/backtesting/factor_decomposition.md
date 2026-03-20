@@ -200,7 +200,18 @@ It does **not** currently model:
 - node-by-node or bucketed surface vegas
 - vol convexity / vomma attribution
 - portfolio-level multi-underlying surface aggregation
-- stress-scenario sizing for skew steepening / flattening
+
+Separate from factor decomposition itself, the stress-risk engine can now
+optionally include skew steepening / flattening shocks through
+`FixedGridScenarioGenerator.risk_reversal_shocks`.
+
+That RR-shock path is:
+
+- opt-in
+- call-minus-put by convention (`+RR` = call wing up / put wing down)
+- used by stress-based sizing / PM-style margin
+- default-off in the standard grid (`risk_reversal_shocks=(0.0,)`)
+- independent from the factor-attribution outputs documented on this page
 
 Those belong to later risk-model or portfolio-engine work.
 

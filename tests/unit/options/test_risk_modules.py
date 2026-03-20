@@ -28,6 +28,7 @@ def test_fixed_grid_generator_builds_cartesian_grid():
     generator = FixedGridScenarioGenerator(
         spot_shocks_pct=(-0.10, 0.0, 0.10),
         vol_shocks=(0.0, 0.02),
+        risk_reversal_shocks=(0.0, 0.01),
         rate_shocks=(0.0,),
         time_shocks_years=(0.0, 1 / 365.0),
     )
@@ -40,13 +41,40 @@ def test_fixed_grid_generator_builds_cartesian_grid():
 
     scenarios = generator.generate(spec=spec, state=state)
 
-    assert len(scenarios) == 12
+    assert len(scenarios) == 24
     assert any(
         s.shock.d_spot == pytest.approx(10.0)
         and s.shock.d_volatility == pytest.approx(0.02)
+        and s.shock.d_risk_reversal == pytest.approx(0.01)
         and s.shock.dt_years == pytest.approx(1 / 365.0)
         for s in scenarios
     )
+
+
+def test_fixed_grid_generator_distinguishes_rr_shocks_in_names_and_keys():
+    generator = FixedGridScenarioGenerator(
+        spot_shocks_pct=(0.0,),
+        vol_shocks=(0.0,),
+        risk_reversal_shocks=(-0.02, 0.02),
+        rate_shocks=(0.0,),
+        time_shocks_years=(0.0,),
+    )
+
+    scenarios = generator.generate(
+        spec=OptionSpec(
+            strike=100.0,
+            time_to_expiry=30 / 365.0,
+            option_type=OptionType.CALL,
+        ),
+        state=MarketState(spot=100.0, volatility=0.2),
+    )
+
+    assert len(scenarios) == 2
+    assert {scenario.shock.d_risk_reversal for scenario in scenarios} == {-0.02, 0.02}
+    assert {scenario.name for scenario in scenarios} == {
+        "ds=+0.0%|dv=+0.0000|dr=+0.0000|drr=-0.0200|dt=0.000000",
+        "ds=+0.0%|dv=+0.0000|dr=+0.0000|drr=+0.0200|dt=0.000000",
+    }
 
 
 def test_scenario_and_risk_estimators_are_protocol_compatible():
@@ -102,6 +130,107 @@ def test_worst_loss_estimator_for_short_straddle():
 
     assert result.worst_loss == pytest.approx(10.0)
     assert result.worst_scenario.name in {"up", "down"}
+
+
+def test_worst_loss_estimator_applies_rr_shock_by_option_type():
+    class LinearVolPricer:
+        def price(self, spec: OptionSpec, state: MarketState) -> float:
+            _ = spec
+            return state.volatility * 100.0
+
+    scenarios = (
+        StressScenario(name="steepen", shock=MarketShock(d_risk_reversal=-0.10)),
+        StressScenario(name="flatten", shock=MarketShock(d_risk_reversal=0.10)),
+    )
+    estimator = StressLossRiskEstimator()
+    base_state = MarketState(spot=100.0, volatility=0.2)
+
+    call_result = estimator.estimate_risk_per_contract(
+        legs=[
+            OptionLeg(
+                spec=OptionSpec(
+                    strike=100.0,
+                    time_to_expiry=30 / 365.0,
+                    option_type=OptionType.CALL,
+                ),
+                entry_price=20.0,
+                side=PositionSide.LONG,
+            )
+        ],
+        state=base_state,
+        scenarios=scenarios,
+        pricer=LinearVolPricer(),
+    )
+    put_result = estimator.estimate_risk_per_contract(
+        legs=[
+            OptionLeg(
+                spec=OptionSpec(
+                    strike=100.0,
+                    time_to_expiry=30 / 365.0,
+                    option_type=OptionType.PUT,
+                ),
+                entry_price=20.0,
+                side=PositionSide.LONG,
+            )
+        ],
+        state=base_state,
+        scenarios=scenarios,
+        pricer=LinearVolPricer(),
+    )
+
+    call_pnl = {point.scenario.name: point.pnl for point in call_result.points}
+    put_pnl = {point.scenario.name: point.pnl for point in put_result.points}
+
+    assert call_pnl["flatten"] == pytest.approx(5.0)
+    assert call_pnl["steepen"] == pytest.approx(-5.0)
+    assert put_pnl["flatten"] == pytest.approx(-5.0)
+    assert put_pnl["steepen"] == pytest.approx(5.0)
+
+
+def test_worst_loss_estimator_for_long_risk_reversal_under_rr_shocks():
+    class LinearVolPricer:
+        def price(self, spec: OptionSpec, state: MarketState) -> float:
+            _ = spec
+            return state.volatility * 100.0
+
+    legs = (
+        OptionLeg(
+            spec=OptionSpec(
+                strike=100.0,
+                time_to_expiry=30 / 365.0,
+                option_type=OptionType.CALL,
+            ),
+            entry_price=20.0,
+            side=PositionSide.LONG,
+        ),
+        OptionLeg(
+            spec=OptionSpec(
+                strike=100.0,
+                time_to_expiry=30 / 365.0,
+                option_type=OptionType.PUT,
+            ),
+            entry_price=20.0,
+            side=PositionSide.SHORT,
+        ),
+    )
+    scenarios = (
+        StressScenario(name="steepen", shock=MarketShock(d_risk_reversal=-0.10)),
+        StressScenario(name="flatten", shock=MarketShock(d_risk_reversal=0.10)),
+    )
+
+    result = StressLossRiskEstimator().estimate_risk_per_contract(
+        legs=legs,
+        state=MarketState(spot=100.0, volatility=0.2),
+        scenarios=scenarios,
+        pricer=LinearVolPricer(),
+    )
+
+    pnl_by_scenario = {point.scenario.name: point.pnl for point in result.points}
+
+    assert pnl_by_scenario["flatten"] == pytest.approx(10.0)
+    assert pnl_by_scenario["steepen"] == pytest.approx(-10.0)
+    assert result.worst_loss == pytest.approx(10.0)
+    assert result.worst_scenario.name == "steepen"
 
 
 def test_reg_t_margin_model_short_straddle_requirement():
@@ -196,6 +325,66 @@ def test_pm_proxy_margin_model_uses_stress_loss_and_house_overlay():
     )
 
     assert margin == pytest.approx(1320.0)
+
+
+def test_pm_proxy_margin_model_includes_rr_shocks():
+    class LinearVolPricer:
+        def price(self, spec: OptionSpec, state: MarketState) -> float:
+            _ = spec
+            return state.volatility * 100.0
+
+    legs = (
+        OptionLeg(
+            spec=OptionSpec(
+                strike=100.0,
+                time_to_expiry=30 / 365.0,
+                option_type=OptionType.CALL,
+            ),
+            entry_price=20.0,
+            side=PositionSide.LONG,
+        ),
+        OptionLeg(
+            spec=OptionSpec(
+                strike=100.0,
+                time_to_expiry=30 / 365.0,
+                option_type=OptionType.PUT,
+            ),
+            entry_price=20.0,
+            side=PositionSide.SHORT,
+        ),
+    )
+
+    without_rr = PortfolioMarginProxyModel(
+        scenario_generator=FixedGridScenarioGenerator(
+            spot_shocks_pct=(0.0,),
+            vol_shocks=(0.0,),
+            risk_reversal_shocks=(0.0,),
+            rate_shocks=(0.0,),
+            time_shocks_years=(0.0,),
+        ),
+    )
+    with_rr = PortfolioMarginProxyModel(
+        scenario_generator=FixedGridScenarioGenerator(
+            spot_shocks_pct=(0.0,),
+            vol_shocks=(0.0,),
+            risk_reversal_shocks=(-0.10, 0.0, 0.10),
+            rate_shocks=(0.0,),
+            time_shocks_years=(0.0,),
+        ),
+    )
+
+    base_state = MarketState(spot=100.0, volatility=0.2)
+
+    assert without_rr.initial_margin_requirement(
+        legs=legs,
+        state=base_state,
+        pricer=LinearVolPricer(),
+    ) == pytest.approx(0.0)
+    assert with_rr.initial_margin_requirement(
+        legs=legs,
+        state=base_state,
+        pricer=LinearVolPricer(),
+    ) == pytest.approx(10.0)
 
 
 def test_risk_estimator_clamps_invalid_shocked_inputs():

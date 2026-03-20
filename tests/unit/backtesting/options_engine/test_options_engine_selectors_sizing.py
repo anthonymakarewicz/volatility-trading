@@ -16,9 +16,13 @@ from volatility_trading.backtesting.options_engine.sizing import (
     size_entry_intent,
 )
 from volatility_trading.options import (
+    FixedGridScenarioGenerator,
     MarketShock,
+    MarketState,
+    OptionSpec,
     OptionType,
     RiskBudgetSizer,
+    StressLossRiskEstimator,
     StressPoint,
     StressResult,
     StressScenario,
@@ -83,6 +87,30 @@ def _long_call_intent() -> EntryIntent:
                 quote=call,
                 side=1,
                 entry_price=5.0,
+            ),
+        ),
+    )
+
+
+def _long_risk_reversal_intent() -> EntryIntent:
+    put = _quote("P")
+    call = _quote("C")
+    return EntryIntent(
+        entry_date=pd.Timestamp("2020-01-01"),
+        expiry_date=pd.Timestamp("2020-01-31"),
+        chosen_dte=30,
+        legs=(
+            LegSelection(
+                spec=LegSpec(option_type=OptionType.PUT, delta_target=-0.5),
+                quote=put,
+                side=-1,
+                entry_price=20.0,
+            ),
+            LegSelection(
+                spec=LegSpec(option_type=OptionType.CALL, delta_target=0.5),
+                quote=call,
+                side=1,
+                entry_price=20.0,
             ),
         ),
     )
@@ -303,6 +331,97 @@ def test_size_entry_intent_can_use_entry_hedged_risk_basis():
     assert entry_hedged.risk_per_contract == pytest.approx(0.0)
     assert unhedged.contracts == 1
     assert entry_hedged.contracts == 0
+
+
+def test_size_entry_intent_can_use_rr_shocks_in_both_risk_basis_modes():
+    class LinearVolPricer:
+        def price(self, spec: OptionSpec, state: MarketState) -> float:
+            _ = spec
+            return state.volatility * 100.0
+
+    no_rr = size_entry_intent(
+        SizingRequest(
+            intent=_long_risk_reversal_intent(),
+            option_contract_multiplier=1,
+            spot=100.0,
+            volatility=0.2,
+            equity=100.0,
+            pricer=LinearVolPricer(),
+            scenario_generator=FixedGridScenarioGenerator(
+                spot_shocks_pct=(0.0,),
+                vol_shocks=(0.0,),
+                risk_reversal_shocks=(0.0,),
+                rate_shocks=(0.0,),
+                time_shocks_years=(0.0,),
+            ),
+            risk_estimator=StressLossRiskEstimator(),
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=1.0, min_contracts=0),
+            margin_model=None,
+            margin_budget_pct=None,
+            min_contracts=0,
+            max_contracts=None,
+            entry_risk_basis="unhedged",
+        )
+    )
+    with_rr = size_entry_intent(
+        SizingRequest(
+            intent=_long_risk_reversal_intent(),
+            option_contract_multiplier=1,
+            spot=100.0,
+            volatility=0.2,
+            equity=100.0,
+            pricer=LinearVolPricer(),
+            scenario_generator=FixedGridScenarioGenerator(
+                spot_shocks_pct=(0.0,),
+                vol_shocks=(0.0,),
+                risk_reversal_shocks=(-0.10, 0.10),
+                rate_shocks=(0.0,),
+                time_shocks_years=(0.0,),
+            ),
+            risk_estimator=StressLossRiskEstimator(),
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=1.0, min_contracts=0),
+            margin_model=None,
+            margin_budget_pct=None,
+            min_contracts=0,
+            max_contracts=None,
+            entry_risk_basis="unhedged",
+        )
+    )
+    with_rr_entry_hedged = size_entry_intent(
+        SizingRequest(
+            intent=_long_risk_reversal_intent(),
+            option_contract_multiplier=1,
+            spot=100.0,
+            volatility=0.2,
+            equity=100.0,
+            pricer=LinearVolPricer(),
+            scenario_generator=FixedGridScenarioGenerator(
+                spot_shocks_pct=(0.0,),
+                vol_shocks=(0.0,),
+                risk_reversal_shocks=(-0.10, 0.10),
+                rate_shocks=(0.0,),
+                time_shocks_years=(0.0,),
+            ),
+            risk_estimator=StressLossRiskEstimator(),
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=1.0, min_contracts=0),
+            margin_model=None,
+            margin_budget_pct=None,
+            min_contracts=0,
+            max_contracts=None,
+            entry_risk_basis="entry_hedged",
+            entry_hedge_target_net_delta=0.0,
+            hedge_contract_multiplier=1.0,
+        )
+    )
+
+    assert no_rr.risk_per_contract == pytest.approx(0.0)
+    assert with_rr.risk_per_contract == pytest.approx(10.0)
+    assert with_rr_entry_hedged.risk_per_contract == pytest.approx(10.0)
+    assert (
+        with_rr.risk_scenario
+        == "ds=+0.0%|dv=+0.0000|dr=+0.0000|drr=-0.1000|dt=0.000000"
+    )
+    assert with_rr_entry_hedged.risk_scenario == with_rr.risk_scenario
 
 
 def test_estimate_entry_intent_margin_per_contract():
