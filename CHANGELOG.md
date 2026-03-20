@@ -24,6 +24,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   The skew mispricing preset now emits risk-reversal factor state/exposure
   columns and factor-level daily P&L attribution (`IV_Level_PnL`,
   `RR_Skew_PnL`) alongside the existing Greek outputs.
+- The P&L attribution plot now renders factor-level vol lines such as
+  `IV_Level_PnL` and `RR_Skew_PnL` when those columns are present, instead of
+  showing only the aggregate `Vega_PnL` line.
 
 ## [0.7.0] - 2026-03-16
 

@@ -17,6 +17,39 @@ def _require_equity(mtm_daily: pd.DataFrame) -> pd.Series:
     return mtm_daily["equity"].astype(float)
 
 
+def _resolve_pnl_attribution_columns(frame: pd.DataFrame) -> list[str]:
+    """Return ordered P&L attribution component columns for plotting.
+
+    When explicit factor-level vol columns are present, they replace the
+    aggregate `Vega_PnL` line so the plot shows the more informative split.
+    """
+    columns = list(frame.columns)
+    factor_pnl_columns = [
+        column
+        for column in columns
+        if column.endswith("_PnL")
+        and not column.endswith("_Prev_PnL")
+        and column
+        not in {
+            "delta_pnl",
+            "Delta_PnL",
+            "Unhedged_Delta_PnL",
+            "Gamma_PnL",
+            "Vega_PnL",
+            "Theta_PnL",
+            "Other_PnL",
+        }
+    ]
+
+    ordered = ["Delta_PnL", "Gamma_PnL"]
+    if factor_pnl_columns:
+        ordered.extend(sorted(factor_pnl_columns))
+    else:
+        ordered.append("Vega_PnL")
+    ordered.extend(["Theta_PnL", "Other_PnL"])
+    return ordered
+
+
 def _rebased_benchmark(
     benchmark: pd.Series | None, equity: pd.Series
 ) -> pd.Series | None:
@@ -377,38 +410,47 @@ def plot_pnl_attribution(
     else:
         raise ValueError("daily_mtm must contain either 'equity' or 'delta_pnl'")
 
-    greek_columns = ["Delta_PnL", "Gamma_PnL", "Vega_PnL", "Theta_PnL", "Other_PnL"]
-    for column in greek_columns:
+    pnl_columns = _resolve_pnl_attribution_columns(frame)
+    for column in pnl_columns:
         if column in frame.columns:
             cumulative[column] = frame[column].astype(float).cumsum()
         else:
             cumulative[column] = 0.0
 
     figsize = figsize if figsize is not None else (12, 5)
-    colors = {
+    base_colors = {
         "Total P&L": "purple",
         "Delta_PnL": "red",
         "Gamma_PnL": "orange",
         "Vega_PnL": "green",
         "Theta_PnL": "blue",
         "Other_PnL": "brown",
+        "IV_Level_PnL": "green",
+        "RR_Skew_PnL": "teal",
     }
+    fallback_cycle = [
+        "tab:green",
+        "tab:cyan",
+        "tab:pink",
+        "tab:gray",
+        "tab:olive",
+    ]
     fig, ax = plt.subplots(figsize=figsize)
     ax.plot(
         cumulative.index,
         cumulative["Total P&L"],
         label="Total P&L",
-        color=colors["Total P&L"],
+        color=base_colors["Total P&L"],
     )
-    for column in greek_columns:
+    for idx, column in enumerate(pnl_columns):
         ax.plot(
             cumulative.index,
             cumulative[column],
             label=column,
-            color=colors[column],
+            color=base_colors.get(column, fallback_cycle[idx % len(fallback_cycle)]),
         )
 
-    ax.set_title("Cumulative P&L Attribution: Total vs Greek Contributions")
+    ax.set_title("Cumulative P&L Attribution: Total vs Component Contributions")
     ax.set_xlabel("Date")
     ax.set_ylabel("Cumulative P&L (USD)")
     ax.legend()

@@ -36,6 +36,15 @@ def _sample_mtm_daily() -> pd.DataFrame:
     )
 
 
+def _sample_factor_mtm_daily() -> pd.DataFrame:
+    frame = _sample_mtm_daily().copy()
+    frame["IV_Level_PnL"] = [0.0, 0.15, -0.20]
+    frame["RR_Skew_PnL"] = [0.0, 0.05, -0.10]
+    frame["IV_Level_Prev_PnL"] = [0.0, 0.0, 0.0]
+    frame["Vega_PnL"] = frame["IV_Level_PnL"] + frame["RR_Skew_PnL"]
+    return frame
+
+
 def _sample_benchmark(index: pd.Index) -> pd.Series:
     return pd.Series([3000.0, 3020.0, 3010.0], index=index)
 
@@ -133,6 +142,18 @@ def test_plot_pnl_attribution_accepts_attribution_only_frame():
     fig_attr = plot_pnl_attribution(daily_mtm=mtm_daily)
 
     assert len(fig_attr.axes) == 1
+
+
+def test_plot_pnl_attribution_prefers_factor_vol_components_when_available():
+    mtm_daily = _sample_factor_mtm_daily()
+
+    fig_attr = plot_pnl_attribution(daily_mtm=mtm_daily)
+
+    labels = [line.get_label() for line in fig_attr.axes[0].lines]
+    assert "IV_Level_PnL" in labels
+    assert "RR_Skew_PnL" in labels
+    assert "IV_Level_Prev_PnL" not in labels
+    assert "Vega_PnL" not in labels
 
 
 def test_plot_stressed_pnl_returns_figure_for_prefixed_scenario_columns():
