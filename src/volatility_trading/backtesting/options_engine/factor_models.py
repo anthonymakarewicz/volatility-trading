@@ -166,10 +166,16 @@ def factor_names_from_columns(columns: Sequence[str]) -> list[str]:
     names: set[str] = set()
     for column in columns:
         if column.startswith(FACTOR_EXPOSURE_PREFIX):
-            names.add(column.removeprefix(FACTOR_EXPOSURE_PREFIX))
+            name = column.removeprefix(FACTOR_EXPOSURE_PREFIX)
+            if name.endswith("_prev"):
+                continue
+            names.add(name)
             continue
         if column.startswith(FACTOR_VALUE_PREFIX):
-            names.add(column.removeprefix(FACTOR_VALUE_PREFIX))
+            name = column.removeprefix(FACTOR_VALUE_PREFIX)
+            if name.endswith("_prev"):
+                continue
+            names.add(name)
     return sorted(names)
 
 
