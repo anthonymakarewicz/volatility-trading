@@ -67,7 +67,7 @@ Notes:
   in YAML.
 - `broker` currently supports only margin configuration.
 - `modeling` remains intentionally narrow in the current runner slice and
-  currently supports only an omitted or empty mapping.
+  currently supports scenario-generator configuration only.
 
 ## Section Reference
 
@@ -369,11 +369,51 @@ Financing note:
 
 ### `modeling`
 
-Reserved for future runner expansion.
+Runtime pricing/risk hooks used by sizing and PM-style margin.
 
 Current support:
 
-- empty mapping only
+- `scenario_generator`
+
+#### `modeling.scenario_generator`
+
+Supported keys:
+
+- `name` (required)
+- `params`
+
+Current supported names:
+
+- `fixed_grid`
+
+`fixed_grid` params currently support:
+
+- `spot_shocks_pct`
+- `vol_shocks`
+- `risk_reversal_shocks`
+- `rate_shocks`
+- `time_shocks_years`
+- `deduplicate`
+
+Example:
+
+```yaml
+modeling:
+  scenario_generator:
+    name: fixed_grid
+    params:
+      risk_reversal_shocks: [-0.05, 0.0, 0.05]
+```
+
+Notes:
+
+- `risk_reversal_shocks` is optional and defaults to `[0.0]`, preserving the
+  previous spot + parallel-vol stress behavior.
+- positive RR shock uses call-minus-put convention:
+  - call wing up
+  - put wing down
+- RR shocks affect stress-based sizing and PM-style margin through the shared
+  scenario-generator / risk-estimator stack.
 
 ### `run`
 
