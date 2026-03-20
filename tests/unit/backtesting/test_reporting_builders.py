@@ -152,9 +152,7 @@ def test_build_exposures_daily_table_selects_expected_columns():
         "vega",
         "theta",
         "hedge_pnl",
-        "factor_iv_level",
         "factor_exposure_iv_level",
-        "factor_rr_skew",
         "factor_exposure_rr_skew",
     ]
     assert len(out) == len(mtm_daily)

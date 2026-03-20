@@ -448,9 +448,8 @@ Stable artifacts written by the current reporting writer:
     contract counts plus the binding sizing constraint for each realized trade
 - `exposures_daily.csv`
   - daily exposure and risk snapshot table
-  - may include explicit factor-model state/exposure columns such as
-    `factor_iv_level`, `factor_rr_skew`, and matching
-    `factor_exposure_<name>` columns when a strategy attaches a factor model
+  - may include explicit factor-model exposure columns such as
+    `factor_exposure_<name>` when a strategy attaches a factor model
 - `margin_diagnostics_daily.csv`
   - daily margin-account state and financing/hedging diagnostics
   - includes margin requirements, utilization, margin-call state, and

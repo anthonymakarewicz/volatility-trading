@@ -170,16 +170,23 @@ When a strategy attaches a factor model, the standard workflow/reporting path
 persists factor information into:
 
 - `exposures_daily.csv`
-  - `factor_iv_level`
-  - `factor_rr_skew`
   - `factor_exposure_iv_level`
   - `factor_exposure_rr_skew`
 - `pnl_attribution_daily.csv`
   - `IV_Level_PnL`
   - `RR_Skew_PnL`
 
-The naming is dynamic at the engine level, but those are the concrete columns
-for the current RR model.
+The naming is dynamic at the engine level, but those are the concrete public
+columns for the current RR model.
+
+Current factor **state** values such as:
+
+- `factor_iv_level`
+- `factor_rr_skew`
+
+remain available on the dense daily MTM path, but are not exported in the
+public `exposures_daily.csv` artifact because they are factor states rather
+than exposures.
 
 ## What This Does Not Do
 

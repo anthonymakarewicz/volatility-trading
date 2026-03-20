@@ -221,7 +221,6 @@ def build_exposures_daily_table(mtm_daily: pd.DataFrame) -> pd.DataFrame:
     ]
     factor_names = factor_names_from_columns(list(mtm_daily.columns))
     for factor_name in factor_names:
-        exposure_cols.append(f"factor_{factor_name}")
         exposure_cols.append(f"factor_exposure_{factor_name}")
     present = [col for col in exposure_cols if col in mtm_daily.columns]
     out = mtm_daily[present].copy()
