@@ -176,19 +176,21 @@ _NAMED_SCENARIO_FAMILIES: dict[str, tuple[_NamedScenarioDefinition, ...]] = {
             d_risk_reversal=-0.05,
         ),
         _NamedScenarioDefinition(
-            name="rr.crash_steepen_extreme",
-            d_spot_pct=-0.15,
-            d_volatility=0.08,
-            d_risk_reversal=-0.05,
-        ),
-        _NamedScenarioDefinition(
             name="rr.rally_flatten",
             d_spot_pct=0.10,
             d_volatility=-0.03,
             d_risk_reversal=0.05,
         ),
+    ),
+    "rr_tail": (
         _NamedScenarioDefinition(
-            name="rr.rally_flatten_extreme",
+            name="rr_tail.crash_steepen_extreme",
+            d_spot_pct=-0.15,
+            d_volatility=0.08,
+            d_risk_reversal=-0.05,
+        ),
+        _NamedScenarioDefinition(
+            name="rr_tail.rally_flatten_extreme",
             d_spot_pct=0.15,
             d_volatility=-0.05,
             d_risk_reversal=0.05,

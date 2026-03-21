@@ -43,7 +43,7 @@ Use these files as the starting point for new runner configs:
 - [`config/backtesting/skew_mispricing_named_stress.yml`](../../../config/backtesting/skew_mispricing_named_stress.yml)
   - skew workflow using named economic stress scenarios
   - semantic `risk_worst_scenario` labels such as `core.selloff_severe` and
-    `rr.crash_steepen_extreme`
+    `rr.selloff_steepen`
 
 Repo-style relative paths inside workflow configs, such as `data/...` and
 `reports/...`, are resolved from the current working directory first and then
@@ -444,8 +444,11 @@ Current built-in named scenario families:
   - opt-in extreme crash/rally scenarios kept separate from the default core
     family
 - `rr`
-  - skew/risk-reversal scenarios such as steepening, flattening, and combined
-    selloff-steepening, crash-steepening, and rally-flattening shocks
+  - default skew/risk-reversal scenarios such as steepening, flattening, and
+    combined selloff-steepening / rally-flattening shocks
+- `rr_tail`
+  - opt-in extreme skew/risk-reversal crash-steepening and
+    rally-flattening scenarios kept separate from the default `rr` family
 
 Named scenarios are shared generator-level scenarios, not strategy-specific
 one-off scenarios. They are intended to make outputs such as

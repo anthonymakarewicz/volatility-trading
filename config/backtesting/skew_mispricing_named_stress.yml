@@ -84,8 +84,8 @@ modeling:
   scenario_generator:
     name: named_scenarios
     params:
-      # Default named stress keeps the extreme tail family opt-in.
-      scenario_families: [core, rr]
+      # Default named stress keeps generic and skew tail families opt-in.
+      scenario_families: [core, rr, rr_tail]
 
 run:
   start_date: "2021-01-01"
@@ -93,7 +93,7 @@ run:
 
 reporting:
   output_root: reports/backtests
-  run_id: spy_2021_2023_named_stress
+  run_id: spy_2021_2023_named_stress_core
   benchmark_name: SP500TR
   save_report_bundle: true
   include_dashboard_plot: true

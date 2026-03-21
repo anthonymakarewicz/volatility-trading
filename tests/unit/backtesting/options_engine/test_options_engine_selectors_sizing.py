@@ -454,7 +454,6 @@ def test_size_entry_intent_uses_named_scenario_labels_for_worst_risk():
     assert decision.risk_scenario in {
         "rr.steepen_severe",
         "rr.selloff_steepen",
-        "rr.crash_steepen_extreme",
     }
 
 

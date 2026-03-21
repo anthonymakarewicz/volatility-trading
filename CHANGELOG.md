@@ -36,10 +36,10 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   `fixed_grid` model, including explicit `risk_reversal_shocks` for skew-aware
   stress sizing in config-driven backtests.
 - Runner workflow configs now also support a `named_scenarios` generator with
-  reusable `core`, `tail`, and `rr` scenario families, keeping the default
-  core set separate from opt-in extreme tail nodes and allowing semantic
-  `risk_worst_scenario` labels such as `core.selloff_severe` and
-  `rr.crash_steepen_extreme`.
+  reusable `core`, `tail`, `rr`, and `rr_tail` scenario families, keeping the
+  default generic and skew stress sets separate from opt-in extreme tail nodes
+  and allowing semantic `risk_worst_scenario` labels such as
+  `core.selloff_severe` and `rr.selloff_steepen`.
 
 ## [0.7.0] - 2026-03-16
 

@@ -79,7 +79,9 @@ def test_fixed_grid_generator_distinguishes_rr_shocks_in_names_and_keys():
 
 
 def test_named_scenario_generator_builds_prefixed_named_scenarios():
-    generator = NamedScenarioGenerator(scenario_families=("core", "rr", "tail"))
+    generator = NamedScenarioGenerator(
+        scenario_families=("core", "rr", "tail", "rr_tail")
+    )
 
     scenarios = generator.generate(
         spec=OptionSpec(
@@ -96,12 +98,12 @@ def test_named_scenario_generator_builds_prefixed_named_scenarios():
     assert "core.selloff_severe" in names
     assert "tail.crash_extreme" in names
     assert "rr.steepen_severe" in names
-    assert "rr.crash_steepen_extreme" in names
+    assert "rr_tail.crash_steepen_extreme" in names
     shock_by_name = {scenario.name: scenario.shock for scenario in scenarios}
     assert shock_by_name["core.selloff_mild"].d_spot == pytest.approx(-5.0)
     assert shock_by_name["tail.crash_extreme"].d_volatility == pytest.approx(0.08)
     assert shock_by_name["rr.steepen_severe"].d_risk_reversal == pytest.approx(-0.05)
-    assert shock_by_name["rr.crash_steepen_extreme"].d_spot == pytest.approx(-15.0)
+    assert shock_by_name["rr_tail.crash_steepen_extreme"].d_spot == pytest.approx(-15.0)
 
 
 def test_named_scenario_generator_rejects_unknown_family():
