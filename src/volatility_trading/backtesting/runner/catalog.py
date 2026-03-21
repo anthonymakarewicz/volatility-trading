@@ -16,6 +16,7 @@ from volatility_trading.backtesting.options_engine.lifecycle import (
 from volatility_trading.options import (
     FixedGridScenarioGenerator,
     MarginModel,
+    NamedScenarioGenerator,
     PortfolioMarginProxyModel,
     RegTMarginModel,
     ScenarioGenerator,
@@ -40,4 +41,5 @@ MARGIN_MODEL_FACTORIES: dict[str, MarginModelFactory] = {
 }
 SCENARIO_GENERATOR_FACTORIES: dict[str, ScenarioGeneratorFactory] = {
     "fixed_grid": FixedGridScenarioGenerator,
+    "named_scenarios": NamedScenarioGenerator,
 }

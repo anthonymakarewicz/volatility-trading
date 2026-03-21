@@ -35,6 +35,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Runner workflow configs now support `modeling.scenario_generator` with the
   `fixed_grid` model, including explicit `risk_reversal_shocks` for skew-aware
   stress sizing in config-driven backtests.
+- Runner workflow configs now also support a `named_scenarios` generator with
+  reusable `core` and `rr` scenario families, allowing semantic
+  `risk_worst_scenario` labels such as `core.crash` and `rr.steepen_severe`.
 
 ## [0.7.0] - 2026-03-16
 

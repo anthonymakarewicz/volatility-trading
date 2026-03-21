@@ -3,7 +3,12 @@
 from ..types import OptionLeg, PositionSide
 from .estimators import RiskEstimator, StressLossRiskEstimator
 from .margin import MarginModel, PortfolioMarginProxyModel, RegTMarginModel
-from .scenarios import FixedGridScenarioGenerator, ScenarioGenerator
+from .scenarios import (
+    FixedGridScenarioGenerator,
+    NamedScenarioGenerator,
+    ScenarioGenerator,
+    available_named_scenario_families,
+)
 from .sizing import RiskBudgetSizer, contracts_for_risk_budget
 from .types import StressPoint, StressResult, StressScenario
 
@@ -15,6 +20,8 @@ __all__ = [
     "StressResult",
     "ScenarioGenerator",
     "FixedGridScenarioGenerator",
+    "NamedScenarioGenerator",
+    "available_named_scenario_families",
     "RiskEstimator",
     "StressLossRiskEstimator",
     "MarginModel",

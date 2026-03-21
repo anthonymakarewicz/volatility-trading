@@ -7,6 +7,7 @@ from volatility_trading.options import (
     MarginModel,
     MarketShock,
     MarketState,
+    NamedScenarioGenerator,
     OptionLeg,
     OptionSpec,
     OptionType,
@@ -77,8 +78,40 @@ def test_fixed_grid_generator_distinguishes_rr_shocks_in_names_and_keys():
     }
 
 
+def test_named_scenario_generator_builds_prefixed_named_scenarios():
+    generator = NamedScenarioGenerator(scenario_families=("core", "rr"))
+
+    scenarios = generator.generate(
+        spec=OptionSpec(
+            strike=100.0,
+            time_to_expiry=30 / 365.0,
+            option_type=OptionType.CALL,
+        ),
+        state=MarketState(spot=100.0, volatility=0.2),
+    )
+
+    assert len(scenarios) == 13
+    names = {scenario.name for scenario in scenarios}
+    assert "core.selloff_mild" in names
+    assert "core.crash" in names
+    assert "rr.steepen_severe" in names
+    assert "rr.selloff_steepen" in names
+    shock_by_name = {scenario.name: scenario.shock for scenario in scenarios}
+    assert shock_by_name["core.selloff_mild"].d_spot == pytest.approx(-5.0)
+    assert shock_by_name["rr.steepen_severe"].d_risk_reversal == pytest.approx(-0.05)
+
+
+def test_named_scenario_generator_rejects_unknown_family():
+    with pytest.raises(
+        ValueError,
+        match="Unknown scenario_families: missing",
+    ):
+        NamedScenarioGenerator(scenario_families=("missing",))
+
+
 def test_scenario_and_risk_estimators_are_protocol_compatible():
     assert isinstance(FixedGridScenarioGenerator(), ScenarioGenerator)
+    assert isinstance(NamedScenarioGenerator(), ScenarioGenerator)
     assert isinstance(StressLossRiskEstimator(), RiskEstimator)
 
 

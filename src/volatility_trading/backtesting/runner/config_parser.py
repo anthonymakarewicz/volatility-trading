@@ -646,6 +646,13 @@ def _coerce_scenario_generator_params(params: Mapping[str, Any]) -> dict[str, An
         if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple)):
             raise ValueError(f"modeling.scenario_generator.params.{key} must be a list")
         coerced[key] = tuple(float(item) for item in value)
+    if "scenario_families" in coerced:
+        value = coerced["scenario_families"]
+        if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple)):
+            raise ValueError(
+                "modeling.scenario_generator.params.scenario_families must be a list"
+            )
+        coerced["scenario_families"] = tuple(str(item) for item in value)
     if "deduplicate" in coerced:
         coerced["deduplicate"] = bool(coerced["deduplicate"])
     return coerced
