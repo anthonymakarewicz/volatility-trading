@@ -170,6 +170,24 @@ def test_worst_loss_estimator_for_short_straddle():
     assert result.worst_scenario.name in {"up", "down"}
 
 
+def test_stress_result_from_points_uses_most_negative_pnl() -> None:
+    up = StressScenario(name="up", shock=MarketShock(d_spot=10.0))
+    down = StressScenario(name="down", shock=MarketShock(d_spot=-10.0))
+    flat = StressScenario(name="flat", shock=MarketShock())
+
+    result = StressResult.from_points(
+        (
+            StressPoint(scenario=up, pnl=25.0),
+            StressPoint(scenario=down, pnl=-40.0),
+            StressPoint(scenario=flat, pnl=-5.0),
+        )
+    )
+
+    assert result.worst_loss == pytest.approx(40.0)
+    assert result.worst_scenario == down
+    assert result.points[0].scenario == up
+
+
 def test_worst_loss_estimator_applies_rr_shock_by_option_type():
     class LinearVolPricer:
         def price(self, spec: OptionSpec, state: MarketState) -> float:

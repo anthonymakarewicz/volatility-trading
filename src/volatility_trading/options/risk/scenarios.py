@@ -24,6 +24,27 @@ class ScenarioGenerator(Protocol):
         ...
 
 
+def _scenario_key(scenario: StressScenario) -> tuple[float, float, float, float, float]:
+    """Return the canonical deduplication key for one stress scenario."""
+    return (
+        scenario.shock.d_spot,
+        scenario.shock.d_volatility,
+        scenario.shock.d_risk_reversal,
+        scenario.shock.d_rate,
+        scenario.shock.dt_years,
+    )
+
+
+def _deduplicate_scenarios(
+    scenarios: tuple[StressScenario, ...],
+) -> tuple[StressScenario, ...]:
+    """Remove duplicate stress scenarios while preserving first occurrence."""
+    unique: dict[tuple[float, float, float, float, float], StressScenario] = {}
+    for scenario in scenarios:
+        unique.setdefault(_scenario_key(scenario), scenario)
+    return tuple(unique.values())
+
+
 @dataclass(frozen=True)
 class FixedGridScenarioGenerator:
     """Generate a Cartesian grid of spot/vol/rate/time shocks.
@@ -86,21 +107,12 @@ class FixedGridScenarioGenerator:
                     ),
                 )
             )
+        scenario_tuple = tuple(scenarios)
 
         if not self.deduplicate:
-            return tuple(scenarios)
+            return scenario_tuple
 
-        unique: dict[tuple[float, float, float, float, float], StressScenario] = {}
-        for scenario in scenarios:
-            key = (
-                scenario.shock.d_spot,
-                scenario.shock.d_volatility,
-                scenario.shock.d_risk_reversal,
-                scenario.shock.d_rate,
-                scenario.shock.dt_years,
-            )
-            unique[key] = scenario
-        return tuple(unique.values())
+        return _deduplicate_scenarios(scenario_tuple)
 
 
 @dataclass(frozen=True)
@@ -255,14 +267,4 @@ class NamedScenarioGenerator:
         if not self.deduplicate:
             return scenarios
 
-        unique: dict[tuple[float, float, float, float, float], StressScenario] = {}
-        for scenario in scenarios:
-            key = (
-                scenario.shock.d_spot,
-                scenario.shock.d_volatility,
-                scenario.shock.d_risk_reversal,
-                scenario.shock.d_rate,
-                scenario.shock.dt_years,
-            )
-            unique.setdefault(key, scenario)
-        return tuple(unique.values())
+        return _deduplicate_scenarios(scenarios)
