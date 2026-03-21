@@ -136,6 +136,7 @@ def build_trade_record(
             exit_prices=exit_prices,
             exit_leg_quotes=exit_leg_quotes,
         ),
+        entry_stress_points=position.entry_stress_points,
         option_entry_cost=option_entry_cost,
         option_exit_cost=option_exit_cost,
         risk_budget_contracts=position.risk_budget_contracts,

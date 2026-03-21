@@ -40,6 +40,12 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   default generic and skew stress sets separate from opt-in extreme tail nodes
   and allowing semantic `risk_worst_scenario` labels such as
   `core.selloff_severe` and `rr.selloff_steepen`.
+- Saved backtest report bundles now include
+  `entry_stress_diagnostics.parquet`, a detailed per-trade/per-scenario entry
+  stress artifact built from the same stress points used by risk sizing, while
+  keeping `trades.csv` as the compact realized-trade ledger.
+- Bumped the backtest report bundle schema version from `1.1.0` to `1.2.0`
+  for the added entry stress diagnostics artifact.
 
 ## [0.7.0] - 2026-03-16
 

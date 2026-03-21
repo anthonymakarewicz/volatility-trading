@@ -12,6 +12,7 @@ from volatility_trading.backtesting.rates import RateInput
 
 from .builders import (
     build_benchmark_comparison_payload,
+    build_entry_stress_diagnostics_table,
     build_equity_and_drawdown_table,
     build_exposures_daily_table,
     build_margin_diagnostics_table,
@@ -100,6 +101,7 @@ def build_backtest_report_bundle(
         benchmark=benchmark,
         risk_free_rate=risk_free_rate,
     )
+    entry_stress_diagnostics = build_entry_stress_diagnostics_table(trades)
 
     figures = {}
     if include_dashboard_plot:
@@ -139,6 +141,7 @@ def build_backtest_report_bundle(
         summary_metrics=summary,
         equity_and_drawdown=equity_and_drawdown,
         trades=build_trades_table(trades),
+        entry_stress_diagnostics=entry_stress_diagnostics,
         exposures_daily=exposures,
         margin_diagnostics_daily=margin_diagnostics,
         rolling_metrics=rolling_metrics,

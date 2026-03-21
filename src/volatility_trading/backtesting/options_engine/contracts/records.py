@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from volatility_trading.backtesting.margin_types import MarginCore
+from volatility_trading.options.risk.types import StressPoint
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..factor_models import FactorSnapshot
@@ -119,6 +120,22 @@ class TradeLegRecord:
         }
 
 
+def _stress_points_payload(
+    points: tuple[StressPoint, ...],
+    *,
+    worst_scenario_name: str | None,
+) -> list[dict[str, object]]:
+    """Serialize entry stress points into a report-friendly payload."""
+    return [
+        {
+            "scenario_name": point.scenario.name,
+            "stress_pnl_per_contract": float(point.pnl),
+            "is_worst_scenario": point.scenario.name == worst_scenario_name,
+        }
+        for point in points
+    ]
+
+
 @dataclass(frozen=True, slots=True)
 class TradeRecord:
     """One realized trade ledger row emitted by lifecycle exits."""
@@ -134,6 +151,7 @@ class TradeRecord:
     margin_per_contract: float | None
     exit_type: str
     trade_legs: tuple[TradeLegRecord, ...]
+    entry_stress_points: tuple[StressPoint, ...] = ()
     option_entry_cost: float = 0.0
     option_exit_cost: float = 0.0
     risk_budget_contracts: int | None = None
@@ -161,4 +179,8 @@ class TradeRecord:
             "option_entry_cost": self.option_entry_cost,
             "option_exit_cost": self.option_exit_cost,
             "trade_legs": [leg.to_dict() for leg in self.trade_legs],
+            "entry_stress_points": _stress_points_payload(
+                self.entry_stress_points,
+                worst_scenario_name=self.risk_worst_scenario,
+            ),
         }

@@ -34,6 +34,19 @@ _METRIC_KEYS = [
     "sharpe",
     "max_drawdown",
 ]
+_ENTRY_STRESS_DIAGNOSTIC_COLUMNS = [
+    "trade_index",
+    "entry_date",
+    "exit_date",
+    "entry_dte",
+    "expiry_date",
+    "contracts",
+    "risk_per_contract",
+    "risk_worst_scenario",
+    "scenario_name",
+    "stress_pnl_per_contract",
+    "is_worst_scenario",
+]
 
 
 def _coerce_json_compatible_value(value: Any) -> Any:
@@ -74,6 +87,37 @@ def _normalize_trade_legs_value(value: Any) -> list[dict[str, Any]]:
             {
                 str(key): _coerce_json_compatible_value(val)
                 for key, val in leg_dict.items()
+            }
+        )
+    return normalized
+
+
+def _normalize_entry_stress_points_value(value: Any) -> list[dict[str, Any]]:
+    """Normalize one ``entry_stress_points`` cell to a list-of-dicts payload."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return []
+
+    raw = value
+    if isinstance(raw, str):
+        raw = json.loads(raw)
+    elif isinstance(raw, tuple):
+        raw = list(raw)
+
+    if not isinstance(raw, list):
+        raise TypeError(
+            "entry_stress_points must be a list, tuple, JSON string, or null-like"
+        )
+
+    normalized: list[dict[str, Any]] = []
+    for point in raw:
+        if isinstance(point, dict):
+            point_dict = point
+        else:
+            raise TypeError("each entry stress point must be dict-like")
+        normalized.append(
+            {
+                str(key): _coerce_json_compatible_value(val)
+                for key, val in point_dict.items()
             }
         )
     return normalized
@@ -130,9 +174,44 @@ def _metric_diff(left: float | None, right: float | None) -> float | None:
 def build_trades_table(trades: pd.DataFrame) -> pd.DataFrame:
     """Build canonical reporting trades table with normalized ``trade_legs`` payloads."""
     out = trades.copy()
+    if "entry_stress_points" in out.columns:
+        out = out.drop(columns=["entry_stress_points"])
     if "trade_legs" not in out.columns:
         return out
     out["trade_legs"] = out["trade_legs"].map(_normalize_trade_legs_value)
+    return out
+
+
+def build_entry_stress_diagnostics_table(trades: pd.DataFrame) -> pd.DataFrame:
+    """Explode per-trade entry stress payloads into a diagnostics table."""
+    if "entry_stress_points" not in trades.columns:
+        return pd.DataFrame(columns=_ENTRY_STRESS_DIAGNOSTIC_COLUMNS)
+
+    rows: list[dict[str, Any]] = []
+    for trade_index, trade in trades.reset_index(drop=True).iterrows():
+        for point in _normalize_entry_stress_points_value(trade["entry_stress_points"]):
+            rows.append(
+                {
+                    "trade_index": trade_index,
+                    "entry_date": _to_timestamp_or_none(trade.get("entry_date")),
+                    "exit_date": _to_timestamp_or_none(trade.get("exit_date")),
+                    "entry_dte": trade.get("entry_dte"),
+                    "expiry_date": _to_timestamp_or_none(trade.get("expiry_date")),
+                    "contracts": trade.get("contracts"),
+                    "risk_per_contract": trade.get("risk_per_contract"),
+                    "risk_worst_scenario": trade.get("risk_worst_scenario"),
+                    "scenario_name": point.get("scenario_name"),
+                    "stress_pnl_per_contract": point.get("stress_pnl_per_contract"),
+                    "is_worst_scenario": bool(point.get("is_worst_scenario", False)),
+                }
+            )
+
+    if not rows:
+        return pd.DataFrame(columns=_ENTRY_STRESS_DIAGNOSTIC_COLUMNS)
+
+    out = pd.DataFrame(rows, columns=_ENTRY_STRESS_DIAGNOSTIC_COLUMNS)
+    for col in ["entry_date", "exit_date", "expiry_date"]:
+        out[col] = pd.to_datetime(out[col])
     return out
 
 

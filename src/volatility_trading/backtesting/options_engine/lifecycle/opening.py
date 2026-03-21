@@ -53,6 +53,7 @@ def build_open_position_state(
         option_contract_multiplier=float(option_contract_multiplier),
         risk_per_contract=setup.risk_per_contract,
         risk_worst_scenario=setup.risk_worst_scenario,
+        entry_stress_points=setup.entry_stress_points,
         margin_account=margin.margin_account,
         latest_margin_per_contract=margin.latest_margin_per_contract,
         net_entry=net_entry,
