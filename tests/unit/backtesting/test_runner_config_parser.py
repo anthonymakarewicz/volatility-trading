@@ -9,7 +9,11 @@ from volatility_trading.backtesting.options_engine.lifecycle import (
     MidNoCostOptionExecutionModel,
 )
 from volatility_trading.backtesting.runner.config_parser import parse_workflow_config
-from volatility_trading.options import FixedGridScenarioGenerator, RegTMarginModel
+from volatility_trading.options import (
+    FixedGridScenarioGenerator,
+    NamedScenarioGenerator,
+    RegTMarginModel,
+)
 
 
 def test_parse_workflow_config_applies_vrp_default_signal() -> None:
@@ -337,6 +341,74 @@ def test_parse_workflow_config_rejects_invalid_scenario_generator_param_shape() 
                     "scenario_generator": {
                         "name": "fixed_grid",
                         "params": {"risk_reversal_shocks": "not-a-list"},
+                    }
+                },
+            }
+        )
+
+
+def test_parse_workflow_config_parses_named_scenario_generator() -> None:
+    workflow = parse_workflow_config(
+        {
+            "data": {"options": {"ticker": "SPX"}},
+            "strategy": {
+                "name": "vrp_harvesting",
+                "signal": {"name": "short_only"},
+            },
+            "modeling": {
+                "scenario_generator": {
+                    "name": "named_scenarios",
+                    "params": {
+                        "scenario_families": ["core", "rr"],
+                        "deduplicate": True,
+                    },
+                }
+            },
+        }
+    )
+
+    assert isinstance(workflow.modeling.scenario_generator, NamedScenarioGenerator)
+    assert workflow.modeling.scenario_generator.scenario_families == ("core", "rr")
+
+
+def test_parse_workflow_config_rejects_invalid_named_scenario_family_shape() -> None:
+    with pytest.raises(
+        ValueError,
+        match="modeling.scenario_generator.params.scenario_families must be a list",
+    ):
+        parse_workflow_config(
+            {
+                "data": {"options": {"ticker": "SPX"}},
+                "strategy": {
+                    "name": "vrp_harvesting",
+                    "signal": {"name": "short_only"},
+                },
+                "modeling": {
+                    "scenario_generator": {
+                        "name": "named_scenarios",
+                        "params": {"scenario_families": "rr"},
+                    }
+                },
+            }
+        )
+
+
+def test_parse_workflow_config_rejects_unknown_named_scenario_family() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Unknown scenario_families: unknown",
+    ):
+        parse_workflow_config(
+            {
+                "data": {"options": {"ticker": "SPX"}},
+                "strategy": {
+                    "name": "vrp_harvesting",
+                    "signal": {"name": "short_only"},
+                },
+                "modeling": {
+                    "scenario_generator": {
+                        "name": "named_scenarios",
+                        "params": {"scenario_families": ["unknown"]},
                     }
                 },
             }

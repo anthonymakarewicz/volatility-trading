@@ -1,4 +1,4 @@
-# Config-driven skew mispricing workflow with explicit delta hedging enabled.
+# Config-driven skew mispricing workflow with named economic stress scenarios.
 logging:
   level: INFO
   color: true
@@ -80,7 +80,11 @@ broker:
       cash_rate_source: data_rates
       borrow_rate_spread: 0.02
 
-modeling: {}
+modeling:
+  scenario_generator:
+    name: named_scenarios
+    params:
+      scenario_families: [core, rr]
 
 run:
   start_date: "2021-01-01"
@@ -88,7 +92,7 @@ run:
 
 reporting:
   output_root: reports/backtests
-  run_id: spy_2021_2023_delta_hedged_3
+  run_id: spy_2021_2023_named_stress
   benchmark_name: SP500TR
   save_report_bundle: true
   include_dashboard_plot: true

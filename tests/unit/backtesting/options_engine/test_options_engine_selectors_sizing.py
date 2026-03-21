@@ -19,6 +19,7 @@ from volatility_trading.options import (
     FixedGridScenarioGenerator,
     MarketShock,
     MarketState,
+    NamedScenarioGenerator,
     OptionSpec,
     OptionType,
     RiskBudgetSizer,
@@ -422,6 +423,38 @@ def test_size_entry_intent_can_use_rr_shocks_in_both_risk_basis_modes():
         == "ds=+0.0%|dv=+0.0000|dr=+0.0000|drr=-0.1000|dt=0.000000"
     )
     assert with_rr_entry_hedged.risk_scenario == with_rr.risk_scenario
+
+
+def test_size_entry_intent_uses_named_scenario_labels_for_worst_risk():
+    class LinearVolPricer:
+        def price(self, spec: OptionSpec, state: MarketState) -> float:
+            _ = spec
+            return state.volatility * 100.0
+
+    decision = size_entry_intent(
+        SizingRequest(
+            intent=_long_risk_reversal_intent(),
+            option_contract_multiplier=1,
+            spot=100.0,
+            volatility=0.2,
+            equity=100.0,
+            pricer=LinearVolPricer(),
+            scenario_generator=NamedScenarioGenerator(scenario_families=("rr",)),
+            risk_estimator=StressLossRiskEstimator(),
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=1.0, min_contracts=0),
+            margin_model=None,
+            margin_budget_pct=None,
+            min_contracts=0,
+            max_contracts=None,
+            entry_risk_basis="unhedged",
+        )
+    )
+
+    assert decision.risk_per_contract == pytest.approx(5.0)
+    assert decision.risk_scenario in {
+        "rr.steepen_severe",
+        "rr.selloff_steepen",
+    }
 
 
 def test_estimate_entry_intent_margin_per_contract():

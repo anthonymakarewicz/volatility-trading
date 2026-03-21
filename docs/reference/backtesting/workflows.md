@@ -40,6 +40,10 @@ Use these files as the starting point for new runner configs:
   - yfinance hedge and benchmark series
   - FRED risk-free-rate series
   - explicit `broker.margin.policy` example using rate-sourced financing
+- [`config/backtesting/skew_mispricing_named_stress.yml`](../../../config/backtesting/skew_mispricing_named_stress.yml)
+  - skew workflow using named economic stress scenarios
+  - semantic `risk_worst_scenario` labels such as `core.crash` and
+    `rr.steepen_severe`
 
 Repo-style relative paths inside workflow configs, such as `data/...` and
 `reports/...`, are resolved from the current working directory first and then
@@ -385,6 +389,7 @@ Supported keys:
 Current supported names:
 
 - `fixed_grid`
+- `named_scenarios`
 
 `fixed_grid` params currently support:
 
@@ -393,6 +398,11 @@ Current supported names:
 - `risk_reversal_shocks`
 - `rate_shocks`
 - `time_shocks_years`
+- `deduplicate`
+
+`named_scenarios` params currently support:
+
+- `scenario_families`
 - `deduplicate`
 
 Example:
@@ -414,6 +424,30 @@ Notes:
   - put wing down
 - RR shocks affect stress-based sizing and PM-style margin through the shared
   scenario-generator / risk-estimator stack.
+
+Example:
+
+```yaml
+modeling:
+  scenario_generator:
+    name: named_scenarios
+    params:
+      scenario_families: [core, rr]
+```
+
+Current built-in named scenario families:
+
+- `core`
+  - broad equity-options stress scenarios such as selloffs, rallies, and
+    parallel vol up/down moves
+- `rr`
+  - skew/risk-reversal scenarios such as steepening, flattening, and combined
+    selloff-steepening / rally-flattening shocks
+
+Named scenarios are shared generator-level scenarios, not strategy-specific
+one-off scenarios. They are intended to make outputs such as
+`risk_worst_scenario` more interpretable while keeping the stress engine
+reusable across structures.
 
 ### `run`
 

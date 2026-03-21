@@ -101,3 +101,147 @@ class FixedGridScenarioGenerator:
             )
             unique[key] = scenario
         return tuple(unique.values())
+
+
+@dataclass(frozen=True)
+class _NamedScenarioDefinition:
+    """One reusable named stress scenario template."""
+
+    name: str
+    d_spot_pct: float = 0.0
+    d_volatility: float = 0.0
+    d_risk_reversal: float = 0.0
+    d_rate: float = 0.0
+    dt_years: float = 0.0
+
+
+_NAMED_SCENARIO_FAMILIES: dict[str, tuple[_NamedScenarioDefinition, ...]] = {
+    "core": (
+        _NamedScenarioDefinition(
+            name="core.selloff_mild",
+            d_spot_pct=-0.05,
+            d_volatility=0.02,
+        ),
+        _NamedScenarioDefinition(
+            name="core.selloff_severe",
+            d_spot_pct=-0.10,
+            d_volatility=0.05,
+        ),
+        _NamedScenarioDefinition(
+            name="core.crash",
+            d_spot_pct=-0.15,
+            d_volatility=0.08,
+        ),
+        _NamedScenarioDefinition(
+            name="core.rally_mild",
+            d_spot_pct=0.05,
+            d_volatility=-0.02,
+        ),
+        _NamedScenarioDefinition(
+            name="core.rally_strong",
+            d_spot_pct=0.10,
+            d_volatility=-0.04,
+        ),
+        _NamedScenarioDefinition(name="core.vol_up", d_volatility=0.05),
+        _NamedScenarioDefinition(name="core.vol_down", d_volatility=-0.05),
+    ),
+    "rr": (
+        _NamedScenarioDefinition(
+            name="rr.steepen_mild",
+            d_risk_reversal=-0.03,
+        ),
+        _NamedScenarioDefinition(
+            name="rr.steepen_severe",
+            d_risk_reversal=-0.05,
+        ),
+        _NamedScenarioDefinition(
+            name="rr.flatten_mild",
+            d_risk_reversal=0.03,
+        ),
+        _NamedScenarioDefinition(
+            name="rr.flatten_severe",
+            d_risk_reversal=0.05,
+        ),
+        _NamedScenarioDefinition(
+            name="rr.selloff_steepen",
+            d_spot_pct=-0.10,
+            d_volatility=0.05,
+            d_risk_reversal=-0.05,
+        ),
+        _NamedScenarioDefinition(
+            name="rr.rally_flatten",
+            d_spot_pct=0.10,
+            d_volatility=-0.03,
+            d_risk_reversal=0.05,
+        ),
+    ),
+}
+
+
+def available_named_scenario_families() -> tuple[str, ...]:
+    """Return the stable set of built-in named stress scenario families."""
+    return tuple(sorted(_NAMED_SCENARIO_FAMILIES))
+
+
+@dataclass(frozen=True)
+class NamedScenarioGenerator:
+    """Generate curated named economic scenarios from reusable families.
+
+    The generator stays shared and strategy-agnostic: callers select one or
+    more scenario families, and each family contributes a predefined set of
+    economically interpretable stress scenarios.
+    """
+
+    scenario_families: tuple[str, ...] = ("core",)
+    deduplicate: bool = True
+
+    def __post_init__(self) -> None:
+        if not self.scenario_families:
+            raise ValueError("scenario_families must not be empty")
+        unknown = tuple(
+            family
+            for family in self.scenario_families
+            if family not in _NAMED_SCENARIO_FAMILIES
+        )
+        if unknown:
+            available = ", ".join(available_named_scenario_families())
+            unknown_text = ", ".join(sorted(set(unknown)))
+            raise ValueError(
+                "Unknown scenario_families: "
+                f"{unknown_text}. Available families: {available}."
+            )
+
+    def generate(
+        self, *, spec: OptionSpec, state: MarketState
+    ) -> tuple[StressScenario, ...]:
+        """Build named stress scenarios from the selected built-in families."""
+        _ = spec
+        scenarios = tuple(
+            StressScenario(
+                name=definition.name,
+                shock=MarketShock(
+                    d_spot=state.spot * definition.d_spot_pct,
+                    d_volatility=definition.d_volatility,
+                    d_risk_reversal=definition.d_risk_reversal,
+                    d_rate=definition.d_rate,
+                    dt_years=definition.dt_years,
+                ),
+            )
+            for family in self.scenario_families
+            for definition in _NAMED_SCENARIO_FAMILIES[family]
+        )
+
+        if not self.deduplicate:
+            return scenarios
+
+        unique: dict[tuple[float, float, float, float, float], StressScenario] = {}
+        for scenario in scenarios:
+            key = (
+                scenario.shock.d_spot,
+                scenario.shock.d_volatility,
+                scenario.shock.d_risk_reversal,
+                scenario.shock.d_rate,
+                scenario.shock.dt_years,
+            )
+            unique.setdefault(key, scenario)
+        return tuple(unique.values())

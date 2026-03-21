@@ -22,6 +22,7 @@ from .models.black_scholes import (
 from .risk import (
     FixedGridScenarioGenerator,
     MarginModel,
+    NamedScenarioGenerator,
     PortfolioMarginProxyModel,
     RegTMarginModel,
     RiskBudgetSizer,
@@ -31,6 +32,7 @@ from .risk import (
     StressPoint,
     StressResult,
     StressScenario,
+    available_named_scenario_families,
     contracts_for_risk_budget,
 )
 from .types import (
@@ -75,6 +77,8 @@ __all__ = [
     "StressResult",
     "ScenarioGenerator",
     "FixedGridScenarioGenerator",
+    "NamedScenarioGenerator",
+    "available_named_scenario_families",
     "RiskEstimator",
     "StressLossRiskEstimator",
     "MarginModel",
