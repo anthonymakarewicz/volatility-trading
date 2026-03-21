@@ -18,6 +18,7 @@ from .builders import (
     build_margin_diagnostics_table,
     build_pnl_attribution_daily_table,
     build_rolling_metrics_table,
+    build_stress_scenario_summary_table,
     build_summary_metrics,
     build_trades_table,
 )
@@ -102,6 +103,9 @@ def build_backtest_report_bundle(
         risk_free_rate=risk_free_rate,
     )
     entry_stress_diagnostics = build_entry_stress_diagnostics_table(trades)
+    stress_scenario_summary = build_stress_scenario_summary_table(
+        entry_stress_diagnostics,
+    )
 
     figures = {}
     if include_dashboard_plot:
@@ -142,6 +146,7 @@ def build_backtest_report_bundle(
         equity_and_drawdown=equity_and_drawdown,
         trades=build_trades_table(trades),
         entry_stress_diagnostics=entry_stress_diagnostics,
+        stress_scenario_summary=stress_scenario_summary,
         exposures_daily=exposures,
         margin_diagnostics_daily=margin_diagnostics,
         rolling_metrics=rolling_metrics,

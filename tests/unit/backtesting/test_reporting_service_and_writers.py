@@ -100,6 +100,7 @@ def test_build_and_save_report_bundle_writes_core_files(tmp_path):
     assert (run_dir / "equity_and_drawdown.csv").exists()
     assert (run_dir / "trades.csv").exists()
     assert (run_dir / "entry_stress_diagnostics.parquet").exists()
+    assert (run_dir / "stress_scenario_summary.csv").exists()
     assert (run_dir / "exposures_daily.csv").exists()
     assert (run_dir / "margin_diagnostics_daily.csv").exists()
     assert (run_dir / "rolling_metrics.csv").exists()
@@ -113,15 +114,23 @@ def test_build_and_save_report_bundle_writes_core_files(tmp_path):
         (run_dir / "benchmark_comparison.json").read_text(encoding="utf-8")
     )
     stress = pd.read_parquet(run_dir / "entry_stress_diagnostics.parquet")
+    stress_summary = pd.read_csv(run_dir / "stress_scenario_summary.csv")
     assert payload["metadata"]["run_id"] == "unit_test_run"
     assert payload["config"]["target_dte"] == 30
     assert "entry_stress_diagnostics.parquet" in manifest["artifacts"]
+    assert "stress_scenario_summary.csv" in manifest["artifacts"]
     assert "margin_diagnostics_daily.csv" in manifest["artifacts"]
     assert "rolling_metrics.csv" in manifest["artifacts"]
     assert "pnl_attribution_daily.csv" in manifest["artifacts"]
     assert benchmark_payload["strategy"]["total_return"] is not None
     assert len(stress) == 2
     assert stress.loc[1, "scenario_name"] == "rr.selloff_steepen"
+    assert len(stress_summary) == 2
+    rr_row = stress_summary.loc[
+        stress_summary["scenario_name"] == "rr.selloff_steepen"
+    ].iloc[0]
+    assert rr_row["times_worst"] == 1
+    assert rr_row["max_loss_per_contract"] == 250.0
 
 
 def test_save_report_bundle_omits_benchmark_comparison_without_benchmark(tmp_path):

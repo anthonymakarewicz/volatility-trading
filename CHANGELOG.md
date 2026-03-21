@@ -44,8 +44,12 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   `entry_stress_diagnostics.parquet`, a detailed per-trade/per-scenario entry
   stress artifact built from the same stress points used by risk sizing, while
   keeping `trades.csv` as the compact realized-trade ledger.
-- Bumped the backtest report bundle schema version from `1.1.0` to `1.2.0`
-  for the added entry stress diagnostics artifact.
+- Saved backtest report bundles now also include
+  `stress_scenario_summary.csv`, a compact aggregate over
+  `entry_stress_diagnostics.parquet` showing scenario evaluation counts,
+  worst-scenario frequency, and mean/max stressed loss per contract.
+- Bumped the backtest report bundle schema version from `1.1.0` to `1.3.0`
+  for the added entry stress diagnostics and scenario-summary artifacts.
 
 ## [0.7.0] - 2026-03-16
 

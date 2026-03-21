@@ -12,6 +12,7 @@ from volatility_trading.backtesting.reporting.builders import (
     build_margin_diagnostics_table,
     build_pnl_attribution_daily_table,
     build_rolling_metrics_table,
+    build_stress_scenario_summary_table,
     build_summary_metrics,
     build_trades_table,
 )
@@ -373,3 +374,47 @@ def test_build_entry_stress_diagnostics_table_explodes_trade_payload() -> None:
     assert out.loc[1, "scenario_name"] == "rr.selloff_steepen"
     assert out.loc[1, "stress_pnl_per_contract"] == pytest.approx(-250.0)
     assert bool(out.loc[1, "is_worst_scenario"])
+
+
+def test_build_stress_scenario_summary_table_aggregates_by_scenario() -> None:
+    diagnostics = pd.DataFrame(
+        {
+            "scenario_name": [
+                "core.selloff_severe",
+                "rr.selloff_steepen",
+                "core.selloff_severe",
+                "rr.selloff_steepen",
+            ],
+            "stress_pnl_per_contract": [-100.0, -250.0, -80.0, -60.0],
+            "is_worst_scenario": [False, True, True, False],
+        }
+    )
+
+    out = build_stress_scenario_summary_table(diagnostics)
+
+    assert list(out.columns) == [
+        "scenario_name",
+        "times_evaluated",
+        "times_worst",
+        "worst_frequency",
+        "mean_stress_pnl_per_contract",
+        "mean_loss_per_contract",
+        "max_loss_per_contract",
+    ]
+
+    core_row = out.loc[out["scenario_name"] == "core.selloff_severe"].iloc[0]
+    rr_row = out.loc[out["scenario_name"] == "rr.selloff_steepen"].iloc[0]
+
+    assert int(core_row["times_evaluated"]) == 2
+    assert int(core_row["times_worst"]) == 1
+    assert float(core_row["worst_frequency"]) == pytest.approx(0.5)
+    assert float(core_row["mean_stress_pnl_per_contract"]) == pytest.approx(-90.0)
+    assert float(core_row["mean_loss_per_contract"]) == pytest.approx(90.0)
+    assert float(core_row["max_loss_per_contract"]) == pytest.approx(100.0)
+
+    assert int(rr_row["times_evaluated"]) == 2
+    assert int(rr_row["times_worst"]) == 1
+    assert float(rr_row["worst_frequency"]) == pytest.approx(0.5)
+    assert float(rr_row["mean_stress_pnl_per_contract"]) == pytest.approx(-155.0)
+    assert float(rr_row["mean_loss_per_contract"]) == pytest.approx(155.0)
+    assert float(rr_row["max_loss_per_contract"]) == pytest.approx(250.0)

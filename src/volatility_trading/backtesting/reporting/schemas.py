@@ -47,6 +47,7 @@ class BacktestReportBundle:
     equity_and_drawdown: pd.DataFrame
     trades: pd.DataFrame
     entry_stress_diagnostics: pd.DataFrame
+    stress_scenario_summary: pd.DataFrame
     exposures_daily: pd.DataFrame
     margin_diagnostics_daily: pd.DataFrame
     rolling_metrics: pd.DataFrame

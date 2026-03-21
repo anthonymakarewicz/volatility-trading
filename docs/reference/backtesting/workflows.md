@@ -530,6 +530,10 @@ Stable artifacts written by the current reporting writer:
   - one row per realized trade and evaluated entry stress scenario
   - includes scenario name, stressed P&L per contract, and a flag marking the
     scenario that bound `risk_per_contract`
+- `stress_scenario_summary.csv`
+  - compact aggregate over `entry_stress_diagnostics.parquet`
+  - summarizes how often each entry stress scenario was evaluated, how often
+    it bound `risk_per_contract`, and its mean/max stressed loss per contract
 - `exposures_daily.csv`
   - daily exposure and risk snapshot table
   - may include explicit factor-model exposure columns such as

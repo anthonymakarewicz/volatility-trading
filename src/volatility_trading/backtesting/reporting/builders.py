@@ -47,6 +47,15 @@ _ENTRY_STRESS_DIAGNOSTIC_COLUMNS = [
     "stress_pnl_per_contract",
     "is_worst_scenario",
 ]
+_STRESS_SCENARIO_SUMMARY_COLUMNS = [
+    "scenario_name",
+    "times_evaluated",
+    "times_worst",
+    "worst_frequency",
+    "mean_stress_pnl_per_contract",
+    "mean_loss_per_contract",
+    "max_loss_per_contract",
+]
 
 
 def _coerce_json_compatible_value(value: Any) -> Any:
@@ -213,6 +222,61 @@ def build_entry_stress_diagnostics_table(trades: pd.DataFrame) -> pd.DataFrame:
     for col in ["entry_date", "exit_date", "expiry_date"]:
         out[col] = pd.to_datetime(out[col])
     return out
+
+
+def build_stress_scenario_summary_table(
+    entry_stress_diagnostics: pd.DataFrame,
+) -> pd.DataFrame:
+    """Aggregate per-scenario entry stress diagnostics into a compact summary."""
+    if entry_stress_diagnostics.empty:
+        return pd.DataFrame(columns=_STRESS_SCENARIO_SUMMARY_COLUMNS)
+
+    required_columns = {
+        "scenario_name",
+        "stress_pnl_per_contract",
+        "is_worst_scenario",
+    }
+    missing_columns = required_columns.difference(entry_stress_diagnostics.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(
+            f"entry_stress_diagnostics is missing required columns: {missing}"
+        )
+
+    out = entry_stress_diagnostics.copy()
+    out["stress_pnl_per_contract"] = pd.to_numeric(
+        out["stress_pnl_per_contract"],
+        errors="coerce",
+    )
+    out["is_worst_scenario"] = out["is_worst_scenario"].fillna(False).astype(bool)
+    out["loss_per_contract"] = (-out["stress_pnl_per_contract"]).clip(lower=0.0)
+
+    summary = (
+        out.groupby("scenario_name", sort=True, dropna=False)
+        .agg(
+            times_evaluated=("scenario_name", "size"),
+            times_worst=("is_worst_scenario", "sum"),
+            worst_frequency=("is_worst_scenario", "mean"),
+            mean_stress_pnl_per_contract=("stress_pnl_per_contract", "mean"),
+            mean_loss_per_contract=("loss_per_contract", "mean"),
+            max_loss_per_contract=("loss_per_contract", "max"),
+        )
+        .reset_index()
+    )
+
+    summary["times_evaluated"] = summary["times_evaluated"].astype(int)
+    summary["times_worst"] = summary["times_worst"].astype(int)
+
+    return summary.sort_values(
+        by=[
+            "times_worst",
+            "worst_frequency",
+            "max_loss_per_contract",
+            "scenario_name",
+        ],
+        ascending=[False, False, False, True],
+        kind="stable",
+    ).reset_index(drop=True)
 
 
 def build_summary_metrics(
