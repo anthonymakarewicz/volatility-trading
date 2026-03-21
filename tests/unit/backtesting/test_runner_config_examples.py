@@ -114,4 +114,8 @@ def test_skew_named_stress_workflow_config_parses_named_scenarios() -> None:
     workflow = parse_workflow_config(app._workflow_config_payload(config))
 
     assert isinstance(workflow.modeling.scenario_generator, NamedScenarioGenerator)
-    assert workflow.modeling.scenario_generator.scenario_families == ("core", "rr")
+    assert workflow.modeling.scenario_generator.scenario_families == (
+        "core",
+        "rr",
+        "rr_tail",
+    )
