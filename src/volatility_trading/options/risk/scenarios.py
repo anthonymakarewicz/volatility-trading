@@ -128,11 +128,6 @@ _NAMED_SCENARIO_FAMILIES: dict[str, tuple[_NamedScenarioDefinition, ...]] = {
             d_volatility=0.05,
         ),
         _NamedScenarioDefinition(
-            name="core.crash",
-            d_spot_pct=-0.15,
-            d_volatility=0.08,
-        ),
-        _NamedScenarioDefinition(
             name="core.rally_mild",
             d_spot_pct=0.05,
             d_volatility=-0.02,
@@ -144,6 +139,18 @@ _NAMED_SCENARIO_FAMILIES: dict[str, tuple[_NamedScenarioDefinition, ...]] = {
         ),
         _NamedScenarioDefinition(name="core.vol_up", d_volatility=0.05),
         _NamedScenarioDefinition(name="core.vol_down", d_volatility=-0.05),
+    ),
+    "tail": (
+        _NamedScenarioDefinition(
+            name="tail.crash_extreme",
+            d_spot_pct=-0.15,
+            d_volatility=0.08,
+        ),
+        _NamedScenarioDefinition(
+            name="tail.rally_extreme",
+            d_spot_pct=0.15,
+            d_volatility=-0.05,
+        ),
     ),
     "rr": (
         _NamedScenarioDefinition(
@@ -169,9 +176,21 @@ _NAMED_SCENARIO_FAMILIES: dict[str, tuple[_NamedScenarioDefinition, ...]] = {
             d_risk_reversal=-0.05,
         ),
         _NamedScenarioDefinition(
+            name="rr.crash_steepen_extreme",
+            d_spot_pct=-0.15,
+            d_volatility=0.08,
+            d_risk_reversal=-0.05,
+        ),
+        _NamedScenarioDefinition(
             name="rr.rally_flatten",
             d_spot_pct=0.10,
             d_volatility=-0.03,
+            d_risk_reversal=0.05,
+        ),
+        _NamedScenarioDefinition(
+            name="rr.rally_flatten_extreme",
+            d_spot_pct=0.15,
+            d_volatility=-0.05,
             d_risk_reversal=0.05,
         ),
     ),

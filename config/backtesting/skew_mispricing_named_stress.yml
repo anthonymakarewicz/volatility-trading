@@ -84,6 +84,7 @@ modeling:
   scenario_generator:
     name: named_scenarios
     params:
+      # Default named stress keeps the extreme tail family opt-in.
       scenario_families: [core, rr]
 
 run:

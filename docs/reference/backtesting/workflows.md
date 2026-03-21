@@ -42,8 +42,8 @@ Use these files as the starting point for new runner configs:
   - explicit `broker.margin.policy` example using rate-sourced financing
 - [`config/backtesting/skew_mispricing_named_stress.yml`](../../../config/backtesting/skew_mispricing_named_stress.yml)
   - skew workflow using named economic stress scenarios
-  - semantic `risk_worst_scenario` labels such as `core.crash` and
-    `rr.steepen_severe`
+  - semantic `risk_worst_scenario` labels such as `core.selloff_severe` and
+    `rr.crash_steepen_extreme`
 
 Repo-style relative paths inside workflow configs, such as `data/...` and
 `reports/...`, are resolved from the current working directory first and then
@@ -438,11 +438,14 @@ modeling:
 Current built-in named scenario families:
 
 - `core`
-  - broad equity-options stress scenarios such as selloffs, rallies, and
-    parallel vol up/down moves
+  - default equity-options stress scenarios such as moderate/severe selloffs,
+    rallies, and parallel vol up/down moves
+- `tail`
+  - opt-in extreme crash/rally scenarios kept separate from the default core
+    family
 - `rr`
   - skew/risk-reversal scenarios such as steepening, flattening, and combined
-    selloff-steepening / rally-flattening shocks
+    selloff-steepening, crash-steepening, and rally-flattening shocks
 
 Named scenarios are shared generator-level scenarios, not strategy-specific
 one-off scenarios. They are intended to make outputs such as
