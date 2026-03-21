@@ -85,6 +85,8 @@ class SizingDecision:
             `risk_per_contract`, if available.
         margin_per_contract: Initial margin estimate per one-lot option
             structure, if available.
+        entry_stress_points: Detailed per-scenario stressed P&L points used
+            to compute `risk_per_contract`, when available.
         risk_budget_contracts: Raw contract count allowed by the risk budget
             alone before any `min_contracts` floor is applied.
         margin_budget_contracts: Raw contract count allowed by the margin
@@ -101,6 +103,7 @@ class SizingDecision:
     risk_per_contract: float | None
     risk_scenario: str | None
     margin_per_contract: float | None
+    entry_stress_points: tuple[StressPoint, ...] = ()
     risk_budget_contracts: int | None = None
     margin_budget_contracts: int | None = None
     sizing_binding_constraint: str | None = None
@@ -269,6 +272,7 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
     risk_contracts: int | None = None
     risk_per_contract: float | None = None
     risk_scenario: str | None = None
+    entry_stress_points: tuple[StressPoint, ...] = ()
     risk_budget_contracts: int | None = None
     min_contracts_override_applied = False
     if request.risk_sizer is not None:
@@ -309,6 +313,7 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
             )
             risk_per_contract = risk_result.worst_loss
             risk_scenario = risk_result.worst_scenario.name
+            entry_stress_points = risk_result.points
             min_contracts_override_applied = (
                 risk_budget_contracts is not None
                 and risk_contracts > risk_budget_contracts
@@ -365,6 +370,7 @@ def size_entry_intent(request: SizingRequest) -> SizingDecision:
         risk_per_contract=risk_per_contract,
         risk_scenario=risk_scenario,
         margin_per_contract=margin_per_contract,
+        entry_stress_points=entry_stress_points,
         risk_budget_contracts=risk_budget_contracts,
         margin_budget_contracts=margin_budget_contracts,
         sizing_binding_constraint=sizing_binding_constraint,

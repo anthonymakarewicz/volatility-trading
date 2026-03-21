@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from volatility_trading.backtesting.margin import MarginAccount
+from volatility_trading.options.risk.types import StressPoint
 from volatility_trading.options.types import Greeks, MarketState
 
 from ..factor_models import FactorSnapshot
@@ -23,6 +24,7 @@ class PositionEntrySetup:
     risk_per_contract: float | None
     risk_worst_scenario: str | None
     margin_per_contract: float | None
+    entry_stress_points: tuple[StressPoint, ...] = ()
     risk_budget_contracts: int | None = None
     margin_budget_contracts: int | None = None
     sizing_binding_constraint: str | None = None
@@ -62,6 +64,7 @@ class OpenPosition:
     last_greeks: Greeks
     last_net_delta: float
     last_factor_snapshot: FactorSnapshot = field(default_factory=FactorSnapshot)
+    entry_stress_points: tuple[StressPoint, ...] = field(default_factory=tuple)
     risk_budget_contracts: int | None = None
     margin_budget_contracts: int | None = None
     sizing_binding_constraint: str | None = None

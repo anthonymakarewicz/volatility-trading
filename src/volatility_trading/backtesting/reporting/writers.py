@@ -15,6 +15,7 @@ from .constants import (
     BENCHMARK_COMPARISON_FILENAME,
     DASHBOARD_FILENAME,
     DEFAULT_REPORT_ROOT,
+    ENTRY_STRESS_DIAGNOSTICS_FILENAME,
     EQUITY_DRAWDOWN_FILENAME,
     EXPOSURES_FILENAME,
     MANIFEST_FILENAME,
@@ -23,6 +24,7 @@ from .constants import (
     PNL_ATTRIBUTION_FILENAME,
     ROLLING_METRICS_FILENAME,
     RUN_CONFIG_FILENAME,
+    STRESS_SCENARIO_SUMMARY_FILENAME,
     SUMMARY_METRICS_FILENAME,
     TRADES_FILENAME,
 )
@@ -82,6 +84,8 @@ def write_report_bundle(
     summary_path = run_dir / SUMMARY_METRICS_FILENAME
     equity_path = run_dir / EQUITY_DRAWDOWN_FILENAME
     trades_path = run_dir / TRADES_FILENAME
+    entry_stress_path = run_dir / ENTRY_STRESS_DIAGNOSTICS_FILENAME
+    stress_summary_path = run_dir / STRESS_SCENARIO_SUMMARY_FILENAME
     exposures_path = run_dir / EXPOSURES_FILENAME
     margin_path = run_dir / MARGIN_DIAGNOSTICS_FILENAME
     rolling_path = run_dir / ROLLING_METRICS_FILENAME
@@ -96,6 +100,8 @@ def write_report_bundle(
     _write_json(summary_path, asdict(bundle.summary_metrics))
     bundle.equity_and_drawdown.to_csv(equity_path, index=True, index_label="date")
     _prepare_trades_for_csv(bundle.trades).to_csv(trades_path, index=False)
+    bundle.entry_stress_diagnostics.to_parquet(entry_stress_path, index=False)
+    bundle.stress_scenario_summary.to_csv(stress_summary_path, index=False)
     bundle.exposures_daily.to_csv(exposures_path, index=True, index_label="date")
     bundle.margin_diagnostics_daily.to_csv(margin_path, index=True, index_label="date")
     bundle.rolling_metrics.to_csv(rolling_path, index=True, index_label="date")
@@ -120,6 +126,8 @@ def write_report_bundle(
         SUMMARY_METRICS_FILENAME: SUMMARY_METRICS_FILENAME,
         EQUITY_DRAWDOWN_FILENAME: EQUITY_DRAWDOWN_FILENAME,
         TRADES_FILENAME: TRADES_FILENAME,
+        ENTRY_STRESS_DIAGNOSTICS_FILENAME: ENTRY_STRESS_DIAGNOSTICS_FILENAME,
+        STRESS_SCENARIO_SUMMARY_FILENAME: STRESS_SCENARIO_SUMMARY_FILENAME,
         EXPOSURES_FILENAME: EXPOSURES_FILENAME,
         MARGIN_DIAGNOSTICS_FILENAME: MARGIN_DIAGNOSTICS_FILENAME,
         ROLLING_METRICS_FILENAME: ROLLING_METRICS_FILENAME,
