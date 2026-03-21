@@ -156,10 +156,4 @@ class StressLossRiskEstimator:
             points.append(StressPoint(scenario=scenario, pnl=pnl))
 
         # Most negative PnL determines the risk statistic used for sizing.
-        worst_point = min(points, key=lambda point: point.pnl)
-        worst_loss = max(-worst_point.pnl, 0.0)
-        return StressResult(
-            worst_loss=worst_loss,
-            worst_scenario=worst_point.scenario,
-            points=tuple(points),
-        )
+        return StressResult.from_points(points)

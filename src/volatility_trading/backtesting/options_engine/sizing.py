@@ -192,12 +192,7 @@ def _entry_hedged_stress_result(
         )
         for point in option_stress.points
     )
-    worst_point = min(hedged_points, key=lambda point: point.pnl)
-    return StressResult(
-        worst_loss=max(-worst_point.pnl, 0.0),
-        worst_scenario=worst_point.scenario,
-        points=hedged_points,
-    )
+    return StressResult.from_points(hedged_points)
 
 
 def estimate_entry_intent_margin_per_contract(
