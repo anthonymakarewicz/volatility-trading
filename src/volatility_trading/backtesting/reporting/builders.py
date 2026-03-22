@@ -46,6 +46,11 @@ _ENTRY_STRESS_DIAGNOSTIC_COLUMNS = [
     "scenario_name",
     "stress_pnl_per_contract",
     "is_worst_scenario",
+    "d_spot",
+    "d_volatility",
+    "d_risk_reversal",
+    "d_rate",
+    "dt_years",
 ]
 _STRESS_SCENARIO_SUMMARY_COLUMNS = [
     "scenario_name",
@@ -212,6 +217,11 @@ def build_entry_stress_diagnostics_table(trades: pd.DataFrame) -> pd.DataFrame:
                     "scenario_name": point.get("scenario_name"),
                     "stress_pnl_per_contract": point.get("stress_pnl_per_contract"),
                     "is_worst_scenario": bool(point.get("is_worst_scenario", False)),
+                    "d_spot": point.get("d_spot"),
+                    "d_volatility": point.get("d_volatility"),
+                    "d_risk_reversal": point.get("d_risk_reversal"),
+                    "d_rate": point.get("d_rate"),
+                    "dt_years": point.get("dt_years"),
                 }
             )
 
@@ -221,6 +231,15 @@ def build_entry_stress_diagnostics_table(trades: pd.DataFrame) -> pd.DataFrame:
     out = pd.DataFrame(rows, columns=_ENTRY_STRESS_DIAGNOSTIC_COLUMNS)
     for col in ["entry_date", "exit_date", "expiry_date"]:
         out[col] = pd.to_datetime(out[col])
+    for col in [
+        "stress_pnl_per_contract",
+        "d_spot",
+        "d_volatility",
+        "d_risk_reversal",
+        "d_rate",
+        "dt_years",
+    ]:
+        out[col] = pd.to_numeric(out[col], errors="coerce")
     return out
 
 

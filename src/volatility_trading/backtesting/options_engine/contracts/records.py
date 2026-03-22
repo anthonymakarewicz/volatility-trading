@@ -8,7 +8,7 @@ import pandas as pd
 
 from volatility_trading.backtesting.margin_types import MarginCore
 from volatility_trading.options.risk.types import StressPoint
-from volatility_trading.options.types import Greeks, MarketState
+from volatility_trading.options.types import Greeks, MarketShock, MarketState
 
 from ..factor_models import FactorSnapshot
 
@@ -131,9 +131,51 @@ def _stress_points_payload(
             "scenario_name": point.scenario.name,
             "stress_pnl_per_contract": float(point.pnl),
             "is_worst_scenario": point.scenario.name == worst_scenario_name,
+            **_shock_payload(point.scenario.shock),
         }
         for point in points
     ]
+
+
+def _shock_payload(shock: MarketShock) -> dict[str, float]:
+    """Serialize market-shock coordinates into flat numeric fields."""
+    return {
+        "d_spot": float(shock.d_spot),
+        "d_volatility": float(shock.d_volatility),
+        "d_risk_reversal": float(shock.d_risk_reversal),
+        "d_rate": float(shock.d_rate),
+        "dt_years": float(shock.dt_years),
+    }
+
+
+def _worst_scenario_shock_payload(
+    points: tuple[StressPoint, ...],
+    *,
+    worst_scenario_name: str | None,
+) -> dict[str, float | None]:
+    """Return flat raw-shock diagnostics for the bound worst scenario."""
+    matching_point = next(
+        (point for point in points if point.scenario.name == worst_scenario_name),
+        None,
+    )
+    if matching_point is None:
+        return {
+            "risk_worst_d_spot": None,
+            "risk_worst_d_volatility": None,
+            "risk_worst_d_risk_reversal": None,
+            "risk_worst_d_rate": None,
+            "risk_worst_dt_years": None,
+        }
+
+    return {
+        "risk_worst_d_spot": float(matching_point.scenario.shock.d_spot),
+        "risk_worst_d_volatility": float(matching_point.scenario.shock.d_volatility),
+        "risk_worst_d_risk_reversal": float(
+            matching_point.scenario.shock.d_risk_reversal
+        ),
+        "risk_worst_d_rate": float(matching_point.scenario.shock.d_rate),
+        "risk_worst_dt_years": float(matching_point.scenario.shock.dt_years),
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,7 +203,7 @@ class TradeRecord:
 
     def to_dict(self) -> dict[str, object]:
         """Flatten trade record into the canonical trades table row."""
-        return {
+        row: dict[str, object] = {
             "entry_date": self.entry_date,
             "exit_date": self.exit_date,
             "entry_dte": self.entry_dte,
@@ -184,3 +226,10 @@ class TradeRecord:
                 worst_scenario_name=self.risk_worst_scenario,
             ),
         }
+        row.update(
+            _worst_scenario_shock_payload(
+                self.entry_stress_points,
+                worst_scenario_name=self.risk_worst_scenario,
+            )
+        )
+        return row

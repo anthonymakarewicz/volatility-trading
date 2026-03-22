@@ -21,17 +21,32 @@ def _sample_inputs():
             "pnl": [12.5],
             "risk_per_contract": [250.0],
             "risk_worst_scenario": ["rr.selloff_steepen"],
+            "risk_worst_d_spot": [-10.0],
+            "risk_worst_d_volatility": [0.05],
+            "risk_worst_d_risk_reversal": [-0.05],
+            "risk_worst_d_rate": [0.0],
+            "risk_worst_dt_years": [0.0],
             "entry_stress_points": [
                 [
                     {
                         "scenario_name": "core.selloff_severe",
                         "stress_pnl_per_contract": -100.0,
                         "is_worst_scenario": False,
+                        "d_spot": -10.0,
+                        "d_volatility": 0.05,
+                        "d_risk_reversal": 0.0,
+                        "d_rate": 0.0,
+                        "dt_years": 0.0,
                     },
                     {
                         "scenario_name": "rr.selloff_steepen",
                         "stress_pnl_per_contract": -250.0,
                         "is_worst_scenario": True,
+                        "d_spot": -10.0,
+                        "d_volatility": 0.05,
+                        "d_risk_reversal": -0.05,
+                        "d_rate": 0.0,
+                        "dt_years": 0.0,
                     },
                 ]
             ],
@@ -113,6 +128,7 @@ def test_build_and_save_report_bundle_writes_core_files(tmp_path):
     benchmark_payload = json.loads(
         (run_dir / "benchmark_comparison.json").read_text(encoding="utf-8")
     )
+    written_trades = pd.read_csv(run_dir / "trades.csv")
     stress = pd.read_parquet(run_dir / "entry_stress_diagnostics.parquet")
     stress_summary = pd.read_csv(run_dir / "stress_scenario_summary.csv")
     assert payload["metadata"]["run_id"] == "unit_test_run"
@@ -123,8 +139,10 @@ def test_build_and_save_report_bundle_writes_core_files(tmp_path):
     assert "rolling_metrics.csv" in manifest["artifacts"]
     assert "pnl_attribution_daily.csv" in manifest["artifacts"]
     assert benchmark_payload["strategy"]["total_return"] is not None
+    assert written_trades.loc[0, "risk_worst_d_risk_reversal"] == -0.05
     assert len(stress) == 2
     assert stress.loc[1, "scenario_name"] == "rr.selloff_steepen"
+    assert stress.loc[1, "d_risk_reversal"] == -0.05
     assert len(stress_summary) == 2
     rr_row = stress_summary.loc[
         stress_summary["scenario_name"] == "rr.selloff_steepen"
