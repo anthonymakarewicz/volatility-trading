@@ -118,3 +118,26 @@ def test_skew_named_stress_workflow_config_parses_named_scenarios() -> None:
         "core",
         "rr",
     )
+
+
+def test_vrp_named_stress_delta_hedged_workflow_config_parses() -> None:
+    app = importlib.import_module("volatility_trading.apps.backtesting.run")
+    config_path = Path(
+        "config/backtesting/vrp_harvesting_named_stress_delta_hedged.yml"
+    )
+    config = app._build_config(app._parse_args(["--config", str(config_path)]))
+    workflow = parse_workflow_config(app._workflow_config_payload(config))
+
+    assert workflow.strategy.name == "vrp_harvesting"
+    assert isinstance(workflow.modeling.scenario_generator, NamedScenarioGenerator)
+    assert workflow.modeling.scenario_generator.scenario_families == ("core",)
+
+    strategy = build_strategy_preset(workflow.strategy)
+
+    assert strategy.sizing.entry_risk_basis == "entry_hedged"
+    assert isinstance(strategy.lifecycle.delta_hedge, DeltaHedgePolicy)
+    assert strategy.lifecycle.delta_hedge.enabled is True
+    assert strategy.lifecycle.delta_hedge.trigger.rebalance_every_n_days == 5
+    assert isinstance(
+        strategy.lifecycle.delta_hedge.trigger.band_model, FixedDeltaBandModel
+    )

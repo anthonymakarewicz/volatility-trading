@@ -1,0 +1,93 @@
+# VRP harvesting workflow using named generic stress scenarios and explicit
+# delta hedging. This follows the notebook-parity config shape while making
+# the modeling choice explicit through `named_scenarios: [core]`.
+logging:
+  level: INFO
+  color: true
+
+data:
+  options:
+    ticker: SPY
+    provider: orats
+    proc_root: data/processed/orats/options_chain
+  benchmark:
+    ticker: SP500TR
+    provider: yfinance
+    proc_root: data/processed/yfinance/time_series
+    price_column: close
+  rates:
+    provider: fred
+    series_id: DGS3MO
+    proc_root: data/processed/fred
+  hedge:
+    ticker: SPY
+    provider: yfinance
+    proc_root: data/processed/yfinance/time_series
+    price_column: close
+
+strategy:
+  name: vrp_harvesting
+  signal:
+    name: short_only
+    params: {}
+  params:
+    target_dte: 30
+    max_dte_diff: 7
+    rebalance_period: 10
+    risk_budget_pct: 0.02
+    margin_budget_pct: 0.40
+    entry_risk_basis: entry_hedged
+    delta_hedge:
+      enabled: true
+      target_net_delta: 0.0
+      trigger:
+        band_model:
+          model: fixed
+          half_width_abs: 10.0
+        rebalance_every_n_days: 5
+        combine_mode: or
+      rebalance_to: center
+      allow_missing_hedge_price: false
+      min_rebalance_qty: 1.0
+
+account:
+  initial_capital: 500_000.0
+
+execution:
+  option:
+    model: bid_ask_fee
+    params:
+      commission_per_leg: 1.0
+  hedge:
+    model: fixed_bps
+    params:
+      fee_bps: 1.0
+
+broker:
+  margin:
+    model:
+      name: regt
+      params:
+        broad_index: false
+    policy:
+      apply_financing: true
+      cash_rate_annual: 0.0
+      borrow_rate_annual: 0.02
+
+modeling:
+  scenario_generator:
+    name: named_scenarios
+    params:
+      scenario_families: [core]
+
+run:
+  start_date: "2011-01-01"
+  end_date: "2017-12-31"
+
+reporting:
+  output_root: reports/backtests
+  run_id: spy_2011_2017_named_core_delta_hedged
+  benchmark_name: SP500TR
+  save_report_bundle: true
+  include_dashboard_plot: true
+  include_component_plots: true
