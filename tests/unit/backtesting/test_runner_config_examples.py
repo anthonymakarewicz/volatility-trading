@@ -117,5 +117,4 @@ def test_skew_named_stress_workflow_config_parses_named_scenarios() -> None:
     assert workflow.modeling.scenario_generator.scenario_families == (
         "core",
         "rr",
-        "rr_tail",
     )
