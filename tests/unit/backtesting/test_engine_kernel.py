@@ -25,7 +25,15 @@ from volatility_trading.backtesting.options_engine.contracts.structures import (
     LegSelection,
     LegSpec,
 )
-from volatility_trading.options import Greeks, MarketState, OptionType, PositionSide
+from volatility_trading.options import (
+    Greeks,
+    MarketShock,
+    MarketState,
+    OptionType,
+    PositionSide,
+    StressPoint,
+    StressScenario,
+)
 
 
 def _make_entry_setup(entry_date: pd.Timestamp) -> PositionEntrySetup:
@@ -200,6 +208,44 @@ def test_kernel_blocks_same_day_reentry_when_policy_disallows():
     assert len(trades) == 1
     assert len(mtm) == 2
     assert entry_count == 1
+
+
+def test_trade_record_to_dict_exposes_worst_scenario_shock_fields():
+    scenario = StressScenario(
+        name="rr.selloff_steepen",
+        shock=MarketShock(
+            d_spot=-10.0,
+            d_volatility=0.05,
+            d_risk_reversal=-0.05,
+            d_rate=0.0,
+            dt_years=0.0,
+        ),
+    )
+    trade = TradeRecord(
+        entry_date=pd.Timestamp("2020-01-01"),
+        exit_date=pd.Timestamp("2020-01-02"),
+        entry_dte=30,
+        expiry_date=pd.Timestamp("2020-01-31"),
+        contracts=1,
+        pnl=0.0,
+        risk_per_contract=250.0,
+        risk_worst_scenario="rr.selloff_steepen",
+        margin_per_contract=None,
+        exit_type="Rebalance Period",
+        trade_legs=(),
+        entry_stress_points=(StressPoint(scenario=scenario, pnl=-250.0),),
+    )
+
+    row = trade.to_dict()
+
+    assert row["risk_worst_d_spot"] == -10.0
+    assert row["risk_worst_d_volatility"] == 0.05
+    assert row["risk_worst_d_risk_reversal"] == -0.05
+    assert row["risk_worst_d_rate"] == 0.0
+    assert row["risk_worst_dt_years"] == 0.0
+    stress_payload = row["entry_stress_points"]
+    assert isinstance(stress_payload, list)
+    assert stress_payload[0]["d_risk_reversal"] == -0.05
 
 
 def test_kernel_can_reenter_same_day_and_uses_updated_equity():

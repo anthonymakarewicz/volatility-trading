@@ -292,12 +292,22 @@ def test_build_trades_table_normalizes_trade_legs_payload():
             "exit_date": [pd.Timestamp("2020-01-03"), pd.Timestamp("2020-01-04")],
             "contracts": [1, 2],
             "pnl": [1.0, -0.5],
+            "risk_worst_d_spot": [0.0, np.nan],
+            "risk_worst_d_volatility": [0.01, np.nan],
+            "risk_worst_d_risk_reversal": [0.0, np.nan],
+            "risk_worst_d_rate": [0.0, np.nan],
+            "risk_worst_dt_years": [0.0, np.nan],
             "entry_stress_points": [
                 [
                     {
                         "scenario_name": "base",
                         "stress_pnl_per_contract": -2.0,
                         "is_worst_scenario": True,
+                        "d_spot": 0.0,
+                        "d_volatility": 0.01,
+                        "d_risk_reversal": 0.0,
+                        "d_rate": 0.0,
+                        "dt_years": 0.0,
                     }
                 ],
                 None,
@@ -319,6 +329,7 @@ def test_build_trades_table_normalizes_trade_legs_payload():
     out = build_trades_table(trades)
 
     assert "entry_stress_points" not in out.columns
+    assert out.at[0, "risk_worst_d_volatility"] == pytest.approx(0.01)
     trade_legs_0 = cast(list[dict[str, object]], out.at[0, "trade_legs"])
     assert isinstance(trade_legs_0, list)
     assert trade_legs_0[0]["leg_index"] == 0
@@ -343,11 +354,21 @@ def test_build_entry_stress_diagnostics_table_explodes_trade_payload() -> None:
                         "scenario_name": "core.selloff_severe",
                         "stress_pnl_per_contract": -100.0,
                         "is_worst_scenario": False,
+                        "d_spot": -10.0,
+                        "d_volatility": 0.05,
+                        "d_risk_reversal": 0.0,
+                        "d_rate": 0.0,
+                        "dt_years": 0.0,
                     },
                     {
                         "scenario_name": "rr.selloff_steepen",
                         "stress_pnl_per_contract": -250.0,
                         "is_worst_scenario": True,
+                        "d_spot": -10.0,
+                        "d_volatility": 0.05,
+                        "d_risk_reversal": -0.05,
+                        "d_rate": 0.0,
+                        "dt_years": 0.0,
                     },
                 ]
             ],
@@ -368,12 +389,18 @@ def test_build_entry_stress_diagnostics_table_explodes_trade_payload() -> None:
         "scenario_name",
         "stress_pnl_per_contract",
         "is_worst_scenario",
+        "d_spot",
+        "d_volatility",
+        "d_risk_reversal",
+        "d_rate",
+        "dt_years",
     ]
     assert len(out) == 2
     assert out.loc[0, "trade_index"] == 0
     assert out.loc[1, "scenario_name"] == "rr.selloff_steepen"
     assert out.loc[1, "stress_pnl_per_contract"] == pytest.approx(-250.0)
     assert bool(out.loc[1, "is_worst_scenario"])
+    assert out.loc[1, "d_risk_reversal"] == pytest.approx(-0.05)
 
 
 def test_build_stress_scenario_summary_table_aggregates_by_scenario() -> None:

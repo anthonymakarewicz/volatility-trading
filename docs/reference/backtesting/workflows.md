@@ -526,10 +526,13 @@ Stable artifacts written by the current reporting writer:
   - realized trade-level output for the run
   - includes sizing diagnostics such as raw risk-budget and margin-budget
     contract counts plus the binding sizing constraint for each realized trade
+  - also includes raw numeric shock coordinates for the bound worst scenario,
+    such as `risk_worst_d_spot`, `risk_worst_d_volatility`, and
+    `risk_worst_d_risk_reversal`
 - `entry_stress_diagnostics.parquet`
   - one row per realized trade and evaluated entry stress scenario
-  - includes scenario name, stressed P&L per contract, and a flag marking the
-    scenario that bound `risk_per_contract`
+  - includes scenario name, stressed P&L per contract, raw shock coordinates,
+    and a flag marking the scenario that bound `risk_per_contract`
 - `stress_scenario_summary.csv`
   - compact aggregate over `entry_stress_diagnostics.parquet`
   - summarizes how often each entry stress scenario was evaluated, how often

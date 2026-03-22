@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from volatility_trading.config.paths import BACKTEST_REPORTS_ROOT
 
-REPORT_VERSION = "1.3.0"
+REPORT_VERSION = "1.4.0"
 ROLLING_METRICS_WINDOW = 63
 
 DEFAULT_REPORT_ROOT = BACKTEST_REPORTS_ROOT

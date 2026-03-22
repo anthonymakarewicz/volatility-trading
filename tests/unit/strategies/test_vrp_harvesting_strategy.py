@@ -404,6 +404,11 @@ def test_risk_budget_sizing_sets_contracts_from_worst_loss():
     assert trades.iloc[0]["contracts"] == 4
     assert trades.iloc[0]["risk_per_contract"] == pytest.approx(250.0)
     assert trades.iloc[0]["risk_worst_scenario"] == "base"
+    assert trades.iloc[0]["risk_worst_d_spot"] == pytest.approx(0.0)
+    assert trades.iloc[0]["risk_worst_d_volatility"] == pytest.approx(0.0)
+    assert trades.iloc[0]["risk_worst_d_risk_reversal"] == pytest.approx(0.0)
+    assert trades.iloc[0]["risk_worst_d_rate"] == pytest.approx(0.0)
+    assert trades.iloc[0]["risk_worst_dt_years"] == pytest.approx(0.0)
     assert trades.iloc[0]["risk_budget_contracts"] == 4
     assert pd.isna(trades.iloc[0]["margin_budget_contracts"])
     assert trades.iloc[0]["sizing_binding_constraint"] == "risk_budget"
