@@ -42,6 +42,7 @@ Use these files as the starting point for new runner configs:
   - explicit `broker.margin.policy` example using rate-sourced financing
 - [`config/backtesting/skew_mispricing_named_stress.yml`](../../../config/backtesting/skew_mispricing_named_stress.yml)
   - skew workflow using named economic stress scenarios
+  - recommended default named-stress setup for skew (`core + rr`)
   - semantic `risk_worst_scenario` labels such as `core.selloff_severe` and
     `rr.selloff_steepen`
 
@@ -386,12 +387,12 @@ Supported keys:
 - `name` (required)
 - `params`
 
-Current supported names:
+Supported models:
 
 - `fixed_grid`
 - `named_scenarios`
 
-`fixed_grid` params currently support:
+`fixed_grid` parameters:
 
 - `spot_shocks_pct`
 - `vol_shocks`
@@ -399,21 +400,6 @@ Current supported names:
 - `rate_shocks`
 - `time_shocks_years`
 - `deduplicate`
-
-`named_scenarios` params currently support:
-
-- `scenario_families`
-- `deduplicate`
-
-Example:
-
-```yaml
-modeling:
-  scenario_generator:
-    name: fixed_grid
-    params:
-      risk_reversal_shocks: [-0.05, 0.0, 0.05]
-```
 
 Notes:
 
@@ -425,17 +411,12 @@ Notes:
 - RR shocks affect stress-based sizing and PM-style margin through the shared
   scenario-generator / risk-estimator stack.
 
-Example:
+`named_scenarios` parameters:
 
-```yaml
-modeling:
-  scenario_generator:
-    name: named_scenarios
-    params:
-      scenario_families: [core, rr]
-```
+- `scenario_families`
+- `deduplicate`
 
-Current built-in named scenario families:
+Built-in named scenario families:
 
 - `core`
   - default equity-options stress scenarios such as moderate/severe selloffs,
@@ -454,6 +435,46 @@ Named scenarios are shared generator-level scenarios, not strategy-specific
 one-off scenarios. They are intended to make outputs such as
 `risk_worst_scenario` more interpretable while keeping the stress engine
 reusable across structures.
+
+Recommended usage:
+
+- generic options strategy:
+  - `[core]`
+- skew / risk-reversal strategy:
+  - `[core, rr]`
+- skew strategy with explicit skew tails:
+  - `[core, rr, rr_tail]`
+- extra-conservative generic + skew tails:
+  - `[core, rr, tail, rr_tail]`
+
+Guidance:
+
+- For skew / risk-reversal strategies, the recommended default is
+  `scenario_families: [core, rr]`.
+- Use `rr_tail` only when you explicitly want extreme skew-specific tail
+  shocks in sizing or diagnostics.
+- Use `tail` when you want extreme generic market crash/rally scenarios, even
+  for strategies that are not primarily skew trades.
+- Use `fixed_grid` as an advanced/research mode for generic shock-envelope
+  search, not as the recommended default skew configuration.
+
+Examples:
+
+```yaml
+modeling:
+  scenario_generator:
+    name: fixed_grid
+    params:
+      risk_reversal_shocks: [-0.05, 0.0, 0.05]
+```
+
+```yaml
+modeling:
+  scenario_generator:
+    name: named_scenarios
+    params:
+      scenario_families: [core, rr]
+```
 
 ### `run`
 
