@@ -43,7 +43,8 @@ def _net_pnl_per_contract(
     *,
     position: OpenPosition,
     valuation_pnl_mtm: float,
-    hedge_pnl: float,
+    hedge_pnl_total: float,
+    financing_pnl_total: float,
 ) -> float | None:
     """Return unrealized net P&L per open contract for exit-rule evaluation."""
     contracts_open = int(position.contracts_open)
@@ -52,7 +53,8 @@ def _net_pnl_per_contract(
     total_pnl = (
         float(valuation_pnl_mtm)
         - float(position.entry_option_trade_cost)
-        + float(hedge_pnl)
+        + float(hedge_pnl_total)
+        + float(financing_pnl_total)
     )
     return total_pnl / float(contracts_open)
 
@@ -234,7 +236,10 @@ class PositionLifecycleEngine:
         pnl_per_contract = _net_pnl_per_contract(
             position=position,
             valuation_pnl_mtm=valuation.pnl_mtm,
-            hedge_pnl=valuation.hedge.pnl,
+            hedge_pnl_total=position.cumulative_hedge_pnl + valuation.hedge.pnl,
+            financing_pnl_total=(
+                position.cumulative_financing_pnl + margin.margin.financing_pnl
+            ),
         )
         exit_type = exit_type_override or self.exit_rule_set.evaluate(
             curr_date=step.curr_date,

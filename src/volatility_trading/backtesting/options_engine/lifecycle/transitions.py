@@ -27,6 +27,19 @@ from .valuation import (
 logger = logging.getLogger(__name__)
 
 
+def _cumulative_non_option_pnl_to_date(
+    *,
+    position: OpenPosition,
+    valuation: MarkValuationSnapshot,
+    margin: MarkMarginSnapshot,
+) -> tuple[float, float]:
+    """Return cumulative hedge and financing PnL through the current mark date."""
+    return (
+        float(position.cumulative_hedge_pnl) + float(valuation.hedge.pnl),
+        float(position.cumulative_financing_pnl) + float(margin.margin.financing_pnl),
+    )
+
+
 def transition_forced_liquidation(
     *,
     position: OpenPosition,
@@ -47,6 +60,11 @@ def transition_forced_liquidation(
         return None
 
     contracts_to_close = margin.margin_status.contracts_to_liquidate
+    total_hedge_pnl, total_financing_pnl = _cumulative_non_option_pnl_to_date(
+        position=position,
+        valuation=valuation,
+        margin=margin,
+    )
     exit_prices, exit_trade_cost = execute_exit_for_position(
         position=position,
         leg_quotes=valuation.complete_leg_quotes,
@@ -61,7 +79,8 @@ def transition_forced_liquidation(
         option_market_pnl_closed
         - entry_cost_closed
         - exit_trade_cost
-        + valuation.hedge.pnl
+        + total_hedge_pnl * close_ratio
+        + total_financing_pnl * close_ratio
     )
 
     trade_row = build_trade_record(
@@ -166,6 +185,8 @@ def transition_forced_liquidation(
     position.contracts_open = contracts_after
     position.net_entry *= ratio_remaining
     position.entry_option_trade_cost *= ratio_remaining
+    position.cumulative_hedge_pnl = total_hedge_pnl * ratio_remaining
+    position.cumulative_financing_pnl = total_financing_pnl * ratio_remaining
     update_position_mark_state(
         position=position,
         pnl_mtm=pnl_mtm_remaining,
@@ -193,6 +214,11 @@ def transition_standard_exit(
 ) -> LifecycleStepResult:
     """Close a position on explicit exit rule trigger and build lifecycle outputs."""
     assert valuation.complete_leg_quotes is not None  # nosec B101
+    total_hedge_pnl, total_financing_pnl = _cumulative_non_option_pnl_to_date(
+        position=position,
+        valuation=valuation,
+        margin=margin,
+    )
     exit_prices, exit_trade_cost = execute_exit_for_position(
         position=position,
         leg_quotes=valuation.complete_leg_quotes,
@@ -203,7 +229,8 @@ def transition_standard_exit(
         valuation.pnl_mtm
         - position.entry_option_trade_cost
         - exit_trade_cost
-        + valuation.hedge.pnl
+        + total_hedge_pnl
+        + total_financing_pnl
     )
     exit_delta_pnl = mtm_record.delta_pnl - exit_trade_cost
     equity_after = step.equity_running + exit_delta_pnl
@@ -255,6 +282,8 @@ def transition_continue_open(
     mtm_record: MtmRecord,
 ) -> LifecycleStepResult:
     """Persist mark state and continue with an open position."""
+    position.cumulative_hedge_pnl += float(valuation.hedge.pnl)
+    position.cumulative_financing_pnl += float(mtm_record.margin.core.financing_pnl)
     update_position_mark_state(
         position=position,
         pnl_mtm=valuation.pnl_mtm,

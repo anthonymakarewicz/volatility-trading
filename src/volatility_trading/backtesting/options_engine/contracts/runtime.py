@@ -64,6 +64,8 @@ class OpenPosition:
     last_greeks: Greeks
     last_net_delta: float
     last_factor_snapshot: FactorSnapshot = field(default_factory=FactorSnapshot)
+    cumulative_hedge_pnl: float = 0.0
+    cumulative_financing_pnl: float = 0.0
     entry_stress_points: tuple[StressPoint, ...] = field(default_factory=tuple)
     risk_budget_contracts: int | None = None
     margin_budget_contracts: int | None = None
