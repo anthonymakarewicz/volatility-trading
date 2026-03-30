@@ -824,6 +824,150 @@ def test_mark_position_records_hedge_carry_pnl_without_rebalance_trade():
     assert day3.mtm_record.hedge_pnl == pytest.approx(0.5)
 
 
+def test_standard_exit_trade_pnl_includes_cumulative_hedge_pnl():
+    setup = _make_setup(contracts=1)
+    cfg = _make_cfg()
+    engine = _make_engine(
+        rebalance_period=10,
+        delta_hedge_policy=DeltaHedgePolicy(
+            enabled=True,
+            target_net_delta=0.0,
+            trigger=HedgeTriggerPolicy(
+                band_model=FixedDeltaBandModel(half_width_abs=0.1),
+                rebalance_every_n_days=None,
+            ),
+        ),
+        hedge_market=_make_hedge_market(
+            {
+                "2020-01-02": 100.0,
+                "2020-01-03": 100.0,
+            },
+            bid_prices={
+                "2020-01-02": 99.0,
+                "2020-01-03": 100.0,
+            },
+            ask_prices={
+                "2020-01-02": 101.0,
+                "2020-01-03": 100.0,
+            },
+        ),
+    )
+    position, entry_record = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    day2 = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-02",
+            bid_price=5.0,
+            ask_price=5.0,
+            spot_price=100.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+    assert day2.position is not None
+    assert day2.mtm_record.hedge_trade_cost == pytest.approx(0.5)
+
+    day3 = engine.mark_position(
+        position=day2.position,
+        curr_date=pd.Timestamp("2020-01-03"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-03",
+            bid_price=5.0,
+            ask_price=5.0,
+            spot_price=100.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0 + float(day2.mtm_record.delta_pnl),
+        exit_type_override="Signal Exit",
+    )
+
+    assert day3.position is None
+    assert len(day3.trade_rows) == 1
+    assert day3.trade_rows[0].pnl == pytest.approx(-0.5)
+    total_realized = (
+        float(entry_record.delta_pnl)
+        + float(day2.mtm_record.delta_pnl)
+        + float(day3.mtm_record.delta_pnl)
+    )
+    assert total_realized == pytest.approx(day3.trade_rows[0].pnl)
+
+
+def test_stop_loss_exit_uses_cumulative_hedge_pnl():
+    setup = _make_setup(contracts=1)
+    cfg = _make_cfg()
+    engine = _make_engine(
+        rebalance_period=10,
+        exit_rule_set=ExitRuleSet(
+            rules=(StopLossExitRule(threshold_per_contract=0.75),)
+        ),
+        delta_hedge_policy=DeltaHedgePolicy(
+            enabled=True,
+            target_net_delta=0.0,
+            trigger=HedgeTriggerPolicy(
+                band_model=FixedDeltaBandModel(half_width_abs=0.1),
+                rebalance_every_n_days=None,
+            ),
+        ),
+        hedge_market=_make_hedge_market(
+            {
+                "2020-01-02": 100.0,
+                "2020-01-03": 99.4,
+            },
+            bid_prices={
+                "2020-01-02": 99.0,
+                "2020-01-03": 99.4,
+            },
+            ask_prices={
+                "2020-01-02": 101.0,
+                "2020-01-03": 99.4,
+            },
+        ),
+    )
+    position, _ = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    day2 = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-02",
+            bid_price=5.0,
+            ask_price=5.0,
+            spot_price=100.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+    assert day2.position is not None
+
+    day3 = engine.mark_position(
+        position=day2.position,
+        curr_date=pd.Timestamp("2020-01-03"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-03",
+            bid_price=5.0,
+            ask_price=5.0,
+            spot_price=99.4,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0 + float(day2.mtm_record.delta_pnl),
+    )
+
+    assert day3.position is None
+    assert len(day3.trade_rows) == 1
+    assert day3.trade_rows[0].exit_type == "Stop Loss"
+    assert day3.trade_rows[0].pnl == pytest.approx(-0.8)
+
+
 def test_mark_position_scales_hedge_qty_and_pnl_by_contract_multiplier():
     setup = _make_setup(contracts=1)
     cfg = _make_cfg()
@@ -880,6 +1024,49 @@ def test_mark_position_scales_hedge_qty_and_pnl_by_contract_multiplier():
     assert day3.mtm_record.hedge_carry_pnl == pytest.approx(0.5)
     assert day3.mtm_record.hedge_trade_cost == pytest.approx(0.0)
     assert day3.mtm_record.hedge_pnl == pytest.approx(0.5)
+
+
+def test_standard_exit_trade_pnl_includes_cumulative_financing_pnl():
+    setup = _make_setup(contracts=1, margin_per_contract=20_000.0)
+    cfg = _make_cfg()
+    policy = MarginPolicy(
+        apply_financing=True,
+        cash_rate_annual=0.0,
+        borrow_rate_annual=0.252,
+        trading_days_per_year=252,
+        maintenance_margin_ratio=0.0,
+    )
+    engine = _make_engine(
+        rebalance_period=10,
+        margin_policy=policy,
+    )
+    position, entry_record = engine.open_position(
+        setup=setup,
+        cfg=cfg,
+        equity_running=10_000.0,
+    )
+
+    day2 = engine.mark_position(
+        position=position,
+        curr_date=pd.Timestamp("2020-01-02"),
+        options=_make_options_row_for_date(
+            trade_date="2020-01-02",
+            bid_price=5.0,
+            ask_price=5.0,
+            spot_price=100.0,
+        ),
+        cfg=cfg,
+        equity_running=10_000.0 + float(entry_record.delta_pnl),
+        exit_type_override="Signal Exit",
+    )
+
+    assert day2.position is None
+    assert len(day2.trade_rows) == 1
+    assert entry_record.delta_pnl == pytest.approx(-10.0)
+    assert day2.mtm_record.margin.core.financing_pnl == pytest.approx(-10.01)
+    assert day2.trade_rows[0].pnl == pytest.approx(-20.01)
+    total_realized = float(entry_record.delta_pnl) + float(day2.mtm_record.delta_pnl)
+    assert total_realized == pytest.approx(day2.trade_rows[0].pnl)
 
 
 def test_mark_position_uses_bid_ask_hedge_cost_when_quotes_available():

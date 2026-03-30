@@ -68,6 +68,8 @@ def build_open_position_state(
         last_greeks=greeks,
         last_net_delta=net_delta,
         last_factor_snapshot=factor_snapshot,
+        cumulative_hedge_pnl=0.0,
+        cumulative_financing_pnl=margin.margin.financing_pnl,
         risk_budget_contracts=setup.risk_budget_contracts,
         margin_budget_contracts=setup.margin_budget_contracts,
         sizing_binding_constraint=setup.sizing_binding_constraint,

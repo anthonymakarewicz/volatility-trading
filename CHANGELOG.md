@@ -52,6 +52,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
   coordinates such as `d_spot`, `d_volatility`, and `d_risk_reversal`, making
   both fixed-grid and named-scenario stress outputs easier to analyze without
   parsing scenario labels.
+- Hedged trade rows now include cumulative hedge and financing P&L in realized
+  trade accounting and P&L-based exit-rule evaluation, keeping `trades.csv`
+  and trade-based summary metrics aligned with the equity path.
 - Bumped the backtest report bundle schema version from `1.1.0` to `1.4.0`
   for the added stress diagnostics and raw shock fields.
 
