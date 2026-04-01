@@ -33,6 +33,11 @@ def build_entry_record(
     net_delta: float,
     factor_snapshot: FactorSnapshot,
     margin: EntryMarginSnapshot,
+    hedge_qty: float = 0.0,
+    hedge_pnl: float = 0.0,
+    hedge_trade_cost: float = 0.0,
+    hedge_turnover: float = 0.0,
+    hedge_trade_count: int = 0,
 ) -> MtmRecord:
     """Build entry-day MTM record from entry and margin snapshots."""
     return MtmRecord(
@@ -52,9 +57,9 @@ def build_entry_record(
         delta_pnl=margin.entry_delta_pnl,
         greeks=greeks,
         net_delta=net_delta,
-        hedge_qty=0.0,
+        hedge_qty=hedge_qty,
         hedge_price_prev=np.nan,
-        hedge_pnl=0.0,
+        hedge_pnl=hedge_pnl,
         factor_snapshot=factor_snapshot,
         option_market_pnl=0.0,
         option_trade_cost=margin.option_trade_cost,
@@ -65,9 +70,9 @@ def build_entry_record(
             core=margin.margin,
         ),
         hedge_carry_pnl=0.0,
-        hedge_trade_cost=0.0,
-        hedge_turnover=0.0,
-        hedge_trade_count=0,
+        hedge_trade_cost=hedge_trade_cost,
+        hedge_turnover=hedge_turnover,
+        hedge_trade_count=hedge_trade_count,
     )
 
 

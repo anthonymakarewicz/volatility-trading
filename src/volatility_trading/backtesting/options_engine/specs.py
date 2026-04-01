@@ -229,7 +229,7 @@ class SizingPolicyConfig:
     """Contract sizing policy for one strategy.
 
     `entry_risk_basis` controls whether risk-budget sizing uses the unhedged
-    option package or the implied inception hedge package.
+    option package or the actual inception hedge package executed at entry.
     """
 
     risk_sizer: RiskBudgetSizer | None = None

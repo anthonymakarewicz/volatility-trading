@@ -25,6 +25,7 @@ def evaluate_entry_margin(
     equity_running: float,
     contracts_open: int,
     entry_option_trade_cost: float,
+    entry_hedge_trade_cost: float = 0.0,
     margin_policy: MarginPolicy | None,
 ) -> EntryMarginSnapshot:
     """Evaluate entry-day margin and financing state for one opened position."""
@@ -32,7 +33,7 @@ def evaluate_entry_margin(
     latest_margin_per_contract = setup.margin_per_contract
     initial_margin_requirement = (latest_margin_per_contract or 0.0) * contracts_open
     option_trade_cost = float(entry_option_trade_cost)
-    entry_delta_pnl = -option_trade_cost
+    entry_delta_pnl = -option_trade_cost - float(entry_hedge_trade_cost)
     margin_core = MarginCore.empty()
 
     if margin_account is not None:
