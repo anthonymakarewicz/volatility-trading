@@ -258,6 +258,7 @@ def _prepare_entry_setup(
         risk_per_contract=sizing.risk_per_contract,
         risk_worst_scenario=sizing.risk_scenario,
         margin_per_contract=sizing.margin_per_contract,
+        entry_risk_basis=spec.sizing.entry_risk_basis,
         entry_stress_points=sizing.entry_stress_points,
         risk_budget_contracts=sizing.risk_budget_contracts,
         margin_budget_contracts=sizing.margin_budget_contracts,

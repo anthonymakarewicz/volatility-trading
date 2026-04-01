@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 import pandas as pd
 
@@ -24,6 +25,7 @@ class PositionEntrySetup:
     risk_per_contract: float | None
     risk_worst_scenario: str | None
     margin_per_contract: float | None
+    entry_risk_basis: Literal["unhedged", "entry_hedged"] = "unhedged"
     entry_stress_points: tuple[StressPoint, ...] = ()
     risk_budget_contracts: int | None = None
     margin_budget_contracts: int | None = None

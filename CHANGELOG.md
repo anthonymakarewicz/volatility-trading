@@ -55,6 +55,9 @@ This project follows a pre-1.0 versioning policy (`0.x.y`):
 - Hedged trade rows now include cumulative hedge and financing P&L in realized
   trade accounting and P&L-based exit-rule evaluation, keeping `trades.csv`
   and trade-based summary metrics aligned with the equity path.
+- `entry_risk_basis="entry_hedged"` now executes the actual inception hedge at
+  position open, books the entry hedge cost on the entry-day MTM, and leaves
+  unhedged entries with no synthetic prior rebalance timestamp.
 - Bumped the backtest report bundle schema version from `1.1.0` to `1.4.0`
   for the added stress diagnostics and raw shock fields.
 

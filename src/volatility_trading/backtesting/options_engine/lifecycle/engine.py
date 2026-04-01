@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 
 import pandas as pd
@@ -12,8 +13,14 @@ from volatility_trading.options import MarginModel, PriceModel
 from ...config import BacktestRunConfig
 from ...data_contracts import HedgeMarketData
 from ...margin import MarginPolicy
+from ..contracts.market import HedgeMarketSnapshot
 from ..contracts.records import MtmRecord
-from ..contracts.runtime import LifecycleStepResult, OpenPosition, PositionEntrySetup
+from ..contracts.runtime import (
+    HedgeState,
+    LifecycleStepResult,
+    OpenPosition,
+    PositionEntrySetup,
+)
 from ..exit_rules import ExitRuleSet
 from ..factor_models import FactorDecompositionModel, FactorSnapshot
 from ..specs import DeltaHedgePolicy
@@ -57,6 +64,74 @@ def _net_pnl_per_contract(
         + float(financing_pnl_total)
     )
     return total_pnl / float(contracts_open)
+
+
+@dataclass(frozen=True, slots=True)
+class _EntryHedgeSnapshot:
+    """Resolved inception-hedge state applied during position opening."""
+
+    hedge: HedgeState
+    net_delta: float
+    hedge_pnl: float = 0.0
+    hedge_trade_cost: float = 0.0
+    hedge_turnover: float = 0.0
+    hedge_trade_count: int = 0
+
+
+def _resolve_entry_hedge_snapshot(
+    *,
+    setup: PositionEntrySetup,
+    option_net_delta: float,
+    policy: DeltaHedgePolicy,
+    hedge_market: HedgeMarketData | None,
+    hedge_execution_model: HedgeExecutionModel,
+) -> _EntryHedgeSnapshot:
+    """Return the entry-date hedge state needed to honor ``entry_hedged`` sizing."""
+    if setup.entry_risk_basis != "entry_hedged":
+        return _EntryHedgeSnapshot(
+            hedge=HedgeState(),
+            net_delta=float(option_net_delta),
+        )
+    if not policy.enabled:
+        raise ValueError("entry_hedged setup requires enabled delta hedging")
+
+    target_net_delta = float(policy.target_net_delta)
+    hedge_snapshot = HedgeMarketSnapshot.from_market_data(
+        hedge_market=hedge_market,
+        curr_date=setup.intent.entry_date,
+    )
+    hedge_trade_qty = (float(target_net_delta) - float(option_net_delta)) / float(
+        hedge_snapshot.contract_multiplier
+    )
+    if math.isclose(hedge_trade_qty, 0.0, abs_tol=1e-12):
+        return _EntryHedgeSnapshot(
+            hedge=HedgeState(),
+            net_delta=float(option_net_delta),
+        )
+    if not math.isfinite(float(hedge_snapshot.mid)):
+        raise ValueError(
+            "entry_hedged sizing requires a finite hedge market price on entry date"
+        )
+
+    execution = hedge_execution_model.execute(
+        trade_qty=float(hedge_trade_qty),
+        hedge_market=hedge_snapshot,
+    )
+    return _EntryHedgeSnapshot(
+        hedge=HedgeState(
+            qty=float(hedge_trade_qty),
+            last_price=float(hedge_snapshot.mid),
+            last_rebalance_date=setup.intent.entry_date,
+        ),
+        net_delta=(
+            float(option_net_delta)
+            + float(hedge_trade_qty) * float(hedge_snapshot.contract_multiplier)
+        ),
+        hedge_pnl=-float(execution.total_cost),
+        hedge_trade_cost=float(execution.total_cost),
+        hedge_turnover=abs(float(hedge_trade_qty)),
+        hedge_trade_count=1,
+    )
 
 
 @dataclass(frozen=True)
@@ -107,7 +182,15 @@ class PositionLifecycleEngine:
             option_contract_multiplier=option_contract_multiplier,
         )
         greeks = greeks_pc.scaled(contracts_open)
-        net_delta = greeks.delta
+        entry_hedge = _resolve_entry_hedge_snapshot(
+            setup=setup,
+            option_net_delta=float(greeks.delta),
+            policy=self.delta_hedge_policy,
+            hedge_market=self.hedge_market,
+            hedge_execution_model=(
+                self.hedge_execution_model or cfg.execution.hedge_execution_model
+            ),
+        )
         factor_snapshot = (
             self.factor_decomposition_model.snapshot(
                 legs=setup.intent.legs,
@@ -124,15 +207,21 @@ class PositionLifecycleEngine:
             equity_running=equity_running,
             contracts_open=contracts_open,
             entry_option_trade_cost=entry_trade_cost,
+            entry_hedge_trade_cost=entry_hedge.hedge_trade_cost,
             margin_policy=self.margin_policy,
         )
         entry_record = build_entry_record(
             setup=setup,
             contracts_open=contracts_open,
             greeks=greeks,
-            net_delta=net_delta,
+            net_delta=entry_hedge.net_delta,
             factor_snapshot=factor_snapshot,
             margin=margin,
+            hedge_qty=entry_hedge.hedge.qty,
+            hedge_pnl=entry_hedge.hedge_pnl,
+            hedge_trade_cost=entry_hedge.hedge_trade_cost,
+            hedge_turnover=entry_hedge.hedge_turnover,
+            hedge_trade_count=entry_hedge.hedge_trade_count,
         )
         position = build_open_position_state(
             setup=setup,
@@ -141,9 +230,11 @@ class PositionLifecycleEngine:
             net_entry=net_entry,
             entry_option_trade_cost=entry_trade_cost,
             greeks=greeks,
-            net_delta=net_delta,
+            net_delta=entry_hedge.net_delta,
             factor_snapshot=factor_snapshot,
             margin=margin,
+            hedge=entry_hedge.hedge,
+            cumulative_hedge_pnl=entry_hedge.hedge_pnl,
             rebalance_period=self.rebalance_period,
             max_holding_period=self.max_holding_period,
         )

@@ -514,6 +514,61 @@ def test_entry_hedged_risk_basis_requires_enabled_delta_hedging():
         bt.run()
 
 
+def test_prepare_entry_setup_carries_entry_hedged_risk_basis():
+    options = _make_options()
+    structure = StructureSpec(
+        name="single_call",
+        dte_target=30,
+        dte_tolerance=3,
+        legs=(LegSpec(option_type=OptionType.CALL, delta_target=0.5),),
+    )
+    spec = StrategySpec(
+        name="entry_hedged_setup",
+        signal=DirectionSignal(direction=1),
+        structure_spec=structure,
+        lifecycle=LifecycleConfig(
+            rebalance_period=1,
+            delta_hedge=DeltaHedgePolicy(
+                enabled=True,
+                target_net_delta=0.0,
+                trigger=HedgeTriggerPolicy(
+                    band_model=FixedDeltaBandModel(half_width_abs=0.1)
+                ),
+            ),
+        ),
+        sizing=SizingPolicyConfig(
+            risk_sizer=RiskBudgetSizer(risk_budget_pct=0.10),
+            entry_risk_basis="entry_hedged",
+        ),
+    )
+    cfg = BacktestRunConfig(
+        account=AccountConfig(initial_capital=10_000.0),
+        execution=ExecutionConfig(
+            option_execution_model=BidAskFeeOptionExecutionModel(
+                slip_ask=0.0,
+                slip_bid=0.0,
+                commission_per_leg=0.0,
+            ),
+        ),
+    )
+    plan = build_options_execution_plan(
+        spec=spec,
+        data=OptionsBacktestDataBundle(
+            options_market=OptionsMarketData(
+                chain=options, default_contract_multiplier=1.0
+            ),
+            hedge_market=_make_hedge_market(options),
+        ),
+        config=cfg,
+        capital=10_000.0,
+    )
+
+    setup = plan.hooks.prepare_entry(pd.Timestamp("2020-01-01"), 10_000.0)
+
+    assert setup is not None
+    assert setup.entry_risk_basis == "entry_hedged"
+
+
 def test_enabled_delta_hedging_accepts_complete_hedge_market_data():
     options = _make_options()
     structure = StructureSpec(

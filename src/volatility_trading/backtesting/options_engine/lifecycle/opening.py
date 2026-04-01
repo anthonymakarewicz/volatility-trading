@@ -23,6 +23,8 @@ def build_open_position_state(
     net_delta: float,
     factor_snapshot: FactorSnapshot,
     margin: EntryMarginSnapshot,
+    hedge: HedgeState,
+    cumulative_hedge_pnl: float,
     rebalance_period: int | None,
     max_holding_period: int | None,
 ) -> OpenPosition:
@@ -59,7 +61,7 @@ def build_open_position_state(
         net_entry=net_entry,
         entry_option_trade_cost=entry_option_trade_cost,
         prev_mtm=0.0,
-        hedge=HedgeState(last_rebalance_date=setup.intent.entry_date),
+        hedge=hedge,
         last_market=(
             setup.intent.entry_state
             if setup.intent.entry_state is not None
@@ -68,7 +70,7 @@ def build_open_position_state(
         last_greeks=greeks,
         last_net_delta=net_delta,
         last_factor_snapshot=factor_snapshot,
-        cumulative_hedge_pnl=0.0,
+        cumulative_hedge_pnl=float(cumulative_hedge_pnl),
         cumulative_financing_pnl=margin.margin.financing_pnl,
         risk_budget_contracts=setup.risk_budget_contracts,
         margin_budget_contracts=setup.margin_budget_contracts,
